@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cotizador — GangaLoo</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #f4f1ec;
+    --surface: #ffffff;
+    --surface2: #eeebe5;
+    --border: #e0dbd2;
+    --border2: #c8c2b8;
+    --text: #181612;
+    --text2: #6b6458;
+    --text3: #a09890;
+    --accent: #c8502a;
+    --accent-bg: #fdf1ec;
+    --accent-border: #f0c4b0;
+    --accent-text: #7a2e12;
+    --r: 14px;
+    --r-sm: 9px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+  .logo em { color: var(--accent); font-style: normal; }
+
+  .rate-bar { background: #fffbe6; border-bottom: 1px solid #f0e080; padding: 9px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .rate-bar label { font-size: 13px; color: #5a4a00; font-weight: 500; white-space: nowrap; }
+  .rate-input-wrap { display: flex; align-items: center; gap: 6px; }
+  .rate-input-wrap span { font-size: 13px; color: #5a4a00; font-family: 'DM Mono', monospace; }
+  .rate-input { width: 90px; padding: 5px 9px; font-size: 14px; font-family: 'DM Mono', monospace; font-weight: 500; border: 1px solid #d4c050; border-radius: 7px; background: #fff; color: var(--text); }
+  .rate-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .rate-hint { font-size: 12px; color: #a08800; margin-left: 4px; }
+
+  .wrap { max-width: 560px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 4px; }
+  .sub { font-size: 14px; color: var(--text2); margin-bottom: 28px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; margin-bottom: 14px; }
+  .clabel { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 12px; }
+
+  .store-tabs { display: flex; gap: 7px; flex-wrap: wrap; }
+  .stab { padding: 7px 15px; border-radius: 99px; border: 1px solid var(--border); font-size: 13px; font-weight: 500; cursor: pointer; background: var(--surface); color: var(--text2); transition: all 0.14s; user-select: none; }
+  .stab:hover { border-color: var(--border2); color: var(--text); }
+  .stab.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .currency-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .cflag { font-size: 20px; width: 30px; text-align: center; flex-shrink: 0; }
+  .clbl2 { font-size: 13px; font-weight: 600; color: var(--text2); width: 38px; flex-shrink: 0; font-family: 'DM Mono', monospace; }
+  .amtinput { flex: 1; padding: 12px 14px; font-size: 20px; font-family: 'DM Mono', monospace; font-weight: 500; border: 1.5px solid var(--border); border-radius: var(--r-sm); background: var(--surface2); color: var(--text); transition: border-color 0.14s; }
+  .amtinput:focus { outline: none; border-color: var(--accent); background: #fff; }
+  .amtinput::placeholder { color: var(--text3); font-weight: 400; font-size: 17px; }
+  .or-divider { text-align: center; font-size: 12px; color: var(--text3); margin: 2px 0 10px; letter-spacing: 0.05em; }
+
+  .fee-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media(max-width:460px){ .fee-grid { grid-template-columns: 1fr 1fr; } }
+  .fbox label { font-size: 11px; color: var(--text3); display: block; margin-bottom: 5px; font-weight: 500; }
+  .fbox input { width: 100%; padding: 8px 10px; font-size: 15px; font-family: 'DM Mono', monospace; border: 1px solid var(--border); border-radius: 7px; background: var(--surface2); color: var(--text); }
+  .fbox input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+
+  .br-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text2); }
+  .br-row:last-child { border-bottom: none; }
+  .br-row.total { border-top: 1.5px solid var(--border2); border-bottom: none; padding-top: 12px; margin-top: 4px; font-size: 18px; font-weight: 600; color: var(--text); }
+  .br-val { font-family: 'DM Mono', monospace; font-size: 13px; }
+  .br-row.total .br-val { font-size: 18px; }
+
+  .pay-toggle { display: flex; background: var(--surface2); border-radius: var(--r-sm); padding: 3px; border: 1px solid var(--border); margin-bottom: 14px; }
+  .popt { flex: 1; padding: 9px 6px; text-align: center; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; border: none; background: transparent; color: var(--text2); border-radius: 7px; transition: all 0.14s; }
+  .popt.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.09); }
+
+  .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .sbox { padding: 14px; border-radius: var(--r-sm); text-align: center; }
+  .sbox.now { background: var(--accent-bg); border: 1px solid var(--accent-border); }
+  .sbox.later { background: var(--surface2); border: 1px solid var(--border); }
+  .slbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+  .sbox.now .slbl { color: var(--accent-text); }
+  .sbox.later .slbl { color: var(--text3); }
+  .samt { font-size: 19px; font-weight: 600; font-family: 'DM Mono', monospace; margin-bottom: 3px; }
+  .sbox.now .samt { color: var(--accent); }
+  .sbox.later .samt { color: var(--text); }
+  .snote { font-size: 11px; }
+  .sbox.now .snote { color: var(--accent-text); opacity: 0.75; }
+  .sbox.later .snote { color: var(--text3); }
+  .split-note { font-size: 12px; color: var(--text3); text-align: center; font-family: 'DM Mono', monospace; margin-bottom: 14px; }
+
+  .wa-btn { width: 100%; padding: 14px; border-radius: var(--r-sm); border: none; background: #25D366; color: #fff; font-size: 15px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 9px; transition: opacity 0.14s; }
+  .wa-btn:hover { opacity: 0.88; }
+  .empty-note { text-align: center; padding: 24px; font-size: 13px; color: var(--text3); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">Ganga<em>Loo</em> · Cotizador</div>
+</div>
+
+<div class="rate-bar">
+  <label>💱 Tasa del día:</label>
+  <div class="rate-input-wrap">
+    <span>1 USD =</span>
+    <input class="rate-input" type="number" id="rateInput" value="60.50" min="1" step="0.25" oninput="onRateChange()" />
+    <span>RD$</span>
+  </div>
+  <div class="rate-hint">✏️ Actualiza este valor cada día según el Banco Central</div>
+</div>
+
+<div class="wrap">
+  <h1>Cotizador de pedidos</h1>
+  <div class="sub">Ingresa el total de tu carrito en USD o RD$ y calcula tu precio final</div>
+
+  <div class="card">
+    <div class="clabel">Tienda</div>
+    <div class="store-tabs">
+      <div class="stab on" onclick="selStore(this,'Temu')">Temu</div>
+      <div class="stab" onclick="selStore(this,'Shein')">Shein</div>
+      <div class="stab" onclick="selStore(this,'Amazon')">Amazon</div>
+      <div class="stab" onclick="selStore(this,'eBay')">eBay</div>
+      <div class="stab" onclick="selStore(this,'AliExpress')">AliExpress</div>
+      <div class="stab" onclick="selStore(this,'Otra')">Otra tienda</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="clabel">Total del carrito</div>
+    <div class="currency-row">
+      <div class="cflag">🇺🇸</div>
+      <div class="clbl2">USD</div>
+      <input class="amtinput" type="number" id="inUSD" placeholder="0.00" min="0" step="0.01" oninput="fromUSD()" />
+    </div>
+    <div class="or-divider">— ó —</div>
+    <div class="currency-row">
+      <div class="cflag">🇩🇴</div>
+      <div class="clbl2">RD$</div>
+      <input class="amtinput" type="number" id="inDOP" placeholder="0.00" min="0" step="1" oninput="fromDOP()" />
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="clabel">Cargos</div>
+    <div class="fee-grid">
+      <div class="fbox">
+        <label>Comisión (%)</label>
+        <input type="number" id="feeS" value="10" min="0" max="100" step="0.5" oninput="calc()" />
+      </div>
+      <div class="fbox">
+        <label>Banco (%)</label>
+        <input type="number" id="feeB" value="5" min="0" max="100" step="0.5" oninput="calc()" />
+      </div>
+      <div class="fbox">
+        <label>Flete (RD$)</label>
+        <input type="number" id="fShip" value="500" min="0" oninput="calc()" />
+      </div>
+    </div>
+  </div>
+
+  <div id="resultCard" class="card hidden">
+    <div class="clabel">Desglose</div>
+    <div id="breakdown"></div>
+    <div style="height:16px"></div>
+    <div class="pay-toggle">
+      <button class="popt on" id="pFull" onclick="setPay('full')">Pago completo</button>
+      <button class="popt" id="pHalf" onclick="setPay('half')">50% adelanto · +10% financiero</button>
+    </div>
+    <div id="payDetail"></div>
+    <button class="wa-btn" onclick="sendWA()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      Enviar cotización por WhatsApp
+    </button>
+  </div>
+
+  <div id="emptyNote" class="empty-note">Ingresa el total de tu carrito para ver la cotización ↑</div>
+</div>
+
+<script>
+let store = 'Temu';
+let payMode = 'full';
+let totalDOP = 0;
+
+function getRate() { return parseFloat(document.getElementById('rateInput').value) || 60.50; }
+
+function onRateChange() {
+  // Recalculate whichever field was last entered
+  const usd = document.getElementById('inUSD').value;
+  const dop = document.getElementById('inDOP').value;
+  if (usd && parseFloat(usd) > 0) fromUSD();
+  else if (dop && parseFloat(dop) > 0) fromDOP();
+}
+
+function selStore(el, name) {
+  store = name;
+  document.querySelectorAll('.stab').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function fromUSD() {
+  const v = parseFloat(document.getElementById('inUSD').value);
+  document.getElementById('inDOP').value = (!isNaN(v) && v > 0) ? (v * getRate()).toFixed(0) : '';
+  calc();
+}
+
+function fromDOP() {
+  const v = parseFloat(document.getElementById('inDOP').value);
+  document.getElementById('inUSD').value = (!isNaN(v) && v > 0) ? (v / getRate()).toFixed(2) : '';
+  calc();
+}
+
+function calc() {
+  const dop = parseFloat(document.getElementById('inDOP').value) || 0;
+  const usd = parseFloat(document.getElementById('inUSD').value) || 0;
+  const subtotal = dop > 0 ? dop : usd * getRate();
+
+  if (subtotal <= 0) {
+    document.getElementById('resultCard').classList.add('hidden');
+    document.getElementById('emptyNote').classList.remove('hidden');
+    return;
+  }
+
+  const fS   = parseFloat(document.getElementById('feeS').value) || 0;
+  const fB   = parseFloat(document.getElementById('feeB').value) || 0;
+  const ship = parseFloat(document.getElementById('fShip').value) || 0;
+
+  const sAmt = subtotal * fS / 100;
+  const bAmt = subtotal * fB / 100;
+  const total = subtotal + sAmt + bAmt + ship;
+  totalDOP = total;
+
+  document.getElementById('breakdown').innerHTML = `
+    <div class="br-row"><span>Subtotal carrito ($${(subtotal/getRate()).toFixed(2)} USD)</span><span class="br-val">${fmt(subtotal)}</span></div>
+    <div class="br-row"><span>Comisión de servicio (${fS}%)</span><span class="br-val">${fmt(sAmt)}</span></div>
+    <div class="br-row"><span>Cargo bancario (${fB}%)</span><span class="br-val">${fmt(bAmt)}</span></div>
+    <div class="br-row"><span>Flete / envío</span><span class="br-val">${fmt(ship)}</span></div>
+    <div class="br-row total"><span>Total a pagar</span><span class="br-val">${fmt(total)}</span></div>
+  `;
+
+  renderPay(total);
+  document.getElementById('resultCard').classList.remove('hidden');
+  document.getElementById('emptyNote').classList.add('hidden');
+}
+
+function setPay(mode) {
+  payMode = mode;
+  document.getElementById('pFull').classList.toggle('on', mode === 'full');
+  document.getElementById('pHalf').classList.toggle('on', mode === 'half');
+  renderPay(totalDOP);
+}
+
+function renderPay(total) {
+  const pd = document.getElementById('payDetail');
+  if (payMode === 'full') { pd.innerHTML = ''; return; }
+  const half   = total / 2;
+  const fin    = half * 0.10;
+  const second = half + fin;
+  pd.innerHTML = `
+    <div class="split-grid">
+      <div class="sbox now">
+        <div class="slbl">Pagar ahora</div>
+        <div class="samt">${fmt(half)}</div>
+        <div class="snote">50% para confirmar</div>
+      </div>
+      <div class="sbox later">
+        <div class="slbl">Al recoger</div>
+        <div class="samt">${fmt(second)}</div>
+        <div class="snote">+10% financiero (${fmt(fin)})</div>
+      </div>
+    </div>
+    <div class="split-note">Total acumulado: ${fmt(half + second)}</div>`;
+}
+
+function fmt(n) {
+  return 'RD$ ' + Number(n).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function sendWA() {
+  const rate   = getRate();
+  const dop    = parseFloat(document.getElementById('inDOP').value) || 0;
+  const usd    = parseFloat(document.getElementById('inUSD').value) || 0;
+  const subtotal = dop > 0 ? dop : usd * rate;
+  const fS     = parseFloat(document.getElementById('feeS').value) || 0;
+  const fB     = parseFloat(document.getElementById('feeB').value) || 0;
+  const ship   = parseFloat(document.getElementById('fShip').value) || 0;
+  const sAmt   = subtotal * fS / 100;
+  const bAmt   = subtotal * fB / 100;
+  const total  = subtotal + sAmt + bAmt + ship;
+
+  let lines = [
+    `*Cotización de pedido — ${store}*`,
+    `Tasa aplicada: 1 USD = RD$ ${rate.toFixed(2)}\n`,
+    `Subtotal: ${fmt(subtotal)} ($${(subtotal/rate).toFixed(2)} USD)`,
+    `Comisión de servicio (${fS}%): ${fmt(sAmt)}`,
+    `Cargo bancario (${fB}%): ${fmt(bAmt)}`,
+    `Flete / envío: ${fmt(ship)}`,
+    `*TOTAL: ${fmt(total)}*`
+  ];
+
+  if (payMode === 'half') {
+    const half   = total / 2;
+    const second = half * 1.10;
+    lines.push(`\n*Opción de pago 50/50:*`);
+    lines.push(`Adelanto ahora: ${fmt(half)}`);
+    lines.push(`Al recoger: ${fmt(second)} (+10% financiero)`);
+    lines.push(`Total acumulado: ${fmt(half + second)}`);
+  }
+
+  window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
+}
+</script>
+</body>
+</html>
