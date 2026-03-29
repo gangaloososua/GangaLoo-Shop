@@ -3926,10 +3926,18 @@
             }
 
             const pending = orders.filter(o => o.status === 'pending');
+            const pendingPayment = orders.filter(o => o.status === 'pending_payment');
             const approved = orders.filter(o => o.status === 'approved');
             const rejected = orders.filter(o => o.status === 'rejected');
 
             let html = '';
+
+            if (pendingPayment.length > 0) {
+                html += `<div style="background:#f0f4ff;border:2px solid #635BFF;border-radius:12px;padding:20px;margin-bottom:25px;">
+                    <h3 style="color:#635BFF;margin-bottom:15px;">💳 Pago en Proceso (${pendingPayment.length})</h3>`;
+                pendingPayment.forEach(order => { html += renderOrderCard(order, true); });
+                html += '</div>';
+            }
 
             if (pending.length > 0) {
                 html += `<div style="background:#fff3cd;border:2px solid #ffc107;border-radius:12px;padding:20px;margin-bottom:25px;">
