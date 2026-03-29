@@ -63,35 +63,36 @@ exports.handler = async (event) => {
     const rateDisplay = (1 / DOP_TO_USD).toFixed(2);
     console.log(`Rate: 1 USD = ${rateDisplay} DOP`);
 
-    // Calculate total in USD
-    const totalUSD = (totalDOP * DOP_TO_USD).toFixed(2);
-
-    // Build item breakdown
+    // Build item breakdown — use rounded cents to avoid AMOUNT_MISMATCH
     const items = cart.map(item => ({
       name: item.name.substring(0, 127),
       description: item.sku ? `SKU: ${item.sku}` : undefined,
       unit_amount: {
         currency_code: 'USD',
-        value: (item.price * DOP_TO_USD).toFixed(2),
+        value: (Math.round(item.price * DOP_TO_USD * 100) / 100).toFixed(2),
       },
       quantity: String(item.qty),
     }));
 
-    // Item total (products only)
-    const itemTotal = cart.reduce((s, i) => s + (i.price * i.qty * DOP_TO_USD), 0);
+    // Sum item total from already-rounded unit amounts
+    const itemTotalCents = cart.reduce((s, i) =>
+      s + Math.round(i.price * DOP_TO_USD * 100) * i.qty, 0);
 
-    // Shipping in USD
-    const shipUSD = shipFee ? (shipFee * DOP_TO_USD).toFixed(2) : '0.00';
+    // Shipping in USD cents
+    const shipCents  = shipFee   ? Math.round(shipFee   * DOP_TO_USD * 100) : 0;
+    const feeCents   = paypalFee ? Math.round(paypalFee * DOP_TO_USD * 100) : 0;
 
-    // PayPal fee in USD
-    const feeUSD = paypalFee ? (paypalFee * DOP_TO_USD).toFixed(2) : '0.00';
+    // Grand total = sum of rounded parts (avoids floating point mismatch)
+    const grandTotalCents = itemTotalCents + shipCents + feeCents;
 
-    // Handling = fee (PayPal uses "handling" for extra fees)
     const breakdown = {
-      item_total: { currency_code: 'USD', value: itemTotal.toFixed(2) },
-      shipping:   { currency_code: 'USD', value: shipUSD },
-      handling:   { currency_code: 'USD', value: feeUSD },
+      item_total: { currency_code: 'USD', value: (itemTotalCents / 100).toFixed(2) },
+      shipping:   { currency_code: 'USD', value: (shipCents  / 100).toFixed(2) },
+      handling:   { currency_code: 'USD', value: (feeCents   / 100).toFixed(2) },
     };
+
+    // Total derived from breakdown (not from totalDOP conversion)
+    const totalUSD = (grandTotalCents / 100).toFixed(2);
 
     const accessToken = await getAccessToken();
 
