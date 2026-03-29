@@ -955,7 +955,10 @@ button{font-family:'Jost',sans-serif;}
   </div>
 </div>
 <div id="clubBanner" class="club-banner">
-  🏆 ¡Bienvenido, Miembro Club GangaLoo! Estás disfrutando de un <strong>10% de descuento</strong> en todos los productos.
+  🏆 ¡Bienvenido, Miembro Club GangaLoo! Beneficios activos:
+  <strong>10% descuento</strong> en todos los productos ·
+  <strong>🚚 Envío gratis</strong> ·
+  <strong>⭐ Doble puntos</strong> de lealtad
 </div>
 <div class="announce" id="announceBar">✦ Envíos disponibles en todo el país &nbsp;|&nbsp; <strong>WhatsApp: (829) 286-7868</strong></div>
 
@@ -1531,6 +1534,7 @@ function closeCart(){document.getElementById('cartOvl').classList.remove('open')
 
 /* ── CHECKOUT ── */
 function getShippingCost(){
+  if(isClubMember()) return 0; // Club members get free shipping
   const cfg=storeConfig||{};
   return parseFloat(cfg.shippingCost||0);
 }
@@ -1548,8 +1552,8 @@ function getCheckoutTotal(){
   const sub=rawSub-bulkDiscAmt;
   // shipping
   let shipFee=0;
-  if(del==='shipping') shipFee=parseFloat(cfg.shippingCost||0);
-  else if(del==='shipping2') shipFee=parseFloat(cfg.shippingCost2||0);
+  if(del==='shipping') shipFee=isClubMember()?0:parseFloat(cfg.shippingCost||0);
+  else if(del==='shipping2') shipFee=isClubMember()?0:parseFloat(cfg.shippingCost2||0);
   // payment adjustment
   let payAdj=0;
   if(pay==='cash'){
@@ -1573,9 +1577,14 @@ function onDeliveryChange(){
   if(addrField) addrField.style.display=isShipping?'block':'none';
   const {shipFee}=getCheckoutTotal();
   if(feeRow){
-    feeRow.style.display=isShipping&&shipFee>0?'flex':'none';
+    if(isShipping && shipFee===0 && isClubMember()){
+      feeRow.style.display='flex';
+      feeRow.innerHTML='<span>🚚 Envío</span><span style="color:#27ae60;font-weight:700;">GRATIS 🏆</span>';
+    } else {
+      feeRow.style.display=isShipping&&shipFee>0?'flex':'none';
     const fa=document.getElementById('co_fee_amt');
     if(fa) fa.textContent='RD$ '+fmt(shipFee);
+    }
   }
   onPaymentChange();
 }
@@ -1610,8 +1619,10 @@ function openCheckout(){
   const userName=userProfile?.full_name||'';
   const userEmail=currentUser?.email||'';
   const cfg=storeConfig||{};
-  const sc=parseFloat(cfg.shippingCost||0);
-  const sc2=parseFloat(cfg.shippingCost2||0);
+  const _rawSc=parseFloat(cfg.shippingCost||0);
+  const _rawSc2=parseFloat(cfg.shippingCost2||0);
+  const sc=isClubMember()?0:_rawSc;
+  const sc2=isClubMember()?0:_rawSc2;
   const zone1=cfg.shippingZone||'Zona 1';
   const zone2=cfg.shippingZone2||'';
   const cartTotal=totalAfterBulk();
@@ -1646,7 +1657,7 @@ function openCheckout(){
       ${cart.map(i=>`<div class="oitem"><span>${i.qty}× <strong>${i.name}</strong></span><span>RD$ ${fmt(i.price*i.qty)}</span></div>`).join('')}
       <div class="oitem"><span>Subtotal</span><span>RD$ ${fmt(_rawTotal)}</span></div>
       ${_bulkTier ? `<div class="oitem" style="color:#166534;font-weight:600;"><span>🏷️ ${_bulkTier.label||'Descuento mayoreo'} (-${_bulkTier.disc}%)</span><span>- RD$ ${fmt(_rawTotal*(_bulkTier.disc/100))}</span></div>` : ''}
-      <div class="oitem" id="co_shipping_fee" style="display:none;"><span>🚚 Envío</span><span id="co_fee_amt">RD$ 0</span></div>
+      <div class="oitem" id="co_shipping_fee" style="display:none;"><span>🚚 Envío${isClubMember()?'':''}</span><span id="co_fee_amt">${isClubMember()?'<span style="color:#002D62;font-weight:700;">🏆 GRATIS</span>':'RD$ 0'}</span></div>
       <div class="oitem" id="co_pay_adj_row" style="display:none;"><span id="co_pay_adj_lbl">Ajuste pago</span><span id="co_pay_adj_amt"></span></div>
       <div class="ototal"><span>Total</span><span id="co_pay_total">RD$ ${fmt(cartTotal)}</span></div>
       ${wh?`<div style="margin-top:8px;font-size:11px;color:var(--muted)">📍 ${wh.name}</div>`:''}
@@ -1663,12 +1674,12 @@ function openCheckout(){
         <label class="co-option">
           <input type="radio" name="delivery" value="shipping" onchange="onDeliveryChange()">
           <span class="co-option-ico">🚚</span>
-          <div><div style="font-weight:700">${zone1||'Envío'}</div><div style="font-size:11px;color:var(--muted)">${sc>0?'+ RD$ '+fmt(sc):'Costo por definir'}</div></div>
+          <div><div style="font-weight:700">${zone1||'Envío'}</div><div style="font-size:11px;color:${isClubMember()?'#27ae60':'var(--muted)'}">${isClubMember()?'✅ GRATIS — Beneficio Club 🏆':sc>0?'+ RD$ '+fmt(sc):'Costo por definir'}</div></div>
         </label>
         ${zone2?`<label class="co-option">
           <input type="radio" name="delivery" value="shipping2" onchange="onDeliveryChange()">
           <span class="co-option-ico">🚛</span>
-          <div><div style="font-weight:700">${zone2}</div><div style="font-size:11px;color:var(--muted)">${sc2>0?'+ RD$ '+fmt(sc2):'Costo por definir'}</div></div>
+          <div><div style="font-weight:700">${zone2}</div><div style="font-size:11px;color:${isClubMember()?'#27ae60':'var(--muted)'}">${isClubMember()?'✅ GRATIS — Beneficio Club 🏆':sc2>0?'+ RD$ '+fmt(sc2):'Costo por definir'}</div></div>
         </label>`:''}
       </div>
     </div>
@@ -2215,7 +2226,8 @@ async function calcLoyaltyPoints(email) {
     .eq('status', 'approved');
   if (!data) return { points: 0, orders: [], totalSpent: 0 };
   const totalSpent = data.reduce((s, o) => s + parseFloat(o.total || 0), 0);
-  const points = Math.floor(totalSpent / 100 * getPtsPerHundred()); // 1pt per RD$100
+  const ptsMultiplier = userProfile?.role==='club_member' ? 2 : 1; // Club members earn double points
+  const points = Math.floor(totalSpent / 100 * getPtsPerHundred() * ptsMultiplier); // 1pt per RD$100 (x2 for club)
   return { points, orders: data, totalSpent };
 }
 
@@ -2229,7 +2241,17 @@ async function openProfile() {
   document.getElementById('profileContent').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><div class="spinner" style="margin:0 auto 12px"></div><p>Cargando perfil...</p></div>';
 
   const { points, orders, totalSpent } = await calcLoyaltyPoints(currentUser.email);
+  const isClub = userProfile?.role === 'club_member';
   const tier = getTier(points);
+  const clubBenefitsHTML = isClub ? `
+    <div style="background:linear-gradient(135deg,#002D62,#CF142B);border-radius:14px;padding:16px 20px;margin-bottom:20px;color:white;">
+      <div style="font-weight:800;font-size:1em;margin-bottom:10px;">🏆 Beneficios Club GangaLoo</div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:.88em;">
+        <div style="display:flex;align-items:center;gap:8px;"><span style="background:rgba(255,255,255,.2);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">✓</span> <span>10% de descuento en todos los productos</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="background:rgba(255,255,255,.2);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">✓</span> <span>Envío GRATIS en todas tus órdenes</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="background:rgba(255,255,255,.2);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">✓</span> <span>Puntos de lealtad x2 en cada compra</span></div>
+      </div>
+    </div>` : '';
   const nextTier = getNextTier(points);
   const ptsToNext = nextTier ? nextTier.minPts - points : 0;
   const ptsProgress = nextTier
@@ -2267,7 +2289,7 @@ async function openProfile() {
 
   const historyHtml = orders.length
     ? orders.slice(0, 8).map(o => {
-        const pts = Math.floor(parseFloat(o.total || 0) / 100 * getPtsPerHundred());
+        const pts = Math.floor(parseFloat(o.total || 0) / 100 * getPtsPerHundred() * (userProfile?.role==='club_member'?2:1));
         return `<div class="pts-row">
           <div>
             <div style="font-weight:600;font-size:13px;">Pedido aprobado</div>
@@ -2281,7 +2303,7 @@ async function openProfile() {
       }).join('')
     : '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">Tus puntos aparecerán cuando tengas pedidos aprobados.</div>';
 
-  document.getElementById('profileContent').innerHTML = `
+  document.getElementById('profileContent').innerHTML = clubBenefitsHTML + `
     <div style="${tierStyle}">
       <!-- HERO -->
       <div class="profile-hero" style="${tierStyle}">
@@ -2313,10 +2335,14 @@ async function openProfile() {
       <div class="points-card" style="${tierStyle}">
         <div class="points-card-hdr">
           <h3>⭐ Mis Puntos de Lealtad</h3>
-          <div class="points-total">${points.toLocaleString()} <span>puntos</span></div>
+          <div class="points-total">${points.toLocaleString()} <span>puntos</span>
+            ${isClub?'<span style="background:linear-gradient(135deg,#002D62,#CF142B);color:white;border-radius:10px;padding:2px 8px;font-size:.45em;font-weight:700;vertical-align:middle;margin-left:6px;">⭐×2 Club</span>':''}
+          </div>
         </div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">
-          Ganas <strong>1 punto por cada RD$100</strong> en pedidos aprobados. 
+          ${isClub
+            ? 'Como <strong>Miembro Club</strong> ganas <strong style="color:#002D62;">2 puntos por cada RD$100</strong> (doble que los demás clientes).'
+            : 'Ganas <strong>1 punto por cada RD$100</strong> en pedidos aprobados.'}
           Tu nivel actual te da <strong>${tier.perk}</strong> en todos tus pedidos.
         </div>
         ${nextTier ? `
