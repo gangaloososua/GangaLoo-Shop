@@ -1569,6 +1569,9 @@ function getCheckoutTotal(){
   } else if(pay==='stripe'){
     payAdj += sub*(parseFloat(cfg.stripe_fee_pct||0)/100);
     payAdj += parseFloat(cfg.stripe_fee_fixed||0);
+  } else if(pay==='paypal'){
+    payAdj += sub*(parseFloat(cfg.extra_pay_fee_pct||0)/100);
+    payAdj += parseFloat(cfg.extra_pay_fee_fixed||0);
   }
   return {sub, rawSub, bulkTier, bulkDiscAmt, shipFee, payAdj, total: sub+shipFee+payAdj};
 }
@@ -1594,9 +1597,11 @@ function onDeliveryChange(){
 function onPaymentChange(){
   const pay=document.querySelector('input[name="payment"]:checked')?.value||'cash';
   const stripeWrap=document.getElementById('stripePayWrap');
+  const paypalWrap=document.getElementById('paypalPayWrap');
   const subBtn=document.getElementById('subBtn');
   if(stripeWrap) stripeWrap.style.display = pay==='stripe' ? 'block' : 'none';
-  if(subBtn) subBtn.style.display = pay==='stripe' ? 'none' : '';
+  if(paypalWrap) paypalWrap.style.display = pay==='paypal' ? 'block' : 'none';
+  if(subBtn) subBtn.style.display = (pay==='stripe'||pay==='paypal') ? 'none' : '';
   // original function continues below
   const pay=document.querySelector('input[name="payment"]:checked')?.value||'cash';
   const tib=document.getElementById('co_transfer_info');
@@ -1650,6 +1655,14 @@ function openCheckout(){
       const feePct=parseFloat(cfg.stripe_fee_pct||0);
       const feeFixed=parseFloat(cfg.stripe_fee_fixed||0);
       let parts=['<span style="color:#635BFF;font-weight:600;">Visa · Mastercard</span>'];
+      if(feePct>0) parts.push(`<span style="color:#c62828">+${feePct}% cargo</span>`);
+      if(feeFixed>0) parts.push(`<span style="color:#c62828">+RD$ ${fmt(feeFixed)}</span>`);
+      return parts.join(' · ');
+    }
+    if(method==='paypal'){
+      const feePct=parseFloat(cfg.extra_pay_fee_pct||0);
+      const feeFixed=parseFloat(cfg.extra_pay_fee_fixed||0);
+      let parts=['<span style="color:#003087;font-weight:600;">Pay with PayPal</span>'];
       if(feePct>0) parts.push(`<span style="color:#c62828">+${feePct}% cargo</span>`);
       if(feeFixed>0) parts.push(`<span style="color:#c62828">+RD$ ${fmt(feeFixed)}</span>`);
       return parts.join(' · ');
@@ -1729,6 +1742,11 @@ function openCheckout(){
           <span class="co-option-ico">💳</span>
           <div><div style="font-weight:700">Tarjeta (Stripe)</div><div style="font-size:11px;">${payLabel('stripe')}</div></div>
         </label>
+        <label class="co-option" id="paypalPayOption">
+          <input type="radio" name="payment" value="paypal" onchange="onPaymentChange()">
+          <span class="co-option-ico">🅿️</span>
+          <div><div style="font-weight:700">PayPal</div><div style="font-size:11px;">${payLabel('paypal')}</div></div>
+        </label>
       </div>
       ${hasBank?`<div class="transfer-info-box" id="co_transfer_info" style="display:none">
         <h4>📋 Datos para Transferencia</h4>
@@ -1763,6 +1781,12 @@ function openCheckout(){
         <button class="btn-submit" id="stripeBtn" onclick="payWithStripe()" style="background:linear-gradient(135deg,#002D62,#635BFF);display:flex;align-items:center;justify-content:center;gap:8px;font-size:1em;width:100%;">
           💳 Pagar con Tarjeta (Stripe)
           <span style="font-size:.72em;opacity:.8;">Visa · Mastercard · Amex</span>
+        </button>
+      </div>
+      <div id="paypalPayWrap" style="display:none;">
+        <button class="btn-submit" id="paypalBtn" onclick="payWithPayPal()" style="background:#003087;display:flex;align-items:center;justify-content:center;gap:8px;font-size:1em;width:100%;">
+          🅿️ Pagar con PayPal
+          <span style="font-size:.72em;opacity:.8;">USD · Seguro · Rápido</span>
         </button>
       </div>
       <div style="display:flex;gap:8px;">
@@ -1850,6 +1874,76 @@ async function payWithStripe(){
     toast('Error de conexión: '+err.message,'err');
     btn.disabled=false;
     btn.innerHTML='💳 Pagar con Tarjeta (Stripe)';
+  }
+}
+
+async function payWithPayPal(){
+  const del=document.querySelector('input[name="delivery"]:checked')?.value||'pickup';
+  const isShipping=del==='shipping'||del==='shipping2';
+  const n=document.getElementById('co_n').value.trim();
+  const p=document.getElementById('co_p').value.trim();
+  const e=document.getElementById('co_e').value.trim();
+  const a=isShipping?document.getElementById('co_a')?.value.trim():'';
+  if(!n||!p||(isShipping&&!a)){toast('Completa los campos obligatorios','err');return;}
+
+  const btn=document.getElementById('paypalBtn');
+  btn.disabled=true;
+  btn.innerHTML='⏳ Preparando PayPal...';
+
+  const {sub,shipFee,payAdj,total:grandTotal}=getCheckoutTotal();
+  const totalDOP=grandTotal;
+  const paypalFee=sub*(parseFloat(storeConfig?.extra_pay_fee_pct||0)/100)+parseFloat(storeConfig?.extra_pay_fee_fixed||0);
+  const orderId='ORD-'+Date.now();
+
+  // Save order to Supabase as pending
+  const payload={
+    customer_name:n, customer_phone:p,
+    customer_email:e||currentUser?.email||null,
+    customer_address:a,
+    notes:document.getElementById('co_nt').value.trim()||null,
+    items:JSON.stringify(cart.map(i=>({product_id:i.id,name:i.name,sku:i.sku,qty:i.qty,price:i.price}))),
+    total:totalDOP, currency:'DOP',
+    status:'pending_payment',
+    stripe_order_id:orderId
+  };
+  const{data:orderData,error:orderError}=await sb.from('online_orders').insert(payload).select();
+  if(orderError){
+    toast('Error: '+orderError.message,'err');
+    btn.disabled=false;
+    btn.innerHTML='🅿️ Pagar con PayPal';
+    return;
+  }
+
+  // Call Netlify function to create PayPal order
+  try{
+    const res=await fetch('/.netlify/functions/create-paypal',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        cart:cart.map(i=>({id:i.id,name:i.name,sku:i.sku,qty:i.qty,price:i.price})),
+        customerEmail:e||currentUser?.email||'',
+        customerName:n,
+        totalDOP,
+        shipFee,
+        paypalFee,
+        orderId:orderData?.[0]?.id||orderId
+      })
+    });
+    const data=await res.json();
+    if(data.error){
+      toast('Error PayPal: '+data.error,'err');
+      btn.disabled=false;
+      btn.innerHTML='🅿️ Pagar con PayPal';
+      return;
+    }
+    // Store PayPal order ID and redirect
+    window._paypalOrderId=data.paypalOrderId;
+    window._supabaseOrderId=orderData?.[0]?.id;
+    window.location.href=data.url;
+  }catch(err){
+    toast('Error: '+err.message,'err');
+    btn.disabled=false;
+    btn.innerHTML='🅿️ Pagar con PayPal';
   }
 }
 
@@ -2528,7 +2622,26 @@ function closeMyOrders(){
 (function(){
   const params=new URLSearchParams(window.location.search);
   const payment=params.get('payment');
-  if(payment==='success'){
+  if(payment==='paypal_success'){
+    window.history.replaceState({},'',window.location.pathname);
+    const ppOrderId=params.get('token'); // PayPal passes token param
+    const sbOrderId=params.get('order_id');
+    if(ppOrderId){
+      // Capture PayPal payment
+      fetch('/.netlify/functions/capture-paypal',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({paypalOrderId:ppOrderId, supabaseOrderId:sbOrderId})
+      }).then(r=>r.json()).then(data=>{
+        if(data.success) window._stripeSuccess=true;
+        else toast('Error capturando pago PayPal: '+data.error,'err');
+      });
+    }
+    window._stripeSuccess=true;
+  } else if(payment==='paypal_cancelled'){
+    window.history.replaceState({},'',window.location.pathname);
+    window._stripeCancelled=true;
+  } else if(payment==='success'){
     window.history.replaceState({},'',window.location.pathname);
     const sessionId=params.get('session_id');
     // Update order status in Supabase
