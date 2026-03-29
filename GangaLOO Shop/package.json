@@ -1,0 +1,8 @@
+{
+  "name": "gangaloo-store",
+  "version": "1.0.0",
+  "description": "GangaLoo Store - Netlify Functions",
+  "dependencies": {
+    "stripe": "^14.0.0"
+  }
+}
