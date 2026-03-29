@@ -1172,7 +1172,10 @@ try{const{createClient}=supabase;sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY)
 catch(e){console.warn('Supabase:',e);}
 
 let allProducts=[],allPurchases=[],allWarehouses=[],allCategories=[];let storeConfig={};
-let selectedWH=null,selectedCat=null,cart=[],searchQuery='';
+let selectedWH=null,selectedCat=null,searchQuery='';
+// Load cart from localStorage
+let cart=[];
+try{ const saved=localStorage.getItem('gangaloo_cart'); if(saved) cart=JSON.parse(saved); }catch(e){ cart=[]; }
 let _dataLoaded=false,_dataLoading=false;
 
 /* ── LOAD ── */
@@ -1505,7 +1508,9 @@ function totalAfterBulk(){
   if(!tier) return sub;
   return sub*(1-tier.disc/100);
 }
+function saveCart(){ try{ localStorage.setItem('gangaloo_cart', JSON.stringify(cart)); }catch(e){} }
 function updCart(){
+  saveCart();
   const cnt=cart.reduce((s,i)=>s+i.qty,0);
   document.getElementById('cartCount').textContent=cnt;
   document.getElementById('mobCartCount').textContent=cnt;
@@ -1976,7 +1981,7 @@ async function submitOrder(){
     btn.disabled=false;btn.textContent='Enviar Pedido ✦';
     return;
   }
-  const t=totalAfterBulk();cart=[];updCart();
+  const t=totalAfterBulk();cart=[];updCart();localStorage.removeItem('gangaloo_cart');
   document.getElementById('checkoutContent').innerHTML=`<div class="success-box"><div class="success-ico">✅</div><h2>¡Pedido Enviado!</h2><p>Hola <strong>${n}</strong>, recibimos tu pedido por <strong>RD$ ${fmt(t)}</strong>.</p><p>Nos comunicaremos al <strong>${p}</strong> para confirmar y coordinar la entrega.</p><p style="margin-top:12px;font-size:12px;background:var(--warm);padding:10px;border-radius:9px">⏳ Pendiente de confirmación.</p><button class="btn-submit" style="margin-top:22px" onclick="closeCheckout()">Continuar Comprando →</button></div>`;
 }
 
