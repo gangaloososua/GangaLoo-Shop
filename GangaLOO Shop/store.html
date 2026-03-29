@@ -1389,7 +1389,10 @@ function prodMatchesCat(p,ids){
   const pIds=(p.categoryIds&&p.categoryIds.length?p.categoryIds:[p.categoryId]).map(String);
   return ids.some(id=>pIds.includes(String(id)));
 }
-function getStock(pid,wid){return allPurchases.filter(p=>String(p.productId)===String(pid)&&String(p.warehouseId)===String(wid)&&p.status==='delivered').reduce((s,p)=>s+(p.remainingQty||0),0);}
+function getStock(pid,wid){
+  if(!wid) return allPurchases.filter(p=>String(p.productId)===String(pid)&&p.status==='delivered').reduce((s,p)=>s+(p.remainingQty||0),0);
+  return allPurchases.filter(p=>String(p.productId)===String(pid)&&String(p.warehouseId)===String(wid)&&p.status==='delivered').reduce((s,p)=>s+(p.remainingQty||0),0);
+}
 
 /* ── RENDER PRODUCTS ── */
 function renderProducts(){
@@ -1437,7 +1440,7 @@ function renderProducts(){
     return;
   }
   grid.innerHTML=filtered.map(p=>{
-    const stk=selectedWH?getStock(p.id,selectedWH):0;
+    const stk=selectedWH?getStock(p.id,selectedWH):getStock(p.id,null);
     const origPrice=p.price||p.finalPrice||p.salePrice||0;
     const hasDisc=p.discountPrice&&p.discountPrice>0&&p.discountPrice<origPrice;
     const basePrice=hasDisc?p.discountPrice:origPrice;
