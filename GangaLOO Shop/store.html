@@ -1736,9 +1736,20 @@ function openCheckout(){
       <textarea id="co_nt" placeholder="Color deseado, instrucciones especiales..."></textarea>
     </div>
 
-    <div class="modal-actions">
-      <button class="btn-back" onclick="closeCheckout()">← Volver</button>
-      <button class="btn-submit" id="subBtn" onclick="submitOrder()">Enviar Pedido ✦</button>
+    <div class="modal-actions" style="flex-direction:column;gap:10px;">
+      <button class="btn-submit" id="stripeBtn" onclick="payWithStripe()" style="background:linear-gradient(135deg,#002D62,#635BFF);display:flex;align-items:center;justify-content:center;gap:8px;font-size:1em;">
+        💳 Pagar con Tarjeta (Stripe)
+        <span style="font-size:.72em;opacity:.8;">Visa · Mastercard · Amex</span>
+      </button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;height:1px;background:#e8ddd0;"></div>
+        <span style="font-size:.78em;color:var(--muted);">o pagar manualmente</span>
+        <div style="flex:1;height:1px;background:#e8ddd0;"></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-back" onclick="closeCheckout()">← Volver</button>
+        <button class="btn-submit" id="subBtn" onclick="submitOrder()" style="background:#888;flex:1;">📋 Enviar Sin Pagar</button>
+      </div>
     </div>`;
   document.getElementById('checkoutBg').classList.add('open');
   // style radio option labels
@@ -1750,6 +1761,73 @@ function openCheckout(){
   });
 }
 function closeCheckout(){document.getElementById('checkoutBg').classList.remove('open');}
+async function payWithStripe(){
+  const del=document.querySelector('input[name="delivery"]:checked')?.value||'pickup';
+  const isShipping=del==='shipping'||del==='shipping2';
+  const n=document.getElementById('co_n').value.trim();
+  const p=document.getElementById('co_p').value.trim();
+  const e=document.getElementById('co_e').value.trim();
+  const a=isShipping?document.getElementById('co_a')?.value.trim():'';
+  if(!n||!p||(isShipping&&!a)){toast('Completa los campos obligatorios','err');return;}
+
+  const btn=document.getElementById('stripeBtn');
+  btn.disabled=true;
+  btn.innerHTML='⏳ Preparando pago...';
+
+  const {sub,shipFee,payAdj,total:grandTotal}=getCheckoutTotal();
+  const totalDOP=grandTotal;
+  const orderId='ORD-'+Date.now();
+
+  // First save order to Supabase as pending
+  const payload={
+    customer_name:n, customer_phone:p,
+    customer_email:e||currentUser?.email||null,
+    customer_address:a,
+    notes:document.getElementById('co_nt').value.trim()||null,
+    items:JSON.stringify(cart.map(i=>({product_id:i.id,name:i.name,sku:i.sku,qty:i.qty,price:i.price}))),
+    total:totalDOP, currency:'DOP',
+    status:'pending_payment',
+    stripe_order_id:orderId
+  };
+  const{data:orderData,error:orderError}=await sb.from('online_orders').insert(payload).select();
+  if(orderError){
+    toast('Error guardando pedido: '+orderError.message,'err');
+    btn.disabled=false;
+    btn.innerHTML='💳 Pagar con Tarjeta (Stripe)';
+    return;
+  }
+
+  // Call Netlify function to create Stripe session
+  try{
+    const res=await fetch('/.netlify/functions/create-checkout',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        cart:cart.map(i=>({id:i.id,name:i.name,sku:i.sku,qty:i.qty,price:i.price})),
+        customerEmail:e||currentUser?.email||'',
+        customerName:n,
+        totalDOP,
+        deliveryMethod:del,
+        address:a,
+        orderId:orderData?.[0]?.id||orderId
+      })
+    });
+    const data=await res.json();
+    if(data.error){
+      toast('Error Stripe: '+data.error,'err');
+      btn.disabled=false;
+      btn.innerHTML='💳 Pagar con Tarjeta (Stripe)';
+      return;
+    }
+    // Redirect to Stripe Checkout
+    window.location.href=data.url;
+  }catch(err){
+    toast('Error de conexión: '+err.message,'err');
+    btn.disabled=false;
+    btn.innerHTML='💳 Pagar con Tarjeta (Stripe)';
+  }
+}
+
 async function submitOrder(){
   const del=document.querySelector('input[name="delivery"]:checked')?.value||'pickup';
   const isShipping=del==='shipping'||del==='shipping2';
@@ -2411,6 +2489,31 @@ function closeMyOrders(){
   buildShowcase(); // re-show showcase
 }
 
+
+// Handle Stripe redirect results
+(function(){
+  const params=new URLSearchParams(window.location.search);
+  const payment=params.get('payment');
+  if(payment==='success'){
+    // Clear URL params
+    window.history.replaceState({},'',window.location.pathname);
+    // Show success message
+    setTimeout(()=>{
+      toast('✅ ¡Pago completado! Tu pedido fue confirmado.','');
+      // Update order status in Supabase
+      const sessionId=params.get('session_id');
+      if(sessionId&&sb){
+        sb.from('online_orders')
+          .update({status:'approved',stripe_session_id:sessionId})
+          .eq('stripe_session_id',sessionId)
+          .then(()=>console.log('Order updated'));
+      }
+    },800);
+  } else if(payment==='cancelled'){
+    window.history.replaceState({},'',window.location.pathname);
+    setTimeout(()=>toast('Pago cancelado — tu pedido sigue guardado.',''),800);
+  }
+})();
 
 if(sb){initAuth();}else{loadData();}
 </script>
