@@ -2139,11 +2139,21 @@ async function onSignedIn(user){
   closeAuthWall();
   searchQuery='';
   const si=document.getElementById('searchInput');if(si)si.value='';
-  // Always reload to ensure fresh data for this user session
   _dataLoaded=false;
   _dataLoading=false;
   await loadData();
   loadLoyaltyDot();
+  // If returning from successful Stripe payment, open orders page
+  if(window._stripeSuccess){
+    window._stripeSuccess=false;
+    setTimeout(()=>{
+      toast('✅ ¡Pago completado! Tu pedido fue confirmado.','');
+      setTimeout(()=>openMyOrders(),600);
+    },800);
+  } else if(window._stripeCancelled){
+    window._stripeCancelled=false;
+    setTimeout(()=>toast('Pago cancelado — tu pedido sigue guardado.',''),800);
+  }
 }
 
 function showGuestState(){
@@ -2497,23 +2507,21 @@ function closeMyOrders(){
   const params=new URLSearchParams(window.location.search);
   const payment=params.get('payment');
   if(payment==='success'){
-    // Clear URL params
     window.history.replaceState({},'',window.location.pathname);
-    // Show success message
-    setTimeout(()=>{
-      toast('✅ ¡Pago completado! Tu pedido fue confirmado.','');
-      // Update order status in Supabase
-      const sessionId=params.get('session_id');
-      if(sessionId&&sb){
-        sb.from('online_orders')
-          .update({status:'approved',stripe_session_id:sessionId})
-          .eq('stripe_session_id',sessionId)
-          .then(()=>console.log('Order updated'));
-      }
-    },800);
+    const sessionId=params.get('session_id');
+    // Update order status in Supabase
+    if(sessionId&&sb){
+      sb.from('online_orders')
+        .update({status:'approved',stripe_session_id:sessionId})
+        .eq('stripe_order_id', sessionId)
+        .then(()=>console.log('Order updated'));
+    }
+    // After auth loads, open orders page automatically
+    window._stripeSuccess = true;
+    window._stripeSessionId = sessionId;
   } else if(payment==='cancelled'){
     window.history.replaceState({},'',window.location.pathname);
-    setTimeout(()=>toast('Pago cancelado — tu pedido sigue guardado.',''),800);
+    window._stripeCancelled = true;
   }
 })();
 
