@@ -980,7 +980,7 @@ button{font-family:'Jost',sans-serif;}
     <div class="nav-right">
       <div class="search-wrap">
         <span class="search-ico">🔍</span>
-        <input type="search" class="search-inp" id="searchInput" placeholder="Buscar..." oninput="searchQuery=this.value.toLowerCase();renderProducts()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="product-search-x">
+        <input type="search" class="search-inp" id="searchInput" placeholder="Buscar..." oninput="searchQuery=this.value.toLowerCase();if(typeof renderProducts==='function')renderProducts();" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="product-search-x">
       </div>
       <!-- user pill (shown when logged in) -->
       <div class="user-pill-wrap" id="userPillWrap" style="position:relative;display:none;">
@@ -2336,7 +2336,6 @@ async function openProfile() {
     ? Math.round(((points - tier.minPts) / (nextTier.minPts - tier.minPts)) * 100)
     : 100;
 
-  const isClub = userProfile?.role === 'club_member';
   const name = userProfile?.full_name || currentUser.email.split('@')[0];
   const initials = name.slice(0, 1).toUpperCase();
 
