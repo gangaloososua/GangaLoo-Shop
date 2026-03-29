@@ -1602,8 +1602,6 @@ function onPaymentChange(){
   if(stripeWrap) stripeWrap.style.display = pay==='stripe' ? 'block' : 'none';
   if(paypalWrap) paypalWrap.style.display = pay==='paypal' ? 'block' : 'none';
   if(subBtn) subBtn.style.display = (pay==='stripe'||pay==='paypal') ? 'none' : '';
-  // original function continues below
-  const pay=document.querySelector('input[name="payment"]:checked')?.value||'cash';
   const tib=document.getElementById('co_transfer_info');
   if(tib) tib.style.display=pay==='transfer'?'block':'none';
   const {total:gt, payAdj, sub}=getCheckoutTotal();
