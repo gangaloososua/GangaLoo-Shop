@@ -1220,7 +1220,10 @@ async function loadData(){
       const bestCnt = best ? allPurchases.filter(p=>String(p.warehouseId)===String(best.id)&&p.status==='delivered'&&(p.remainingQty||0)>0).length : 0;
       return cnt > bestCnt ? w : best;
     }, null);
-    selectedWH = String((whWithStock || allWarehouses[0]).id);
+    // Only set default warehouse if user hasn't already picked one
+    if(!selectedWH || !allWarehouses.find(w=>String(w.id)===selectedWH)){
+      selectedWH = String((whWithStock || allWarehouses[0]).id);
+    }
     renderWH();
     document.getElementById('whBar').style.display='block';
   }
