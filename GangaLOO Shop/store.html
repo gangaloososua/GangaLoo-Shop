@@ -7,14 +7,15 @@
 <title>GangaLoo — Tienda Online</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet"></noscript>
 <style>
 :root{
-  --cream:#faf8f5; --warm:#f5efe8; --warm2:#ede4d8;
-  --gold:#c9a96e; --gd:#a8864d; --gl:rgba(201,169,110,.13);
-  --text:#2a2118; --muted:#7a6a58; --border:#e8ddd0;
-  --white:#fff; --green:#4a7c59; --red:#c0392b;
-  --nav-h:62px;
+  --cream:#f8f9fc; --warm:#f0f4fa; --warm2:#e4ecf7;
+  --gold:#CF142B; --gd:#a01020; --gl:rgba(207,20,43,.10);
+  --text:#002D62; --muted:#1a4a8a; --border:#d0daea;
+  --white:#fff; --green:#1a4a8a; --red:#CF142B;
+  --blue:#002D62; --blue-light:#1a4a8a; --nav-h:62px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
@@ -23,7 +24,7 @@ img{display:block;max-width:100%;}
 button{font-family:'Jost',sans-serif;}
 
 /* ── TOP ANNOUNCE BAR ── */
-.announce{background:var(--text);color:rgba(255,255,255,.6);text-align:center;padding:7px 16px;font-size:11px;letter-spacing:.08em;}
+.announce{background:#002D62;color:rgba(255,255,255,.75);text-align:center;padding:7px 16px;font-size:11px;letter-spacing:.08em;}
 .announce strong{color:var(--gold);}
 
 /* ══════════════════════════════════════════
@@ -32,7 +33,7 @@ button{font-family:'Jost',sans-serif;}
 .nav{
   position:sticky;top:0;z-index:200;
   background:var(--white);
-  border-bottom:1px solid var(--border);
+  border-bottom:2px solid #002D62;
   box-shadow:0 2px 16px rgba(42,33,24,.07);
 }
 .nav-top{
@@ -44,7 +45,7 @@ button{font-family:'Jost',sans-serif;}
 .brand{
   font-family:'Cormorant Garamond',serif;
   font-size:1.65em;font-weight:600;
-  color:var(--text);text-decoration:none;white-space:nowrap;flex-shrink:0;
+  color:#002D62;text-decoration:none;white-space:nowrap;flex-shrink:0;
 }
 .brand em{color:var(--gold);font-style:normal;}
 
@@ -163,13 +164,13 @@ button{font-family:'Jost',sans-serif;}
 .search-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none;}
 
 .cart-btn{
-  background:var(--text);color:var(--white);border:none;
+  background:#002D62;color:var(--white);border:none;
   padding:9px 16px;border-radius:50px;
   font-size:13px;font-weight:600;cursor:pointer;
   display:flex;align-items:center;gap:6px;
   transition:background .25s;white-space:nowrap;
 }
-.cart-btn:hover{background:var(--gold);}
+.cart-btn:hover{background:#CF142B;}
 .cart-badge{
   background:var(--gold);color:white;
   width:18px;height:18px;border-radius:50%;
@@ -192,7 +193,7 @@ button{font-family:'Jost',sans-serif;}
    HERO
 ══════════════════════════════════════════ */
 .hero{
-  background:linear-gradient(135deg,#1a120c 0%,#3a2a1a 60%,#251a10 100%);
+  background:linear-gradient(135deg,#002D62 0%,#1a4a8a 60%,#002D62 100%);
   color:white;padding:60px 20px;position:relative;overflow:hidden;
 }
 .hero::before{
@@ -311,8 +312,8 @@ button{font-family:'Jost',sans-serif;}
 .pcard-price{font-size:1.15em;font-weight:700;}
 .pcard-price .cur{font-size:.6em;color:var(--muted);font-weight:500;vertical-align:super;}
 .pcard-price.discounted{color:#e74c3c;}
-.add-btn{width:36px;height:36px;border-radius:50%;background:var(--text);color:white;border:none;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
-.add-btn:hover:not(:disabled){background:var(--gold);transform:scale(1.1);}
+.add-btn{width:36px;height:36px;border-radius:50%;background:#002D62;color:white;border:none;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
+.add-btn:hover:not(:disabled){background:#CF142B;transform:scale(1.1);}
 .add-btn:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;}
 
 /* empty / loading */
@@ -386,13 +387,13 @@ button{font-family:'Jost',sans-serif;}
 
 /* ── TOAST ── */
 .toast-stack{position:fixed;bottom:24px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px;}
-.toast{background:var(--text);color:white;padding:11px 16px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:tIn .22s ease-out;max-width:280px;}
+.toast{background:#002D62;color:white;padding:11px 16px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:tIn .22s ease-out;max-width:280px;}
 .toast.ok{background:var(--green);}
 .toast.err{background:var(--red);}
 @keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── FOOTER ── */
-.footer{background:var(--text);color:rgba(255,255,255,.35);text-align:center;padding:28px 20px;font-size:12px;}
+.footer{background:#002D62;color:rgba(255,255,255,.5);text-align:center;padding:28px 20px;font-size:12px;}
 .footer strong{color:var(--gold);}
 
 /* ══════════════════════════════════════════
@@ -456,7 +457,7 @@ button{font-family:'Jost',sans-serif;}
 .mob-cat-drawer-hdr{
   display:flex;align-items:center;justify-content:space-between;
   padding:18px 20px 14px;
-  border-bottom:1px solid var(--border);
+  border-bottom:2px solid #002D62;
   position:sticky;top:0;background:white;z-index:1;
 }
 .mob-cat-drawer-hdr h3{font-family:'Cormorant Garamond',serif;font-size:1.3em;font-weight:600;}
@@ -679,7 +680,7 @@ button{font-family:'Jost',sans-serif;}
    DEAL BANNER + DEAL SECTION
 ══════════════════════════════════════════ */
 .deal-banner{
-  background:linear-gradient(90deg,#7c1a1a 0%,#c0392b 40%,#e74c3c 70%,#c0392b 100%);
+  background:linear-gradient(90deg,#a01020 0%,#CF142B 40%,#e8253a 70%,#CF142B 100%);
   color:white;padding:0;overflow:hidden;
   display:none; /* shown by JS */
   position:relative;
@@ -919,7 +920,8 @@ button{font-family:'Jost',sans-serif;}
   .pstat{flex:1;}
   .profile-hero{flex-direction:column;align-items:flex-start;gap:14px;}
 }
-</style>
+
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}</style>
 </head>
 <body>
 
@@ -1173,8 +1175,18 @@ async function loadData(){
     document.getElementById('prodGrid').innerHTML='<div class="empty"><div class="ico">🌐</div><h3>Abre en un servidor</h3><p>Los archivos locales no pueden conectar a Supabase. Sube a Netlify o usa <code>npx serve .</code> y abre localhost.</p></div>';
     return;
   }
+  // Show skeleton cards immediately
+  const grid = document.getElementById('prodGrid');
+  if (grid && grid.children.length === 0) {
+    grid.innerHTML = Array(8).fill(0).map(()=>`
+      <div style="background:white;border-radius:16px;padding:20px;animation:pulse 1.5s ease-in-out infinite;">
+        <div style="height:180px;background:#f0ede8;border-radius:10px;margin-bottom:12px;"></div>
+        <div style="height:14px;background:#f0ede8;border-radius:6px;margin-bottom:8px;width:80%;"></div>
+        <div style="height:12px;background:#f0ede8;border-radius:6px;width:50%;"></div>
+      </div>`).join('');
+  }
   let data,error;
-  try{({data,error}=await sb.from('inventory_data').select('products,purchases,warehouses,categories,sales,payments,customers,store_config').order('updated_at',{ascending:false}).limit(1));
+  try{({data,error}=await sb.from('inventory_data').select('products,purchases,warehouses,categories,store_config').order('updated_at',{ascending:false}).limit(1));
     if(data && data[0]){
     }}
   catch(e){console.warn('[store] fetch error:',e.message);return;}
