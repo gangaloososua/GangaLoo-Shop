@@ -1,22 +1,39 @@
 // netlify/functions/create-checkout.js
-// Stripe Checkout session creator for GangaLoo store
-// Deploy this file to: netlify/functions/create-checkout.js in your GitHub repo
-
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-// Exchange rate: DOP to EUR
-// Update this to match your current rate or fetch dynamically
-const DOP_TO_EUR = 0.01333; // 1 DOP = ~0.01333 EUR (75 DOP = 1 EUR)
+// Fetch live DOP to EUR rate — fallback: 1 EUR = 68 DOP
+async function getDOPtoEURRate() {
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/EUR');
+    const data = await res.json();
+    if (data && data.rates && data.rates.DOP) {
+      return 1 / data.rates.DOP;
+    }
+  } catch(e) {
+    console.warn('Rate fetch failed, using fallback 68:', e.message);
+  }
+  return 1 / 68;
+}
 
 exports.handler = async (event, context) => {
-  // Only allow POST
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      },
+      body: '',
+    };
+  }
+
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  // CORS headers — allow your store domain
   const headers = {
-    'Access-Control-Allow-Origin': 'https://gangaloo.netlify.app',
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json',
   };
@@ -29,54 +46,48 @@ exports.handler = async (event, context) => {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing cart or total' }) };
     }
 
-    // Convert total to EUR cents (Stripe uses smallest currency unit)
-    const totalEUR = Math.round(totalDOP * DOP_TO_EUR * 100); // in euro cents
+    const DOP_TO_EUR = await getDOPtoEURRate();
+    const rateDisplay = (1 / DOP_TO_EUR).toFixed(2);
+    console.log(`Rate: 1 EUR = ${rateDisplay} DOP`);
 
-    // Build line items for Stripe
     const line_items = cart.map(item => ({
       price_data: {
         currency: 'eur',
         product_data: {
           name: item.name,
           description: item.sku ? `SKU: ${item.sku}` : undefined,
-          metadata: { sku: item.sku || '' },
         },
-        // Convert each item price to EUR cents
         unit_amount: Math.round(item.price * DOP_TO_EUR * 100),
       },
       quantity: item.qty,
     }));
 
-    // Create Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
       customer_email: customerEmail || undefined,
       line_items,
       metadata: {
-        order_id: orderId || '',
+        order_id: String(orderId || ''),
         customer_name: customerName || '',
-        customer_email: customerEmail || '',
-        total_dop: totalDOP.toString(),
+        total_dop: String(totalDOP),
+        rate_used: `1 EUR = ${rateDisplay} DOP`,
         delivery_method: deliveryMethod || 'pickup',
-        address: address || '',
-        gangaloo_order: 'true',
       },
-      // Where to redirect after payment
-      success_url: `https://gangaloo.netlify.app/?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `https://gangaloo.netlify.app/?payment=cancelled`,
-      // Show order summary
       custom_text: {
-        submit: { message: `Total en DOP: RD$ ${totalDOP.toLocaleString('es-DO', { minimumFractionDigits: 2 })}` },
+        submit: {
+          message: `Total en DOP: RD$ ${Number(totalDOP).toLocaleString('es-DO', { minimumFractionDigits: 2 })} (tasa: 1 EUR = ${rateDisplay} DOP)`
+        },
       },
-      // Expire session after 30 minutes
+      success_url: `https://gangaloo.netlify.app/store.html?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `https://gangaloo.netlify.app/store.html?payment=cancelled`,
       expires_at: Math.floor(Date.now() / 1000) + 1800,
     });
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ sessionId: session.id, url: session.url }),
+      body: JSON.stringify({ sessionId: session.id, url: session.url, rateUsed: `1 EUR = ${rateDisplay} DOP` }),
     };
 
   } catch (err) {
@@ -88,4 +99,3 @@ exports.handler = async (event, context) => {
     };
   }
 };
-
