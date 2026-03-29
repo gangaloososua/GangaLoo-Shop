@@ -921,7 +921,14 @@ button{font-family:'Jost',sans-serif;}
   .profile-hero{flex-direction:column;align-items:flex-start;gap:14px;}
 }
 
-@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}</style>
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+/* ── CLUB MEMBER ── */
+.club-banner{background:linear-gradient(135deg,#002D62,#CF142B);color:white;text-align:center;padding:10px 20px;font-size:.88em;font-weight:600;letter-spacing:.04em;display:none;}
+.club-banner.show{display:block;}
+.club-badge{background:linear-gradient(135deg,#002D62,#CF142B);color:white;border-radius:20px;padding:3px 10px;font-size:.7em;font-weight:700;letter-spacing:.05em;display:inline-block;}
+.club-price{color:#CF142B;font-weight:800;}
+.club-orig{text-decoration:line-through;color:#aaa;font-size:.82em;margin-right:4px;}
+.club-disc-badge{position:absolute;top:8px;left:8px;background:linear-gradient(135deg,#002D62,#CF142B);color:white;border-radius:20px;padding:3px 9px;font-size:.72em;font-weight:700;}</style>
 </head>
 <body>
 
@@ -946,6 +953,9 @@ button{font-family:'Jost',sans-serif;}
     </div>
     <button class="deal-banner-btn" onclick="scrollToDeal()">Ver Oferta →</button>
   </div>
+</div>
+<div id="clubBanner" class="club-banner">
+  🏆 ¡Bienvenido, Miembro Club GangaLoo! Estás disfrutando de un <strong>10% de descuento</strong> en todos los productos.
 </div>
 <div class="announce" id="announceBar">✦ Envíos disponibles en todo el país &nbsp;|&nbsp; <strong>WhatsApp: (829) 286-7868</strong></div>
 
@@ -1424,8 +1434,11 @@ function renderProducts(){
     const stk=selectedWH?getStock(p.id,selectedWH):0;
     const origPrice=p.price||p.finalPrice||p.salePrice||0;
     const hasDisc=p.discountPrice&&p.discountPrice>0&&p.discountPrice<origPrice;
-    const price=hasDisc?p.discountPrice:origPrice;
-    const discPct=hasDisc?Math.round((1-p.discountPrice/origPrice)*100):0;
+    const basePrice=hasDisc?p.discountPrice:origPrice;
+    const isClub=isClubMember();
+    const price=isClub?clubPrice(basePrice):basePrice;
+    const discPct=isClub?10:(hasDisc?Math.round((1-p.discountPrice/origPrice)*100):0);
+    const showOrig=isClub||hasDisc;
     const pCatIds=(p.categoryIds&&p.categoryIds.length?p.categoryIds:[p.categoryId]);
     const cat=allCategories.find(c=>pCatIds.map(String).includes(String(c.id)));
     let pc,pt,dis='';
@@ -1435,7 +1448,7 @@ function renderProducts(){
     return`<div class="pcard">
       <div class="pcard-img">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}
         <span class="stock-pill ${pc}">${pt}</span>
-        ${hasDisc?`<span class="disc-badge">-${discPct}%</span>`:''}
+        ${(hasDisc||isClub)?`<span class="${isClub?'club-disc-badge':'disc-badge'}">-${discPct}%</span>`:''}
       </div>
       <div class="pcard-body">
         ${cat?`<div class="pcard-cat">${cat.icon?cat.icon+' ':''}${cat.name}</div>`:''}
@@ -1444,8 +1457,9 @@ function renderProducts(){
       </div>
       <div class="pcard-foot">
         <div class="pcard-price-wrap">
-          ${hasDisc?`<div class="pcard-orig">RD$ ${fmt(origPrice)}</div>`:''}
-          <div class="pcard-price ${hasDisc?'discounted':''}"><span class="cur">RD$</span>${fmt(price)}</div>
+          ${showOrig?`<div class="pcard-orig">RD$ ${fmt(basePrice)}</div>`:''}
+          <div class="pcard-price ${showOrig?'discounted':''} ${isClub?'club-price':''}"><span class="cur">RD$</span>${fmt(price)}</div>
+          ${isClub?'<span class="club-badge">Club -10%</span>':''}
         </div>
         <button class="add-btn" ${dis} onclick="addCart(${p.id},'${esc(p.name)}',${price},'${esc(p.sku||'')}')" title="Agregar">+</button>
       </div>
@@ -2000,6 +2014,8 @@ function toast(msg,type=''){const s=document.getElementById('toastStack'),t=docu
 ══════════════════════════════════════════ */
 let currentUser = null;
 let userProfile = null;
+function isClubMember(){ return userProfile?.role === 'club_member'; }
+function clubPrice(price){ return isClubMember() ? Math.round(price * 0.90 * 100) / 100 : price; }
 
 async function initAuth(){
   const { data: { session } } = await sb.auth.getSession();
@@ -2025,6 +2041,9 @@ async function onSignedIn(user){
   document.getElementById('userPillName').textContent=name;
   document.getElementById('userPillWrap').style.display='flex';
   document.getElementById('loginNavBtn').style.display='none';
+  // Show club banner if club member
+  const cb = document.getElementById('clubBanner');
+  if (cb) cb.className = 'club-banner' + (prof?.role==='club_member' ? ' show' : '');
   closeAuthWall();
   searchQuery='';
   const si=document.getElementById('searchInput');if(si)si.value='';
@@ -2037,6 +2056,8 @@ async function onSignedIn(user){
 
 function showGuestState(){
   currentUser=null; userProfile=null;
+  const cb = document.getElementById('clubBanner');
+  if (cb) cb.className = 'club-banner';
   document.getElementById('userPillWrap').style.display='none';
   document.getElementById('loginNavBtn').style.display='flex';
   loadData(); // still load products, but lock cart
@@ -2215,6 +2236,7 @@ async function openProfile() {
     ? Math.round(((points - tier.minPts) / (nextTier.minPts - tier.minPts)) * 100)
     : 100;
 
+  const isClub = userProfile?.role === 'club_member';
   const name = userProfile?.full_name || currentUser.email.split('@')[0];
   const initials = name.slice(0, 1).toUpperCase();
 
