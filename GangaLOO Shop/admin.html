@@ -3925,42 +3925,57 @@
                 return;
             }
 
-            const pending = orders.filter(o => o.status === 'pending');
             const pendingPayment = orders.filter(o => o.status === 'pending_payment');
+            const pending  = orders.filter(o => o.status === 'pending');
             const approved = orders.filter(o => o.status === 'approved');
             const rejected = orders.filter(o => o.status === 'rejected');
+            const other    = orders.filter(o => !['pending','pending_payment','approved','rejected'].includes(o.status));
 
-            let html = '';
+            const totalRevenue = approved.reduce((s,o) => s + parseFloat(o.total||0), 0);
 
-            if (pendingPayment.length > 0) {
-                html += `<div style="background:#f0f4ff;border:2px solid #635BFF;border-radius:12px;padding:20px;margin-bottom:25px;">
-                    <h3 style="color:#635BFF;margin-bottom:15px;">💳 Pago en Proceso (${pendingPayment.length})</h3>`;
-                pendingPayment.forEach(order => { html += renderOrderCard(order, true); });
-                html += '</div>';
+            function orderSection(id, icon, title, count, color, border, textColor, ordersList, showActions, collapsed=false) {
+                if (!count) return '';
+                const bodyId = 'oo-sec-'+id;
+                return `<div style="border:2px solid ${border};border-radius:14px;overflow:hidden;margin-bottom:16px;">
+                    <div onclick="toggleOOSection('${bodyId}')" style="background:${color};padding:14px 20px;cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span id="${bodyId}-icon" style="font-size:1.1em;transition:transform .2s;">${collapsed?'▶':'▼'}</span>
+                            <span style="font-weight:700;color:${textColor};font-size:.95em;">${icon} ${title}</span>
+                            <span style="background:${border};color:white;border-radius:20px;padding:2px 10px;font-size:.78em;font-weight:700;">${count}</span>
+                        </div>
+                        ${id==='approved'?`<span style="font-size:.85em;color:${textColor};font-weight:600;">Total: RD$ ${totalRevenue.toLocaleString('es-DO',{minimumFractionDigits:2})}</span>`:''}
+                    </div>
+                    <div id="${bodyId}" style="display:${collapsed?'none':'block'};padding:16px;">
+                        ${ordersList.map(o=>renderOrderCard(o,showActions)).join('')}
+                    </div>
+                </div>`;
             }
 
-            if (pending.length > 0) {
-                html += `<div style="background:#fff3cd;border:2px solid #ffc107;border-radius:12px;padding:20px;margin-bottom:25px;">
-                    <h3 style="color:#856404;margin-bottom:15px;">⏳ Órdenes Pendientes (${pending.length})</h3>`;
-                pending.forEach(order => { html += renderOrderCard(order, true); });
-                html += '</div>';
-            }
+            // Summary bar
+            let html = `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
+                ${pendingPayment.length?`<div style="background:#f0f4ff;border:1px solid #635BFF;border-radius:10px;padding:8px 14px;font-size:.83em;"><strong style="color:#635BFF;">${pendingPayment.length}</strong> 💳 En proceso</div>`:''}
+                ${pending.length?`<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:10px;padding:8px 14px;font-size:.83em;"><strong style="color:#856404;">${pending.length}</strong> ⏳ Pendientes</div>`:''}
+                ${approved.length?`<div style="background:#d4edda;border:1px solid #28a745;border-radius:10px;padding:8px 14px;font-size:.83em;"><strong style="color:#155724;">${approved.length}</strong> ✅ Aprobadas</div>`:''}
+                ${rejected.length?`<div style="background:#f8d7da;border:1px solid #dc3545;border-radius:10px;padding:8px 14px;font-size:.83em;"><strong style="color:#721c24;">${rejected.length}</strong> ❌ Rechazadas</div>`:''}
+                <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:10px;padding:8px 14px;font-size:.83em;"><strong>${orders.length}</strong> total</div>
+            </div>`;
 
-            if (approved.length > 0) {
-                html += `<div style="background:#d4edda;border:2px solid #28a745;border-radius:12px;padding:20px;margin-bottom:25px;">
-                    <h3 style="color:#155724;margin-bottom:15px;">✅ Órdenes Aprobadas (${approved.length})</h3>`;
-                approved.forEach(order => { html += renderOrderCard(order, false); });
-                html += '</div>';
-            }
-
-            if (rejected.length > 0) {
-                html += `<div style="background:#f8d7da;border:2px solid #dc3545;border-radius:12px;padding:20px;margin-bottom:25px;">
-                    <h3 style="color:#721c24;margin-bottom:15px;">❌ Órdenes Rechazadas (${rejected.length})</h3>`;
-                rejected.forEach(order => { html += renderOrderCard(order, false); });
-                html += '</div>';
-            }
+            html += orderSection('stripe',   '💳', 'Pago en Proceso', pendingPayment.length, '#f0f4ff', '#635BFF', '#3730a3', pendingPayment, true,  false);
+            html += orderSection('pending',  '⏳', 'Pendientes',       pending.length,        '#fff3cd', '#ffc107', '#856404', pending,        true,  false);
+            html += orderSection('approved', '✅', 'Aprobadas',        approved.length,       '#d4edda', '#28a745', '#155724', approved,       false, true);
+            html += orderSection('rejected', '❌', 'Rechazadas',       rejected.length,       '#f8d7da', '#dc3545', '#721c24', rejected,       false, true);
+            if (other.length) html += orderSection('other', '📋', 'Otras', other.length, '#f8f9fa', '#6c757d', '#495057', other, false, true);
 
             container.innerHTML = html;
+        }
+
+        function toggleOOSection(id) {
+            const body = document.getElementById(id);
+            const icon = document.getElementById(id+'-icon');
+            if (!body) return;
+            const collapsed = body.style.display === 'none';
+            body.style.display = collapsed ? 'block' : 'none';
+            if (icon) icon.textContent = collapsed ? '▼' : '▶';
         }
 
         function renderOrderCard(order, showActions) {
