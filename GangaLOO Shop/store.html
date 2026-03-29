@@ -1789,9 +1789,12 @@ async function payWithStripe(){
     status:'pending_payment',
     stripe_order_id:orderId
   };
+  console.log('Stripe payload:', JSON.stringify(payload));
   const{data:orderData,error:orderError}=await sb.from('online_orders').insert(payload).select();
   if(orderError){
-    toast('Error guardando pedido: '+orderError.message,'err');
+    console.error('Supabase error:', orderError);
+    console.error('Error details:', JSON.stringify(orderError));
+    toast('Error: '+orderError.message+' — '+orderError.details,'err');
     btn.disabled=false;
     btn.innerHTML='💳 Pagar con Tarjeta (Stripe)';
     return;
