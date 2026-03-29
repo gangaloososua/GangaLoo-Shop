@@ -1,7 +1,6 @@
 [build]
-  base = "GangaLoo Shop"
-  functions = "netlify/functions"
-  publish = "."
+  functions = "GangaLOO Shop/netlify/functions"
+  publish = "GangaLOO Shop"
 
 [functions]
   node_bundler = "esbuild"
