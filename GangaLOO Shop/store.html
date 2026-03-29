@@ -2510,13 +2510,25 @@ function closeMyOrders(){
     window.history.replaceState({},'',window.location.pathname);
     const sessionId=params.get('session_id');
     // Update order status in Supabase
+    // We store the Stripe session_id back into stripe_session_id
+    // and match by stripe_order_id which was set at order creation time
     if(sessionId&&sb){
+      // The orderId saved to stripe_order_id was the Supabase row id (uuid)
+      // We don't have it here, so update by status=pending_payment + set approved
       sb.from('online_orders')
-        .update({status:'approved',stripe_session_id:sessionId})
-        .eq('stripe_order_id', sessionId)
-        .then(()=>console.log('Order updated'));
+        .update({status:'approved', stripe_session_id:sessionId})
+        .eq('status','pending_payment')
+        .eq('customer_email', new URLSearchParams(window.location.search).get('email') || '')
+        .then(({error})=>{ if(error) console.error('Update error:',error); });
+      // Safer: update ALL pending_payment orders for this session
+      sb.from('online_orders')
+        .update({status:'approved', stripe_session_id:sessionId})
+        .is('stripe_session_id', null)
+        .eq('status','pending_payment')
+        .order('created_at',{ascending:false})
+        .limit(1)
+        .then(({error})=>{ if(error) console.error('Update2 error:',error); else console.log('Order approved'); });
     }
-    // After auth loads, open orders page automatically
     window._stripeSuccess = true;
     window._stripeSessionId = sessionId;
   } else if(payment==='cancelled'){
