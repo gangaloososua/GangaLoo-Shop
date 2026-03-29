@@ -1730,11 +1730,7 @@ function openCheckout(){
           <span class="co-option-ico">🏦</span>
           <div><div style="font-weight:700">Transferencia</div><div style="font-size:11px;">${payLabel('transfer')}</div></div>
         </label>
-        ${extraPayName?`<label class="co-option">
-          <input type="radio" name="payment" value="extra" onchange="onPaymentChange()">
-          <span class="co-option-ico">📱</span>
-          <div><div style="font-weight:700">${extraPayName}</div><div style="font-size:11px;">${payLabel('extra_pay')}</div></div>
-        </label>`:''}
+
         <label class="co-option" id="stripePayOption">
           <input type="radio" name="payment" value="stripe" onchange="onPaymentChange()">
           <span class="co-option-ico">💳</span>
