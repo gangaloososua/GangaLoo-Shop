@@ -1405,10 +1405,17 @@ function getStock(pid,wid){
   if(!wid) return allPurchases.filter(p=>String(p.productId)===String(pid)&&p.status==='delivered').reduce((s,p)=>s+(p.remainingQty||0),0);
   return allPurchases.filter(p=>String(p.productId)===String(pid)&&String(p.warehouseId)===String(wid)&&p.status==='delivered').reduce((s,p)=>s+(p.remainingQty||0),0);
 }
+function debugStock(){
+  const total=allPurchases.filter(p=>String(p.warehouseId)===String(selectedWH)&&p.status==='delivered'&&(p.remainingQty||0)>0).length;
+  console.log('[debugStock] wh='+selectedWH+' delivered lots with stock='+total);
+  const sample=allPurchases.find(p=>String(p.warehouseId)===String(selectedWH)&&p.status==='delivered');
+  if(sample) console.log('[debugStock] sample purchase:', JSON.stringify({productId:sample.productId,warehouseId:sample.warehouseId,status:sample.status,remainingQty:sample.remainingQty}));
+}
 
 /* ── RENDER PRODUCTS ── */
 function renderProducts(){
   console.log('[renderProducts] selectedWH='+selectedWH+' selectedCat='+selectedCat+' allProducts='+allProducts.length+' allPurchases='+allPurchases.length);
+  debugStock();
   const grid=document.getElementById('prodGrid');
   const q=searchQuery;
   const ids=getEffIds(selectedCat);
