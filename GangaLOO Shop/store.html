@@ -188,6 +188,7 @@ button{font-family:'Jost',sans-serif;}
   cursor:pointer;transition:all .2s;color:var(--muted);
 }
 .wh-pill.active,.wh-pill:hover{border-color:var(--gold);color:var(--gd);background:var(--gl);}
+.wh-pill:disabled{opacity:.4;cursor:not-allowed;pointer-events:none;}
 
 /* ══════════════════════════════════════════
    HERO
@@ -1236,7 +1237,12 @@ async function loadData(){
   document.getElementById('heroStats').style.display='flex';
   
   const wasLoaded = _dataLoaded;
+  // Save backup of data
+  _purchasesBackup = allPurchases.slice();
+  _productsBackup  = allProducts.slice();
   _dataLoaded=true;_dataLoading=false;
+  // Re-render WH pills now that data is ready (enables buttons)
+  renderWH();
   buildCatStrip();
   buildShowcase();
   renderProducts();
@@ -1249,7 +1255,7 @@ async function loadData(){
 /* ── WAREHOUSE ── */
 function renderWH(){
   document.getElementById('whPills').innerHTML=allWarehouses.map(w=>
-    `<button class="wh-pill ${w.id==selectedWH?'active':''}" onclick="pickWH(${w.id},this)">🏢 ${w.name}</button>`
+    `<button class="wh-pill ${w.id==selectedWH?'active':''}" onclick="pickWH(${w.id},this)" ${_dataLoaded?'':'disabled'}>🏢 ${w.name}</button>`
   ).join('');
 }
 function pickWH(id,btn){selectedWH=String(id);selectedCat=null;document.querySelectorAll('.wh-pill').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));buildShowcase();renderProducts();buildDealSection();}
@@ -1406,9 +1412,19 @@ function getStock(pid,wid){
   if(!wid) return allPurchases.filter(p=>String(p.productId)===String(pid)&&p.status==='delivered').reduce((s,p)=>s+(p.remainingQty||0),0);
   return allPurchases.filter(p=>String(p.productId)===String(pid)&&String(p.warehouseId)===String(wid)&&p.status==='delivered').reduce((s,p)=>s+(p.remainingQty||0),0);
 }
+// Backup of loaded data — restored if loadData wipes it unexpectedly
+let _purchasesBackup=[], _productsBackup=[];
 
 /* ── RENDER PRODUCTS ── */
 function renderProducts(){
+  // Safety: restore backup if data was wiped
+  if(allPurchases.length===0 && _purchasesBackup.length>0){
+    console.warn('[renderProducts] allPurchases empty — restoring backup');
+    allPurchases=_purchasesBackup.slice();
+  }
+  if(allProducts.length===0 && _productsBackup.length>0){
+    allProducts=_productsBackup.slice();
+  }
   const grid=document.getElementById('prodGrid');
   const q=searchQuery;
   const ids=getEffIds(selectedCat);
@@ -2242,21 +2258,34 @@ function isClubMember(){ return userProfile?.role === 'club_member'; }
 function clubPrice(price){ return isClubMember() ? Math.round(price * 0.90 * 100) / 100 : price; }
 
 async function initAuth(){
-  const { data: { session } } = await sb.auth.getSession();
-  if(session){ await onSignedIn(session.user); }
-  else { showGuestState(); }
+  // Set up auth state listener FIRST before getSession
   sb.auth.onAuthStateChange(async(event,session)=>{
-    // Only react to actual sign-in/sign-out, ignore token refreshes
-    if(event==='SIGNED_IN' && session?.user && (!currentUser || currentUser.id!==session.user.id)){
-      await onSignedIn(session.user);
+    if(event==='SIGNED_IN' && session?.user){
+      // Only call onSignedIn if this is a new user or explicit new sign-in
+      if(!currentUser || currentUser.id!==session.user.id){
+        await onSignedIn(session.user);
+      }
     } else if(event==='SIGNED_OUT'){
       showGuestState();
     }
-    // Ignore: TOKEN_REFRESHED, USER_UPDATED, MFA_CHALLENGE_VERIFIED etc.
+    // Ignore: TOKEN_REFRESHED, USER_UPDATED, INITIAL_SESSION etc.
   });
+
+  // Then get current session
+  const { data: { session } } = await sb.auth.getSession();
+  if(session){
+    // Load data directly without triggering onSignedIn again
+    // (onAuthStateChange will have already fired INITIAL_SESSION)
+    await onSignedIn(session.user);
+  } else {
+    showGuestState();
+  }
 }
 
+let _signingIn=false;
 async function onSignedIn(user){
+  if(_signingIn) return; // prevent duplicate calls
+  _signingIn=true;
   currentUser=user;
   const{data:prof}=await sb.from('profiles').select('*').eq('id',user.id).single();
   userProfile=prof;
@@ -2280,6 +2309,7 @@ async function onSignedIn(user){
     _dataLoading=false;
     await loadData();
   }
+  _signingIn=false;
   loadLoyaltyDot();
   // If returning from successful Stripe payment, open orders page
   if(window._stripeSuccess){
