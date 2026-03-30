@@ -1182,8 +1182,9 @@ let _dataLoaded=false,_dataLoading=false;
 async function loadData(){
   if(_dataLoading){ setTimeout(loadData, 800); return; }
   _dataLoading=true;
-  // Only reset search/category on first load, not on reload
-  if(!_dataLoaded){
+  // Never reset user's current view state on reload
+  const isFirstLoad = !_dataLoaded;
+  if(isFirstLoad){
     searchQuery='';
     selectedCat=null;
     const si=document.getElementById('searchInput');if(si)si.value='';
@@ -1222,8 +1223,8 @@ async function loadData(){
       const bestCnt = best ? allPurchases.filter(p=>String(p.warehouseId)===String(best.id)&&p.status==='delivered'&&(p.remainingQty||0)>0).length : 0;
       return cnt > bestCnt ? w : best;
     }, null);
-    // Only set default warehouse if user hasn't already picked one
-    if(!selectedWH || !allWarehouses.find(w=>String(w.id)===selectedWH)){
+    // Only set default warehouse on first load
+    if(isFirstLoad || !selectedWH || !allWarehouses.find(w=>String(w.id)===selectedWH)){
       selectedWH = String((whWithStock || allWarehouses[0]).id);
     }
     renderWH();
@@ -2245,12 +2246,13 @@ async function initAuth(){
   if(session){ await onSignedIn(session.user); }
   else { showGuestState(); }
   sb.auth.onAuthStateChange(async(event,session)=>{
-    // Only react to actual sign-in/sign-out events, not token refreshes
-    if(event==='SIGNED_IN' && (!currentUser || currentUser.id!==session.user.id)){
+    // Only react to actual sign-in/sign-out, ignore token refreshes
+    if(event==='SIGNED_IN' && session?.user && (!currentUser || currentUser.id!==session.user.id)){
       await onSignedIn(session.user);
     } else if(event==='SIGNED_OUT'){
       showGuestState();
     }
+    // Ignore: TOKEN_REFRESHED, USER_UPDATED, MFA_CHALLENGE_VERIFIED etc.
   });
 }
 
@@ -2268,9 +2270,16 @@ async function onSignedIn(user){
   const cb = document.getElementById('clubBanner');
   if (cb) cb.className = 'club-banner' + (prof?.role==='club_member' ? ' show' : '');
   closeAuthWall();
-  _dataLoaded=false;
-  _dataLoading=false;
-  await loadData();
+  if(!_dataLoaded){
+    // First login — full load
+    _dataLoaded=false;
+    _dataLoading=false;
+    await loadData();
+  } else {
+    // Already loaded — silently refresh data without resetting state
+    _dataLoading=false;
+    await loadData();
+  }
   loadLoyaltyDot();
   // If returning from successful Stripe payment, open orders page
   if(window._stripeSuccess){
