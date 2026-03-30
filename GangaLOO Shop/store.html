@@ -1258,7 +1258,7 @@ function renderWH(){
     `<button class="wh-pill ${w.id==selectedWH?'active':''}" onclick="pickWH(${w.id},this)" ${_dataLoaded?'':'disabled'}>🏢 ${w.name}</button>`
   ).join('');
 }
-function pickWH(id,btn){selectedWH=String(id);selectedCat=null;document.querySelectorAll('.wh-pill').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));buildShowcase();renderProducts();buildDealSection();}
+function pickWH(id,btn){selectedWH=String(id);selectedCat=null;document.querySelectorAll('.wh-pill').forEach(p=>p.classList.remove('active'));btn.classList.add('active');buildCatStrip();buildShowcase();renderProducts();buildDealSection();}
 
 /* ── HELPERS ── */
 function mainCats(){return allCategories.filter(c=>!c.parentId && c.visibleInStore!==false);}
@@ -1283,11 +1283,12 @@ function buildCatStrip(){
   mains.forEach(cat=>{
     const subs=getSubCats(cat.id);
     const cnt=catCount(cat.id);
+    if(cnt===0) return; // hide categories with no stock in selected warehouse
     if(!subs.length){
       html+=`<div class="cs-item"><button class="cs-btn" data-cat="${cat.id}" onclick="filterCat(${cat.id})">${cat.icon?`<span class="ico">${cat.icon}</span>`:''}${cat.name}</button></div>`;
     } else {
       const subItems=subs.map(s=>{
-        const sc=allProducts.filter(p=>inCat(p,s.id)).length;
+        const sc=allProducts.filter(p=>inCat(p,s.id)&&(selectedWH?getStock(p.id,selectedWH)>0:allWarehouses.some(w=>getStock(p.id,w.id)>0))).length;
         return `<button class="cs-drop-item" onclick="filterCat(${s.id});scrollToProd()"><div class="cs-drop-icon">${s.icon||'📦'}</div><div><div style="font-weight:600">${s.name}</div><div style="font-size:11px;color:var(--muted)">${sc} productos</div></div></button>`;
       }).join('');
       html+=`<div class="cs-item">
@@ -1356,13 +1357,14 @@ function buildShowcase(){
   let html=`<div class="sec-eyebrow">✦ Explorar por Categoría</div><h2 class="sec-title">Nuestras Colecciones</h2><div class="cat-grid">`;
   mains.forEach((cat,i)=>{
     const subs=getSubCats(cat.id);const cnt=catCount(cat.id);
+    if(cnt===0) return; // hide categories with no stock in selected warehouse
     html+=`<div class="cat-card" onclick="filterCat(${cat.id});scrollToProd()"><div class="cat-card-inner">${cnt>0?`<span class="cat-num-badge">${cnt}</span>`:''}<span class="cat-emoji">${cat.icon||'📦'}</span><div class="cat-name">${cat.name}</div><div class="cat-cnt">${cnt} producto${cnt!==1?'s':''}</div></div></div>`;
   });
   html+='</div>';
   html+='<div class="subcat-container" id="subcatContainer">';
   mains.forEach(cat=>{
     const subs=getSubCats(cat.id);if(!subs.length)return;
-    html+=`<div class="subcat-block" data-cat="${cat.id}"><div class="subcat-hdr"><span class="subcat-hdr-icon">${cat.icon||'📦'}</span><span class="subcat-hdr-name">${cat.name}</span><button class="subcat-see-all" onclick="filterCat(${cat.id});scrollToProd()">Ver todos →</button></div><div class="subcat-pills"><button class="subcat-pill" onclick="filterCat(${cat.id});scrollToProd()">Todos en ${cat.name}</button>${subs.map(s=>{const sc=allProducts.filter(p=>inCat(p,s.id)).length;return`<button class="subcat-pill" onclick="filterCat(${s.id});scrollToProd()">${s.icon?s.icon+' ':''}${s.name}<span class="subcat-pill-cnt">${sc}</span></button>`;}).join('')}</div></div>`;
+    html+=`<div class="subcat-block" data-cat="${cat.id}"><div class="subcat-hdr"><span class="subcat-hdr-icon">${cat.icon||'📦'}</span><span class="subcat-hdr-name">${cat.name}</span><button class="subcat-see-all" onclick="filterCat(${cat.id});scrollToProd()">Ver todos →</button></div><div class="subcat-pills"><button class="subcat-pill" onclick="filterCat(${cat.id});scrollToProd()">Todos en ${cat.name}</button>${subs.map(s=>{const sc=allProducts.filter(p=>inCat(p,s.id)&&(selectedWH?getStock(p.id,selectedWH)>0:allWarehouses.some(w=>getStock(p.id,w.id)>0))).length;return`<button class="subcat-pill" onclick="filterCat(${s.id});scrollToProd()">${s.icon?s.icon+' ':''}${s.name}<span class="subcat-pill-cnt">${sc}</span></button>`;}).join('')}</div></div>`;
   });
   html+='</div>';
   document.getElementById('showcase').innerHTML=html;
