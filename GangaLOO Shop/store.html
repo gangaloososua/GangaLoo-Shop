@@ -1405,23 +1405,12 @@ function getStock(pid,wid){
   if(!wid) return allPurchases.filter(p=>String(p.productId)===String(pid)&&p.status==='delivered').reduce((s,p)=>s+(p.remainingQty||0),0);
   return allPurchases.filter(p=>String(p.productId)===String(pid)&&String(p.warehouseId)===String(wid)&&p.status==='delivered').reduce((s,p)=>s+(p.remainingQty||0),0);
 }
-function debugStock(){
-  const total=allPurchases.filter(p=>String(p.warehouseId)===String(selectedWH)&&p.status==='delivered'&&(p.remainingQty||0)>0).length;
-  console.log('[debugStock] wh='+selectedWH+' delivered lots with stock='+total);
-  const sample=allPurchases.find(p=>String(p.warehouseId)===String(selectedWH)&&p.status==='delivered');
-  if(sample) console.log('[debugStock] sample purchase:', JSON.stringify({productId:sample.productId,warehouseId:sample.warehouseId,status:sample.status,remainingQty:sample.remainingQty}));
-}
 
 /* ── RENDER PRODUCTS ── */
 function renderProducts(){
-  console.log('[renderProducts] selectedWH='+selectedWH+' selectedCat='+selectedCat+' allProducts='+allProducts.length+' allPurchases='+allPurchases.length);
-  debugStock();
   const grid=document.getElementById('prodGrid');
   const q=searchQuery;
   const ids=getEffIds(selectedCat);
-  console.log('[filter] q='+JSON.stringify(q)+' ids='+JSON.stringify(ids));
-  // count why products fail
-  let dbgHidden=0,dbgCat=0,dbgSearch=0,dbgStock=0;
   const filtered=allProducts.filter(p=>{
     if(p.visibleInStore===false) return false;
     // hide if ALL its categories are hidden
@@ -1430,13 +1419,10 @@ function renderProducts(){
       const cat=allCategories.find(c=>String(c.id)===cid);
       return cat && cat.visibleInStore===false;
     });
-    if(allHidden){dbgHidden++;return false;}
+    if(allHidden) return false;
     const mc=!ids||prodMatchesCat(p,ids);
     const ms=!q||p.name.toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q);
     const inStock=selectedWH?getStock(p.id,selectedWH)>0:allWarehouses.some(w=>getStock(p.id,w.id)>0);
-    if(!mc) dbgCat++;
-    if(!ms) dbgSearch++;
-    if(!inStock) dbgStock++;
     return mc&&ms&&inStock;
   });
   let title='Todos los Productos',bc='';
@@ -1452,7 +1438,7 @@ function renderProducts(){
       }
     }
   }
-  console.log('[renderProducts] filtered='+filtered.length+' (from '+allProducts.length+') hidden='+dbgHidden+' cat='+dbgCat+' search='+dbgSearch+' stock='+dbgStock);
+
   document.getElementById('secTitle').textContent=title;
   document.getElementById('breadcrumb').innerHTML=bc;
   document.getElementById('prodCnt').textContent=`${filtered.length} producto${filtered.length!==1?'s':''}`;
