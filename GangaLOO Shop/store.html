@@ -1193,9 +1193,9 @@ async function loadData(){
     document.getElementById('prodGrid').innerHTML='<div class="empty"><div class="ico">🌐</div><h3>Abre en un servidor</h3><p>Los archivos locales no pueden conectar a Supabase. Sube a Netlify o usa <code>npx serve .</code> y abre localhost.</p></div>';
     return;
   }
-  // Show skeleton cards immediately
+  // Show skeleton cards only on very first load
   const grid = document.getElementById('prodGrid');
-  if (grid && grid.children.length === 0) {
+  if (grid && grid.children.length === 0 && !_dataLoaded) {
     grid.innerHTML = Array(8).fill(0).map(()=>`
       <div style="background:white;border-radius:16px;padding:20px;animation:pulse 1.5s ease-in-out infinite;">
         <div style="height:180px;background:#f0ede8;border-radius:10px;margin-bottom:12px;"></div>
@@ -1234,8 +1234,15 @@ async function loadData(){
   document.getElementById('stWh').textContent=allWarehouses.length;
   document.getElementById('heroStats').style.display='flex';
   
+  const wasLoaded = _dataLoaded;
   _dataLoaded=true;_dataLoading=false;
-  buildCatStrip();buildShowcase();renderProducts();buildCatDrawer();buildDealSection();
+  buildCatStrip();
+  buildShowcase();
+  renderProducts();
+  buildCatDrawer();
+  buildDealSection();
+  // Restore active category button after rebuild
+  if(wasLoaded) setActiveStripBtn(selectedCat);
 }
 
 /* ── WAREHOUSE ── */
@@ -1401,6 +1408,7 @@ function getStock(pid,wid){
 
 /* ── RENDER PRODUCTS ── */
 function renderProducts(){
+  console.log('[renderProducts] selectedWH='+selectedWH+' selectedCat='+selectedCat+' allProducts='+allProducts.length+' allPurchases='+allPurchases.length);
   const grid=document.getElementById('prodGrid');
   const q=searchQuery;
   const ids=getEffIds(selectedCat);
@@ -1431,6 +1439,7 @@ function renderProducts(){
       }
     }
   }
+  console.log('[renderProducts] filtered='+filtered.length+' (from '+allProducts.length+' products)');
   document.getElementById('secTitle').textContent=title;
   document.getElementById('breadcrumb').innerHTML=bc;
   document.getElementById('prodCnt').textContent=`${filtered.length} producto${filtered.length!==1?'s':''}`;
