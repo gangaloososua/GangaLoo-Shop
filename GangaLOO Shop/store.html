@@ -2258,34 +2258,22 @@ function isClubMember(){ return userProfile?.role === 'club_member'; }
 function clubPrice(price){ return isClubMember() ? Math.round(price * 0.90 * 100) / 100 : price; }
 
 async function initAuth(){
-  // Set up auth state listener FIRST before getSession
-  sb.auth.onAuthStateChange(async(event,session)=>{
-    if(event==='SIGNED_IN' && session?.user){
-      // Only call onSignedIn if this is a new user or explicit new sign-in
-      if(!currentUser || currentUser.id!==session.user.id){
-        await onSignedIn(session.user);
-      }
-    } else if(event==='SIGNED_OUT'){
-      showGuestState();
-    }
-    // Ignore: TOKEN_REFRESHED, USER_UPDATED, INITIAL_SESSION etc.
-  });
-
-  // Then get current session
   const { data: { session } } = await sb.auth.getSession();
   if(session){
-    // Load data directly without triggering onSignedIn again
-    // (onAuthStateChange will have already fired INITIAL_SESSION)
     await onSignedIn(session.user);
   } else {
     showGuestState();
   }
+  sb.auth.onAuthStateChange(async(event,session)=>{
+    if(event==='SIGNED_IN' && session?.user && (!currentUser || currentUser.id!==session.user.id)){
+      await onSignedIn(session.user);
+    } else if(event==='SIGNED_OUT'){
+      showGuestState();
+    }
+  });
 }
 
-let _signingIn=false;
 async function onSignedIn(user){
-  if(_signingIn) return; // prevent duplicate calls
-  _signingIn=true;
   currentUser=user;
   const{data:prof}=await sb.from('profiles').select('*').eq('id',user.id).single();
   userProfile=prof;
@@ -2299,17 +2287,18 @@ async function onSignedIn(user){
   const cb = document.getElementById('clubBanner');
   if (cb) cb.className = 'club-banner' + (prof?.role==='club_member' ? ' show' : '');
   closeAuthWall();
-  if(!_dataLoaded){
-    // First login — full load
-    _dataLoaded=false;
-    _dataLoading=false;
-    await loadData();
-  } else {
-    // Already loaded — silently refresh data without resetting state
-    _dataLoading=false;
-    await loadData();
+  // Prevent double load — if already loading, wait for it
+  if(_dataLoading){
+    // Wait for current load to finish
+    await new Promise(resolve => {
+      const check = setInterval(() => {
+        if(!_dataLoading){ clearInterval(check); resolve(); }
+      }, 100);
+    });
+    return; // data already loaded by previous call
   }
-  _signingIn=false;
+  _dataLoaded=false;
+  await loadData();
   loadLoyaltyDot();
   // If returning from successful Stripe payment, open orders page
   if(window._stripeSuccess){
