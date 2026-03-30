@@ -1244,7 +1244,7 @@ function renderWH(){
     `<button class="wh-pill ${w.id==selectedWH?'active':''}" onclick="pickWH(${w.id},this)">🏢 ${w.name}</button>`
   ).join('');
 }
-function pickWH(id,btn){selectedWH=String(id);document.querySelectorAll('.wh-pill').forEach(p=>p.classList.remove('active'));btn.classList.add('active');buildShowcase();renderProducts();buildDealSection();}
+function pickWH(id,btn){selectedWH=String(id);selectedCat=null;document.querySelectorAll('.wh-pill').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));buildShowcase();renderProducts();buildDealSection();}
 
 /* ── HELPERS ── */
 function mainCats(){return allCategories.filter(c=>!c.parentId && c.visibleInStore!==false);}
