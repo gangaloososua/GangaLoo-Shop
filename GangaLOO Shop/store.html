@@ -1182,10 +1182,12 @@ let _dataLoaded=false,_dataLoading=false;
 async function loadData(){
   if(_dataLoading){ setTimeout(loadData, 800); return; }
   _dataLoading=true;
-  // Reset search state
-  searchQuery='';
-  selectedCat=null;
-  const si=document.getElementById('searchInput');if(si)si.value='';
+  // Only reset search/category on first load, not on reload
+  if(!_dataLoaded){
+    searchQuery='';
+    selectedCat=null;
+    const si=document.getElementById('searchInput');if(si)si.value='';
+  }
   if(!sb){document.getElementById('prodGrid').innerHTML='<div class="empty"><div class="ico">⚙️</div><h3>Configura Supabase</h3><p>Reemplaza las credenciales en el archivo.</p></div>';return;}
   if(window.location.protocol==='file:'){
     document.getElementById('prodGrid').innerHTML='<div class="empty"><div class="ico">🌐</div><h3>Abre en un servidor</h3><p>Los archivos locales no pueden conectar a Supabase. Sube a Netlify o usa <code>npx serve .</code> y abre localhost.</p></div>';
@@ -2258,8 +2260,6 @@ async function onSignedIn(user){
   const cb = document.getElementById('clubBanner');
   if (cb) cb.className = 'club-banner' + (prof?.role==='club_member' ? ' show' : '');
   closeAuthWall();
-  searchQuery='';
-  const si=document.getElementById('searchInput');if(si)si.value='';
   _dataLoaded=false;
   _dataLoading=false;
   await loadData();
