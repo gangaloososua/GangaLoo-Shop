@@ -22,6 +22,16 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('mcNum').textContent=memberNum;
   document.getElementById('mcSince').textContent=joinDate;
 });
+function updatePlanInfo(){
+  var val=document.getElementById('fPlan').value.split('|');
+  var name=val[0]; var price=parseInt(val[1]);
+  var savings='';
+  if(name==='Trimestral') savings='&#128176; Ahorras RD$498 vs pago mensual (RD$1,499 x 3 = RD$4,497... wait)';
+  if(name==='Trimestral') savings='&#128176; Ahorras RD$498 vs 3 meses individuales (RD$4,497 - RD$2,999)';
+  if(name==='Semestral') savings='&#128176; Ahorras RD$3,995 vs 6 meses individuales (RD$8,994 - RD$4,999)';
+  if(name==='Mensual') savings='&#128161; Ideal para probar el club sin compromiso';
+  document.getElementById('planSavings').innerHTML=savings;
+}
 function updateCard(){
   var n=document.getElementById('fNombre').value.trim();
   var a=document.getElementById('fApellido').value.trim();
@@ -53,47 +63,47 @@ async function submitForm(){
   var btn=document.querySelector('.submit-btn');
   btn.disabled=true;btn.textContent='&#9203; Registrando...';
   var fullName=(nombre+' '+apellido).trim();
+  // Get plan name before try block
+  var planVal0=document.getElementById('fPlan').value.split('|');
+  var planName=planVal0[0];
+
   try{
     var uid = null;
 
-    // Step 1: Try signing in first (works for existing users)
+    // Try signing in first (handles existing users)
     var si = await _sb.auth.signInWithPassword({email:email, password:pass});
     if(si.data && si.data.user && si.data.user.id){
       uid = si.data.user.id;
-      await _sb.auth.signOut(); // sign out after getting uid
+      await _sb.auth.signOut();
     } else {
-      // Step 2: Not signed in — try signing up (new user)
+      // New user - sign up
       var ar = await _sb.auth.signUp({email:email, password:pass, options:{data:{full_name:fullName}}});
       if(ar.data && ar.data.user && ar.data.user.id){
         uid = ar.data.user.id;
       } else if(ar.error){
-        throw new Error('Error: '+ar.error.message+'. Si ya tienes cuenta, verifica tu contraseña.');
+        throw new Error('Error de registro: '+ar.error.message+'. Si ya tienes cuenta, verifica tu contraseña.');
       }
     }
 
-    // Step 3: For NEW users only - create profile. For existing users, don't touch their profile.
+    // For NEW users only - create profile without overwriting existing role
     if(uid){
-      // Check if profile exists first
       var profCheck = await _sb.from('profiles').select('id,role').eq('id', uid).maybeSingle();
       if(!profCheck.data){
-        // New user - create profile
         await _sb.from('profiles').insert({
-          id:uid, email:email, full_name:fullName, role:'customer', is_club_member: false
+          id:uid, email:email, full_name:fullName, role:'customer', is_club_member:false
         });
       }
-      // Don't touch existing profiles - role and is_club_member will be set by admin when activating
+      // Never overwrite existing role (sellers keep seller role etc.)
     }
 
-    // Step 4: Check if already in club_members
+    // Check if already applied
     var existing = await _sb.from('club_members').select('id').eq('email', email).maybeSingle();
     if(existing.data){
-      // Already applied — update to pending
       var upd = await _sb.from('club_members').update({
-        status:'pending', full_name:fullName, phone:tel, city:ciudad, user_id:uid
+        status:'pending', full_name:fullName, phone:tel, city:ciudad, plan:planName, user_id:uid
       }).eq('email', email);
       if(upd.error) throw new Error('Error actualizando solicitud: '+upd.error.message);
     } else {
-      // New application
       var ins = await _sb.from('club_members').insert({
         user_id:uid,
         member_number:memberNum,
@@ -101,7 +111,7 @@ async function submitForm(){
         email:email,
         phone:tel,
         city:ciudad,
-        plan:'Trimestral',
+        plan:planName,
         status:'pending',
         joined_at:new Date().toISOString()
       });
@@ -112,12 +122,14 @@ async function submitForm(){
     alert('Error: '+err.message);return;
   }
   btn.disabled=false;btn.textContent='&#128081; Solicitar Membresia';
+  var planVal=document.getElementById('fPlan').value.split('|');
+  var planPrice=planVal[1];
   var msg=[
     '*Nueva Solicitud - Club GangaLoo*','',
     'Nombre: '+fullName,'Telefono: '+tel,
     'Email: '+email,'Ciudad: '+(ciudad||'-'),
     'No Membresia: '+memberNum,'Fecha: '+joinDate,
-    'Plan: Trimestral - RD$1,999','',
+    'Plan: '+planName+' - RD$'+planPrice,'',
     '_Pendiente verificacion de pago_'
   ].join('\n');
   var waUrl='https://wa.me/18292867868?text='+encodeURIComponent(msg);
@@ -261,13 +273,43 @@ footer p{font-size:0.8rem;color:rgba(255,255,255,0.3);}
   <a class="nav-back" href="https://gangaloo.netlify.app/">&#8592; Volver al inicio</a>
 </nav>
 
+<!-- PROMO BANNER -->
+<div style="background:linear-gradient(90deg,var(--red) 0%,#a01022 50%,var(--red) 100%);padding:14px 5vw;text-align:center;position:relative;overflow:hidden;">
+  <div style="position:absolute;inset:0;background-image:linear-gradient(45deg,rgba(255,255,255,0.03) 25%,transparent 25%,transparent 75%,rgba(255,255,255,0.03) 75%);background-size:20px 20px;"></div>
+  <div style="position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:1rem;flex-wrap:wrap;">
+    <span style="font-size:1.3rem;">&#127881;</span>
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:2px;color:#fff;">OFERTA DE LANZAMIENTO</span>
+    <span style="background:var(--gold);color:var(--black);font-size:0.75rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 12px;border-radius:20px;">TIEMPO LIMITADO</span>
+    <span style="font-size:0.88rem;color:rgba(255,255,255,0.9);">&#8226; Tarjeta virtual gratis &#8226; 10% descuento en toda la tienda &#8226; Direccion de envio propia</span>
+    <a href="#signup" style="background:#fff;color:var(--red);font-size:0.8rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:7px 18px;border-radius:20px;text-decoration:none;white-space:nowrap;">Unirme ahora &#8594;</a>
+  </div>
+</div>
+
 <div class="hero">
   <div class="hero-inner">
     <span class="crown">&#128081;</span>
     <div class="hero-badge">Membresia Exclusiva</div>
     <h1>Club<em>GangaLoo</em></h1>
     <p>Unete al club mas exclusivo de compradores en Republica Dominicana. Descuentos automaticos, acceso anticipado a ofertas y beneficios unicos cada mes.</p>
-    <div class="price-pill">RD$1,999 <span style="font-size:1rem;font-weight:400;font-family:'DM Sans';opacity:0.7;">/ 3 meses</span></div>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-bottom:2.5rem;">
+  <div style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:16px 20px;text-align:center;min-width:130px;">
+    <div style="font-size:0.65rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:4px;">1 mes</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:#fff;letter-spacing:1px;">RD$1,499</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);margin-top:2px;">por mes</div>
+  </div>
+  <div style="background:var(--gold);border:2px solid var(--gold-light);border-radius:12px;padding:16px 20px;text-align:center;min-width:130px;position:relative;">
+    <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--red);color:#fff;font-size:0.6rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;border-radius:10px;white-space:nowrap;">Popular</div>
+    <div style="font-size:0.65rem;letter-spacing:2px;text-transform:uppercase;color:rgba(0,0,0,0.5);margin-bottom:4px;">3 meses</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--black);letter-spacing:1px;">RD$2,999</div>
+    <div style="font-size:0.7rem;color:rgba(0,0,0,0.5);margin-top:2px;">RD$1,000/mes</div>
+  </div>
+  <div style="background:rgba(255,255,255,0.1);border:2px solid rgba(200,168,75,0.4);border-radius:12px;padding:16px 20px;text-align:center;min-width:130px;position:relative;">
+    <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;font-size:0.6rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;border-radius:10px;white-space:nowrap;">Mejor valor</div>
+    <div style="font-size:0.65rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:4px;">6 meses</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--gold);letter-spacing:1px;">RD$4,999</div>
+    <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);margin-top:2px;">RD$833/mes</div>
+  </div>
+</div>
     <a href="#signup" style="display:inline-block;background:var(--red);color:#fff;padding:15px 40px;border-radius:8px;font-weight:700;font-size:1rem;letter-spacing:1px;text-transform:uppercase;text-decoration:none;">Unirme Ahora &#8594;</a>
   </div>
 </div>
@@ -283,7 +325,7 @@ footer p{font-size:0.8rem;color:rgba(255,255,255,0.3);}
       <div class="ben-card"><span class="ben-icon">&#11088;</span><h3>Puntos Dobles</h3><p>Acumula el doble de puntos en cada compra para canjearlo por productos gratis o descuentos adicionales.</p></div>
       <div class="ben-card"><span class="ben-icon">&#127873;</span><h3>Sorpresas Mensuales</h3><p>Cada mes te enviamos una sorpresa especial: muestras, productos exclusivos o invitaciones a eventos.</p></div>
       <div class="ben-card"><span class="ben-icon">&#128222;</span><h3>Atencion VIP</h3><p>Linea directa de WhatsApp para miembros. Respuesta prioritaria y atencion personalizada siempre.</p></div>
-      <div class="ben-card" style="border-left-color:var(--red);"><span class="ben-icon">&#128179;</span><h3>Tarjeta de Debito Virtual</h3><p>Como miembro obtienes acceso a una <strong>tarjeta de debito virtual GangaLoo</strong> gratuita. Carga saldo, usala para comprar en nuestra tienda. Aplican cargos de servicio.</p></div>
+      <div class="ben-card" style="border-left-color:var(--red);background:linear-gradient(135deg,#fff 0%,#fff8f0 100%);"><span class="ben-icon">&#128179;</span><h3>Tarjeta de Debito Virtual GRATIS</h3><p>Obtien tu propia <strong>tarjeta de debito virtual GangaLoo</strong> sin costo. Carga saldo desde tu banco, paga en nuestra tienda online con tu tarjeta, consulta tu balance en tu portal de miembro y gestiona tus compras sin efectivo. Aplican cargos de servicio por transaccion.</p></div>
       <div class="ben-card" style="border-left-color:var(--blue);"><span class="ben-icon">&#127968;</span><h3>Direccion de Envio Propia</h3><p>Obtien una <strong>direccion de envio personalizada</strong> con GangaLoo. Compra en tiendas internacionales y nosotros recibimos y entregamos tus paquetes. Aplican cargos por peso.</p></div>
     </div>
   </div>
@@ -322,7 +364,14 @@ footer p{font-size:0.8rem;color:rgba(255,255,255,0.3);}
             <img class="photo-preview" id="photoPreview" src="" alt="preview">
           </div>
         </div>
-        <div class="field-group"><label>Plan</label><select id="fPlan"><option value="Trimestral">Trimestral &mdash; RD$1,999 / 3 meses</option></select></div>
+        <div class="field-group"><label>Plan de Membresia</label>
+<select id="fPlan" onchange="updatePlanInfo()" style="font-size:1rem;padding:13px 14px;">
+  <option value="Mensual|1499">Mensual &mdash; RD$1,499 / mes</option>
+  <option value="Trimestral|2999" selected>Trimestral &mdash; RD$2,999 / 3 meses &#9733; Popular</option>
+  <option value="Semestral|4999">Semestral &mdash; RD$4,999 / 6 meses &#9733;&#9733; Mejor valor</option>
+</select>
+<div id="planSavings" style="font-size:0.78rem;color:var(--blue);font-weight:600;margin-top:0.4rem;padding:6px 10px;background:rgba(0,45,98,0.06);border-radius:6px;">&#128176; Ahorras RD$498 vs pago mensual (RD$2,997 x 3)</div>
+</div>
         <button class="submit-btn" onclick="submitForm()">&#128081; Solicitar Membresia</button>
       </div>
       <div class="card-preview-wrap">
@@ -358,7 +407,7 @@ footer p{font-size:0.8rem;color:rgba(255,255,255,0.3);}
   <div class="payment-inner">
     <span class="success-icon">&#9989;</span>
     <h2>&#161;SOLICITUD ENVIADA!</h2>
-    <p>Tu solicitud de membresia fue recibida. Ahora debes realizar el pago de <strong>RD$1,999</strong> para activar tu cuenta. Una vez verificado el pago, tu descuento se activa automaticamente en la tienda.</p>
+    <p>Tu solicitud de membresia fue recibida. Ahora debes realizar el pago segun el plan que seleccionaste para activar tu cuenta. Una vez verificado el pago, tu descuento se activa automaticamente en la tienda.</p>
     <div class="pay-cards">
       <div class="pay-card"><div class="pay-icon">&#127974;</div><h4>Transferencia Bancaria</h4><p>Banco: <strong>Banreservas</strong></p><div class="detail">Cta: XXXX-XXXX-XXXX</div><div class="detail">A nombre de: GangaLoo</div></div>
       <div class="pay-card"><div class="pay-icon">&#128181;</div><h4>Efectivo</h4><p>Visitanos en cualquiera de nuestras tiendas y paga en caja.</p><div class="detail">&#128205; GangaLoo Montellano</div><div class="detail">&#128205; GangaLoo Maranatha</div></div>
@@ -377,7 +426,7 @@ footer p{font-size:0.8rem;color:rgba(255,255,255,0.3);}
     <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;"><div style="width:24px;height:2px;background:var(--blue);"></div><span style="font-size:0.72rem;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--blue);">Terminos y condiciones</span></div>
     <h3 style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:2px;color:var(--blue);margin-bottom:1.5rem;">REGLAMENTO DEL CLUB GANGALOO</h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.2rem;margin-bottom:2rem;">
-      <div style="background:#fff;border-radius:10px;padding:1.4rem;border-left:3px solid var(--blue);"><div style="font-size:1.2rem;margin-bottom:0.5rem;">&#128197;</div><h4 style="font-weight:700;color:var(--blue);font-size:0.9rem;margin-bottom:0.4rem;">Renovacion trimestral</h4><p style="font-size:0.82rem;color:#555;line-height:1.6;">La membresia cubre 3 meses por RD$1,999. Si el pago del siguiente trimestre no es recibido antes del vencimiento, la membresia quedara suspendida automaticamente.</p></div>
+      <div style="background:#fff;border-radius:10px;padding:1.4rem;border-left:3px solid var(--blue);"><div style="font-size:1.2rem;margin-bottom:0.5rem;">&#128197;</div><h4 style="font-weight:700;color:var(--blue);font-size:0.9rem;margin-bottom:0.4rem;">Renovacion segun plan</h4><p style="font-size:0.82rem;color:#555;line-height:1.6;">La membresia se renueva segun el plan elegido: mensual (RD$1,499), trimestral (RD$2,999) o semestral (RD$4,999). Si el pago no es recibido antes del vencimiento, la membresia quedara suspendida automaticamente.</p></div>
       <div style="background:#fff;border-radius:10px;padding:1.4rem;border-left:3px solid var(--red);"><div style="font-size:1.2rem;margin-bottom:0.5rem;">&#8617;&#65039;</div><h4 style="font-weight:700;color:var(--blue);font-size:0.9rem;margin-bottom:0.4rem;">Politica de reembolso</h4><p style="font-size:0.82rem;color:#555;line-height:1.6;">Reembolso completo disponible dentro de los primeros <strong>3 dias</strong> desde la activacion, siempre que no se haya realizado ningun pedido con descuento de membresia.</p></div>
       <div style="background:#fff;border-radius:10px;padding:1.4rem;border-left:3px solid var(--gold);"><div style="font-size:1.2rem;margin-bottom:0.5rem;">&#9888;&#65039;</div><h4 style="font-weight:700;color:var(--blue);font-size:0.9rem;margin-bottom:0.4rem;">Activacion y verificacion</h4><p style="font-size:0.82rem;color:#555;line-height:1.6;">La membresia se activa despues de verificar el pago manualmente. El proceso puede tomar hasta 24 horas habiles.</p></div>
       <div style="background:#fff;border-radius:10px;padding:1.4rem;border-left:3px solid var(--blue);"><div style="font-size:1.2rem;margin-bottom:0.5rem;">&#127991;&#65039;</div><h4 style="font-weight:700;color:var(--blue);font-size:0.9rem;margin-bottom:0.4rem;">Uso personal e intransferible</h4><p style="font-size:0.82rem;color:#555;line-height:1.6;">La membresia es estrictamente personal. No puede transferirse ni compartirse. Cualquier uso indebido resultara en cancelacion inmediata sin reembolso.</p></div>
