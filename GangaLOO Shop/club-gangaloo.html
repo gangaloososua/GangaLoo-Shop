@@ -220,6 +220,7 @@ footer p { font-size:0.8rem; color:rgba(255,255,255,0.3); }
 .hero-inner>*:nth-child(4){animation-delay:.3s}
 .hero-inner>*:nth-child(5){animation-delay:.4s}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -328,6 +329,20 @@ footer p { font-size:0.8rem; color:rgba(255,255,255,0.3); }
         <div class="field-group">
           <label>Ciudad</label>
           <input type="text" id="fCiudad" placeholder="Sosúa, Puerto Plata..." oninput="updateCard()">
+        </div>
+
+        <div style="background:rgba(0,45,98,0.06);border:1px solid rgba(0,45,98,0.15);border-radius:8px;padding:1rem 1.2rem;margin-bottom:1.2rem;">
+          <p style="font-size:0.78rem;color:#555;margin-bottom:1rem;line-height:1.6;">🔐 <strong>Crea tu contraseña</strong> para acceder a tu cuenta en la tienda con el mismo email.</p>
+          <div class="field-row">
+            <div class="field-group" style="margin-bottom:0;">
+              <label>Contraseña</label>
+              <input type="password" id="fPassword" placeholder="Mínimo 6 caracteres">
+            </div>
+            <div class="field-group" style="margin-bottom:0;">
+              <label>Confirmar contraseña</label>
+              <input type="password" id="fPassword2" placeholder="Repite la contraseña">
+            </div>
+          </div>
         </div>
 
         <div class="field-group">
@@ -569,28 +584,103 @@ function handlePhoto(input) {
   reader.readAsDataURL(input.files[0]);
 }
 
-function submitForm() {
-  const nombre = document.getElementById('fNombre').value.trim();
-  const tel    = document.getElementById('fTel').value.trim();
-  const email  = document.getElementById('fEmail').value.trim();
+// Init Supabase
+const _sb = supabase.createClient('https://xnbkwczolkinurohloxj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes');
 
+async function submitForm() {
+  const nombre   = document.getElementById('fNombre').value.trim();
+  const apellido = document.getElementById('fApellido').value.trim();
+  const tel      = document.getElementById('fTel').value.trim();
+  const email    = document.getElementById('fEmail').value.trim();
+  const ciudad   = document.getElementById('fCiudad').value.trim();
+  const pass     = document.getElementById('fPassword').value;
+  const pass2    = document.getElementById('fPassword2').value;
+
+  // Validate
   if (!nombre || !tel || !email) {
-    alert('Por favor completa al menos nombre, teléfono y correo.');
+    alert('Por favor completa nombre, teléfono y correo.');
+    return;
+  }
+  if (!pass || pass.length < 6) {
+    alert('La contraseña debe tener al menos 6 caracteres.');
+    return;
+  }
+  if (pass !== pass2) {
+    alert('Las contraseñas no coinciden.');
     return;
   }
 
+  const btn = document.querySelector('.submit-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Registrando...';
+
+  const fullName = (nombre + ' ' + apellido).trim();
+
+  try {
+    // 1. Create Supabase auth account
+    const { data: authData, error: authErr } = await _sb.auth.signUp({
+      email,
+      password: pass,
+      options: { data: { full_name: fullName } }
+    });
+
+    if (authErr) {
+      // If already registered, still allow to proceed with club signup
+      if (!authErr.message.toLowerCase().includes('already')) {
+        throw new Error('Error de registro: ' + authErr.message);
+      }
+    }
+
+    const userId = authData?.user?.id || null;
+
+    // 2. Upsert into profiles with club_member role
+    if (userId) {
+      await _sb.from('profiles').upsert({
+        id: userId,
+        email,
+        full_name: fullName,
+        role: 'club_member'
+      });
+    }
+
+    // 3. Insert into club_members table
+    const { error: clubErr } = await _sb.from('club_members').insert({
+      user_id:       userId,
+      member_number: memberNum,
+      full_name:     fullName,
+      email,
+      phone:         tel,
+      city:          ciudad,
+      plan:          'Trimestral',
+      status:        'pending',
+      joined_at:     new Date().toISOString()
+    });
+
+    if (clubErr && !clubErr.message.includes('duplicate')) {
+      console.warn('Club insert warning:', clubErr.message);
+    }
+
+  } catch(err) {
+    btn.disabled = false;
+    btn.textContent = '👑 Solicitar Membresía';
+    alert('Error: ' + err.message);
+    return;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '👑 Solicitar Membresía';
+
   // Build WhatsApp message
-  const apellido = document.getElementById('fApellido').value.trim();
-  const ciudad   = document.getElementById('fCiudad').value.trim();
   const msg = [
     '*🌟 Nueva Solicitud — Club GangaLoo*',
     '',
-    `👤 Nombre: ${nombre} ${apellido}`,
+    `👤 Nombre: ${fullName}`,
     `📱 Teléfono: ${tel}`,
     `✉️ Email: ${email}`,
     `📍 Ciudad: ${ciudad || '—'}`,
     `🔖 Nº Membresía: ${memberNum}`,
     `📅 Fecha: ${joinDate}`,
+    `💳 Plan: Trimestral — RD$1,999`,
     '',
     '_Pendiente verificación de pago_'
   ].join('\n');
@@ -598,7 +688,7 @@ function submitForm() {
   const waUrl = 'https://wa.me/18298417980?text=' + encodeURIComponent(msg);
   document.getElementById('waConfirmBtn').href = waUrl;
 
-  // Activate card download buttons
+  // Activate card buttons
   const actions = document.getElementById('cardActions');
   actions.style.opacity = '1';
   actions.style.pointerEvents = 'auto';
