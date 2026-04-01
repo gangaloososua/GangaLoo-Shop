@@ -1062,6 +1062,7 @@
             <button class="tab" onclick="switchTab('usuarios'); loadUsuarios(); loadSellerApplications()">👥 Usuarios</button>
             <button class="tab" onclick="switchTab('storeconfig'); loadStoreConfig()">🏪 Config Tienda</button>
             <button class="tab" onclick="switchTab('lealtad'); loadLealtad()">⭐ Lealtad</button>
+            <button class="tab" onclick="switchTab('clubgangaloo'); loadClubMembers()">🏆 Club GangaLoo</button>
             </div>
             <button class="tabs-arrow tabs-arrow-right" id="tabsArrowRight" onclick="scrollTabs(200)" aria-label="Scroll tabs right">&#8250;</button>
         </div>
@@ -2343,6 +2344,29 @@
         </div>
 
         <!-- Data Tab -->
+        <!-- Club GangaLoo Tab -->
+        <div id="clubgangaloo" class="tab-content">
+            <div class="form-section">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+                    <h2 style="margin:0;">🏆 Club GangaLoo</h2>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        <input type="text" id="clubSearch" placeholder="Buscar miembro..." oninput="renderClubMembers()"
+                            style="padding:7px 12px;border:1px solid #ddd;border-radius:8px;font-size:.88em;width:200px;">
+                        <select id="clubStatusFilter" onchange="renderClubMembers()"
+                            style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:.88em;">
+                            <option value="">Todos los estados</option>
+                            <option value="active">✅ Activos</option>
+                            <option value="pending">⏳ Pendientes</option>
+                            <option value="suspended">🚫 Suspendidos</option>
+                        </select>
+                        <button class="btn btn-secondary btn-small" onclick="loadClubMembers()">🔄 Actualizar</button>
+                    </div>
+                </div>
+                <div id="clubSummaryBar" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;"></div>
+                <div id="clubMembersList"></div>
+            </div>
+        </div>
+
         <div id="data" class="tab-content">
             <div class="form-section">
                 <h2>Gestión de Datos</h2>
@@ -5015,6 +5039,171 @@
 
         let lealtadData = [];
         let adjustPtsEmail = '';
+
+        // ── CLUB GANGALOO ────────────────────────────────────────────
+        let _clubMembers = [];
+
+        async function loadClubMembers() {
+            const container = document.getElementById('clubMembersList');
+            if (!container) return;
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#aaa;"><div style="font-size:2em;">⏳</div><p>Cargando miembros...</p></div>';
+
+            try {
+                // Try club_members table first, fallback to profiles
+                let members = [];
+                const { data: clubData, error: clubErr } = await sb
+                    .from('club_members')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (!clubErr && clubData) {
+                    members = clubData;
+                } else {
+                    // Fallback: use profiles with role = club_member
+                    const { data: profileData } = await sb
+                        .from('profiles')
+                        .select('*')
+                        .eq('role', 'club_member')
+                        .order('created_at', { ascending: false });
+                    members = (profileData || []).map(p => ({
+                        id: p.id,
+                        name: p.full_name || p.name || '—',
+                        email: p.email,
+                        phone: p.phone || null,
+                        membership_number: p.membership_number || 'MBR-' + String(p.id).slice(-6).toUpperCase(),
+                        status: p.membership_status || 'active',
+                        balance: p.balance || 0,
+                        created_at: p.created_at,
+                        notes: p.notes || null,
+                    }));
+                }
+
+                // Calculate loyalty points for each member
+                const { data: orders } = await sb
+                    .from('online_orders')
+                    .select('customer_email, total, status')
+                    .eq('status', 'approved');
+
+                const pointsMap = {};
+                (orders || []).forEach(o => {
+                    if (!pointsMap[o.customer_email]) pointsMap[o.customer_email] = 0;
+                    pointsMap[o.customer_email] += Math.floor(parseFloat(o.total||0) / 100 * 2); // 2x points for club
+                });
+
+                _clubMembers = members.map(m => ({
+                    ...m,
+                    loyaltyPoints: pointsMap[m.email] || 0,
+                    totalSpent: (orders||[]).filter(o=>o.customer_email===m.email).reduce((s,o)=>s+parseFloat(o.total||0),0)
+                }));
+
+                renderClubMembers();
+            } catch(err) {
+                container.innerHTML = `<div style="color:#dc2626;padding:20px;">Error: ${err.message}</div>`;
+            }
+        }
+
+        function renderClubMembers() {
+            const container = document.getElementById('clubMembersList');
+            const summaryBar = document.getElementById('clubSummaryBar');
+            if (!container) return;
+
+            const search = (document.getElementById('clubSearch')?.value || '').toLowerCase();
+            const statusFilter = document.getElementById('clubStatusFilter')?.value || '';
+
+            const filtered = _clubMembers.filter(m => {
+                const matchSearch = !search ||
+                    (m.name||'').toLowerCase().includes(search) ||
+                    (m.email||'').toLowerCase().includes(search) ||
+                    (m.phone||'').includes(search) ||
+                    (m.membership_number||'').toLowerCase().includes(search);
+                const matchStatus = !statusFilter || m.status === statusFilter;
+                return matchSearch && matchStatus;
+            });
+
+            // Summary bar
+            const total   = _clubMembers.length;
+            const active  = _clubMembers.filter(m=>m.status==='active').length;
+            const pending = _clubMembers.filter(m=>m.status==='pending').length;
+            const susp    = _clubMembers.filter(m=>m.status==='suspended').length;
+            summaryBar.innerHTML = `
+                <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:8px 16px;font-size:.83em;"><strong style="color:#166534;">${active}</strong> ✅ Activos</div>
+                <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:8px 16px;font-size:.83em;"><strong style="color:#92400e;">${pending}</strong> ⏳ Pendientes</div>
+                <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:8px 16px;font-size:.83em;"><strong style="color:#991b1b;">${susp}</strong> 🚫 Suspendidos</div>
+                <div style="background:#f8f6ff;border:1px solid #c8d4f0;border-radius:10px;padding:8px 16px;font-size:.83em;"><strong style="color:#002D62;">${total}</strong> total</div>`;
+
+            if (!filtered.length) {
+                container.innerHTML = '<div style="text-align:center;padding:40px;color:#aaa;">No se encontraron miembros.</div>';
+                return;
+            }
+
+            const statusBadge = s => {
+                if (s==='active')    return '<span style="background:#dcfce7;color:#166534;border-radius:12px;padding:3px 10px;font-size:.75em;font-weight:700;">✅ Activo</span>';
+                if (s==='pending')   return '<span style="background:#fef9c3;color:#92400e;border-radius:12px;padding:3px 10px;font-size:.75em;font-weight:700;">⏳ Pendiente</span>';
+                if (s==='suspended') return '<span style="background:#fee2e2;color:#991b1b;border-radius:12px;padding:3px 10px;font-size:.75em;font-weight:700;">🚫 Suspendido</span>';
+                return `<span style="background:#f0ede8;border-radius:12px;padding:3px 10px;font-size:.75em;">${s}</span>`;
+            };
+
+            let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;">';
+            filtered.forEach(m => {
+                const joinDate = m.created_at ? new Date(m.created_at).toLocaleDateString('es-DO') : '—';
+                const initial  = (m.name||'?').slice(0,1).toUpperCase();
+                html += `<div style="background:white;border:1px solid #e8e4f0;border-radius:14px;padding:16px;box-shadow:0 1px 4px rgba(91,79,207,.06);">
+                    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
+                        <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#002D62,#CF142B);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:1.1em;flex-shrink:0;">${initial}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;font-size:.95em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.name||'—'}</div>
+                            <div style="font-size:.75em;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.email||'—'}</div>
+                            ${m.phone ? `<div style="font-size:.75em;color:#888;">📱 ${m.phone}</div>` : ''}
+                        </div>
+                        ${statusBadge(m.status||'active')}
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                        <div style="background:#f8f6ff;border-radius:8px;padding:8px 10px;">
+                            <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">N° Membresía</div>
+                            <div style="font-weight:700;font-size:.82em;color:#002D62;">${m.membership_number||'—'}</div>
+                        </div>
+                        <div style="background:#f8f6ff;border-radius:8px;padding:8px 10px;">
+                            <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Miembro desde</div>
+                            <div style="font-weight:700;font-size:.82em;">${joinDate}</div>
+                        </div>
+                        <div style="background:#f0fdf4;border-radius:8px;padding:8px 10px;">
+                            <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Balance</div>
+                            <div style="font-weight:700;font-size:.88em;color:#166534;">RD$ ${(m.balance||0).toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
+                        </div>
+                        <div style="background:#fff8f0;border-radius:8px;padding:8px 10px;">
+                            <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Puntos ⭐</div>
+                            <div style="font-weight:700;font-size:.88em;color:#92400e;">${m.loyaltyPoints.toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        ${m.status!=='active'    ? `<button onclick="changeClubStatus('${m.id}','active')"    style="flex:1;background:#dcfce7;color:#166534;border:none;border-radius:8px;padding:6px 10px;font-size:.78em;font-weight:700;cursor:pointer;">✅ Activar</button>` : ''}
+                        ${m.status!=='pending'   ? `<button onclick="changeClubStatus('${m.id}','pending')"   style="flex:1;background:#fef9c3;color:#92400e;border:none;border-radius:8px;padding:6px 10px;font-size:.78em;font-weight:700;cursor:pointer;">⏳ Pendiente</button>` : ''}
+                        ${m.status!=='suspended' ? `<button onclick="changeClubStatus('${m.id}','suspended')" style="flex:1;background:#fee2e2;color:#991b1b;border:none;border-radius:8px;padding:6px 10px;font-size:.78em;font-weight:700;cursor:pointer;">🚫 Suspender</button>` : ''}
+                    </div>
+                    ${m.notes ? `<div style="margin-top:8px;font-size:.75em;color:#888;font-style:italic;">${m.notes}</div>` : ''}
+                </div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        async function changeClubStatus(memberId, newStatus) {
+            // Try club_members table first, fallback to profiles
+            let error;
+            const { error: e1 } = await sb.from('club_members').update({ status: newStatus }).eq('id', memberId);
+            if (e1) {
+                // Try profiles table
+                const { error: e2 } = await sb.from('profiles').update({ membership_status: newStatus }).eq('id', memberId);
+                error = e2;
+            }
+            if (error) { showToast('Error: ' + error.message, 'error'); return; }
+
+            // Update local data
+            const m = _clubMembers.find(m => String(m.id) === String(memberId));
+            if (m) m.status = newStatus;
+            renderClubMembers();
+            showToast(`Estado actualizado: ${newStatus}`, 'success');
+        }
 
         async function loadLealtad() {
             document.getElementById('lealtadList').innerHTML = '<div style="text-align:center;padding:40px;color:#888;"><div style="font-size:2em;">⏳</div><p>Calculando puntos...</p></div>';
