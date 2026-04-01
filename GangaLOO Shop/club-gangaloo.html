@@ -56,37 +56,39 @@ async function submitForm(){
   try{
     var uid = null;
 
-    // Try to sign up — if already exists, try to sign in to get uid
-    var ar = await _sb.auth.signUp({email:email, password:pass, options:{data:{full_name:fullName}}});
-    if(ar.data && ar.data.user && ar.data.user.id){
-      uid = ar.data.user.id;
-    } else if(ar.error && ar.error.message.toLowerCase().includes('already')){
-      // User already exists — try signing in to get their uid
-      var si = await _sb.auth.signInWithPassword({email:email, password:pass});
-      if(si.data && si.data.user) uid = si.data.user.id;
-      // Sign out after getting uid so they don't stay logged in
-      if(uid) await _sb.auth.signOut();
-    } else if(ar.error){
-      throw new Error('Error de registro: '+ar.error.message);
+    // Step 1: Try signing in first (works for existing users)
+    var si = await _sb.auth.signInWithPassword({email:email, password:pass});
+    if(si.data && si.data.user && si.data.user.id){
+      uid = si.data.user.id;
+      await _sb.auth.signOut(); // sign out after getting uid
+    } else {
+      // Step 2: Not signed in — try signing up (new user)
+      var ar = await _sb.auth.signUp({email:email, password:pass, options:{data:{full_name:fullName}}});
+      if(ar.data && ar.data.user && ar.data.user.id){
+        uid = ar.data.user.id;
+      } else if(ar.error){
+        throw new Error('Error: '+ar.error.message+'. Si ya tienes cuenta, verifica tu contraseña.');
+      }
     }
 
-    // Update profile role
+    // Step 3: Update profile role if we have uid
     if(uid){
       await _sb.from('profiles').upsert({
         id:uid, email:email, full_name:fullName, role:'club_member'
-      });
+      }, {onConflict:'id'});
     }
 
-    // Check if already in club_members
+    // Step 4: Check if already in club_members
     var existing = await _sb.from('club_members').select('id').eq('email', email).maybeSingle();
     if(existing.data){
-      // Already applied — just update status to pending
-      await _sb.from('club_members').update({
-        status:'pending', full_name:fullName, phone:tel, city:ciudad
+      // Already applied — update to pending
+      var upd = await _sb.from('club_members').update({
+        status:'pending', full_name:fullName, phone:tel, city:ciudad, user_id:uid
       }).eq('email', email);
+      if(upd.error) throw new Error('Error actualizando solicitud: '+upd.error.message);
     } else {
       // New application
-      await _sb.from('club_members').insert({
+      var ins = await _sb.from('club_members').insert({
         user_id:uid,
         member_number:memberNum,
         full_name:fullName,
@@ -97,6 +99,7 @@ async function submitForm(){
         status:'pending',
         joined_at:new Date().toISOString()
       });
+      if(ins.error) throw new Error('Error guardando solicitud: '+ins.error.message);
     }
   }catch(err){
     btn.disabled=false;btn.textContent='&#128081; Solicitar Membresia';
