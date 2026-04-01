@@ -224,6 +224,11 @@ footer p { font-size:0.8rem; color:rgba(255,255,255,0.3); }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<script>
+function safeCall(fn, ...args) {
+  if (typeof fn === 'function') fn(...args);
+}
+</script>
 
 <!-- NAV -->
 <nav>
@@ -557,7 +562,7 @@ footer p { font-size:0.8rem; color:rgba(255,255,255,0.3); }
   <p>© 2026 GangaLoo · Club de Membresía · República Dominicana</p>
 </footer>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
 <script>
 // Generate unique member number
 function genMemberNum() {
@@ -603,6 +608,10 @@ if (!_sbUrl || !_sbKey) console.error('GangaLoo: config.js not loaded. Check you
 const _sb = _sbUrl && _sbKey ? supabase.createClient(_sbUrl, _sbKey) : null;
 
 async function submitForm() {
+  if (!_sb) {
+    alert('Error de configuración. Por favor recarga la página.');
+    return;
+  }
   const nombre   = document.getElementById('fNombre').value.trim();
   const apellido = document.getElementById('fApellido').value.trim();
   const tel      = document.getElementById('fTel').value.trim();
