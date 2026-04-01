@@ -5056,8 +5056,22 @@
                     .select('*')
                     .order('created_at', { ascending: false });
 
-                if (!clubErr && clubData) {
-                    members = clubData;
+                if (!clubErr && clubData && clubData.length > 0) {
+                    // Map club_members table fields to our display format
+                    members = clubData.map(m => ({
+                        id: m.id,
+                        user_id: m.user_id,
+                        name: m.full_name || '—',
+                        email: m.email,
+                        phone: m.phone || null,
+                        city: m.city || null,
+                        plan: m.plan || 'Trimestral',
+                        membership_number: m.member_number || m.membership_number || '—',
+                        status: m.status || 'pending',
+                        balance: m.balance || 0,
+                        created_at: m.joined_at || m.created_at,
+                        notes: m.notes || null,
+                    }));
                 } else {
                     // Fallback: use profiles with role = club_member
                     const { data: profileData } = await sb
@@ -5154,6 +5168,7 @@
                             <div style="font-weight:700;font-size:.95em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.name||'—'}</div>
                             <div style="font-size:.75em;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.email||'—'}</div>
                             ${m.phone ? `<div style="font-size:.75em;color:#888;">📱 ${m.phone}</div>` : ''}
+                        ${m.city ? `<div style="font-size:.75em;color:#888;">📍 ${m.city}</div>` : ''}
                         </div>
                         ${statusBadge(m.status||'active')}
                     </div>
@@ -5166,6 +5181,10 @@
                             <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Miembro desde</div>
                             <div style="font-weight:700;font-size:.82em;">${joinDate}</div>
                         </div>
+                        ${m.plan ? `<div style="background:#f0f4ff;border-radius:8px;padding:8px 10px;">
+                            <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Plan</div>
+                            <div style="font-weight:700;font-size:.82em;color:#002D62;">${m.plan}</div>
+                        </div>` : ''}
                         <div style="background:#f0fdf4;border-radius:8px;padding:8px 10px;">
                             <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Balance</div>
                             <div style="font-weight:700;font-size:.88em;color:#166534;">RD$ ${(m.balance||0).toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
@@ -5188,14 +5207,15 @@
         }
 
         async function changeClubStatus(memberId, newStatus) {
-            // Try club_members table first, fallback to profiles
-            let error;
+            // Update club_members table
             const { error: e1 } = await sb.from('club_members').update({ status: newStatus }).eq('id', memberId);
-            if (e1) {
-                // Try profiles table
-                const { error: e2 } = await sb.from('profiles').update({ membership_status: newStatus }).eq('id', memberId);
-                error = e2;
+            // Also update profiles role if activating/suspending
+            const member = _clubMembers.find(m => String(m.id) === String(memberId));
+            if (member?.user_id) {
+                const profileRole = newStatus === 'active' ? 'club_member' : newStatus === 'suspended' ? 'customer' : 'club_member';
+                await sb.from('profiles').update({ role: profileRole }).eq('id', member.user_id);
             }
+            let error = e1;
             if (error) { showToast('Error: ' + error.message, 'error'); return; }
 
             // Update local data
