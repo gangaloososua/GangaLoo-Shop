@@ -688,6 +688,14 @@
 </head>
 <body>
 
+<!-- CLUB PROMO BANNER -->
+<div id="clubPromoBanner" style="background:linear-gradient(90deg,#002D62 0%,#CF142B 50%,#002D62 100%);color:white;text-align:center;padding:10px 20px;font-size:.85rem;font-weight:600;letter-spacing:.03em;position:relative;z-index:101;">
+  🏆 <strong>Club GangaLoo:</strong> Tarjeta virtual gratis · 10% descuento permanente · Envío gratis · Puntos dobles
+  &nbsp;·&nbsp;
+  <a href="https://gangaloo.netlify.app/club-gangaloo.html" style="color:var(--gold);text-decoration:none;font-weight:700;">Únete desde RD$1,499/mes →</a>
+  <button onclick="this.parentElement.style.display='none'" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:rgba(255,255,255,.5);font-size:1.1rem;cursor:pointer;">✕</button>
+</div>
+
 <!-- NAV -->
 <nav>
   <a class="nav-logo" href="#"><img src="data:image/png;base64,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" alt="GangaLoo" style="height:40px;width:40px;object-fit:contain;"></a>
@@ -932,16 +940,15 @@
 
     <!-- Wholesale -->
     <div class="program-card wholesale" style="position:relative;overflow:visible;">
-      <div style="position:absolute;top:22px;right:-14px;background:#CF142B;color:#fff;font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:3px;padding:8px 26px;transform:rotate(12deg);z-index:10;box-shadow:3px 3px 10px rgba(0,0,0,0.5);border-radius:2px;">PRÓXIMAMENTE</div>
       <span class="program-badge">Para Revendedores</span>
       <h3>Mayorista</h3>
-      <p>Compra al por mayor a precios de costo y revende con tu propio margen. Accede a nuestro catálogo completo con precios especiales.</p>
-      <div class="program-perks">
-        <div class="perk">Precios hasta 20% más bajos</div>
-        <div class="perk">Mínimo de compra por volumen</div>
-        <div class="perk">Crédito disponible para clientes frecuentes</div>
+      <p>Compra al por mayor y revende con tu propio margen. Descuentos automáticos según volumen — sin registros ni contratos.</p>
+      <div class="program-perks" id="wholesalePerks">
+        <div class="perk">Descuentos automáticos por cantidad</div>
+        <div class="perk">Sin registro requerido</div>
+        <div class="perk">Aplica directamente en el carrito</div>
       </div>
-      <a href="https://gangaloo.netlify.app/wholesale.html" target="_blank" class="cta-link">Ver Lista de Descuentos →</a>
+      <a href="https://gangaloo.netlify.app/partners.html" target="_blank" class="cta-link">Ver Descuentos Mayoristas →</a>
     </div>
 
     <!-- Seller -->
@@ -980,13 +987,15 @@
         <h3>Club GangaLoo</h3>
         <p>Únete al Club GangaLoo y disfruta de descuentos permanentes en toda la tienda, acceso anticipado a ofertas, eventos exclusivos y más beneficios mensuales para miembros.</p>
         <div class="program-perks">
-          <div class="perk">10% de descuento en toda la tienda</div>
-          <div class="perk">Acceso anticipado a liquidaciones</div>
-          <div class="perk">Envío gratis en pedidos calificados</div>
-          <div class="perk">Invitaciones a eventos exclusivos</div>
-          <div class="perk">Puntos dobles en compras</div>
+          <div class="perk">💳 <strong>Tarjeta virtual GangaLoo gratis</strong> — úsala en Amazon, Shein, Temu y más</div>
+          <div class="perk">🏷️ 10% de descuento permanente en toda la tienda</div>
+          <div class="perk">🚚 Envío gratis en todos tus pedidos</div>
+          <div class="perk">⭐ Puntos dobles en cada compra</div>
+          <div class="perk">📦 Dirección de envío GangaLoo incluida</div>
+          <div class="perk">💰 Recarga saldo y compra sin tarjeta propia</div>
         </div>
-        <div class="program-price">RD$1,999 <small>/ 3 meses</small></div>
+        <div class="program-price">RD$1,499 <small>/ mes</small></div>
+        <div style="font-size:.75rem;opacity:.55;margin-top:4px;">También disponible: RD$3,999 trimestral · RD$6,999 semestral</div>
         <a href="https://gangaloo.netlify.app/club-gangaloo.html" target="_blank" class="cta-link" style="margin-top:1rem">Unirme al Club →</a>
       </div>
       <div class="club-crown">
@@ -1034,11 +1043,33 @@ document.addEventListener("DOMContentLoaded", async function() {
 
   try {
     const res = await fetch(
-      SUPABASE_URL + '/rest/v1/inventory_data?select=categories,products',
+      SUPABASE_URL + '/rest/v1/inventory_data?select=categories,products,store_config',
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
     );
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const rows = await res.json();
+
+    // Load wholesale tiers from store_config
+    try {
+      const cfg = JSON.parse((rows[0] && rows[0].store_config) || '{}');
+      const perksEl = document.getElementById('wholesalePerks');
+      if (perksEl && (cfg.bulk_qty1 || cfg.bulk_qty2 || cfg.bulk_qty3)) {
+        let perksHtml = '';
+        const tiers = [
+          {qty: cfg.bulk_qty1, disc: cfg.bulk_disc1, label: cfg.bulk_label1},
+          {qty: cfg.bulk_qty2, disc: cfg.bulk_disc2, label: cfg.bulk_label2},
+          {qty: cfg.bulk_qty3, disc: cfg.bulk_disc3, label: cfg.bulk_label3},
+        ].filter(t => t.qty > 0 && t.disc > 0);
+        if (tiers.length) {
+          perksHtml += '<div class="perk">Descuentos automáticos por volumen:</div>';
+          tiers.forEach(t => {
+            perksHtml += `<div class="perk" style="padding-left:1rem;">${t.qty}+ unidades → <strong>${t.disc}% descuento</strong>${t.label ? ' ('+t.label+')' : ''}</div>`;
+          });
+          perksHtml += '<div class="perk">Sin registro · Aplica en el carrito automáticamente</div>';
+          perksEl.innerHTML = perksHtml;
+        }
+      }
+    } catch(e) {}
 
     if (!rows || rows.length === 0) {
       contentEl.innerHTML = '<div class="price-error">No hay productos disponibles en este momento.</div>';
