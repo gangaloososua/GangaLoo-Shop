@@ -220,6 +220,7 @@ footer p { font-size:0.8rem; color:rgba(255,255,255,0.3); }
 .hero-inner>*:nth-child(4){animation-delay:.3s}
 .hero-inner>*:nth-child(5){animation-delay:.4s}
 </style>
+<script src="/config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -585,7 +586,11 @@ function handlePhoto(input) {
 }
 
 // Init Supabase
-const _sb = supabase.createClient('https://xnbkwczolkinurohloxj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes');
+// Supabase config loaded from config.js (see repo root)
+const _sbUrl = window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseUrl;
+const _sbKey = window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseKey;
+if (!_sbUrl || !_sbKey) console.error('GangaLoo: config.js not loaded. Check your setup.');
+const _sb = _sbUrl && _sbKey ? supabase.createClient(_sbUrl, _sbKey) : null;
 
 async function submitForm() {
   const nombre   = document.getElementById('fNombre').value.trim();
