@@ -2636,6 +2636,40 @@
                     </div>
                 </div>
 
+                <!-- Club Virtual Card Settings -->
+                <div style="border:1px solid #c8d4f0;border-radius:12px;padding:16px;margin-top:14px;background:#f0f4ff;">
+                    <div style="font-weight:700;margin-bottom:10px;font-size:13px;">🏆 Club GangaLoo — Tarjeta Virtual & Dirección</div>
+                    <div class="form-grid" style="margin:0;gap:10px;">
+                        <div class="form-group" style="margin:0;grid-column:1/-1;">
+                            <label>Dirección de Envío (shipping address para clientes)</label>
+                            <textarea id="cfg_club_shipping_address" rows="3" placeholder="Ej: GangaLoo — Att: [Client Name]&#10;Calle Principal 123&#10;Sosúa, Puerto Plata 57000&#10;Dominican Republic"
+                                style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:.85em;font-family:monospace;resize:vertical;box-sizing:border-box;"></textarea>
+                        </div>
+                        <div class="form-group" style="margin:0;grid-column:1/-1;">
+                            <label>Dirección de Facturación (billing address para tarjeta)</label>
+                            <textarea id="cfg_club_billing_address" rows="3" placeholder="Ej: GangaLoo SRL&#10;Calle Principal 123&#10;Sosúa, Puerto Plata 57000&#10;Dominican Republic"
+                                style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:.85em;font-family:monospace;resize:vertical;box-sizing:border-box;"></textarea>
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>Número de Tarjeta Virtual</label>
+                            <input type="text" id="cfg_club_card_number" placeholder="Ej: 4111 1111 1111 1111" maxlength="19">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>Fecha de Expiración</label>
+                            <input type="text" id="cfg_club_card_expiry" placeholder="MM/AA" maxlength="5">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>CVC</label>
+                            <input type="text" id="cfg_club_card_cvc" placeholder="123" maxlength="4">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>Nombre en Tarjeta</label>
+                            <input type="text" id="cfg_club_card_name" placeholder="Ej: GANGALOO CLUB">
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;font-size:.75em;color:#888;">⚠️ Solo visible para miembros activos del Club. Guarda antes de cerrar.</div>
+                </div>
+
                 <h3 style="margin-top:20px;">🏦 Datos Bancarios (Transferencia)</h3>
                 <div class="form-grid">
                     <div class="form-group">
@@ -5633,6 +5667,12 @@
             document.getElementById('cfg_extra_pay_discount').value     = cfg.extra_pay_discount     ?? '';
             document.getElementById('cfg_stripe_fee_pct').value         = cfg.stripe_fee_pct         ?? '';
             document.getElementById('cfg_stripe_fee_fixed').value       = cfg.stripe_fee_fixed       ?? '';
+            document.getElementById('cfg_club_shipping_address').value  = cfg.club_shipping_address  || '';
+            document.getElementById('cfg_club_billing_address').value   = cfg.club_billing_address   || '';
+            document.getElementById('cfg_club_card_number').value       = cfg.club_card_number       || '';
+            document.getElementById('cfg_club_card_expiry').value       = cfg.club_card_expiry       || '';
+            document.getElementById('cfg_club_card_cvc').value          = cfg.club_card_cvc          || '';
+            document.getElementById('cfg_club_card_name').value         = cfg.club_card_name         || '';
             document.getElementById('cfg_bankName').value = cfg.bankName || '';
             document.getElementById('cfg_bankAccountType').value = cfg.bankAccountType || '';
             document.getElementById('cfg_bankAccount').value = cfg.bankAccount || '';
@@ -5678,6 +5718,12 @@
                 extra_pay_discount:  parseFloat(document.getElementById('cfg_extra_pay_discount').value)  || 0,
                 stripe_fee_pct:      parseFloat(document.getElementById('cfg_stripe_fee_pct').value)      || 0,
                 stripe_fee_fixed:    parseFloat(document.getElementById('cfg_stripe_fee_fixed').value)    || 0,
+                club_shipping_address: document.getElementById('cfg_club_shipping_address').value.trim(),
+                club_billing_address:  document.getElementById('cfg_club_billing_address').value.trim(),
+                club_card_number:      document.getElementById('cfg_club_card_number').value.trim(),
+                club_card_expiry:      document.getElementById('cfg_club_card_expiry').value.trim(),
+                club_card_cvc:         document.getElementById('cfg_club_card_cvc').value.trim(),
+                club_card_name:        document.getElementById('cfg_club_card_name').value.trim(),
                 bankName: document.getElementById('cfg_bankName').value.trim(),
                 bankAccountType: document.getElementById('cfg_bankAccountType').value,
                 bankAccount: document.getElementById('cfg_bankAccount').value.trim(),
