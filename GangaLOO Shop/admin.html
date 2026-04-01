@@ -2994,10 +2994,10 @@
                 if (!mSel.options.length) {
                     const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
                     months.forEach((m,i) => mSel.innerHTML += `<option value="${i}">${m}</option>`);
-                    mSel.value = new Date().getMonth();
+                    mSel.value = getNowDO().getMonth();
                 }
                 if (!ySel.options.length) {
-                    const yr = new Date().getFullYear();
+                    const yr = getNowDO().getFullYear();
                     for (let y = yr; y >= yr - 4; y--) ySel.innerHTML += `<option value="${y}">${y}</option>`;
                 }
             } else {
@@ -3032,7 +3032,7 @@
             // Match seller by email or name
             const sellerName = currentUser.email.split('@')[0];
             const period = document.getElementById('sellerPeriodFilter').value;
-            const now = new Date();
+            const now = getNowDO();
             const specificMonth = parseInt(document.getElementById('sellerMonthPick')?.value ?? now.getMonth());
             const specificYear = parseInt(document.getElementById('sellerYearPick')?.value ?? now.getFullYear());
             let mySales = allSales.filter(s => {
@@ -4114,7 +4114,7 @@
             if (!authed) return;
             
             // Set default date to today
-            const today = new Date().toISOString().split('T')[0];
+            const today = getNowDO().toISOString().split('T')[0];
             document.getElementById('purchaseDate').value = today;
             document.getElementById('saleDate').value = today;
             document.getElementById('transferDate').value = today;
@@ -5123,7 +5123,7 @@
         function refreshDealSummary() {
             const el = document.getElementById('cfgDealSummary');
             if (!el) return;
-            const now = new Date();
+            const now = getNowDO();
             const deals = products.filter(p => p.dealType && p.dealType !== 'none');
             if (!deals.length) {
                 el.innerHTML = '<div style="color:#aaa;text-align:center;">No hay productos con oferta activa.</div>';
@@ -6544,7 +6544,7 @@
             
             document.getElementById('bulkLotNumber').value = genCode('LOT');
             document.getElementById('bulkWarehouse').value = '';
-            document.getElementById('bulkDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('bulkDate').value = getNowDO().toISOString().split('T')[0];
             document.getElementById('bulkStatus').value = 'pending';
             document.getElementById('bulkTrackingNumber').value = '';
             document.getElementById('bulkExchangeRate').value = '58.50';
@@ -6994,7 +6994,7 @@
 
             // 2. Handle accounting based on cancel type
             const payment = purchasePayments.find(p => p.lotNumber === lotNumber);
-            const today   = new Date().toISOString().split('T')[0];
+            const today   = getNowDO().toISOString().split('T')[0];
             const orderExpCat = accountingCategories.find(c =>
                 c.type === 'expense' && (
                     c.name.toLowerCase().includes('compra') ||
@@ -9549,8 +9549,8 @@
 
         // Report Period Filters
         let reportPeriodType = 'all';
-        let reportMonth = new Date().getMonth() + 1;
-        let reportYear = new Date().getFullYear();
+        let reportMonth = getNowDO().getMonth() + 1;
+        let reportYear = getNowDO().getFullYear();
 
         function updateReportPeriod() {
             const periodType = document.getElementById('reportPeriod').value;
@@ -9583,8 +9583,8 @@
             if (!yearSelect) return;
 
             // Get min and max years from sales and purchases
-            let minYear = new Date().getFullYear();
-            let maxYear = new Date().getFullYear();
+            let minYear = getNowDO().getFullYear();
+            let maxYear = getNowDO().getFullYear();
 
             [...sales, ...purchases].forEach(item => {
                 if (item.date) {
@@ -10906,6 +10906,15 @@
             document.getElementById('accountBalance').value = '';
         }
 
+        // Get current date in Dominican Republic timezone (UTC-4)
+        function getNowDO() {
+            return new Date(new Date().toLocaleString('en-US', {timeZone:'America/Santo_Domingo'}));
+        }
+        function getCurrentMonthDO() {
+            const d = getNowDO();
+            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+        }
+
         function populateAcctMonthFilter() {
             const sel = document.getElementById('filterAcctMonth');
             if (!sel) return;
@@ -11419,7 +11428,7 @@
                     : '<option value="">No hay cuentas</option>';
             }
             updateTransactionCategories();
-            const today = new Date().toISOString().split('T')[0];
+            const today = getNowDO().toISOString().split('T')[0];
             const dateField = document.getElementById('transactionDate');
             if (dateField && !dateField.value) dateField.value = today;
         }
@@ -11974,7 +11983,7 @@
                 ? accounts.map(a => `<option value="${a.id}">${a.name} (${a.currency})</option>`).join('')
                 : '<option value="">No hay cuentas</option>';
 
-            const today = new Date().toISOString().split('T')[0];
+            const today = getNowDO().toISOString().split('T')[0];
             const dateField = document.getElementById('purchasePaymentDate');
             if (dateField && !dateField.value) dateField.value = today;
         }
@@ -12268,7 +12277,7 @@
                     : '<option value="">No hay cuentas</option>';
             }
 
-            const today = new Date().toISOString().split('T')[0];
+            const today = getNowDO().toISOString().split('T')[0];
             const dateField = document.getElementById('paymentDate');
             if (dateField && !dateField.value) dateField.value = today;
         }
@@ -12416,7 +12425,7 @@
             }))].sort().reverse();
 
             // Current month
-            const now = new Date();
+            const now = getNowDO();
             const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 
             // Summary cards
@@ -12863,7 +12872,7 @@
                 toSel.selectedIndex = sameCurIdx >= 0 ? sameCurIdx : 1;
             }
 
-            const today = new Date().toISOString().split('T')[0];
+            const today = getNowDO().toISOString().split('T')[0];
             const dateEl = document.getElementById('acctTransferDate');
             if (dateEl && !dateEl.value) dateEl.value = today;
 
@@ -13128,7 +13137,7 @@
             // Show a small inline form to add a monthly rate
             const container = document.getElementById('monthlyRatesList');
             if (!container) return;
-            const now = new Date();
+            const now = getNowDO();
             const defMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
             const curUSD = parseFloat(document.getElementById('rateUSD')?.value) || 65.00;
             const curEUR = parseFloat(document.getElementById('rateEUR')?.value) || 75.00;
@@ -13206,7 +13215,7 @@
                 transactions.forEach(t => { if (t.date) years.add(t.date.substring(0,4)); });
                 payments.forEach(p => { if (p.date) years.add(p.date.substring(0,4)); });
                 purchasePayments.forEach(p => { if (p.date) years.add(p.date.substring(0,4)); });
-                const currentYear = new Date().getFullYear().toString();
+                const currentYear = getNowDO().getFullYear().toString();
                 if (!years.size) years.add(currentYear);
                 [...years].sort((a,b)=>b-a).forEach(y => {
                     const opt = document.createElement('option');
@@ -13216,7 +13225,7 @@
                 });
             }
 
-            const selectedYear  = yearSel ? yearSel.value : new Date().getFullYear().toString();
+            const selectedYear  = yearSel ? yearSel.value : getNowDO().getFullYear().toString();
             const typeFilter    = document.getElementById('catReportType')?.value  || 'both';
             const sortMode      = document.getElementById('catReportSort')?.value  || 'order';
             const currencyMode  = document.getElementById('catReportCurrency')?.value || 'dop';
