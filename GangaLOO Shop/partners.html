@@ -7,6 +7,7 @@
 <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABhElEQVR4nO2aQQ6CMBBFn8YTeARP4Mk8gUfwJp7AE3gCT+AJPIEn8AQewRN4Ak/gCTyBJ/AEHqCBkIYmJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSmMDJCRCSg==">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -397,10 +398,11 @@ footer p{font-size:.8rem;color:rgba(255,255,255,.3);}
 <div class="toast-stack"><div class="toast" id="toastEl"></div></div>
 
 <script>
-const SUPABASE_URL = 'https://xnbkwczolkinurohloxj.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes';
+// Credentials loaded from config.js (already in SECRETS_SCAN_OMIT_PATHS)
+const SUPABASE_URL = (window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseUrl) || '';
+const SUPABASE_KEY = (window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseKey) || '';
 const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = SUPABASE_URL ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 // ── TAB SWITCHING ──
 function showTab(tab) {
