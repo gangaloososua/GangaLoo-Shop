@@ -2402,6 +2402,54 @@
                     </div>
                 </div>
 
+                <!-- Edit Card & Address Modal -->
+                <div id="clubCardModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;overflow-y:auto;">
+                    <div style="background:white;border-radius:16px;padding:24px;width:95%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.3);margin:20px auto;">
+                        <h3 style="margin:0 0 4px;color:#002D62;">💳 Tarjeta & Dirección</h3>
+                        <div id="clubCardClientName" style="font-weight:700;color:#CF142B;margin-bottom:16px;font-size:.9em;"></div>
+                        <div style="display:flex;flex-direction:column;gap:10px;">
+                            <div>
+                                <label style="font-size:.82em;color:#666;font-weight:600;">Número de Tarjeta</label>
+                                <input type="text" id="clubCardNumber" placeholder="4111 1111 1111 1111" maxlength="19"
+                                    style="width:100%;padding:9px;border:1.5px solid #ddd;border-radius:8px;font-family:monospace;font-size:.95em;box-sizing:border-box;margin-top:3px;">
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                                <div>
+                                    <label style="font-size:.82em;color:#666;font-weight:600;">Expira (MM/AA)</label>
+                                    <input type="text" id="clubCardExpiry" placeholder="12/27" maxlength="5"
+                                        style="width:100%;padding:9px;border:1.5px solid #ddd;border-radius:8px;font-size:.9em;box-sizing:border-box;margin-top:3px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:.82em;color:#666;font-weight:600;">CVC</label>
+                                    <input type="text" id="clubCardCvc" placeholder="123" maxlength="4"
+                                        style="width:100%;padding:9px;border:1.5px solid #ddd;border-radius:8px;font-size:.9em;box-sizing:border-box;margin-top:3px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:.82em;color:#666;font-weight:600;">Nombre</label>
+                                    <input type="text" id="clubCardName" placeholder="J SMITH"
+                                        style="width:100%;padding:9px;border:1.5px solid #ddd;border-radius:8px;font-size:.9em;box-sizing:border-box;margin-top:3px;">
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-size:.82em;color:#666;font-weight:600;">Dirección de Envío (Shipping Address)</label>
+                                <textarea id="clubCardShipping" rows="3" placeholder="GangaLoo — Att: John Smith&#10;Calle Principal 123&#10;Sosúa, Puerto Plata 57000&#10;Dominican Republic"
+                                    style="width:100%;padding:9px;border:1.5px solid #ddd;border-radius:8px;font-size:.82em;font-family:monospace;resize:vertical;box-sizing:border-box;margin-top:3px;"></textarea>
+                            </div>
+                            <div>
+                                <label style="font-size:.82em;color:#666;font-weight:600;">Dirección de Facturación (Billing Address)</label>
+                                <textarea id="clubCardBilling" rows="3" placeholder="John Smith&#10;Calle Principal 123&#10;Sosúa, Puerto Plata 57000&#10;Dominican Republic"
+                                    style="width:100%;padding:9px;border:1.5px solid #ddd;border-radius:8px;font-size:.82em;font-family:monospace;resize:vertical;box-sizing:border-box;margin-top:3px;"></textarea>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:16px;">
+                            <button onclick="document.getElementById('clubCardModal').style.display='none'"
+                                style="flex:1;padding:10px;border:1.5px solid #ddd;border-radius:8px;background:white;cursor:pointer;">Cancelar</button>
+                            <button onclick="saveClubCard()"
+                                style="flex:1;padding:10px;border:none;border-radius:8px;background:#002D62;color:white;font-weight:700;cursor:pointer;">💾 Guardar</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Deduct Funds Modal -->
                 <div id="clubDeductModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;">
                     <div style="background:white;border-radius:16px;padding:24px;width:95%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
@@ -2634,40 +2682,6 @@
                             <small style="color:#888;font-size:11px;">Ej: 30 = RD$ 30 fijo</small>
                         </div>
                     </div>
-                </div>
-
-                <!-- Club Virtual Card Settings -->
-                <div style="border:1px solid #c8d4f0;border-radius:12px;padding:16px;margin-top:14px;background:#f0f4ff;">
-                    <div style="font-weight:700;margin-bottom:10px;font-size:13px;">🏆 Club GangaLoo — Tarjeta Virtual & Dirección</div>
-                    <div class="form-grid" style="margin:0;gap:10px;">
-                        <div class="form-group" style="margin:0;grid-column:1/-1;">
-                            <label>Dirección de Envío (shipping address para clientes)</label>
-                            <textarea id="cfg_club_shipping_address" rows="3" placeholder="Ej: GangaLoo — Att: [Client Name]&#10;Calle Principal 123&#10;Sosúa, Puerto Plata 57000&#10;Dominican Republic"
-                                style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:.85em;font-family:monospace;resize:vertical;box-sizing:border-box;"></textarea>
-                        </div>
-                        <div class="form-group" style="margin:0;grid-column:1/-1;">
-                            <label>Dirección de Facturación (billing address para tarjeta)</label>
-                            <textarea id="cfg_club_billing_address" rows="3" placeholder="Ej: GangaLoo SRL&#10;Calle Principal 123&#10;Sosúa, Puerto Plata 57000&#10;Dominican Republic"
-                                style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:.85em;font-family:monospace;resize:vertical;box-sizing:border-box;"></textarea>
-                        </div>
-                        <div class="form-group" style="margin:0;">
-                            <label>Número de Tarjeta Virtual</label>
-                            <input type="text" id="cfg_club_card_number" placeholder="Ej: 4111 1111 1111 1111" maxlength="19">
-                        </div>
-                        <div class="form-group" style="margin:0;">
-                            <label>Fecha de Expiración</label>
-                            <input type="text" id="cfg_club_card_expiry" placeholder="MM/AA" maxlength="5">
-                        </div>
-                        <div class="form-group" style="margin:0;">
-                            <label>CVC</label>
-                            <input type="text" id="cfg_club_card_cvc" placeholder="123" maxlength="4">
-                        </div>
-                        <div class="form-group" style="margin:0;">
-                            <label>Nombre en Tarjeta</label>
-                            <input type="text" id="cfg_club_card_name" placeholder="Ej: GANGALOO CLUB">
-                        </div>
-                    </div>
-                    <div style="margin-top:10px;font-size:.75em;color:#888;">⚠️ Solo visible para miembros activos del Club. Guarda antes de cerrar.</div>
                 </div>
 
                 <h3 style="margin-top:20px;">🏦 Datos Bancarios (Transferencia)</h3>
@@ -5210,6 +5224,12 @@
                         balance: m.balance || 0,
                         created_at: m.joined_at || m.created_at,
                         notes: m.notes || null,
+                        card_number: m.card_number || null,
+                        card_expiry: m.card_expiry || null,
+                        card_cvc: m.card_cvc || null,
+                        card_name: m.card_name || null,
+                        shipping_address: m.shipping_address || null,
+                        billing_address: m.billing_address || null,
                     }));
                 } else {
                     // Fallback: use profiles with is_club_member flag OR role = club_member
@@ -5338,11 +5358,17 @@
                         ${m.status!=='pending'   ? `<button onclick="changeClubStatus('${m.id}','pending')"   style="flex:1;background:#fef9c3;color:#92400e;border:none;border-radius:8px;padding:6px 10px;font-size:.78em;font-weight:700;cursor:pointer;">⏳ Pendiente</button>` : ''}
                         ${m.status!=='suspended' ? `<button onclick="changeClubStatus('${m.id}','suspended')" style="flex:1;background:#fee2e2;color:#991b1b;border:none;border-radius:8px;padding:6px 10px;font-size:.78em;font-weight:700;cursor:pointer;">🚫 Suspender</button>` : ''}
                     </div>
-                    <div style="display:flex;gap:6px;">
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
                         <button onclick="openAddFunds('${m.id}')" style="flex:1;background:#002D62;color:white;border:none;border-radius:8px;padding:7px 8px;font-size:.78em;font-weight:700;cursor:pointer;">💰 Depositar</button>
                         <button onclick="openDeductFunds('${m.id}')" style="flex:1;background:#CF142B;color:white;border:none;border-radius:8px;padding:7px 8px;font-size:.78em;font-weight:700;cursor:pointer;">💳 Cobrar</button>
+                        <button onclick="openClubCard('${m.id}')" style="width:100%;background:#f0f4ff;color:#002D62;border:1px solid #c8d4f0;border-radius:8px;padding:7px 8px;font-size:.78em;font-weight:700;cursor:pointer;">✏️ Tarjeta & Dirección</button>
                     </div>
                     ${m.notes ? `<div style="margin-top:8px;font-size:.75em;color:#888;font-style:italic;">${m.notes}</div>` : ''}
+                    ${m.card_number ? `<div style="margin-top:8px;background:#f0f4ff;border-radius:8px;padding:8px 10px;font-size:.75em;">
+                        <span style="color:#888;">💳</span> <span style="font-family:monospace;font-weight:600;">${m.card_number}</span>
+                        <span style="color:#888;margin-left:8px;">exp</span> <span style="font-family:monospace;">${m.card_expiry||'—'}</span>
+                        <span style="color:#888;margin-left:8px;">CVC</span> <span style="font-family:monospace;">${m.card_cvc||'—'}</span>
+                    </div>` : ''}
                 </div>`;
             });
             html += '</div>';
@@ -5361,6 +5387,39 @@
             if (member) member.status = newStatus;
             renderClubMembers();
             showToast('Estado actualizado: ' + newStatus, 'success');
+        }
+
+        let _clubCardMemberId = null;
+
+        function openClubCard(memberId) {
+            _clubCardMemberId = memberId;
+            const m = _clubMembers.find(m => String(m.id) === String(memberId));
+            document.getElementById('clubCardClientName').textContent = m?.name || '—';
+            document.getElementById('clubCardNumber').value  = m?.card_number  || '';
+            document.getElementById('clubCardExpiry').value  = m?.card_expiry  || '';
+            document.getElementById('clubCardCvc').value     = m?.card_cvc     || '';
+            document.getElementById('clubCardName').value    = m?.card_name    || '';
+            document.getElementById('clubCardShipping').value = m?.shipping_address || '';
+            document.getElementById('clubCardBilling').value  = m?.billing_address  || '';
+            document.getElementById('clubCardModal').style.display = 'flex';
+        }
+
+        async function saveClubCard() {
+            const updates = {
+                card_number:       document.getElementById('clubCardNumber').value.trim(),
+                card_expiry:       document.getElementById('clubCardExpiry').value.trim(),
+                card_cvc:          document.getElementById('clubCardCvc').value.trim(),
+                card_name:         document.getElementById('clubCardName').value.trim(),
+                shipping_address:  document.getElementById('clubCardShipping').value.trim(),
+                billing_address:   document.getElementById('clubCardBilling').value.trim(),
+            };
+            const { error } = await sb.from('club_members').update(updates).eq('id', _clubCardMemberId);
+            if (error) { showToast('Error: ' + error.message, 'error'); return; }
+            const m = _clubMembers.find(m => String(m.id) === String(_clubCardMemberId));
+            if (m) Object.assign(m, updates);
+            document.getElementById('clubCardModal').style.display = 'none';
+            renderClubMembers();
+            showToast('✅ Tarjeta y dirección guardadas', 'success');
         }
 
         let _clubFundsMemberId = null;
@@ -5667,12 +5726,7 @@
             document.getElementById('cfg_extra_pay_discount').value     = cfg.extra_pay_discount     ?? '';
             document.getElementById('cfg_stripe_fee_pct').value         = cfg.stripe_fee_pct         ?? '';
             document.getElementById('cfg_stripe_fee_fixed').value       = cfg.stripe_fee_fixed       ?? '';
-            document.getElementById('cfg_club_shipping_address').value  = cfg.club_shipping_address  || '';
-            document.getElementById('cfg_club_billing_address').value   = cfg.club_billing_address   || '';
-            document.getElementById('cfg_club_card_number').value       = cfg.club_card_number       || '';
-            document.getElementById('cfg_club_card_expiry').value       = cfg.club_card_expiry       || '';
-            document.getElementById('cfg_club_card_cvc').value          = cfg.club_card_cvc          || '';
-            document.getElementById('cfg_club_card_name').value         = cfg.club_card_name         || '';
+
             document.getElementById('cfg_bankName').value = cfg.bankName || '';
             document.getElementById('cfg_bankAccountType').value = cfg.bankAccountType || '';
             document.getElementById('cfg_bankAccount').value = cfg.bankAccount || '';
@@ -5718,12 +5772,7 @@
                 extra_pay_discount:  parseFloat(document.getElementById('cfg_extra_pay_discount').value)  || 0,
                 stripe_fee_pct:      parseFloat(document.getElementById('cfg_stripe_fee_pct').value)      || 0,
                 stripe_fee_fixed:    parseFloat(document.getElementById('cfg_stripe_fee_fixed').value)    || 0,
-                club_shipping_address: document.getElementById('cfg_club_shipping_address').value.trim(),
-                club_billing_address:  document.getElementById('cfg_club_billing_address').value.trim(),
-                club_card_number:      document.getElementById('cfg_club_card_number').value.trim(),
-                club_card_expiry:      document.getElementById('cfg_club_card_expiry').value.trim(),
-                club_card_cvc:         document.getElementById('cfg_club_card_cvc').value.trim(),
-                club_card_name:        document.getElementById('cfg_club_card_name').value.trim(),
+
                 bankName: document.getElementById('cfg_bankName').value.trim(),
                 bankAccountType: document.getElementById('cfg_bankAccountType').value,
                 bankAccount: document.getElementById('cfg_bankAccount').value.trim(),

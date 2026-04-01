@@ -603,7 +603,8 @@ button{font-family:'Jost',sans-serif;}
   display:flex;align-items:center;justify-content:center;
 }
 .user-menu{
-  position:absolute;top:calc(100% + 6px);right:0;
+  position:absolute;top:calc(100% + 0px);right:0;
+  padding-top:8px;
   background:var(--white);border:1px solid var(--border);
   border-radius:14px;box-shadow:0 14px 40px rgba(42,33,24,.14);
   min-width:180px;padding:8px;
@@ -612,6 +613,7 @@ button{font-family:'Jost',sans-serif;}
 }
 .user-pill-wrap:hover .user-menu{opacity:1;pointer-events:all;transform:translateY(0);}
 .user-menu.open{opacity:1;pointer-events:all;transform:translateY(0);}
+.user-pill-wrap:focus-within .user-menu{opacity:1;pointer-events:all;transform:translateY(0);}
 .user-menu-item{
   display:flex;align-items:center;gap:8px;
   padding:9px 12px;border-radius:8px;
@@ -2430,11 +2432,7 @@ async function openClubAccount(){
   const content=document.getElementById('clubAccountContent');
   content.innerHTML='<div style="text-align:center;padding:40px;">⏳ Cargando...</div>';
 
-  // Fetch store config for card/address info
-  const{data:cfgRow}=await sb.from('inventory_data').select('store_config').order('updated_at',{ascending:false}).limit(1).maybeSingle();
-  const cfg=cfgRow?.store_config?JSON.parse(cfgRow.store_config):(storeConfig||{});
-
-  // Fetch club member data
+  // Fetch club member data (includes card and address)
   const{data,error}=await sb.from('club_members').select('*').eq('email',currentUser.email).maybeSingle();
   if(error||!data){
     content.innerHTML='<div style="text-align:center;padding:40px;color:#888;"><p>No se encontró tu membresía. Si te acabas de registrar, espera confirmación.</p></div>';
@@ -2500,55 +2498,49 @@ async function openClubAccount(){
       </div>`).join('')}
     </div>`:''}
 
-    ${cfg.club_card_number?`
+    ${data.card_number?`
     <div style="background:white;border:1px solid #e8e4f0;border-radius:12px;padding:16px;margin-bottom:16px;">
       <div style="font-weight:700;margin-bottom:12px;color:var(--text);">💳 Tu Tarjeta Virtual GangaLoo</div>
-      <!-- Card Visual -->
-      <div style="background:linear-gradient(135deg,#002D62 0%,#1a4a8a 50%,#CF142B 100%);border-radius:14px;padding:20px 22px;color:white;margin-bottom:14px;font-family:'DM Mono',monospace;position:relative;overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#002D62 0%,#1a4a8a 50%,#CF142B 100%);border-radius:14px;padding:20px 22px;color:white;margin-bottom:14px;position:relative;overflow:hidden;">
         <div style="position:absolute;top:-20px;right:-20px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.07);"></div>
         <div style="position:absolute;bottom:-30px;right:30px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.05);"></div>
         <div style="font-size:.7em;opacity:.7;letter-spacing:.12em;margin-bottom:16px;">GANGALOO VIRTUAL CARD</div>
-        <div style="font-size:1.15em;letter-spacing:.2em;margin-bottom:18px;font-weight:600;">${cfg.club_card_number}</div>
+        <div style="font-size:1.1em;letter-spacing:.18em;margin-bottom:18px;font-weight:600;font-family:monospace;">${data.card_number}</div>
         <div style="display:flex;justify-content:space-between;align-items:flex-end;">
-          <div>
-            <div style="font-size:.6em;opacity:.7;letter-spacing:.1em;">TITULAR</div>
-            <div style="font-size:.82em;letter-spacing:.08em;">${cfg.club_card_name||'GANGALOO CLUB'}</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:.6em;opacity:.7;letter-spacing:.1em;">EXPIRA</div>
-            <div style="font-size:.82em;">${cfg.club_card_expiry||'--/--'}</div>
-          </div>
+          <div><div style="font-size:.6em;opacity:.7;letter-spacing:.1em;">TITULAR</div>
+          <div style="font-size:.82em;letter-spacing:.06em;font-family:monospace;">${data.card_name||data.full_name||'GANGALOO CLUB'}</div></div>
+          <div style="text-align:right;"><div style="font-size:.6em;opacity:.7;letter-spacing:.1em;">EXPIRA</div>
+          <div style="font-size:.82em;font-family:monospace;">${data.card_expiry||'--/--'}</div></div>
         </div>
       </div>
-      <!-- Card Details -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
         <div style="background:#f8f6ff;border-radius:8px;padding:10px;">
           <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;">Número</div>
-          <div style="font-weight:700;font-size:.85em;font-family:monospace;">${cfg.club_card_number}</div>
+          <div style="font-weight:700;font-size:.85em;font-family:monospace;">${data.card_number}</div>
         </div>
         <div style="background:#f8f6ff;border-radius:8px;padding:10px;">
           <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;">Expira / CVC</div>
-          <div style="font-weight:700;font-size:.85em;font-family:monospace;">${cfg.club_card_expiry} / ${cfg.club_card_cvc||'***'}</div>
+          <div style="font-weight:700;font-size:.85em;font-family:monospace;">${data.card_expiry||'--'} / ${data.card_cvc||'***'}</div>
         </div>
       </div>
-      ${cfg.club_billing_address?`<div style="background:#f8f6ff;border-radius:8px;padding:10px;margin-bottom:8px;">
+      ${data.billing_address?`<div style="background:#f8f6ff;border-radius:8px;padding:10px;margin-bottom:8px;">
         <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Billing Address</div>
-        <div style="font-size:.8em;white-space:pre-line;color:#333;">${cfg.club_billing_address}</div>
+        <div style="font-size:.8em;white-space:pre-line;color:#333;font-family:monospace;">${data.billing_address}</div>
       </div>`:''}
       <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:.75em;color:#92400e;">
-        ⚠️ <strong>Confidencial:</strong> No compartas estos datos con nadie. Solo usa esta tarjeta para compras autorizadas a través de GangaLoo.
+        ⚠️ <strong>Confidencial:</strong> No compartas estos datos. Solo usa esta tarjeta para compras autorizadas por GangaLoo.
       </div>
     </div>`:''}
 
-    ${cfg.club_shipping_address?`
+    ${data.shipping_address?`
     <div style="background:white;border:1px solid #e8e4f0;border-radius:12px;padding:16px;margin-bottom:16px;">
       <div style="font-weight:700;margin-bottom:12px;color:var(--text);">📦 Tu Dirección de Envío GangaLoo</div>
       <div style="background:#f0f9ff;border:1px solid #7dd3fc;border-radius:8px;padding:12px;margin-bottom:10px;">
         <div style="font-size:.7em;color:#0369a1;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-weight:700;">Usa esta dirección para recibir paquetes</div>
-        <div style="font-size:.88em;white-space:pre-line;font-family:monospace;color:#002D62;font-weight:600;line-height:1.6;">${cfg.club_shipping_address}</div>
+        <div style="font-size:.88em;white-space:pre-line;font-family:monospace;color:#002D62;font-weight:600;line-height:1.6;">${data.shipping_address}</div>
       </div>
       <div style="font-size:.78em;color:#555;line-height:1.5;">
-        📌 <strong>Cómo usar:</strong> Cuando hagas una compra en línea (Amazon, Shein, Temu, etc.), pon esta dirección como dirección de entrega. 
+        📌 <strong>Cómo usar:</strong> Al comprar en Amazon, Shein, Temu u otras tiendas en línea, usa esta dirección como dirección de entrega.
         GangaLoo recibirá tu paquete y te lo entregará en República Dominicana.
         Coordina con nosotros por WhatsApp antes de hacer tu pedido.
       </div>
