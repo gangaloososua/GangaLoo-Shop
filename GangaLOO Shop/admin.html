@@ -10943,15 +10943,13 @@
             // If month filter, calculate balance up to end of that month
             const getAcctBalance = (account) => {
                 if (!filterMonth) return account.balance;
+                // Calculate balance at end of selected month
+                // = initialBalance + all transactions up to and including the last day of that month
                 const endDate = filterMonth + '-31';
-                const txSum = transactions
-                    .filter(t => String(t.accountId) === String(account.id) && (t.date||'') <= endDate && (t.date||'') >= filterMonth.substring(0,4)+'-01-01')
+                const allTxUpToMonth = transactions
+                    .filter(t => String(t.accountId) === String(account.id) && (t.date||'') <= endDate)
                     .reduce((s,t) => t.type==='income' ? s+t.amount : s-t.amount, 0);
-                // Start from initial balance + all transactions up to start of filter period
-                const txBefore = transactions
-                    .filter(t => String(t.accountId) === String(account.id) && (t.date||'') < filterMonth + '-01')
-                    .reduce((s,t) => t.type==='income' ? s+t.amount : s-t.amount, 0);
-                return (account.initialBalance||0) + txBefore + txSum;
+                return (account.initialBalance||0) + allTxUpToMonth;
             };
 
             // Totals bar by currency
