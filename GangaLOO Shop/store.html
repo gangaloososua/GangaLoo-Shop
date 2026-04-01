@@ -2298,7 +2298,7 @@ async function onSignedIn(user){
   document.getElementById('loginNavBtn').style.display='none';
   // Show club banner if club member
   const cb = document.getElementById('clubBanner');
-  if (cb) cb.className = 'club-banner' + (prof?.role==='club_member' ? ' show' : '');
+  if (cb) cb.className = 'club-banner' + (prof?.is_club_member===true||prof?.role==='club_member' ? ' show' : '');
   closeAuthWall();
   // Prevent double load — if already loading, wait for it
   if(_dataLoading){
@@ -2588,7 +2588,7 @@ async function openProfile() {
   document.getElementById('profileContent').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><div class="spinner" style="margin:0 auto 12px"></div><p>Cargando perfil...</p></div>';
 
   const { points, orders, totalSpent } = await calcLoyaltyPoints(currentUser.email);
-  const isClub = userProfile?.role === 'club_member';
+  const isClub = userProfile?.is_club_member===true || userProfile?.role === 'club_member';
   const tier = getTier(points);
   const clubBenefitsHTML = isClub ? `
     <div style="background:linear-gradient(135deg,#002D62,#CF142B);border-radius:14px;padding:16px 20px;margin-bottom:20px;color:white;">
@@ -2635,7 +2635,7 @@ async function openProfile() {
 
   const historyHtml = orders.length
     ? orders.slice(0, 8).map(o => {
-        const pts = Math.floor(parseFloat(o.total || 0) / 100 * getPtsPerHundred() * (userProfile?.role==='club_member'?2:1));
+        const pts = Math.floor(parseFloat(o.total || 0) / 100 * getPtsPerHundred() * (userProfile?.is_club_member===true||userProfile?.role==='club_member'?2:1));
         return `<div class="pts-row">
           <div>
             <div style="font-weight:600;font-size:13px;">Pedido aprobado</div>

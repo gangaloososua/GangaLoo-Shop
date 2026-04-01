@@ -71,13 +71,17 @@ async function submitForm(){
       }
     }
 
-    // Step 3: Update profile - set is_club_member flag WITHOUT changing existing role
+    // Step 3: For NEW users only - create profile. For existing users, don't touch their profile.
     if(uid){
-      await _sb.from('profiles').upsert({
-        id:uid, email:email, full_name:fullName, is_club_member: false
-      }, {onConflict:'id'});
-      // Only set flag, don't overwrite role (seller keeps seller role etc.)
-      await _sb.from('profiles').update({ is_club_member: false }).eq('id', uid);
+      // Check if profile exists first
+      var profCheck = await _sb.from('profiles').select('id,role').eq('id', uid).maybeSingle();
+      if(!profCheck.data){
+        // New user - create profile
+        await _sb.from('profiles').insert({
+          id:uid, email:email, full_name:fullName, role:'customer', is_club_member: false
+        });
+      }
+      // Don't touch existing profiles - role and is_club_member will be set by admin when activating
     }
 
     // Step 4: Check if already in club_members

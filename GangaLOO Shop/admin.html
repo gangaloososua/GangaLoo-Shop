@@ -5042,7 +5042,10 @@
         function renderUsuarios() {
             const list = document.getElementById('usuariosList');
             let filtered = allUsuarios;
-            if (usuariosFilter !== 'all') filtered = allUsuarios.filter(u => u.role === usuariosFilter);
+            if (usuariosFilter !== 'all') filtered = allUsuarios.filter(u => {
+                if (usuariosFilter === 'club_member') return u.is_club_member === true || u.role === 'club_member';
+                return u.role === usuariosFilter;
+            });
 
             if (!filtered.length) {
                 list.innerHTML = '<div style="text-align:center;padding:40px;color:#888;"><div style="font-size:2em;">👤</div><p>No hay usuarios en esta categoría.</p></div>';
@@ -5056,30 +5059,39 @@
                 <thead><tr style="background:#f8f9fa;">
                     <th style="padding:12px;text-align:left;border-bottom:2px solid #dee2e6;">Email</th>
                     <th style="padding:12px;text-align:left;border-bottom:2px solid #dee2e6;">Nombre</th>
-                    <th style="padding:12px;text-align:center;border-bottom:2px solid #dee2e6;">Rol Actual</th>
+                    <th style="padding:12px;text-align:center;border-bottom:2px solid #dee2e6;">Roles</th>
                     <th style="padding:12px;text-align:left;border-bottom:2px solid #dee2e6;">Registrado</th>
-                    <th style="padding:12px;text-align:center;border-bottom:2px solid #dee2e6;">Cambiar Rol</th>
+                    <th style="padding:12px;text-align:center;border-bottom:2px solid #dee2e6;">Rol Principal</th>
+                    <th style="padding:12px;text-align:center;border-bottom:2px solid #dee2e6;">🏆 Club</th>
                 </tr></thead>
                 <tbody>
-                ${filtered.map(u => `
+                ${filtered.map(u => {
+                    const isClub = u.is_club_member === true || u.role === 'club_member';
+                    const roleBadge = `<span style="background:${roleColor[u.role]||'#ccc'};color:white;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">${roleLabel[u.role]||u.role}</span>`;
+                    const clubBadge = isClub ? `<span style="background:#002D62;color:white;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;margin-left:4px;">🏆 Club</span>` : '';
+                    return `
                     <tr style="border-bottom:1px solid #f0f0f0;" id="urow-${u.id}">
-                        <td style="padding:12px;">${u.email || '—'}</td>
-                        <td style="padding:12px;">${u.full_name || '—'}</td>
-                        <td style="padding:12px;text-align:center;">
-                            <span style="background:${roleColor[u.role]||'#ccc'};color:white;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">
-                                ${roleLabel[u.role] || u.role}
-                            </span>
-                        </td>
+                        <td style="padding:12px;font-size:.88em;">${u.email || '—'}</td>
+                        <td style="padding:12px;font-size:.88em;">${u.full_name || '—'}</td>
+                        <td style="padding:12px;text-align:center;">${roleBadge}${clubBadge}</td>
                         <td style="padding:12px;font-size:12px;color:#888;">${u.created_at ? new Date(u.created_at).toLocaleDateString('es-DO') : '—'}</td>
                         <td style="padding:12px;text-align:center;">
-                            <select onchange="changeUserRole('${u.id}', this.value)" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;">
+                            <select onchange="changeUserRole('${u.id}', this.value)" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;font-size:12px;">
                                 <option value="customer" ${u.role==='customer'?'selected':''}>🛍 Cliente</option>
                                 <option value="seller" ${u.role==='seller'?'selected':''}>🏷️ Vendedor</option>
                                 <option value="club_member" ${u.role==='club_member'?'selected':''}>🏆 Club Member</option>
                                 <option value="admin" ${u.role==='admin'?'selected':''}>👑 Admin</option>
                             </select>
                         </td>
-                    </tr>`).join('')}
+                        <td style="padding:12px;text-align:center;">
+                            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="checkbox" ${isClub?'checked':''} onchange="toggleClubMember('${u.id}', this.checked)"
+                                    style="width:16px;height:16px;accent-color:#002D62;cursor:pointer;">
+                                <span style="font-size:.78em;color:#666;">${isClub?'Activo':'Off'}</span>
+                            </label>
+                        </td>
+                    </tr>`;
+                }).join('')}
                 </tbody>
             </table>`;
         }
@@ -5089,7 +5101,22 @@
             if (error) { showToast('Error: ' + error.message, 'error'); return; }
             const u = allUsuarios.find(x => x.id === userId);
             if (u) u.role = newRole;
-            showToast(`✓ Rol actualizado a ${newRole}`, 'success');
+            showToast('✓ Rol actualizado a ' + newRole, 'success');
+            renderUsuarios();
+        }
+
+        async function toggleClubMember(userId, isActive) {
+            const { error } = await sb.from('profiles').update({ is_club_member: isActive }).eq('id', userId);
+            if (error) { showToast('Error: ' + error.message, 'error'); return; }
+            // Also update club_members status if exists
+            if (isActive) {
+                await sb.from('club_members').update({ status: 'active' }).eq('user_id', userId);
+            } else {
+                await sb.from('club_members').update({ status: 'suspended' }).eq('user_id', userId);
+            }
+            const u = allUsuarios.find(x => x.id === userId);
+            if (u) u.is_club_member = isActive;
+            showToast(isActive ? '🏆 Club activado' : '🏆 Club desactivado', 'success');
             renderUsuarios();
         }
 
@@ -5151,11 +5178,11 @@
                         notes: m.notes || null,
                     }));
                 } else {
-                    // Fallback: use profiles with role = club_member
+                    // Fallback: use profiles with is_club_member flag OR role = club_member
                     const { data: profileData } = await sb
                         .from('profiles')
                         .select('*')
-                        .eq('role', 'club_member')
+                        .or('is_club_member.eq.true,role.eq.club_member')
                         .order('created_at', { ascending: false });
                     members = (profileData || []).map(p => ({
                         id: p.id,
