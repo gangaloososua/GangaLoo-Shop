@@ -992,6 +992,7 @@ button{font-family:'Jost',sans-serif;}
         <div class="user-menu">
           <button class="user-menu-item" onclick="openProfile()">👤 Mi Perfil & Puntos</button>
           <button class="user-menu-item" onclick="openMyOrders()">📦 Mis Pedidos</button>
+          ${isClubMember()?'<button class="user-menu-item" onclick="openClubAccount()">🏆 Mi Cuenta Club</button>':''}
           <div style="height:1px;background:var(--border);margin:4px 0;"></div>
           <button class="user-menu-item danger" onclick="doLogout()">↩ Cerrar Sesión</button>
         </div>
@@ -1051,6 +1052,16 @@ button{font-family:'Jost',sans-serif;}
   </div>
   <div id="profileContent"></div>
 </section>
+
+<div id="clubAccountSec" style="display:none;padding:20px;">
+  <div style="max-width:600px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <h2 style="margin:0;color:var(--text);">🏆 Mi Cuenta Club GangaLoo</h2>
+      <button onclick="closeClubAccount()" style="background:none;border:none;font-size:1.5em;cursor:pointer;">✕</button>
+    </div>
+    <div id="clubAccountContent"><div style="text-align:center;padding:40px;">⏳ Cargando...</div></div>
+  </div>
+</div>
 
 <section class="my-orders-sec" id="myOrdersSec" style="display:none;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
@@ -2256,7 +2267,7 @@ function toast(msg,type=''){const s=document.getElementById('toastStack'),t=docu
 ══════════════════════════════════════════ */
 let currentUser = null;
 let userProfile = null;
-function isClubMember(){ return userProfile?.role === 'club_member'; }
+function isClubMember(){ return userProfile?.is_club_member === true || userProfile?.role === 'club_member'; }
 function clubPrice(price){ return isClubMember() ? Math.round(price * 0.90 * 100) / 100 : price; }
 
 async function initAuth(){
@@ -2390,6 +2401,92 @@ async function doLogout(){
 }
 
 /* MY ORDERS */
+async function openClubAccount(){
+  if(!currentUser){openAuthWall('login');return;}
+  document.getElementById('clubAccountSec').style.display='block';
+  document.getElementById('prodAnchor').style.display='none';
+  document.getElementById('showcase').style.display='none';
+  document.getElementById('myOrdersSec').style.display='none';
+  document.getElementById('clubAccountSec').scrollIntoView({behavior:'smooth'});
+
+  const content=document.getElementById('clubAccountContent');
+  content.innerHTML='<div style="text-align:center;padding:40px;">⏳ Cargando...</div>';
+
+  // Fetch club member data
+  const{data,error}=await sb.from('club_members').select('*').eq('email',currentUser.email).maybeSingle();
+  if(error||!data){
+    content.innerHTML='<div style="text-align:center;padding:40px;color:#888;"><p>No se encontró tu membresía. Si te acabas de registrar, espera confirmación.</p></div>';
+    return;
+  }
+
+  const statusColor={active:'#166534',pending:'#92400e',suspended:'#991b1b'};
+  const statusLabel={active:'✅ Activo',pending:'⏳ Pendiente de activación',suspended:'🚫 Suspendido'};
+  const joinDate=new Date(data.joined_at||data.created_at).toLocaleDateString('es-DO',{day:'2-digit',month:'long',year:'numeric'});
+
+  // Fetch approved orders for this member
+  const{data:orders}=await sb.from('online_orders').select('*').eq('customer_email',currentUser.email).eq('status','approved').order('created_at',{ascending:false});
+  const totalSpent=(orders||[]).reduce((s,o)=>s+parseFloat(o.total||0),0);
+  const loyaltyPts=Math.floor(totalSpent/100*2);
+
+  const notes=(data.notes||'').split('
+').filter(Boolean).reverse();
+
+  content.innerHTML=`
+    <div style="background:linear-gradient(135deg,#002D62,#CF142B);border-radius:16px;padding:20px;color:white;margin-bottom:16px;">
+      <div style="font-size:.75em;opacity:.8;margin-bottom:4px;">N° MEMBRESÍA</div>
+      <div style="font-size:1.4em;font-weight:800;letter-spacing:.1em;">${data.member_number||'—'}</div>
+      <div style="margin-top:8px;font-size:1.1em;font-weight:600;">${data.full_name||''}</div>
+      <div style="font-size:.8em;opacity:.8;">Miembro desde ${joinDate}</div>
+      <div style="margin-top:8px;display:inline-block;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 12px;font-size:.78em;font-weight:700;">${statusLabel[data.status]||data.status}</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div style="background:white;border:1px solid #e8e4f0;border-radius:12px;padding:14px;text-align:center;">
+        <div style="font-size:.65em;color:#888;text-transform:uppercase;margin-bottom:4px;">Balance</div>
+        <div style="font-size:1.2em;font-weight:800;color:#166534;">RD$ ${(data.balance||0).toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
+      </div>
+      <div style="background:white;border:1px solid #e8e4f0;border-radius:12px;padding:14px;text-align:center;">
+        <div style="font-size:.65em;color:#888;text-transform:uppercase;margin-bottom:4px;">Puntos ⭐</div>
+        <div style="font-size:1.2em;font-weight:800;color:#92400e;">${loyaltyPts.toLocaleString()}</div>
+      </div>
+      <div style="background:white;border:1px solid #e8e4f0;border-radius:12px;padding:14px;text-align:center;">
+        <div style="font-size:.65em;color:#888;text-transform:uppercase;margin-bottom:4px;">Total Gastado</div>
+        <div style="font-size:1.2em;font-weight:800;color:#002D62;">RD$ ${totalSpent.toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
+      </div>
+    </div>
+
+    <div style="background:white;border:1px solid #e8e4f0;border-radius:12px;padding:16px;margin-bottom:16px;">
+      <div style="font-weight:700;margin-bottom:10px;color:var(--text);">✅ Beneficios Activos</div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:.88em;">
+        <div>🏷️ <strong>10% descuento</strong> en todos los productos</div>
+        <div>🚚 <strong>Envío gratis</strong> en todos tus pedidos</div>
+        <div>⭐ <strong>Puntos dobles</strong> en cada compra</div>
+      </div>
+    </div>
+
+    ${notes.length?`<div style="background:white;border:1px solid #e8e4f0;border-radius:12px;padding:16px;margin-bottom:16px;">
+      <div style="font-weight:700;margin-bottom:10px;color:var(--text);">💰 Movimientos de Balance</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${notes.map(n=>`<div style="font-size:.83em;padding:6px 0;border-bottom:1px solid #f0ede8;color:#555;">${n}</div>`).join('')}
+      </div>
+    </div>`:''}
+
+    ${(orders||[]).length?`<div style="background:white;border:1px solid #e8e4f0;border-radius:12px;padding:16px;">
+      <div style="font-weight:700;margin-bottom:10px;color:var(--text);">📦 Últimas Compras</div>
+      ${(orders||[]).slice(0,5).map(o=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0ede8;font-size:.85em;">
+        <div><div style="font-weight:600;">#${o.id.slice(-8).toUpperCase()}</div><div style="color:#888;font-size:.85em;">${new Date(o.created_at).toLocaleDateString('es-DO')}</div></div>
+        <div style="font-weight:700;color:#166534;">RD$ ${parseFloat(o.total||0).toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
+      </div>`).join('')}
+    </div>`:''}
+  `;
+}
+
+function closeClubAccount(){
+  document.getElementById('clubAccountSec').style.display='none';
+  document.getElementById('prodAnchor').style.display='block';
+  document.getElementById('showcase').style.display='block';
+}
+
 async function openMyOrders(){
   if(!currentUser){openAuthWall();return;}
   document.getElementById('myOrdersSec').style.display='block';

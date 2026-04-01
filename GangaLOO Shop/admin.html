@@ -5194,11 +5194,12 @@
                             <div style="font-weight:700;font-size:.88em;color:#92400e;">${m.loyaltyPoints.toLocaleString()}</div>
                         </div>
                     </div>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
                         ${m.status!=='active'    ? `<button onclick="changeClubStatus('${m.id}','active')"    style="flex:1;background:#dcfce7;color:#166534;border:none;border-radius:8px;padding:6px 10px;font-size:.78em;font-weight:700;cursor:pointer;">✅ Activar</button>` : ''}
                         ${m.status!=='pending'   ? `<button onclick="changeClubStatus('${m.id}','pending')"   style="flex:1;background:#fef9c3;color:#92400e;border:none;border-radius:8px;padding:6px 10px;font-size:.78em;font-weight:700;cursor:pointer;">⏳ Pendiente</button>` : ''}
                         ${m.status!=='suspended' ? `<button onclick="changeClubStatus('${m.id}','suspended')" style="flex:1;background:#fee2e2;color:#991b1b;border:none;border-radius:8px;padding:6px 10px;font-size:.78em;font-weight:700;cursor:pointer;">🚫 Suspender</button>` : ''}
                     </div>
+                    <button onclick="addClubBalance('${m.id}',this)" data-name="${m.name.replace(/['"]/g,'')}" style="width:100%;background:#002D62;color:white;border:none;border-radius:8px;padding:7px 10px;font-size:.78em;font-weight:700;cursor:pointer;">💰 Agregar Fondos</button>
                     ${m.notes ? `<div style="margin-top:8px;font-size:.75em;color:#888;font-style:italic;">${m.notes}</div>` : ''}
                 </div>`;
             });
@@ -5207,22 +5208,34 @@
         }
 
         async function changeClubStatus(memberId, newStatus) {
-            // Update club_members table
             const { error: e1 } = await sb.from('club_members').update({ status: newStatus }).eq('id', memberId);
-            // Also update profiles role if activating/suspending
+            if (e1) { showToast('Error: ' + e1.message, 'error'); return; }
+            // Update is_club_member flag in profiles WITHOUT touching their existing role
             const member = _clubMembers.find(m => String(m.id) === String(memberId));
             if (member?.user_id) {
-                const profileRole = newStatus === 'active' ? 'club_member' : newStatus === 'suspended' ? 'customer' : 'club_member';
-                await sb.from('profiles').update({ role: profileRole }).eq('id', member.user_id);
+                const isActive = newStatus === 'active';
+                await sb.from('profiles').update({ is_club_member: isActive }).eq('id', member.user_id);
             }
-            let error = e1;
-            if (error) { showToast('Error: ' + error.message, 'error'); return; }
-
-            // Update local data
-            const m = _clubMembers.find(m => String(m.id) === String(memberId));
-            if (m) m.status = newStatus;
+            if (member) member.status = newStatus;
             renderClubMembers();
-            showToast(`Estado actualizado: ${newStatus}`, 'success');
+            showToast('Estado actualizado: ' + newStatus, 'success');
+        }
+
+        async function addClubBalance(memberId, btnEl) {
+            const memberName = btnEl?.dataset?.name || 'miembro';
+            const amount = parseFloat(prompt('¿Cuánto depositar a ' + memberName + '? (RD$)'));
+            if (!amount || isNaN(amount) || amount <= 0) return;
+            const note = prompt('Referencia / Nota (opcional):') || '';
+            const member = _clubMembers.find(m => String(m.id) === String(memberId));
+            const newBalance = (parseFloat(member?.balance || 0)) + amount;
+            const { error } = await sb.from('club_members').update({
+                balance: newBalance,
+                notes: (member?.notes ? member.notes + '\n' : '') + new Date().toLocaleDateString('es-DO') + ': +RD$' + amount.toLocaleString('es-DO') + (note ? ' - ' + note : '')
+            }).eq('id', memberId);
+            if (error) { showToast('Error: ' + error.message, 'error'); return; }
+            if (member) { member.balance = newBalance; }
+            renderClubMembers();
+            showToast('✅ Balance actualizado: RD$ ' + newBalance.toLocaleString('es-DO', {minimumFractionDigits:2}), 'success');
         }
 
         async function loadLealtad() {

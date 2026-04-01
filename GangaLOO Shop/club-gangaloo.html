@@ -71,11 +71,13 @@ async function submitForm(){
       }
     }
 
-    // Step 3: Update profile role if we have uid
+    // Step 3: Update profile - set is_club_member flag WITHOUT changing existing role
     if(uid){
       await _sb.from('profiles').upsert({
-        id:uid, email:email, full_name:fullName, role:'club_member'
+        id:uid, email:email, full_name:fullName, is_club_member: false
       }, {onConflict:'id'});
+      // Only set flag, don't overwrite role (seller keeps seller role etc.)
+      await _sb.from('profiles').update({ is_club_member: false }).eq('id', uid);
     }
 
     // Step 4: Check if already in club_members
