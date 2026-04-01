@@ -2364,6 +2364,84 @@
                 </div>
                 <div id="clubSummaryBar" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;"></div>
                 <div id="clubMembersList"></div>
+
+                <!-- Add Funds Modal -->
+                <div id="clubFundsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;">
+                    <div style="background:white;border-radius:16px;padding:24px;width:95%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+                        <h3 style="margin:0 0 16px;color:#002D62;">💰 Agregar Fondos al Cliente</h3>
+                        <div id="clubFundsClientName" style="font-weight:700;color:#CF142B;margin-bottom:16px;font-size:1.05em;"></div>
+                        <div style="display:flex;flex-direction:column;gap:12px;">
+                            <div>
+                                <label style="font-size:.82em;color:#666;font-weight:600;">Monto a depositar (DOP)</label>
+                                <input type="number" id="clubFundsAmount" placeholder="0.00" step="0.01" min="0"
+                                    style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:1em;box-sizing:border-box;margin-top:4px;">
+                            </div>
+                            <div>
+                                <label style="font-size:.82em;color:#666;font-weight:600;">Cuenta de ingreso (tu cuenta que recibió el dinero)</label>
+                                <select id="clubFundsAccount" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:.88em;box-sizing:border-box;margin-top:4px;">
+                                    <option value="">-- Seleccionar cuenta --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:.82em;color:#666;font-weight:600;">Referencia / Nota</label>
+                                <input type="text" id="clubFundsNote" placeholder="Ej: Transferencia banco, efectivo..."
+                                    style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:.88em;box-sizing:border-box;margin-top:4px;">
+                            </div>
+                            <div style="background:#f0fdf4;border-radius:8px;padding:10px;font-size:.82em;color:#166534;">
+                                ✅ Se registrará ingreso en tu cuenta contable<br>
+                                📊 Se creará pasivo (Club Liability) automáticamente<br>
+                                💳 Se acreditará balance al cliente
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:16px;">
+                            <button onclick="document.getElementById('clubFundsModal').style.display='none'"
+                                style="flex:1;padding:10px;border:1.5px solid #ddd;border-radius:8px;background:white;cursor:pointer;">Cancelar</button>
+                            <button onclick="confirmAddFunds()"
+                                style="flex:1;padding:10px;border:none;border-radius:8px;background:#002D62;color:white;font-weight:700;cursor:pointer;">💰 Confirmar Depósito</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deduct Funds Modal -->
+                <div id="clubDeductModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;">
+                    <div style="background:white;border-radius:16px;padding:24px;width:95%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+                        <h3 style="margin:0 0 16px;color:#CF142B;">💳 Cobrar con Saldo Cliente</h3>
+                        <div id="clubDeductClientName" style="font-weight:700;color:#002D62;margin-bottom:4px;font-size:1.05em;"></div>
+                        <div id="clubDeductCurrentBalance" style="font-size:.85em;color:#166534;margin-bottom:16px;font-weight:600;"></div>
+                        <div style="display:flex;flex-direction:column;gap:12px;">
+                            <div>
+                                <label style="font-size:.82em;color:#666;font-weight:600;">Monto del producto/servicio (DOP)</label>
+                                <input type="number" id="clubDeductAmount" placeholder="0.00" step="0.01" min="0" oninput="updateDeductTotal()"
+                                    style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:1em;box-sizing:border-box;margin-top:4px;">
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                <div>
+                                    <label style="font-size:.82em;color:#666;font-weight:600;">Cargo por servicio (%)</label>
+                                    <input type="number" id="clubDeductFeePct" placeholder="0" step="0.1" min="0" oninput="updateDeductTotal()"
+                                        style="width:100%;padding:8px;border:1.5px solid #ddd;border-radius:8px;font-size:.88em;box-sizing:border-box;margin-top:4px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:.82em;color:#666;font-weight:600;">Cargo FX (conversión)</label>
+                                    <input type="number" id="clubDeductFX" placeholder="0.00" step="0.01" min="0" oninput="updateDeductTotal()"
+                                        style="width:100%;padding:8px;border:1.5px solid #ddd;border-radius:8px;font-size:.88em;box-sizing:border-box;margin-top:4px;">
+                                </div>
+                            </div>
+                            <div id="clubDeductSummary" style="background:#fff3cd;border-radius:8px;padding:10px;font-size:.83em;display:none;">
+                            </div>
+                            <div>
+                                <label style="font-size:.82em;color:#666;font-weight:600;">Descripción</label>
+                                <input type="text" id="clubDeductNote" placeholder="Ej: Compra Stripe, Amazon order..."
+                                    style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:.88em;box-sizing:border-box;margin-top:4px;">
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:16px;">
+                            <button onclick="document.getElementById('clubDeductModal').style.display='none'"
+                                style="flex:1;padding:10px;border:1.5px solid #ddd;border-radius:8px;background:white;cursor:pointer;">Cancelar</button>
+                            <button onclick="confirmDeductFunds()"
+                                style="flex:1;padding:10px;border:none;border-radius:8px;background:#CF142B;color:white;font-weight:700;cursor:pointer;">💳 Confirmar Cobro</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -5199,7 +5277,10 @@
                         ${m.status!=='pending'   ? `<button onclick="changeClubStatus('${m.id}','pending')"   style="flex:1;background:#fef9c3;color:#92400e;border:none;border-radius:8px;padding:6px 10px;font-size:.78em;font-weight:700;cursor:pointer;">⏳ Pendiente</button>` : ''}
                         ${m.status!=='suspended' ? `<button onclick="changeClubStatus('${m.id}','suspended')" style="flex:1;background:#fee2e2;color:#991b1b;border:none;border-radius:8px;padding:6px 10px;font-size:.78em;font-weight:700;cursor:pointer;">🚫 Suspender</button>` : ''}
                     </div>
-                    <button onclick="addClubBalance('${m.id}',this)" data-name="${m.name.replace(/['"]/g,'')}" style="width:100%;background:#002D62;color:white;border:none;border-radius:8px;padding:7px 10px;font-size:.78em;font-weight:700;cursor:pointer;">💰 Agregar Fondos</button>
+                    <div style="display:flex;gap:6px;">
+                        <button onclick="openAddFunds('${m.id}')" style="flex:1;background:#002D62;color:white;border:none;border-radius:8px;padding:7px 8px;font-size:.78em;font-weight:700;cursor:pointer;">💰 Depositar</button>
+                        <button onclick="openDeductFunds('${m.id}')" style="flex:1;background:#CF142B;color:white;border:none;border-radius:8px;padding:7px 8px;font-size:.78em;font-weight:700;cursor:pointer;">💳 Cobrar</button>
+                    </div>
                     ${m.notes ? `<div style="margin-top:8px;font-size:.75em;color:#888;font-style:italic;">${m.notes}</div>` : ''}
                 </div>`;
             });
@@ -5221,21 +5302,164 @@
             showToast('Estado actualizado: ' + newStatus, 'success');
         }
 
-        async function addClubBalance(memberId, btnEl) {
-            const memberName = btnEl?.dataset?.name || 'miembro';
-            const amount = parseFloat(prompt('¿Cuánto depositar a ' + memberName + '? (RD$)'));
-            if (!amount || isNaN(amount) || amount <= 0) return;
-            const note = prompt('Referencia / Nota (opcional):') || '';
-            const member = _clubMembers.find(m => String(m.id) === String(memberId));
-            const newBalance = (parseFloat(member?.balance || 0)) + amount;
-            const { error } = await sb.from('club_members').update({
+        let _clubFundsMemberId = null;
+        let _clubDeductMemberId = null;
+
+        function openAddFunds(memberId) {
+            _clubFundsMemberId = memberId;
+            const m = _clubMembers.find(m => String(m.id) === String(memberId));
+            document.getElementById('clubFundsClientName').textContent = (m?.name || '—') + ' — Saldo actual: RD$ ' + (m?.balance||0).toLocaleString('es-DO',{minimumFractionDigits:2});
+            document.getElementById('clubFundsAmount').value = '';
+            document.getElementById('clubFundsNote').value = '';
+            // Populate account selector with DOP accounts
+            const sel = document.getElementById('clubFundsAccount');
+            sel.innerHTML = '<option value="">-- Seleccionar cuenta --</option>' +
+                accounts.filter(a => a.currency === 'DOP').map(a => `<option value="${a.id}">${a.name} (${a.currency})</option>`).join('');
+            document.getElementById('clubFundsModal').style.display = 'flex';
+        }
+
+        async function confirmAddFunds() {
+            const m = _clubMembers.find(m => String(m.id) === String(_clubFundsMemberId));
+            const amount = parseFloat(document.getElementById('clubFundsAmount').value);
+            const accountId = parseInt(document.getElementById('clubFundsAccount').value);
+            const note = document.getElementById('clubFundsNote').value.trim();
+            if (!amount || amount <= 0) { showToast('Ingresa un monto válido', 'error'); return; }
+            if (!accountId) { showToast('Selecciona una cuenta de ingreso', 'error'); return; }
+
+            const account = accounts.find(a => a.id === accountId);
+            if (!account) return;
+
+            const today = getNowDO().toISOString().split('T')[0];
+            const newBalance = (parseFloat(m?.balance || 0)) + amount;
+            const movNote = today + ': +RD$ ' + amount.toLocaleString('es-DO',{minimumFractionDigits:2}) + (note ? ' — ' + note : '');
+
+            // 1. Update club_members balance
+            const { error: e1 } = await sb.from('club_members').update({
                 balance: newBalance,
-                notes: (member?.notes ? member.notes + '\n' : '') + new Date().toLocaleDateString('es-DO') + ': +RD$' + amount.toLocaleString('es-DO') + (note ? ' - ' + note : '')
-            }).eq('id', memberId);
-            if (error) { showToast('Error: ' + error.message, 'error'); return; }
-            if (member) { member.balance = newBalance; }
+                notes: (m?.notes ? m.notes + '|' : '') + movNote
+            }).eq('id', _clubFundsMemberId);
+            if (e1) { showToast('Error: ' + e1.message, 'error'); return; }
+
+            // 2. Record income in accounting (money received into your account)
+            const incomeDesc = 'Club GangaLoo — Depósito ' + (m?.name||'cliente') + (note ? ' — ' + note : '');
+            account.balance += amount;
+            // Find or create Club category
+            let clubCatId = accountingCategories.find(c => c.name === 'Club GangaLoo')?.id;
+            if (!clubCatId) {
+                clubCatId = Date.now();
+                accountingCategories.push({ id: clubCatId, name: 'Club GangaLoo', type: 'income' });
+            }
+            transactions.push({ id: Date.now(), type: 'income', accountId, categoryId: clubCatId, amount, date: today, description: incomeDesc, currency: 'DOP' });
+
+            // 3. Record Club Liability increase (you now owe the client this money)
+            let liabAccount = accounts.find(a => a.name === 'Club GangaLoo — Pasivo');
+            if (!liabAccount) {
+                liabAccount = { id: Date.now()+1, name: 'Club GangaLoo — Pasivo', group: 'other', currency: 'DOP', balance: 0, initialBalance: 0 };
+                accounts.push(liabAccount);
+            }
+            liabAccount.balance -= amount; // Liability = negative (you owe money)
+            let liabCatId = accountingCategories.find(c => c.name === 'Pasivo Club')?.id;
+            if (!liabCatId) {
+                liabCatId = Date.now()+2;
+                accountingCategories.push({ id: liabCatId, name: 'Pasivo Club', type: 'expense' });
+            }
+            transactions.push({ id: Date.now()+3, type: 'expense', accountId: liabAccount.id, categoryId: liabCatId, amount, date: today, description: 'Pasivo — ' + incomeDesc, currency: 'DOP' });
+
+            saveData();
+            if (m) { m.balance = newBalance; m.notes = (m.notes ? m.notes + '|' : '') + movNote; }
+            document.getElementById('clubFundsModal').style.display = 'none';
             renderClubMembers();
-            showToast('✅ Balance actualizado: RD$ ' + newBalance.toLocaleString('es-DO', {minimumFractionDigits:2}), 'success');
+            renderAccounts();
+            showToast('✅ Depósito registrado: RD$ ' + amount.toLocaleString('es-DO',{minimumFractionDigits:2}), 'success');
+        }
+
+        function openDeductFunds(memberId) {
+            _clubDeductMemberId = memberId;
+            const m = _clubMembers.find(m => String(m.id) === String(memberId));
+            document.getElementById('clubDeductClientName').textContent = m?.name || '—';
+            document.getElementById('clubDeductCurrentBalance').textContent = 'Saldo disponible: RD$ ' + (m?.balance||0).toLocaleString('es-DO',{minimumFractionDigits:2});
+            document.getElementById('clubDeductAmount').value = '';
+            document.getElementById('clubDeductFeePct').value = '';
+            document.getElementById('clubDeductFX').value = '';
+            document.getElementById('clubDeductNote').value = '';
+            document.getElementById('clubDeductSummary').style.display = 'none';
+            document.getElementById('clubDeductModal').style.display = 'flex';
+        }
+
+        function updateDeductTotal() {
+            const amount = parseFloat(document.getElementById('clubDeductAmount').value) || 0;
+            const feePct = parseFloat(document.getElementById('clubDeductFeePct').value) || 0;
+            const fx = parseFloat(document.getElementById('clubDeductFX').value) || 0;
+            if (!amount) { document.getElementById('clubDeductSummary').style.display = 'none'; return; }
+            const fee = amount * feePct / 100;
+            const total = amount + fee + fx;
+            const m = _clubMembers.find(m => String(m.id) === String(_clubDeductMemberId));
+            const bal = parseFloat(m?.balance || 0);
+            const remaining = bal - total;
+            const summary = document.getElementById('clubDeductSummary');
+            summary.style.display = 'block';
+            summary.style.background = remaining < 0 ? '#fee2e2' : '#fff3cd';
+            summary.innerHTML = `
+                <div style="display:flex;justify-content:space-between;"><span>Monto:</span><span>RD$ ${amount.toLocaleString('es-DO',{minimumFractionDigits:2})}</span></div>
+                ${fee>0?`<div style="display:flex;justify-content:space-between;"><span>Cargo servicio (${feePct}%):</span><span>RD$ ${fee.toLocaleString('es-DO',{minimumFractionDigits:2})}</span></div>`:''}
+                ${fx>0?`<div style="display:flex;justify-content:space-between;"><span>Cargo FX:</span><span>RD$ ${fx.toLocaleString('es-DO',{minimumFractionDigits:2})}</span></div>`:''}
+                <div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid #ddd;margin-top:4px;padding-top:4px;"><span>Total a cobrar:</span><span>RD$ ${total.toLocaleString('es-DO',{minimumFractionDigits:2})}</span></div>
+                <div style="display:flex;justify-content:space-between;color:${remaining<0?'#dc2626':'#166534'};"><span>Saldo restante:</span><span>RD$ ${remaining.toLocaleString('es-DO',{minimumFractionDigits:2})}</span></div>
+                ${remaining<0?'<div style="color:#dc2626;font-weight:700;margin-top:4px;">⚠️ Saldo insuficiente</div>':''}`;
+        }
+
+        async function confirmDeductFunds() {
+            const m = _clubMembers.find(m => String(m.id) === String(_clubDeductMemberId));
+            const amount = parseFloat(document.getElementById('clubDeductAmount').value);
+            const feePct = parseFloat(document.getElementById('clubDeductFeePct').value) || 0;
+            const fx = parseFloat(document.getElementById('clubDeductFX').value) || 0;
+            const note = document.getElementById('clubDeductNote').value.trim();
+            if (!amount || amount <= 0) { showToast('Ingresa un monto válido', 'error'); return; }
+            const fee = amount * feePct / 100;
+            const total = amount + fee + fx;
+            const currentBalance = parseFloat(m?.balance || 0);
+            if (total > currentBalance) { showToast('⚠️ Saldo insuficiente', 'error'); return; }
+
+            const today = getNowDO().toISOString().split('T')[0];
+            const newBalance = currentBalance - total;
+            const movNote = today + ': -RD$ ' + total.toLocaleString('es-DO',{minimumFractionDigits:2}) + (note ? ' — ' + note : '');
+
+            // 1. Update club_members balance
+            const { error: e1 } = await sb.from('club_members').update({
+                balance: newBalance,
+                notes: (m?.notes ? m.notes + '|' : '') + movNote
+            }).eq('id', _clubDeductMemberId);
+            if (e1) { showToast('Error: ' + e1.message, 'error'); return; }
+
+            // 2. Reduce Club Liability (you owe client less now)
+            let liabAccount = accounts.find(a => a.name === 'Club GangaLoo — Pasivo');
+            if (!liabAccount) {
+                liabAccount = { id: Date.now()+1, name: 'Club GangaLoo — Pasivo', group: 'other', currency: 'DOP', balance: 0, initialBalance: 0 };
+                accounts.push(liabAccount);
+            }
+            liabAccount.balance += total; // Liability decreases (less negative)
+            let liabCatId = accountingCategories.find(c => c.name === 'Pasivo Club')?.id;
+            if (!liabCatId) { liabCatId = Date.now()+2; accountingCategories.push({ id: liabCatId, name: 'Pasivo Club', type: 'expense' }); }
+            transactions.push({ id: Date.now()+3, type: 'income', accountId: liabAccount.id, categoryId: liabCatId, amount: total, date: today, description: 'Cobro tarjeta Club — ' + (m?.name||'') + (note?' — '+note:''), currency: 'DOP' });
+
+            // 3. If there are fees/FX, record them as income (your earnings)
+            if (fee + fx > 0) {
+                const feeIncome = fee + fx;
+                const dopAccounts = accounts.filter(a => a.currency === 'DOP' && a.name !== 'Club GangaLoo — Pasivo');
+                if (dopAccounts.length > 0) {
+                    dopAccounts[0].balance += feeIncome;
+                    let feeCatId = accountingCategories.find(c => c.name === 'Comisión Club')?.id;
+                    if (!feeCatId) { feeCatId = Date.now()+4; accountingCategories.push({ id: feeCatId, name: 'Comisión Club', type: 'income' }); }
+                    transactions.push({ id: Date.now()+5, type: 'income', accountId: dopAccounts[0].id, categoryId: feeCatId, amount: feeIncome, date: today, description: 'Comisión/FX Club — ' + (m?.name||'') + (note?' — '+note:''), currency: 'DOP' });
+                }
+            }
+
+            saveData();
+            if (m) { m.balance = newBalance; m.notes = (m.notes ? m.notes + '|' : '') + movNote; }
+            document.getElementById('clubDeductModal').style.display = 'none';
+            renderClubMembers();
+            renderAccounts();
+            showToast('✅ Cobro registrado. Saldo restante: RD$ ' + newBalance.toLocaleString('es-DO',{minimumFractionDigits:2}), 'success');
         }
 
         async function loadLealtad() {

@@ -2428,7 +2428,7 @@ async function openClubAccount(){
   const totalSpent=(orders||[]).reduce((s,o)=>s+parseFloat(o.total||0),0);
   const loyaltyPts=Math.floor(totalSpent/100*2);
 
-  const notes=(data.notes||'').split('
+  const notes=(data.notes||'').split(/[|\n]/).filter(Boolean).reverse();
 ').filter(Boolean).reverse();
 
   content.innerHTML=`
