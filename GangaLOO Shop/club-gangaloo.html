@@ -54,11 +54,50 @@ async function submitForm(){
   btn.disabled=true;btn.textContent='&#9203; Registrando...';
   var fullName=(nombre+' '+apellido).trim();
   try{
-    var ar=await _sb.auth.signUp({email:email,password:pass,options:{data:{full_name:fullName}}});
-    if(ar.error&&!ar.error.message.toLowerCase().includes('already'))throw new Error('Error de registro: '+ar.error.message);
-    var uid=ar.data&&ar.data.user?ar.data.user.id:null;
-    if(uid)await _sb.from('profiles').upsert({id:uid,email:email,full_name:fullName,role:'club_member'});
-    await _sb.from('club_members').insert({user_id:uid,member_number:memberNum,full_name:fullName,email:email,phone:tel,city:ciudad,plan:'Trimestral',status:'pending',joined_at:new Date().toISOString()});
+    var uid = null;
+
+    // Try to sign up — if already exists, try to sign in to get uid
+    var ar = await _sb.auth.signUp({email:email, password:pass, options:{data:{full_name:fullName}}});
+    if(ar.data && ar.data.user && ar.data.user.id){
+      uid = ar.data.user.id;
+    } else if(ar.error && ar.error.message.toLowerCase().includes('already')){
+      // User already exists — try signing in to get their uid
+      var si = await _sb.auth.signInWithPassword({email:email, password:pass});
+      if(si.data && si.data.user) uid = si.data.user.id;
+      // Sign out after getting uid so they don't stay logged in
+      if(uid) await _sb.auth.signOut();
+    } else if(ar.error){
+      throw new Error('Error de registro: '+ar.error.message);
+    }
+
+    // Update profile role
+    if(uid){
+      await _sb.from('profiles').upsert({
+        id:uid, email:email, full_name:fullName, role:'club_member'
+      });
+    }
+
+    // Check if already in club_members
+    var existing = await _sb.from('club_members').select('id').eq('email', email).maybeSingle();
+    if(existing.data){
+      // Already applied — just update status to pending
+      await _sb.from('club_members').update({
+        status:'pending', full_name:fullName, phone:tel, city:ciudad
+      }).eq('email', email);
+    } else {
+      // New application
+      await _sb.from('club_members').insert({
+        user_id:uid,
+        member_number:memberNum,
+        full_name:fullName,
+        email:email,
+        phone:tel,
+        city:ciudad,
+        plan:'Trimestral',
+        status:'pending',
+        joined_at:new Date().toISOString()
+      });
+    }
   }catch(err){
     btn.disabled=false;btn.textContent='&#128081; Solicitar Membresia';
     alert('Error: '+err.message);return;
