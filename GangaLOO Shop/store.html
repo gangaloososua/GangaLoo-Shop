@@ -2394,14 +2394,19 @@ function showGuestState(){
   currentUser=null; userProfile=null;
   const cb = document.getElementById('clubBanner');
   if (cb) cb.className = 'club-banner';
-  // Hide guest banner initially, show after storeConfig check
-  const markup = parseFloat(storeConfig?.guest_markup||0);
   const gb = document.getElementById('guestBanner');
-  if(gb) gb.style.display = markup>0 ? 'block' : 'none';
+  if(gb) gb.style.display = 'none';
   document.getElementById('userPillWrap').style.display='none';
   document.getElementById('loginNavBtn').style.display='flex';
-  // Re-render with guest prices
-  if(_dataLoaded) renderProducts();
+  if(!_dataLoaded && !_dataLoading){
+    // First visit as guest — load data
+    loadData();
+  } else if(_dataLoaded){
+    // Signed out — re-render with guest prices
+    const markup = parseFloat(storeConfig?.guest_markup||0);
+    if(gb) gb.style.display = markup>0 ? 'block' : 'none';
+    renderProducts();
+  }
 }
 
 function openAuthWall(tab='login'){
