@@ -401,18 +401,32 @@ const { createClient } = supabase;
 const sb = SUPABASE_URL ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 // ── LOAD WHOLESALE TIERS FROM SUPABASE ──
+function showDefaultTiers() {
+  const grid = document.getElementById('discountGrid');
+  if (!grid) return;
+  grid.innerHTML = `
+    <div class="d-card"><div class="d-qty">1 unidad</div><div class="d-pct">0%</div><div class="d-label">Precio regular</div></div>
+    <div class="d-card"><div class="d-qty">2 unidades</div><div class="d-pct">5%</div><div class="d-label">Descuento básico</div></div>
+    <div class="d-card"><div class="d-qty">3 – 4 unidades</div><div class="d-pct">10%</div><div class="d-label">Descuento estándar</div></div>
+    <div class="d-card"><div class="d-qty">5 – 6 unidades</div><div class="d-pct">15%</div><div class="d-label">Descuento mayorista</div></div>
+    <div class="d-card highlight"><div class="best-badge">⭐ Mejor valor</div><div class="d-qty">7+ unidades</div><div class="d-pct">20%</div><div class="d-label">Descuento máximo</div></div>`;
+}
+
 async function loadWholesaleTiers() {
   const grid = document.getElementById('discountGrid');
-  if (!grid || !sb) return;
+  if (!grid) return;
+  // Show defaults immediately
+  showDefaultTiers();
   try {
-    const sbUrl = (window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseUrl) || 'https://xnbkwczolkinurohloxj.supabase.co';
-    const sbKey = (window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseKey) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes';
+    const sbUrl = 'https://xnbkwczolkinurohloxj.supabase.co';
+    const sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes';
     const res = await fetch(
       sbUrl + '/rest/v1/inventory_data?select=store_config&limit=1',
       { headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey }}
     );
     const rows = await res.json();
-    const cfg = JSON.parse((rows[0] && rows[0].store_config) || '{}');
+    if (!rows || !rows[0]) return;
+    const cfg = JSON.parse(rows[0].store_config || '{}');
 
     const allTiers = [
       {qty: cfg.bulk_qty1, disc: cfg.bulk_disc1, label: cfg.bulk_label1},
@@ -421,27 +435,24 @@ async function loadWholesaleTiers() {
       {qty: cfg.bulk_qty4, disc: cfg.bulk_disc4, label: cfg.bulk_label4},
     ].filter(t => t.qty > 0 && t.disc > 0).sort((a,b) => a.qty - b.qty);
 
-    if (!allTiers.length) return;
+    if (!allTiers.length) return; // keep defaults
 
-    // Build tier range labels (e.g. "3 – 5 unidades", "6+ unidades")
     let cards = `<div class="d-card"><div class="d-qty">1 unidad</div><div class="d-pct">0%</div><div class="d-label">Precio regular</div></div>`;
     allTiers.forEach((t, i) => {
       const next = allTiers[i + 1];
       const qtyLabel = next ? `${t.qty} – ${next.qty - 1} unidades` : `${t.qty}+ unidades`;
       const isLast = !next;
-      cards += `<div class="d-card ${isLast ? 'highlight' : ''}">
-        ${isLast ? '<div class="best-badge">⭐ Mejor valor</div>' : ''}
+      cards += `<div class="d-card ${isLast?'highlight':''}">
+        ${isLast?'<div class="best-badge">⭐ Mejor valor</div>':''}
         <div class="d-qty">${qtyLabel}</div>
         <div class="d-pct">${t.disc}%</div>
-        <div class="d-label">${t.label || (isLast ? 'Descuento máximo' : 'Descuento mayoreo')}</div>
+        <div class="d-label">${t.label||(isLast?'Descuento máximo':'Descuento mayoreo')}</div>
       </div>`;
     });
     grid.innerHTML = cards;
   } catch(e) {
-    // Fallback to default if fetch fails
-    grid.innerHTML = `
-      <div class="d-card"><div class="d-qty">1 unidad</div><div class="d-pct">0%</div><div class="d-label">Precio regular</div></div>
-      <div class="d-card highlight"><div class="best-badge">⭐ Mejor valor</div><div class="d-qty">Varios</div><div class="d-pct">—%</div><div class="d-label">Consultar tienda</div></div>`;
+    // defaults already shown, nothing to do
+    console.warn('Wholesale tiers fetch failed:', e.message);
   }
 }
 document.addEventListener('DOMContentLoaded', loadWholesaleTiers);
