@@ -2370,12 +2370,12 @@ async function onSignedIn(user){
         if(!_dataLoading){ clearInterval(check); resolve(); }
       }, 100);
     });
-    return; // data already loaded by previous call
+    // Re-render with updated user context (prices)
+    renderProducts();
+    return;
   }
   _dataLoaded=false;
   await loadData();
-  // Re-render after login so prices update for logged-in user
-  setTimeout(()=>renderProducts(), 50);
   loadLoyaltyDot();
   // If returning from successful Stripe payment, open orders page
   if(window._stripeSuccess){
@@ -2400,8 +2400,8 @@ function showGuestState(){
   if(gb) gb.style.display = markup>0 ? 'block' : 'none';
   document.getElementById('userPillWrap').style.display='none';
   document.getElementById('loginNavBtn').style.display='flex';
-  // Re-render with guest prices after state is cleared
-  if(_dataLoaded) setTimeout(()=>renderProducts(), 50);
+  // Re-render with guest prices
+  if(_dataLoaded) renderProducts();
 }
 
 function openAuthWall(tab='login'){
