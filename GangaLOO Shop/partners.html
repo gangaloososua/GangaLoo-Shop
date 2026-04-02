@@ -405,9 +405,8 @@ async function loadWholesaleTiers() {
   const grid = document.getElementById('discountGrid');
   if (!grid || !sb) return;
   try {
-    const sbUrl = (window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseUrl) || '';
-    const sbKey = (window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseKey) || '';
-    if (!sbUrl) return;
+    const sbUrl = (window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseUrl) || 'https://xnbkwczolkinurohloxj.supabase.co';
+    const sbKey = (window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseKey) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes';
     const res = await fetch(
       sbUrl + '/rest/v1/inventory_data?select=store_config&limit=1',
       { headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey }}
