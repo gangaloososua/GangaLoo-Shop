@@ -405,12 +405,12 @@ async function loadWholesaleTiers() {
   const grid = document.getElementById('discountGrid');
   if (!grid || !sb) return;
   try {
+    const sbUrl = (window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseUrl) || '';
+    const sbKey = (window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseKey) || '';
+    if (!sbUrl) return;
     const res = await fetch(
-      'https://xnbkwczolkinurohloxj.supabase.co/rest/v1/inventory_data?select=store_config&limit=1',
-      { headers: {
-        'apikey': (window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseKey) || '',
-        'Authorization': 'Bearer ' + ((window.GANGALOO_CONFIG && window.GANGALOO_CONFIG.supabaseKey) || '')
-      }}
+      sbUrl + '/rest/v1/inventory_data?select=store_config&limit=1',
+      { headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey }}
     );
     const rows = await res.json();
     const cfg = JSON.parse((rows[0] && rows[0].store_config) || '{}');
