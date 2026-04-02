@@ -1261,6 +1261,12 @@ async function loadData(){
   _purchasesBackup = allPurchases.slice();
   _productsBackup  = allProducts.slice();
   _dataLoaded=true;_dataLoading=false;
+  // Show guest banner if not logged in and markup configured
+  if(!currentUser){
+    const markup = parseFloat(storeConfig?.guest_markup||0);
+    const gb = document.getElementById('guestBanner');
+    if(gb) gb.style.display = markup>0 ? 'block' : 'none';
+  }
   // Re-render WH pills now that data is ready (enables buttons)
   renderWH();
   buildCatStrip();
@@ -2368,8 +2374,8 @@ async function onSignedIn(user){
   }
   _dataLoaded=false;
   await loadData();
-  // Re-render prices for new user context
-  if(_dataLoaded) renderProducts();
+  // loadData already calls renderProducts internally, but re-render for price context
+  renderProducts();
   loadLoyaltyDot();
   // If returning from successful Stripe payment, open orders page
   if(window._stripeSuccess){
@@ -2388,15 +2394,14 @@ function showGuestState(){
   currentUser=null; userProfile=null;
   const cb = document.getElementById('clubBanner');
   if (cb) cb.className = 'club-banner';
-  // Show guest banner if markup configured
+  // Hide guest banner initially, show after storeConfig check
   const markup = parseFloat(storeConfig?.guest_markup||0);
   const gb = document.getElementById('guestBanner');
   if(gb) gb.style.display = markup>0 ? 'block' : 'none';
-  // Re-render products so markup prices show
-  if(_dataLoaded) renderProducts();
   document.getElementById('userPillWrap').style.display='none';
   document.getElementById('loginNavBtn').style.display='flex';
-  loadData(); // still load products, but lock cart
+  // Re-render with guest prices — no loadData() needed
+  if(_dataLoaded) renderProducts();
 }
 
 function openAuthWall(tab='login'){
