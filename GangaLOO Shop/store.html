@@ -1542,6 +1542,7 @@ function getBulkDiscount(){
   const qty=getCartQty();
   // Find the highest applicable tier
   const tiers=[
+    {min:cfg.bulk_qty4||0, disc:cfg.bulk_disc4||0, label:cfg.bulk_label4||''},
     {min:cfg.bulk_qty3||0, disc:cfg.bulk_disc3||0, label:cfg.bulk_label3||''},
     {min:cfg.bulk_qty2||0, disc:cfg.bulk_disc2||0, label:cfg.bulk_label2||''},
     {min:cfg.bulk_qty1||0, disc:cfg.bulk_disc1||0, label:cfg.bulk_label1||''},

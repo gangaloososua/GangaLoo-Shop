@@ -2813,6 +2813,11 @@
                             <td style="padding:8px 12px;"><input type="number" id="cfg_bulk_disc3" placeholder="15" min="0" max="100" step="1" style="width:60px;padding:6px;border:1.5px solid #ddd;border-radius:7px;text-align:center;font-size:13px;">%</td>
                             <td style="padding:8px 12px;"><input type="text" id="cfg_bulk_label3" placeholder="Precio Gran Mayoreo" style="width:140px;padding:6px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;"></td>
                         </tr>
+                        <tr><td style="padding:10px 12px;"><span style="font-weight:600;">Tier 4</span></td>
+                            <td style="padding:8px 12px;text-align:center;"><input type="number" id="cfg_bulk_qty4" placeholder="10" min="1" step="1" style="width:70px;padding:6px;border:1.5px solid #ddd;border-radius:7px;text-align:center;font-size:13px;"> unidades</td>
+                            <td style="padding:8px 12px;"><input type="number" id="cfg_bulk_disc4" placeholder="20" min="0" max="100" step="1" style="width:60px;padding:6px;border:1.5px solid #ddd;border-radius:7px;text-align:center;font-size:13px;">%</td>
+                            <td style="padding:8px 12px;"><input type="text" id="cfg_bulk_label4" placeholder="Precio Especial" style="width:140px;padding:6px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;"></td>
+                        </tr>
                     </tbody>
                 </table>
 
@@ -5752,6 +5757,9 @@
             document.getElementById('cfg_bulk_qty3').value   = cfg.bulk_qty3   || '';
             document.getElementById('cfg_bulk_disc3').value  = cfg.bulk_disc3  || '';
             document.getElementById('cfg_bulk_label3').value = cfg.bulk_label3 || '';
+            document.getElementById('cfg_bulk_qty4').value   = cfg.bulk_qty4   || '';
+            document.getElementById('cfg_bulk_disc4').value  = cfg.bulk_disc4  || '';
+            document.getElementById('cfg_bulk_label4').value = cfg.bulk_label4 || '';
             updateCfgPreview(cfg);
             refreshDealSummary();
         }
@@ -5791,6 +5799,9 @@
                 bulk_qty3: parseInt(document.getElementById('cfg_bulk_qty3').value)||0,
                 bulk_disc3: parseFloat(document.getElementById('cfg_bulk_disc3').value)||0,
                 bulk_label3: document.getElementById('cfg_bulk_label3').value.trim(),
+                bulk_qty4: parseInt(document.getElementById('cfg_bulk_qty4').value)||0,
+                bulk_disc4: parseFloat(document.getElementById('cfg_bulk_disc4').value)||0,
+                bulk_label4: document.getElementById('cfg_bulk_label4').value.trim(),
                 disc_bronze:   parseFloat(document.getElementById('cfg_disc_bronze').value)  ?? 5,
                 pts_silver:    parseInt(document.getElementById('cfg_pts_silver').value)      ?? 500,
                 disc_silver:   parseFloat(document.getElementById('cfg_disc_silver').value)  ?? 10,
