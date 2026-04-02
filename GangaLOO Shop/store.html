@@ -2180,7 +2180,7 @@ function buildDealSection() {
           <div class="dcb-block"><span class="dcb-num" id="dealCd_0_S">--</span><span class="dcb-lbl">seg</span></div>
         </div>
         <button class="deal-add-btn" ${stk===0?'disabled':''}
-          onclick="addCart(${deal.id},'${esc(deal.name)}',${saleP},'${esc(deal.sku||'')}')">
+          onclick="addCart(${deal.id},'${esc(deal.name)}',${saleP},'${esc(deal.sku||'')}',${deal.price||deal.finalPrice||saleP})">
           ${stk===0?'❌ Agotado':'🛍 Agregar al Carrito'}
         </button>
       </div>
@@ -2220,7 +2220,7 @@ function buildDealSection() {
             <span class="cdv" id="${cdId}_S">--</span>s
           </div>
           <button class="deal-chip-add" ${stk===0?'disabled':''}
-            onclick="addCart(${deal.id},'${esc(deal.name)}',${saleP},'${esc(deal.sku||'')}')">
+            onclick="addCart(${deal.id},'${esc(deal.name)}',${saleP},'${esc(deal.sku||'')}',${deal.price||deal.finalPrice||saleP})">
             ${stk===0?'Agotado':'🛍 Agregar'}
           </button>
         </div>
@@ -2374,8 +2374,8 @@ async function onSignedIn(user){
   }
   _dataLoaded=false;
   await loadData();
-  // loadData already calls renderProducts internally, but re-render for price context
-  renderProducts();
+  // Re-render after login so prices update for logged-in user
+  setTimeout(()=>renderProducts(), 50);
   loadLoyaltyDot();
   // If returning from successful Stripe payment, open orders page
   if(window._stripeSuccess){
@@ -2400,8 +2400,8 @@ function showGuestState(){
   if(gb) gb.style.display = markup>0 ? 'block' : 'none';
   document.getElementById('userPillWrap').style.display='none';
   document.getElementById('loginNavBtn').style.display='flex';
-  // Re-render with guest prices — no loadData() needed
-  if(_dataLoaded) renderProducts();
+  // Re-render with guest prices after state is cleared
+  if(_dataLoaded) setTimeout(()=>renderProducts(), 50);
 }
 
 function openAuthWall(tab='login'){
