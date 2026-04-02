@@ -932,7 +932,7 @@ button{font-family:'Jost',sans-serif;}
 .club-badge{background:linear-gradient(135deg,#002D62,#CF142B);color:white;border-radius:20px;padding:3px 10px;font-size:.7em;font-weight:700;letter-spacing:.05em;display:inline-block;}
 .club-price{color:#CF142B;font-weight:800;}
 .club-orig{text-decoration:line-through;color:#aaa;font-size:.82em;margin-right:4px;}
-.club-disc-badge{position:absolute;top:8px;left:8px;background:linear-gradient(135deg,#002D62,#CF142B);color:white;border-radius:20px;padding:3px 9px;font-size:.72em;font-weight:700;}</style>
+.club-disc-badge{position:absolute;top:6px;left:6px;background:linear-gradient(135deg,#002D62,#CF142B);color:white;border-radius:20px;padding:2px 6px;font-size:.62em;font-weight:700;}</style>
 </head>
 <body>
 
@@ -1519,7 +1519,7 @@ function renderProducts(){
     return`<div class="pcard">
       <div class="pcard-img">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}
         <span class="stock-pill ${pc}">${pt}</span>
-        ${isClub?`<span class="club-disc-badge">-10%</span>`:(hasDisc?`<span class="disc-badge">-${discPct}%</span>`:(isGuest&&guestMarkup>0?`<span style="background:#002D62;color:white;border-radius:20px;padding:2px 8px;font-size:.65em;font-weight:700;position:absolute;top:8px;left:8px;">Regístrate</span>`:''))}
+        ${isClub?`<span class="club-disc-badge">-10%</span>`:(hasDisc?`<span class="disc-badge">-${discPct}%</span>`:(isGuest&&guestMarkup>0?`<span style="background:#002D62;color:white;border-radius:20px;padding:1px 5px;font-size:.55em;font-weight:700;position:absolute;top:6px;left:6px;">Regístrate</span>`:''))}
       </div>
       <div class="pcard-body">
         ${cat?`<div class="pcard-cat">${cat.icon?cat.icon+' ':''}${cat.name}</div>`:''}
