@@ -8459,27 +8459,45 @@
         function addItemToInvoice(saleId) {
             const sale = sales.find(s => s.id === saleId);
             if (!sale) return;
-            // Pre-fill the new sale form with same invoice/customer/date/seller
-            // Switch to sales tab and open new sale form with pre-filled values
+            const invoiceNum = sale.invoiceNumber || '';
+            const saleDate   = sale.date || '';
+            const customer   = sale.customer || '';
+            const seller     = sale.seller || '';
+
+            // Switch to sales tab (this auto-generates a new invoice number)
             switchTab('sales');
+
+            // Override with the original invoice number after tab renders
             setTimeout(() => {
-                // Pre-fill invoice number
-                const invEl = document.getElementById('invoiceNumber');
-                if (invEl) invEl.value = sale.invoiceNumber || '';
+                // Override the auto-generated invoice number with the original
+                const invEl = document.getElementById('saleInvoiceNumber');
+                if (invEl) invEl.value = invoiceNum;
+
                 // Pre-fill date
                 const dateEl = document.getElementById('saleDate');
-                if (dateEl) dateEl.value = sale.date || '';
+                if (dateEl) dateEl.value = saleDate;
+
                 // Pre-fill customer
                 const custEl = document.getElementById('saleCustomer');
-                if (custEl) custEl.value = sale.customer || '';
+                if (custEl && customer) custEl.value = customer;
+
                 // Pre-fill seller
                 const sellEl = document.getElementById('saleSeller');
-                if (sellEl) sellEl.value = sale.seller || '';
-                // Scroll to form
-                const form = document.getElementById('saleFormSection') || document.querySelector('.sale-form');
-                if (form) form.scrollIntoView({behavior:'smooth'});
-                showToast('Agrega el producto adicional — factura, cliente y fecha pre-cargados', 'success');
-            }, 300);
+                if (sellEl && seller) sellEl.value = seller;
+
+                // Highlight the invoice field so user sees it's pre-filled
+                if (invEl) {
+                    invEl.style.borderColor = '#166534';
+                    invEl.style.background  = '#f0fdf4';
+                    setTimeout(() => {
+                        invEl.style.borderColor = '';
+                        invEl.style.background  = '';
+                    }, 3000);
+                    invEl.scrollIntoView({behavior:'smooth', block:'center'});
+                }
+
+                showToast(`Factura ${invoiceNum} pre-cargada — selecciona el producto adicional`, 'success');
+            }, 400);
         }
 
         function deleteSale(id) {
