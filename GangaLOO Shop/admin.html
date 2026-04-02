@@ -2430,10 +2430,15 @@
                                         style="width:100%;padding:9px;border:1.5px solid #ddd;border-radius:8px;font-size:.9em;box-sizing:border-box;margin-top:3px;">
                                 </div>
                             </div>
-                            <div>
-                                <label style="font-size:.82em;color:#666;font-weight:600;">Dirección de Envío (Shipping Address)</label>
-                                <textarea id="clubCardShipping" rows="3" placeholder="GangaLoo — Att: John Smith&#10;Calle Principal 123&#10;Sosúa, Puerto Plata 57000&#10;Dominican Republic"
-                                    style="width:100%;padding:9px;border:1.5px solid #ddd;border-radius:8px;font-size:.82em;font-family:monospace;resize:vertical;box-sizing:border-box;margin-top:3px;"></textarea>
+                            <div style="background:#f0f9ff;border:1px solid #7dd3fc;border-radius:8px;padding:10px;">
+                                <div style="font-size:.78em;color:#0369a1;font-weight:700;margin-bottom:6px;">🇺🇸 Envío a Miami (Amazon, eBay, AliExpress, etc.)</div>
+                                <textarea id="clubCardShipping" rows="3" placeholder="GangaLoo — Att: [Client Name]&#10;[Address Line]&#10;Miami, FL 33166&#10;United States"
+                                    style="width:100%;padding:9px;border:1.5px solid #7dd3fc;border-radius:8px;font-size:.82em;font-family:monospace;resize:vertical;box-sizing:border-box;"></textarea>
+                            </div>
+                            <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;">
+                                <div style="font-size:.78em;color:#166534;font-weight:700;margin-bottom:6px;">🇩🇴 Envío a República Dominicana (Temu, Shein, etc.)</div>
+                                <textarea id="clubCardShippingDR" rows="3" placeholder="GangaLoo — Att: [Client Name]&#10;Calle Principal 123&#10;Sosúa, Puerto Plata 57000&#10;Dominican Republic"
+                                    style="width:100%;padding:9px;border:1.5px solid #86efac;border-radius:8px;font-size:.82em;font-family:monospace;resize:vertical;box-sizing:border-box;"></textarea>
                             </div>
                             <div>
                                 <label style="font-size:.82em;color:#666;font-weight:600;">Dirección de Facturación (Billing Address)</label>
@@ -5245,7 +5250,8 @@
                         card_expiry: m.card_expiry || null,
                         card_cvc: m.card_cvc || null,
                         card_name: m.card_name || null,
-                        shipping_address: m.shipping_address || null,
+                        shipping_address:    m.shipping_address    || null,
+                        shipping_address_dr: m.shipping_address_dr || null,
                         billing_address: m.billing_address || null,
                     }));
                 } else {
@@ -5416,7 +5422,8 @@
             document.getElementById('clubCardExpiry').value  = m?.card_expiry  || '';
             document.getElementById('clubCardCvc').value     = m?.card_cvc     || '';
             document.getElementById('clubCardName').value    = m?.card_name    || '';
-            document.getElementById('clubCardShipping').value = m?.shipping_address || '';
+            document.getElementById('clubCardShipping').value   = m?.shipping_address    || '';
+            document.getElementById('clubCardShippingDR').value = m?.shipping_address_dr || '';
             document.getElementById('clubCardBilling').value  = m?.billing_address  || '';
             document.getElementById('clubCardModal').style.display = 'flex';
         }
@@ -5427,7 +5434,8 @@
                 card_expiry:       document.getElementById('clubCardExpiry').value.trim(),
                 card_cvc:          document.getElementById('clubCardCvc').value.trim(),
                 card_name:         document.getElementById('clubCardName').value.trim(),
-                shipping_address:  document.getElementById('clubCardShipping').value.trim(),
+                shipping_address:    document.getElementById('clubCardShipping').value.trim(),
+                shipping_address_dr: document.getElementById('clubCardShippingDR').value.trim(),
                 billing_address:   document.getElementById('clubCardBilling').value.trim(),
             };
             const { error } = await sb.from('club_members').update(updates).eq('id', _clubCardMemberId);

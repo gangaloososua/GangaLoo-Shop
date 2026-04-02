@@ -2586,15 +2586,24 @@ async function openClubAccount(){
       </div>
     </div>`:''}
 
-    ${data.shipping_address?`
+    ${(data.shipping_address||data.shipping_address_dr)?`
     <div style="background:white;border:1px solid #e8e4f0;border-radius:12px;padding:16px;margin-bottom:16px;">
-      <div style="font-weight:700;margin-bottom:12px;color:var(--text);">📦 Tu Dirección de Envío GangaLoo</div>
+      <div style="font-weight:700;margin-bottom:12px;color:var(--text);">📦 Tus Direcciones de Envío GangaLoo</div>
+
+      ${data.shipping_address?`
       <div style="background:#f0f9ff;border:1px solid #7dd3fc;border-radius:8px;padding:12px;margin-bottom:10px;">
-        <div style="font-size:.7em;color:#0369a1;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-weight:700;">Usa esta dirección para recibir paquetes</div>
-        <div style="font-size:.88em;white-space:pre-line;font-family:monospace;color:#002D62;font-weight:600;line-height:1.6;">${data.shipping_address}</div>
-      </div>
-      <div style="font-size:.78em;color:#555;line-height:1.5;">
-        📌 <strong>Cómo usar:</strong> Al comprar en Amazon, Shein, Temu u otras tiendas en línea, usa esta dirección como dirección de entrega.
+        <div style="font-size:.7em;color:#0369a1;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">🇺🇸 Miami — Amazon, eBay, AliExpress y otros</div>
+        <div style="font-size:.85em;white-space:pre-line;font-family:monospace;color:#002D62;font-weight:600;line-height:1.6;">${data.shipping_address}</div>
+      </div>`:''}
+
+      ${data.shipping_address_dr?`
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px;margin-bottom:10px;">
+        <div style="font-size:.7em;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">🇩🇴 República Dominicana — Temu, Shein y otros</div>
+        <div style="font-size:.85em;white-space:pre-line;font-family:monospace;color:#166534;font-weight:600;line-height:1.6;">${data.shipping_address_dr}</div>
+      </div>`:''}
+
+      <div style="font-size:.78em;color:#555;line-height:1.5;margin-top:8px;">
+        📌 <strong>Cómo usar:</strong> Al comprar en tiendas en línea, usa la dirección correspondiente según la tienda.
         GangaLoo recibirá tu paquete y te lo entregará en República Dominicana.
         Coordina con nosotros por WhatsApp antes de hacer tu pedido.
       </div>
