@@ -8446,6 +8446,42 @@
             showToast('Venta actualizada ✓', 'success');
         }
 
+        function confirmDeleteSale(id) {
+            const sale = sales.find(s => s.id === id);
+            if (!sale) return;
+            const product = products.find(p => p.id === sale.productId);
+            const name = product ? product.name : 'este producto';
+            const invoice = sale.invoiceNumber || 'SALE-'+sale.id;
+            if (!confirm(`¿Eliminar venta "${invoice}" — ${name}?\nEl stock será restaurado automáticamente.`)) return;
+            deleteSale(id);
+        }
+
+        function addItemToInvoice(saleId) {
+            const sale = sales.find(s => s.id === saleId);
+            if (!sale) return;
+            // Pre-fill the new sale form with same invoice/customer/date/seller
+            // Switch to sales tab and open new sale form with pre-filled values
+            switchTab('sales');
+            setTimeout(() => {
+                // Pre-fill invoice number
+                const invEl = document.getElementById('invoiceNumber');
+                if (invEl) invEl.value = sale.invoiceNumber || '';
+                // Pre-fill date
+                const dateEl = document.getElementById('saleDate');
+                if (dateEl) dateEl.value = sale.date || '';
+                // Pre-fill customer
+                const custEl = document.getElementById('saleCustomer');
+                if (custEl) custEl.value = sale.customer || '';
+                // Pre-fill seller
+                const sellEl = document.getElementById('saleSeller');
+                if (sellEl) sellEl.value = sale.seller || '';
+                // Scroll to form
+                const form = document.getElementById('saleFormSection') || document.querySelector('.sale-form');
+                if (form) form.scrollIntoView({behavior:'smooth'});
+                showToast('Agrega el producto adicional — factura, cliente y fecha pre-cargados', 'success');
+            }, 300);
+        }
+
         function deleteSale(id) {
             const sale = sales.find(s => s.id === id);
             if (!sale) return;
@@ -8937,10 +8973,13 @@
                         <td style="font-size:11px;color:#666;">${lotsInfo}</td>
                         <td><strong>$${totalSale.toFixed(2)}</strong></td>
                         <td><span class="stock-badge ${statusClass}" style="font-size:10px;">${paymentStatus}</span></td>
-                        <td style="white-space:nowrap;" onclick="event.stopPropagation()">
-                            <button class="btn btn-secondary btn-small" onclick="editSale(${sale.id})">✏️</button>
-                            <button class="btn btn-secondary btn-small" onclick="openSaleInvoicePanel(${sale.id})" style="background:#5b4fcf;color:white;border-color:#5b4fcf;" title="Enviar factura / PDF">📄</button>
-                            <button class="btn btn-danger btn-small" onclick="deleteSale(${sale.id})">🗑️</button>
+                        <td style="white-space:nowrap;min-width:130px;" onclick="event.stopPropagation()">
+                            <div style="display:flex;gap:4px;flex-wrap:nowrap;">
+                                <button onclick="editSale(${sale.id})" title="Editar" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;">✏️</button>
+                                <button onclick="openSaleInvoicePanel(${sale.id})" title="Factura/PDF" style="width:28px;height:28px;border:none;border-radius:6px;background:#5b4fcf;color:white;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;">📄</button>
+                                <button onclick="addItemToInvoice(${sale.id})" title="Agregar ítem a factura" style="width:28px;height:28px;border:none;border-radius:6px;background:#166534;color:white;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;">➕</button>
+                                <button onclick="confirmDeleteSale(${sale.id})" title="Eliminar" style="width:28px;height:28px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;">🗑️</button>
+                            </div>
                         </td>
                     </tr>
                     <tr class="sale-detail-row" id="${detailId}">
