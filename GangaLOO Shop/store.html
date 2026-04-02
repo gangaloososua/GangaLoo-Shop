@@ -958,6 +958,12 @@ button{font-family:'Jost',sans-serif;}
     <button class="deal-banner-btn" onclick="scrollToDeal()">Ver Oferta →</button>
   </div>
 </div>
+<div id="guestBanner" style="background:#002D62;color:white;text-align:center;padding:8px 20px;font-size:.83em;font-weight:600;display:none;">
+  🔓 <strong>Inicia sesión</strong> para ver precios especiales para clientes registrados
+  &nbsp;·&nbsp;
+  <button onclick="openAuthWall('login')" style="background:white;color:#002D62;border:none;border-radius:12px;padding:3px 12px;font-size:.85em;font-weight:700;cursor:pointer;">Iniciar sesión</button>
+</div>
+
 <div id="clubBanner" class="club-banner">
   🏆 ¡Bienvenido, Miembro Club GangaLoo! Beneficios activos:
   <strong>10% descuento</strong> en todos los productos ·
@@ -1491,9 +1497,13 @@ function renderProducts(){
     const hasDisc=p.discountPrice&&p.discountPrice>0&&p.discountPrice<origPrice;
     const basePrice=hasDisc?p.discountPrice:origPrice;
     const isClub=isClubMember();
-    const price=isClub?clubPrice(basePrice):basePrice;
+    const guestMarkup=parseFloat(storeConfig?.guest_markup||0);
+    const isGuest=!isLoggedIn();
+    const price=getDisplayPrice(basePrice);
     const discPct=isClub?10:(hasDisc?Math.round((1-p.discountPrice/origPrice)*100):0);
-    const showOrig=isClub||hasDisc;
+    // Show original price strikethrough for: club (vs base), guest (base is cheaper), product discount
+    const showOrig=isClub||hasDisc||(isGuest&&guestMarkup>0);
+    const origToShow=isGuest&&guestMarkup>0?basePrice:(isClub?basePrice:origPrice);
     const pCatIds=(p.categoryIds&&p.categoryIds.length?p.categoryIds:[p.categoryId]);
     const cat=allCategories.find(c=>pCatIds.map(String).includes(String(c.id)));
     let pc,pt,dis='';
@@ -1503,7 +1513,7 @@ function renderProducts(){
     return`<div class="pcard">
       <div class="pcard-img">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}
         <span class="stock-pill ${pc}">${pt}</span>
-        ${(hasDisc||isClub)?`<span class="${isClub?'club-disc-badge':'disc-badge'}">-${discPct}%</span>`:''}
+        ${isClub?`<span class="club-disc-badge">-10%</span>`:(hasDisc?`<span class="disc-badge">-${discPct}%</span>`:(isGuest&&guestMarkup>0?`<span style="background:#002D62;color:white;border-radius:20px;padding:2px 8px;font-size:.65em;font-weight:700;position:absolute;top:8px;left:8px;">Regístrate</span>`:''))}
       </div>
       <div class="pcard-body">
         ${cat?`<div class="pcard-cat">${cat.icon?cat.icon+' ':''}${cat.name}</div>`:''}
@@ -1512,11 +1522,12 @@ function renderProducts(){
       </div>
       <div class="pcard-foot">
         <div class="pcard-price-wrap">
-          ${showOrig?`<div class="pcard-orig">RD$ ${fmt(basePrice)}</div>`:''}
+          ${showOrig?`<div class="pcard-orig">RD$ ${fmt(origToShow)}</div>`:''}
           <div class="pcard-price ${showOrig?'discounted':''} ${isClub?'club-price':''}"><span class="cur">RD$</span>${fmt(price)}</div>
           ${isClub?'<span class="club-badge">Club -10%</span>':''}
+          ${isGuest&&guestMarkup>0?'<span style="font-size:.68em;color:#888;display:block;margin-top:2px;">Inicia sesión para precio especial</span>':''}
         </div>
-        <button class="add-btn" ${dis} onclick="addCart(${p.id},'${esc(p.name)}',${price},'${esc(p.sku||'')}')" title="Agregar">+</button>
+        <button class="add-btn" ${dis} onclick="addCart(${p.id},'${esc(p.name)}',${price},'${esc(p.sku||'')}',${basePrice})" title="Agregar">+</button>
       </div>
     </div>`;
   }).join('');
@@ -1528,9 +1539,11 @@ function closeMobSearch(e){if(!e||e.target===document.getElementById('mobSearchO
 function syncSearch(val){document.getElementById('searchInput').value=val;searchQuery=val.toLowerCase();renderProducts();}
 
 /* ── CART ── */
-function addCart(id,name,price,sku){
+function addCart(id,name,price,sku,basePrice){
   if(!currentUser){ openAuthWall('login'); toast('Inicia sesión para agregar al carrito',''); return; }
-  const ex=cart.find(i=>i.id==id);ex?ex.qty++:cart.push({id,name,price,qty:1,wh:selectedWH,sku});
+  // Always store base price in cart; display price is for display only
+  const cartPrice = basePrice !== undefined ? basePrice : price;
+  const ex=cart.find(i=>i.id==id);ex?ex.qty++:cart.push({id,name,price:cartPrice,qty:1,wh:selectedWH,sku});
   updCart();toast(`✓ ${name}`,'ok');
 }
 function rmCart(id){cart=cart.filter(i=>i.id!=id);updCart();}
@@ -2272,6 +2285,25 @@ function toast(msg,type=''){const s=document.getElementById('toastStack'),t=docu
 let currentUser = null;
 let userProfile = null;
 function isClubMember(){ return userProfile?.is_club_member === true || userProfile?.role === 'club_member'; }
+function isLoggedIn(){ return !!currentUser; }
+function isSeller(){ return userProfile?.role === 'seller' || userProfile?.role === 'admin'; }
+// Get display price based on login/membership status
+function getDisplayPrice(basePrice){
+  if(isClubMember()) return Math.round(basePrice * 0.90 * 100) / 100; // -10%
+  if(isLoggedIn()) return basePrice; // regular price
+  // Guest: apply markup
+  const markup = parseFloat(storeConfig?.guest_markup || 0);
+  if(markup > 0) return Math.round(basePrice * (1 + markup/100) * 100) / 100;
+  return basePrice;
+}
+function getPriceBadge(basePrice){
+  if(isClubMember()) return {label:'Club -10%', cls:'club-badge', discCls:'club-disc-badge', pct:10};
+  if(!isLoggedIn()){
+    const markup = parseFloat(storeConfig?.guest_markup || 0);
+    if(markup > 0) return {label:'', cls:'', discCls:'guest-markup-badge', pct:-markup, isMarkup:true};
+  }
+  return null;
+}
 function toggleUserMenu(e){
   e.stopPropagation();
   const menu=document.getElementById('userDropMenu');
@@ -2320,6 +2352,9 @@ async function onSignedIn(user){
   // Show/hide club menu button
   const clubBtn = document.getElementById('clubMenuBtn');
   if (clubBtn) clubBtn.style.display = (prof?.is_club_member===true||prof?.role==='club_member') ? 'block' : 'none';
+  // Hide guest banner when logged in
+  const gb = document.getElementById('guestBanner');
+  if(gb) gb.style.display = 'none';
   closeAuthWall();
   // Prevent double load — if already loading, wait for it
   if(_dataLoading){
@@ -2333,6 +2368,8 @@ async function onSignedIn(user){
   }
   _dataLoaded=false;
   await loadData();
+  // Re-render prices for new user context
+  if(_dataLoaded) renderProducts();
   loadLoyaltyDot();
   // If returning from successful Stripe payment, open orders page
   if(window._stripeSuccess){
@@ -2351,6 +2388,12 @@ function showGuestState(){
   currentUser=null; userProfile=null;
   const cb = document.getElementById('clubBanner');
   if (cb) cb.className = 'club-banner';
+  // Show guest banner if markup configured
+  const markup = parseFloat(storeConfig?.guest_markup||0);
+  const gb = document.getElementById('guestBanner');
+  if(gb) gb.style.display = markup>0 ? 'block' : 'none';
+  // Re-render products so markup prices show
+  if(_dataLoaded) renderProducts();
   document.getElementById('userPillWrap').style.display='none';
   document.getElementById('loginNavBtn').style.display='flex';
   loadData(); // still load products, but lock cart
