@@ -6992,6 +6992,90 @@
         }
 
         // Render list of bulk orders
+        function viewBulkOrder(lotNumber) {
+            // Gather all purchases for this lot
+            const lotPurchases = purchases.filter(p => p.lotNumber === lotNumber && p.bulkOrderData);
+            if (!lotPurchases.length) return;
+
+            const first = lotPurchases[0];
+            const warehouse = warehouses.find(w => w.id === first.warehouseId);
+            const statusLabels = { delivered:'🟢 Entregada', pending:'🟡 Pendiente', transit:'🚚 En Tránsito', cancelled:'🔴 Cancelada' };
+            const statusLabel = statusLabels[first.status] || first.status;
+
+            const totalQty    = lotPurchases.reduce((s,p) => s+(p.qty||0), 0);
+            const totalUSD    = lotPurchases.reduce((s,p) => s+((p.costUSD||0)*(p.qty||0)), 0);
+            const totalDOP    = lotPurchases.reduce((s,p) => s+(p.totalCostDOP||0), 0);
+            const totalStock  = lotPurchases.reduce((s,p) => s+(p.remainingQty||0), 0);
+            // Shared costs from first product's bulkOrderData
+            const bd = first.bulkOrderData || {};
+            const fmtUSD = n => '$ '+(n||0).toFixed(2);
+            const fmtDOP = n => 'RD$ '+(n||0).toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+            const modal = document.getElementById('bulkOrderDetailModal');
+            document.getElementById('bodLotNumber').textContent  = lotNumber;
+            document.getElementById('bodStatus').textContent     = statusLabel;
+            document.getElementById('bodDate').textContent       = first.date ? new Date(first.date).toLocaleDateString('es-DO') : '—';
+            document.getElementById('bodWarehouse').textContent  = warehouse ? warehouse.name : '—';
+            document.getElementById('bodTracking').textContent   = first.trackingNumber || '—';
+            document.getElementById('bodExchange').textContent   = first.exchangeRate ? 'RD$ '+parseFloat(first.exchangeRate).toFixed(2) : '—';
+
+            // Summary
+            document.getElementById('bodTotalUSD').textContent   = fmtUSD(totalUSD);
+            document.getElementById('bodTotalDOP').textContent   = fmtDOP(totalDOP);
+            document.getElementById('bodTotalQty').textContent   = totalQty + ' uds';
+            document.getElementById('bodTotalStock').textContent = totalStock + ' uds';
+
+            // Shared cost breakdown
+            const sharedKeys = ['shippingShare','taxShare','bankFeeShare','transportShare','discountShare'];
+            const sharedLabels = {shippingShare:'📦 Envío',taxShare:'🏛 Impuestos',bankFeeShare:'🏦 Comisión banco',transportShare:'🚛 Transporte',discountShare:'🎁 Descuento'};
+            let sharedHtml = '';
+            sharedKeys.forEach(k => {
+                // Sum across all products for this shared cost
+                const total = lotPurchases.reduce((s,p) => s+((p.bulkOrderData||{})[k]||0), 0);
+                if (total !== 0) {
+                    const isDiscount = k === 'discountShare';
+                    sharedHtml += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0ede8;font-size:.85em;">
+                        <span style="color:#666;">${sharedLabels[k]}</span>
+                        <span style="font-weight:600;color:${isDiscount?'#166534':'#002D62'};">${isDiscount?'-':''}${fmtDOP(Math.abs(total))}</span>
+                    </div>`;
+                }
+            });
+            document.getElementById('bodSharedCosts').innerHTML = sharedHtml || '<div style="color:#aaa;font-size:.83em;">Sin costos compartidos registrados</div>';
+
+            // Products table
+            let prodHtml = '';
+            lotPurchases.forEach(p => {
+                const prod = products.find(pr => String(pr.id)===String(p.productId));
+                const costDOP = p.costDOP || (p.totalCostDOP?(p.totalCostDOP/(p.qty||1)):0);
+                const remainPct = p.qty > 0 ? Math.round((p.remainingQty||0)/p.qty*100) : 0;
+                prodHtml += `<tr style="border-top:1px solid #f0ede8;">
+                    <td style="padding:8px 10px;">
+                        <div style="font-weight:600;font-size:.88em;">${prod?prod.name:'Producto eliminado'}</div>
+                        ${prod&&prod.sku?`<div style="font-size:.72em;color:#aaa;">SKU: ${prod.sku}</div>`:''}
+                    </td>
+                    <td style="padding:8px 10px;text-align:center;">${p.qty||0}</td>
+                    <td style="padding:8px 10px;text-align:center;font-weight:700;color:${(p.remainingQty||0)>0?'#166534':'#dc2626'};">
+                        ${p.remainingQty||0}
+                        <div style="font-size:.7em;color:#aaa;">${remainPct}%</div>
+                    </td>
+                    <td style="padding:8px 10px;text-align:right;font-size:.85em;">
+                        <div>${fmtUSD(p.costUSD||0)}</div>
+                        <div style="color:#92400e;">${fmtDOP(costDOP)}</div>
+                    </td>
+                    <td style="padding:8px 10px;text-align:right;font-weight:600;">${fmtDOP(p.totalCostDOP||0)}</td>
+                </tr>`;
+            });
+            document.getElementById('bodProductsTable').innerHTML = prodHtml;
+
+            // Edit button
+            document.getElementById('bodEditBtn').onclick = () => {
+                modal.style.display = 'none';
+                editBulkOrder(lotNumber);
+            };
+
+            modal.style.display = 'block';
+        }
+
         function renderBulkOrdersList() {
             const container = document.getElementById('bulkOrdersList');            
             // Group purchases by lot number to find bulk orders
@@ -7080,8 +7164,11 @@
                             <td>$${totalDOP.toFixed(2)}</td>
                             <td>${order.trackingNumber || '-'}</td>
                             <td>
-                                <button class="btn btn-secondary btn-small" onclick="editBulkOrder('${order.lotNumber}')">✏️ Editar</button>
-                                <button class="btn btn-danger btn-small" onclick="openCancelOrderModal('${order.lotNumber}')">🚫 Cancelar</button>
+                                <div style="display:flex;gap:4px;">
+                                    <button onclick="viewBulkOrder('${order.lotNumber}')" title="Ver detalle" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">👁</button>
+                                    <button onclick="editBulkOrder('${order.lotNumber}')" title="Editar" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">✏️</button>
+                                    <button onclick="openCancelOrderModal('${order.lotNumber}')" title="Cancelar" style="width:28px;height:28px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:13px;">🚫</button>
+                                </div>
                             </td>
                         </tr>
                     `;
@@ -7148,8 +7235,11 @@
                             <td>$${totalDOP.toFixed(2)}</td>
                             <td>${order.trackingNumber || '-'}</td>
                             <td>
-                                <button class="btn btn-secondary btn-small" onclick="editBulkOrder('${order.lotNumber}')">✏️ Editar</button>
-                                <button class="btn btn-danger btn-small" onclick="openCancelOrderModal('${order.lotNumber}')">🚫 Cancelar</button>
+                                <div style="display:flex;gap:4px;">
+                                    <button onclick="viewBulkOrder('${order.lotNumber}')" title="Ver detalle" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">👁</button>
+                                    <button onclick="editBulkOrder('${order.lotNumber}')" title="Editar" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">✏️</button>
+                                    <button onclick="openCancelOrderModal('${order.lotNumber}')" title="Cancelar" style="width:28px;height:28px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:13px;">🚫</button>
+                                </div>
                             </td>
                         </tr>
                     `;
@@ -14598,6 +14688,86 @@
             </div>
         </div>
     </div>
+
+<!-- Bulk Order Detail Modal -->
+<div id="bulkOrderDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow-y:auto;">
+  <div style="background:white;border-radius:18px;max-width:820px;margin:30px auto;padding:0;position:relative;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.25);">
+
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#002D62,#1a4a8a);padding:22px 28px;color:white;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <div style="font-size:.72em;opacity:.6;letter-spacing:.1em;text-transform:uppercase;">Orden de Compra</div>
+          <div style="font-size:1.6em;font-weight:800;" id="bodLotNumber">—</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button id="bodEditBtn" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;border-radius:8px;padding:7px 14px;font-size:.82em;font-weight:600;cursor:pointer;">✏️ Editar</button>
+          <button onclick="document.getElementById('bulkOrderDetailModal').style.display='none'" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:white;border-radius:8px;padding:7px 12px;font-size:1.1em;cursor:pointer;">✕</button>
+        </div>
+      </div>
+      <!-- Meta row -->
+      <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:.82em;">
+        <div><span style="opacity:.6;">Estado:</span> <strong id="bodStatus">—</strong></div>
+        <div><span style="opacity:.6;">Fecha:</span> <strong id="bodDate">—</strong></div>
+        <div><span style="opacity:.6;">Almacén:</span> <strong id="bodWarehouse">—</strong></div>
+        <div><span style="opacity:.6;">Rastreo:</span> <strong id="bodTracking">—</strong></div>
+        <div><span style="opacity:.6;">Tasa cambio:</span> <strong id="bodExchange">—</strong></div>
+      </div>
+    </div>
+
+    <div style="padding:24px 28px;">
+
+      <!-- Summary cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;">
+        <div style="background:#f0f4ff;border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:.62em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Total USD</div>
+          <div style="font-size:1.2em;font-weight:800;color:#002D62;" id="bodTotalUSD">—</div>
+        </div>
+        <div style="background:#fff8f0;border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:.62em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Total DOP</div>
+          <div style="font-size:1.2em;font-weight:800;color:#92400e;" id="bodTotalDOP">—</div>
+        </div>
+        <div style="background:#f0fdf4;border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:.62em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Unidades</div>
+          <div style="font-size:1.2em;font-weight:800;color:#166534;" id="bodTotalQty">—</div>
+        </div>
+        <div style="background:#f8f6ff;border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:.62em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Stock restante</div>
+          <div style="font-size:1.2em;font-weight:800;color:#5b4fcf;" id="bodTotalStock">—</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:20px;">
+
+        <!-- Shared costs -->
+        <div>
+          <div style="font-weight:700;font-size:.88em;color:#002D62;margin-bottom:10px;">💸 Costos Compartidos</div>
+          <div style="background:#f8f9fa;border-radius:10px;padding:14px;" id="bodSharedCosts"></div>
+        </div>
+
+        <!-- Products -->
+        <div>
+          <div style="font-weight:700;font-size:.88em;color:#002D62;margin-bottom:10px;">📦 Productos</div>
+          <div style="border:1px solid #f0ede8;border-radius:10px;overflow:hidden;max-height:320px;overflow-y:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:.82em;">
+              <thead>
+                <tr style="background:#f8f6ff;position:sticky;top:0;">
+                  <th style="padding:8px 10px;text-align:left;color:#666;font-weight:600;">Producto</th>
+                  <th style="padding:8px 10px;text-align:center;color:#666;font-weight:600;">Qty</th>
+                  <th style="padding:8px 10px;text-align:center;color:#666;font-weight:600;">Stock</th>
+                  <th style="padding:8px 10px;text-align:right;color:#666;font-weight:600;">Costo/u</th>
+                  <th style="padding:8px 10px;text-align:right;color:#666;font-weight:600;">Total DOP</th>
+                </tr>
+              </thead>
+              <tbody id="bodProductsTable"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Product Detail Modal -->
 <div id="productDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow-y:auto;">
