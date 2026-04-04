@@ -6147,6 +6147,156 @@
             updateDropdowns();
         }
 
+        function openProductDetail(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            const modal = document.getElementById('productDetailModal');
+            const body  = document.getElementById('pdBody');
+            modal.style.display = 'block';
+
+            // Header
+            document.getElementById('pdName').textContent     = product.name || '—';
+            document.getElementById('pdSku').textContent      = product.sku ? 'SKU: ' + product.sku : '';
+            const cat = categories.find(c => String(c.id) === String(product.categoryId) ||
+                (product.categoryIds||[]).map(String).includes(String(c.id)));
+            document.getElementById('pdCategory').textContent = cat ? (cat.icon||'') + ' ' + cat.name : '';
+            document.getElementById('pdEditBtn').onclick = (e) => {
+                e.stopPropagation();
+                modal.style.display = 'none';
+                editProduct(productId);
+            };
+
+            // ── PURCHASES (what we bought) ──
+            const prodPurchases = purchases.filter(p => String(p.productId) === String(productId));
+            const delivered = prodPurchases.filter(p => p.status === 'delivered');
+            const totalBought = delivered.reduce((s,p) => s + (p.qty||0), 0);
+            const totalRemaining = delivered.reduce((s,p) => s + (p.remainingQty||0), 0);
+            const totalCostUSD = delivered.reduce((s,p) => s + ((p.costUSD||p.unitCostUSD||0)*(p.qty||0)), 0);
+            const avgCostUSD = totalBought > 0 ? totalCostUSD / totalBought : 0;
+
+            // ── SALES ──
+            const prodSales = sales.filter(s => String(s.productId) === String(productId));
+            const totalSoldQty = prodSales.reduce((s,sale) => s + (sale.qty||0), 0);
+            const totalRevenue = prodSales.reduce((s,sale) => s + (sale.totalSale||0), 0);
+            const totalProfit  = prodSales.reduce((s,sale) => s + (sale.netProfit||sale.profit||0), 0);
+
+            // ── PER WAREHOUSE ──
+            const whRows = warehouses.map(w => {
+                const stock = delivered.filter(p => String(p.warehouseId)===String(w.id)).reduce((s,p)=>s+(p.remainingQty||0),0);
+                const bought = delivered.filter(p => String(p.warehouseId)===String(w.id)).reduce((s,p)=>s+(p.qty||0),0);
+                return {name:w.name, stock, bought};
+            }).filter(w => w.bought > 0 || w.stock > 0);
+
+            const fmtDOP = n => 'RD$ ' + (n||0).toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2});
+            const fmtUSD = n => '$ ' + (n||0).toFixed(2);
+
+            body.innerHTML = `
+              <!-- Summary Cards -->
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px;">
+                <div style="background:#f0f4ff;border-radius:10px;padding:12px;">
+                  <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Stock Total</div>
+                  <div style="font-size:1.6em;font-weight:800;color:#002D62;">${totalRemaining}</div>
+                  <div style="font-size:.72em;color:#aaa;">de ${totalBought} comprados</div>
+                </div>
+                <div style="background:#f0fdf4;border-radius:10px;padding:12px;">
+                  <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Total Vendido</div>
+                  <div style="font-size:1.6em;font-weight:800;color:#166534;">${totalSoldQty}</div>
+                  <div style="font-size:.72em;color:#aaa;">${prodSales.length} ventas</div>
+                </div>
+                <div style="background:#fff8f0;border-radius:10px;padding:12px;">
+                  <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Costo Prom. USD</div>
+                  <div style="font-size:1.3em;font-weight:800;color:#92400e;">${fmtUSD(avgCostUSD)}</div>
+                  <div style="font-size:.72em;color:#aaa;">por unidad</div>
+                </div>
+                <div style="background:#fef2f2;border-radius:10px;padding:12px;">
+                  <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Precio Venta</div>
+                  <div style="font-size:1.2em;font-weight:800;color:#991b1b;">${fmtDOP(product.price||product.finalPrice||0)}</div>
+                </div>
+                <div style="background:#f8f6ff;border-radius:10px;padding:12px;">
+                  <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Ingresos</div>
+                  <div style="font-size:1.2em;font-weight:800;color:#5b4fcf;">${fmtDOP(totalRevenue)}</div>
+                </div>
+                <div style="background:#f0fdf4;border-radius:10px;padding:12px;">
+                  <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Ganancia Neta</div>
+                  <div style="font-size:1.2em;font-weight:800;color:${totalProfit>=0?'#166534':'#dc2626'};">${fmtDOP(totalProfit)}</div>
+                </div>
+              </div>
+
+              <!-- Stock by Warehouse -->
+              ${whRows.length > 1 ? `<div style="margin-bottom:20px;">
+                <div style="font-weight:700;font-size:.88em;color:#002D62;margin-bottom:8px;">📦 Stock por Almacén</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  ${whRows.map(w=>`<div style="background:#f8f6ff;border:1px solid #e8e4f0;border-radius:8px;padding:8px 14px;font-size:.83em;">
+                    <strong>${w.name}</strong>: <span style="color:#002D62;font-weight:700;">${w.stock}</span> uds <span style="color:#aaa;">(${w.bought} compradas)</span>
+                  </div>`).join('')}
+                </div>
+              </div>` : ''}
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+                <!-- Purchases table -->
+                <div>
+                  <div style="font-weight:700;font-size:.88em;color:#002D62;margin-bottom:8px;">🛒 Historial de Compras (${delivered.length})</div>
+                  ${delivered.length === 0 ? '<div style="color:#aaa;font-size:.83em;padding:12px;background:#f8f9fa;border-radius:8px;">Sin compras registradas</div>' :
+                  `<div style="max-height:280px;overflow-y:auto;border:1px solid #f0ede8;border-radius:10px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:.78em;">
+                      <thead><tr style="background:#f8f6ff;position:sticky;top:0;">
+                        <th style="padding:7px 10px;text-align:left;color:#666;">Lote</th>
+                        <th style="padding:7px 10px;text-align:center;color:#666;">Qty</th>
+                        <th style="padding:7px 10px;text-align:center;color:#666;">Stock</th>
+                        <th style="padding:7px 10px;text-align:right;color:#666;">Costo USD</th>
+                        <th style="padding:7px 10px;text-align:left;color:#666;">Almacén</th>
+                      </tr></thead>
+                      <tbody>
+                        ${delivered.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(p => {
+                          const wh = warehouses.find(w=>String(w.id)===String(p.warehouseId));
+                          const cost = (p.costUSD||p.unitCostUSD||0);
+                          return `<tr style="border-top:1px solid #f0ede8;">
+                            <td style="padding:6px 10px;font-family:monospace;color:#5b4fcf;">${p.lotNumber||'—'}</td>
+                            <td style="padding:6px 10px;text-align:center;">${p.qty||0}</td>
+                            <td style="padding:6px 10px;text-align:center;font-weight:700;color:${(p.remainingQty||0)>0?'#166534':'#dc2626'};">${p.remainingQty||0}</td>
+                            <td style="padding:6px 10px;text-align:right;">$${cost.toFixed(2)}</td>
+                            <td style="padding:6px 10px;color:#888;">${wh?wh.name:'—'}</td>
+                          </tr>`;
+                        }).join('')}
+                      </tbody>
+                    </table>
+                  </div>`}
+                </div>
+
+                <!-- Sales table -->
+                <div>
+                  <div style="font-weight:700;font-size:.88em;color:#166534;margin-bottom:8px;">💰 Historial de Ventas (${prodSales.length})</div>
+                  ${prodSales.length === 0 ? '<div style="color:#aaa;font-size:.83em;padding:12px;background:#f8f9fa;border-radius:8px;">Sin ventas registradas</div>' :
+                  `<div style="max-height:280px;overflow-y:auto;border:1px solid #f0ede8;border-radius:10px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:.78em;">
+                      <thead><tr style="background:#f0fdf4;position:sticky;top:0;">
+                        <th style="padding:7px 10px;text-align:left;color:#666;">Factura</th>
+                        <th style="padding:7px 10px;text-align:left;color:#666;">Fecha</th>
+                        <th style="padding:7px 10px;text-align:center;color:#666;">Qty</th>
+                        <th style="padding:7px 10px;text-align:right;color:#666;">Total</th>
+                        <th style="padding:7px 10px;text-align:right;color:#666;">Ganancia</th>
+                      </tr></thead>
+                      <tbody>
+                        ${prodSales.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(s => {
+                          const profit = s.netProfit||s.profit||0;
+                          return `<tr style="border-top:1px solid #f0ede8;">
+                            <td style="padding:6px 10px;font-family:monospace;font-size:.9em;">${s.invoiceNumber||'#'+s.id}</td>
+                            <td style="padding:6px 10px;color:#888;">${s.date||'—'}</td>
+                            <td style="padding:6px 10px;text-align:center;">${s.qty||0}</td>
+                            <td style="padding:6px 10px;text-align:right;font-weight:600;">$${(s.totalSale||0).toFixed(2)}</td>
+                            <td style="padding:6px 10px;text-align:right;color:${profit>=0?'#166534':'#dc2626'};font-weight:600;">$${profit.toFixed(2)}</td>
+                          </tr>`;
+                        }).join('')}
+                      </tbody>
+                    </table>
+                  </div>`}
+                </div>
+
+              </div>`;
+        }
+
         function editProduct(id) {
             const product = products.find(p => p.id === id);
             if (!product) {
@@ -6398,7 +6548,7 @@
                     return wStock > 0 ? `<span style="font-size:.7em;background:#f0fdf4;color:#166534;border-radius:4px;padding:1px 5px;">${w.name}: ${wStock}</span>` : '';
                 }).filter(Boolean).join(' ');
 
-                html += `<div class="prod-card draggable-row" draggable="true" data-product-id="${product.id}" data-index="${index}">
+                html += `<div class="prod-card draggable-row" draggable="true" data-product-id="${product.id}" data-index="${index}" onclick="openProductDetail(${product.id})" style="cursor:pointer;">
                     <div class="prod-card-top">
                         <span class="prod-card-drag">⋮⋮</span>
                         <div style="flex:1;">
@@ -6429,8 +6579,8 @@
                     <div class="prod-card-footer">
                         <span style="font-size:.75em;color:#aaa;">DOP base: $${totalBaseDOP.toFixed(0)}</span>
                         <div style="display:flex;gap:6px;">
-                            <button class="btn btn-secondary btn-small" onclick="editProduct(${product.id})">✏️ Editar</button>
-                            <button class="btn btn-danger btn-small" onclick="deleteProduct(${product.id})">🗑️</button>
+                            <button class="btn btn-secondary btn-small" onclick="event.stopPropagation();editProduct(${product.id})">✏️ Editar</button>
+                            <button class="btn btn-danger btn-small" onclick="event.stopPropagation();deleteProduct(${product.id})">🗑️</button>
                         </div>
                     </div>
                 </div>`;
@@ -14429,5 +14579,28 @@
             </div>
         </div>
     </div>
+
+<!-- Product Detail Modal -->
+<div id="productDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow-y:auto;">
+  <div style="background:white;border-radius:18px;max-width:860px;margin:30px auto;padding:0;position:relative;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.25);">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#002D62,#1a4a8a);padding:24px 28px;color:white;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+      <div style="flex:1;min-width:0;">
+        <div id="pdSku" style="font-size:.72em;opacity:.6;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;"></div>
+        <div id="pdName" style="font-size:1.4em;font-weight:800;line-height:1.2;"></div>
+        <div id="pdCategory" style="font-size:.82em;opacity:.7;margin-top:4px;"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button id="pdEditBtn" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;border-radius:8px;padding:7px 14px;font-size:.82em;font-weight:600;cursor:pointer;">✏️ Editar</button>
+        <button onclick="document.getElementById('productDetailModal').style.display='none'" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:white;border-radius:8px;padding:7px 12px;font-size:1.1em;cursor:pointer;">✕</button>
+      </div>
+    </div>
+    <!-- Body -->
+    <div style="padding:24px 28px;" id="pdBody">
+      <div style="text-align:center;padding:40px;color:#aaa;">⏳ Cargando...</div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
