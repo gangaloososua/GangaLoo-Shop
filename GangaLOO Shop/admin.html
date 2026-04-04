@@ -6172,8 +6172,17 @@
             const delivered = prodPurchases.filter(p => p.status === 'delivered');
             const totalBought = delivered.reduce((s,p) => s + (p.qty||0), 0);
             const totalRemaining = delivered.reduce((s,p) => s + (p.remainingQty||0), 0);
+            // Cost calculation - use multiple field names for compatibility
             const totalCostUSD = delivered.reduce((s,p) => s + ((p.costUSD||p.unitCostUSD||0)*(p.qty||0)), 0);
             const avgCostUSD = totalBought > 0 ? totalCostUSD / totalBought : 0;
+            // DOP cost - use costDOP per unit or derive from totalCostDOP
+            const totalCostDOP = delivered.reduce((s,p) => {
+                if(p.totalCostDOP) return s + p.totalCostDOP;
+                if(p.costDOP) return s + (p.costDOP*(p.qty||0));
+                if(p.costUSD && p.exchangeRate) return s + (p.costUSD*(p.qty||0)*p.exchangeRate);
+                return s;
+            }, 0);
+            const avgCostDOP = totalBought > 0 ? totalCostDOP / totalBought : 0;
 
             // ── SALES ──
             const prodSales = sales.filter(s => String(s.productId) === String(productId));
@@ -6193,33 +6202,39 @@
 
             body.innerHTML = `
               <!-- Summary Cards -->
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px;">
                 <div style="background:#f0f4ff;border-radius:10px;padding:12px;">
-                  <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Stock Total</div>
+                  <div style="font-size:.62em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Stock</div>
                   <div style="font-size:1.6em;font-weight:800;color:#002D62;">${totalRemaining}</div>
-                  <div style="font-size:.72em;color:#aaa;">de ${totalBought} comprados</div>
+                  <div style="font-size:.7em;color:#aaa;">de ${totalBought} comprados</div>
                 </div>
                 <div style="background:#f0fdf4;border-radius:10px;padding:12px;">
-                  <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Total Vendido</div>
+                  <div style="font-size:.62em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Vendido</div>
                   <div style="font-size:1.6em;font-weight:800;color:#166534;">${totalSoldQty}</div>
-                  <div style="font-size:.72em;color:#aaa;">${prodSales.length} ventas</div>
+                  <div style="font-size:.7em;color:#aaa;">${prodSales.length} ventas</div>
                 </div>
                 <div style="background:#fff8f0;border-radius:10px;padding:12px;">
-                  <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Costo Prom. USD</div>
-                  <div style="font-size:1.3em;font-weight:800;color:#92400e;">${fmtUSD(avgCostUSD)}</div>
-                  <div style="font-size:.72em;color:#aaa;">por unidad</div>
+                  <div style="font-size:.62em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Costo Prom. USD</div>
+                  <div style="font-size:1.2em;font-weight:800;color:#92400e;">${fmtUSD(avgCostUSD)}</div>
+                  <div style="font-size:.7em;color:#aaa;">por unidad</div>
+                </div>
+                <div style="background:#fff3cd;border-radius:10px;padding:12px;border:1px solid #fde68a;">
+                  <div style="font-size:.62em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Costo Prom. DOP</div>
+                  <div style="font-size:1.2em;font-weight:800;color:#92400e;">${fmtDOP(avgCostDOP)}</div>
+                  <div style="font-size:.7em;color:#aaa;">por unidad</div>
                 </div>
                 <div style="background:#fef2f2;border-radius:10px;padding:12px;">
-                  <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Precio Venta</div>
-                  <div style="font-size:1.2em;font-weight:800;color:#991b1b;">${fmtDOP(product.price||product.finalPrice||0)}</div>
+                  <div style="font-size:.62em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Precio Venta</div>
+                  <div style="font-size:1.1em;font-weight:800;color:#991b1b;">${fmtDOP(product.price||product.finalPrice||0)}</div>
+                  ${avgCostDOP>0&&(product.price||product.finalPrice||0)>0?`<div style="font-size:.7em;color:${((product.price||product.finalPrice||0)-avgCostDOP)>=0?'#166534':'#dc2626'};">Margen: RD$ ${((product.price||product.finalPrice||0)-avgCostDOP).toFixed(0)}</div>`:''}
                 </div>
                 <div style="background:#f8f6ff;border-radius:10px;padding:12px;">
-                  <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Ingresos</div>
-                  <div style="font-size:1.2em;font-weight:800;color:#5b4fcf;">${fmtDOP(totalRevenue)}</div>
+                  <div style="font-size:.62em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Ingresos</div>
+                  <div style="font-size:1.1em;font-weight:800;color:#5b4fcf;">${fmtDOP(totalRevenue)}</div>
                 </div>
                 <div style="background:#f0fdf4;border-radius:10px;padding:12px;">
-                  <div style="font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Ganancia Neta</div>
-                  <div style="font-size:1.2em;font-weight:800;color:${totalProfit>=0?'#166534':'#dc2626'};">${fmtDOP(totalProfit)}</div>
+                  <div style="font-size:.62em;color:#888;text-transform:uppercase;letter-spacing:.05em;">Ganancia Neta</div>
+                  <div style="font-size:1.1em;font-weight:800;color:${totalProfit>=0?'#166534':'#dc2626'};">${fmtDOP(totalProfit)}</div>
                 </div>
               </div>
 
@@ -6251,12 +6266,16 @@
                       <tbody>
                         ${delivered.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(p => {
                           const wh = warehouses.find(w=>String(w.id)===String(p.warehouseId));
-                          const cost = (p.costUSD||p.unitCostUSD||0);
+                          const costUSD = (p.costUSD||p.unitCostUSD||0);
+                          const costDOP = p.costDOP || (p.totalCostDOP?(p.totalCostDOP/(p.qty||1)):0) || (costUSD*(p.exchangeRate||0));
                           return `<tr style="border-top:1px solid #f0ede8;">
                             <td style="padding:6px 10px;font-family:monospace;color:#5b4fcf;">${p.lotNumber||'—'}</td>
                             <td style="padding:6px 10px;text-align:center;">${p.qty||0}</td>
                             <td style="padding:6px 10px;text-align:center;font-weight:700;color:${(p.remainingQty||0)>0?'#166534':'#dc2626'};">${p.remainingQty||0}</td>
-                            <td style="padding:6px 10px;text-align:right;">$${cost.toFixed(2)}</td>
+                            <td style="padding:6px 10px;text-align:right;font-size:.85em;">
+                              <div>$${costUSD.toFixed(2)}</div>
+                              ${costDOP>0?`<div style="color:#92400e;font-size:.85em;">RD$${costDOP.toFixed(0)}</div>`:''}
+                            </td>
                             <td style="padding:6px 10px;color:#888;">${wh?wh.name:'—'}</td>
                           </tr>`;
                         }).join('')}
