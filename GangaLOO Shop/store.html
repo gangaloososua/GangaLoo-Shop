@@ -189,6 +189,7 @@ button{font-family:'Jost',sans-serif;}
 }
 .wh-pill.active,.wh-pill:hover{border-color:var(--gold);color:var(--gd);background:var(--gl);}
 .wh-pill:disabled{opacity:.4;cursor:not-allowed;pointer-events:none;}
+@keyframes spin{to{transform:rotate(360deg);}}
 
 /* ══════════════════════════════════════════
    HERO
@@ -1218,12 +1219,10 @@ async function loadData(){
   // Show skeleton cards only on very first load
   const grid = document.getElementById('prodGrid');
   if (grid && grid.children.length === 0 && !_dataLoaded) {
-    grid.innerHTML = Array(8).fill(0).map(()=>`
-      <div style="background:white;border-radius:16px;padding:20px;animation:pulse 1.5s ease-in-out infinite;">
-        <div style="height:180px;background:#f0ede8;border-radius:10px;margin-bottom:12px;"></div>
-        <div style="height:14px;background:#f0ede8;border-radius:6px;margin-bottom:8px;width:80%;"></div>
-        <div style="height:12px;background:#f0ede8;border-radius:6px;width:50%;"></div>
-      </div>`).join('');
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted);">
+      <div class="spinner" style="margin:0 auto 16px;width:36px;height:36px;border:3px solid #f0ede8;border-top-color:var(--text);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+      <p style="font-size:.9em;">Cargando productos...</p>
+    </div>`;
   }
   let data,error;
   try{({data,error}=await sb.from('inventory_data').select('products,purchases,warehouses,categories,store_config').order('updated_at',{ascending:false}).limit(1));
@@ -1284,7 +1283,7 @@ function renderWH(){
     `<button class="wh-pill ${w.id==selectedWH?'active':''}" onclick="pickWH(${w.id},this)" ${_dataLoaded?'':'disabled'}>🏢 ${w.name}</button>`
   ).join('');
 }
-function pickWH(id,btn){selectedWH=String(id);selectedCat=null;document.querySelectorAll('.wh-pill').forEach(p=>p.classList.remove('active'));btn.classList.add('active');buildCatStrip();buildShowcase();renderProducts();buildDealSection();}
+function pickWH(id,btn){if(!_dataLoaded) return; selectedWH=String(id);selectedCat=null;document.querySelectorAll('.wh-pill').forEach(p=>p.classList.remove('active'));btn.classList.add('active');buildCatStrip();buildShowcase();renderProducts();buildDealSection();}
 
 /* ── HELPERS ── */
 function mainCats(){return allCategories.filter(c=>!c.parentId && c.visibleInStore!==false);}
@@ -1305,13 +1304,14 @@ function scrollToProd(){setTimeout(()=>document.getElementById('prodAnchor').scr
 function buildCatStrip(){
   const strip=document.getElementById('catStrip');
   const mains=mainCats();
-  let html=`<div class="cs-item"><button class="cs-btn active" id="cs-all" onclick="filterCat(null)">✦ Todos</button></div>`;
+  const catDisabled = _dataLoaded ? '' : 'disabled style="opacity:.4;pointer-events:none;"';
+  let html=`<div class="cs-item"><button class="cs-btn active" id="cs-all" onclick="filterCat(null)" ${catDisabled}>✦ Todos</button></div>`;
   mains.forEach(cat=>{
     const subs=getSubCats(cat.id);
     const cnt=catCount(cat.id);
     if(cnt===0) return; // hide categories with no stock in selected warehouse
     if(!subs.length){
-      html+=`<div class="cs-item"><button class="cs-btn" data-cat="${cat.id}" onclick="filterCat(${cat.id})">${cat.icon?`<span class="ico">${cat.icon}</span>`:''}${cat.name}</button></div>`;
+      html+=`<div class="cs-item"><button class="cs-btn" data-cat="${cat.id}" onclick="filterCat(${cat.id})" ${catDisabled}>${cat.icon?`<span class="ico">${cat.icon}</span>`:''}${cat.name}</button></div>`;
     } else {
       const subItems=subs.map(s=>{
         const sc=allProducts.filter(p=>inCat(p,s.id)&&(selectedWH?getStock(p.id,selectedWH)>0:allWarehouses.some(w=>getStock(p.id,w.id)>0))).length;
@@ -1398,6 +1398,7 @@ function buildShowcase(){
 
 /* ── FILTER ── */
 function filterCat(id){
+  if(!_dataLoaded) return; // not ready yet
   selectedCat=id!=null?String(id):null;
   const _testProd = allProducts.find(p => {
     const pIds = (p.categoryIds&&p.categoryIds.length?p.categoryIds:[p.categoryId]).map(String);
