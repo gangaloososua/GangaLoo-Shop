@@ -2326,17 +2326,24 @@ function toggleUserMenu(e){
 }
 function clubPrice(price){ return isClubMember() ? Math.round(price * 0.90 * 100) / 100 : price; }
 
+let _lastLoadedUserId = null;
+
 async function initAuth(){
   const { data: { session } } = await sb.auth.getSession();
   if(session){
+    _lastLoadedUserId = session.user.id;
     await onSignedIn(session.user);
   } else {
     showGuestState();
   }
   sb.auth.onAuthStateChange(async(event,session)=>{
-    if(event==='SIGNED_IN' && session?.user && (!currentUser || currentUser.id!==session.user.id)){
+    if(event==='SIGNED_IN' && session?.user){
+      // Skip if we already loaded for this user
+      if(_lastLoadedUserId === session.user.id) return;
+      _lastLoadedUserId = session.user.id;
       await onSignedIn(session.user);
     } else if(event==='SIGNED_OUT'){
+      _lastLoadedUserId = null;
       showGuestState();
     }
   });
@@ -2370,7 +2377,11 @@ async function onSignedIn(user){
         if(!_dataLoading){ clearInterval(check); resolve(); }
       }, 100);
     });
-    // Re-render with updated user context (prices)
+    renderProducts();
+    return;
+  }
+  if(_dataLoaded){
+    // Data already loaded — just re-render with new user context (prices)
     renderProducts();
     return;
   }
