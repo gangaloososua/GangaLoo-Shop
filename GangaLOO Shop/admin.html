@@ -5396,6 +5396,8 @@
             });
             html += '</div>';
             container.innerHTML = html;
+            // Re-attach drag handlers to new card elements
+            setupProductDragAndDrop();
         }
 
         async function changeClubStatus(memberId, newStatus) {
@@ -6411,15 +6413,14 @@
         let draggedProductIndex = null;
 
         function setupProductDragAndDrop() {
-            const rows = document.querySelectorAll('#productsTable tbody tr.draggable-row');
-            
-            rows.forEach(row => {
-                row.addEventListener('dragstart', handleProductDragStart);
-                row.addEventListener('dragover', handleProductDragOver);
-                row.addEventListener('drop', handleProductDrop);
-                row.addEventListener('dragenter', handleProductDragEnter);
-                row.addEventListener('dragleave', handleProductDragLeave);
-                row.addEventListener('dragend', handleProductDragEnd);
+            const cards = document.querySelectorAll('#productsList .prod-card.draggable-row');
+            cards.forEach(card => {
+                card.addEventListener('dragstart', handleProductDragStart);
+                card.addEventListener('dragover', handleProductDragOver);
+                card.addEventListener('drop', handleProductDrop);
+                card.addEventListener('dragenter', handleProductDragEnter);
+                card.addEventListener('dragleave', handleProductDragLeave);
+                card.addEventListener('dragend', handleProductDragEnd);
             });
         }
 
@@ -6427,7 +6428,8 @@
             draggedProductElement = this;
             draggedProductIndex = parseInt(this.dataset.index);
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', this.innerHTML);
+            e.dataTransfer.setData('text/plain', this.dataset.productId);
+            setTimeout(() => { this.style.opacity = '0.4'; }, 0);
             this.style.opacity = '0.4';
         }
 
@@ -6440,12 +6442,14 @@
         }
 
         function handleProductDragEnter(e) {
+            if (this !== draggedProductElement) this.classList.add('drag-over');
             if (this !== draggedProductElement) {
                 this.style.backgroundColor = '#e3f2fd';
             }
         }
 
         function handleProductDragLeave(e) {
+            this.classList.remove('drag-over');
             this.style.backgroundColor = '';
         }
 
@@ -6508,10 +6512,10 @@
 
         function handleProductDragEnd(e) {
             this.style.opacity = '1';
-            
-            const rows = document.querySelectorAll('#productsTable tbody tr.draggable-row');
-            rows.forEach(row => {
-                row.style.backgroundColor = '';
+            this.style.transform = '';
+            document.querySelectorAll('#productsList .prod-card').forEach(c => {
+                c.classList.remove('drag-over');
+                c.style.opacity = '';
             });
         }
 
@@ -6569,7 +6573,7 @@
 
                 html += `<div class="prod-card draggable-row" draggable="true" data-product-id="${product.id}" data-index="${index}" onclick="openProductDetail(${product.id})" style="cursor:pointer;">
                     <div class="prod-card-top">
-                        <span class="prod-card-drag">⋮⋮</span>
+                        <span class="prod-card-drag" title="Arrastrar para reordenar" style="cursor:grab;font-size:1.1em;color:#bbb;padding:4px 6px;border-radius:4px;" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()">⋮⋮</span>
                         <div style="flex:1;">
                             <div class="prod-card-name">${product.name || 'Sin nombre'}</div>
                             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;align-items:center;">
