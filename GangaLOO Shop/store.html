@@ -1398,12 +1398,10 @@ function buildShowcase(){
 
 /* ── FILTER ── */
 function filterCat(id){
-  if(!_dataLoaded) return; // not ready yet
+  if(!_dataLoaded){ console.warn('[filterCat] blocked — data not loaded yet'); return; }
+  if(!allProducts.length){ console.warn('[filterCat] blocked — allProducts empty'); return; }
   selectedCat=id!=null?String(id):null;
-  const _testProd = allProducts.find(p => {
-    const pIds = (p.categoryIds&&p.categoryIds.length?p.categoryIds:[p.categoryId]).map(String);
-    return getEffIds(selectedCat).some(eid => pIds.includes(eid));
-  });
+  console.log('[filterCat] id='+id+' products='+allProducts.length+' purchases='+allPurchases.length);
   setActiveStripBtn(id);
   renderProducts();
   // show subcat container only when a category with subcats is selected
