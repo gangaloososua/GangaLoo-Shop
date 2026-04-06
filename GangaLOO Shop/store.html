@@ -1198,13 +1198,9 @@ let selectedWH=null,selectedCat=null,searchQuery='';
 // Load cart from localStorage
 let cart=[];
 try{ const saved=localStorage.getItem('gangaloo_cart'); if(saved) cart=JSON.parse(saved); }catch(e){ cart=[]; }
-// Update badge immediately so count shows on page load
+// Update cart badge and panel immediately on page load
 document.addEventListener('DOMContentLoaded', ()=>{
-  const cnt=cart.reduce((s,i)=>s+i.qty,0);
-  const cb=document.getElementById('cartCount');
-  const mb=document.getElementById('mobCartCount');
-  if(cb) cb.textContent=cnt;
-  if(mb) mb.textContent=cnt;
+  if(cart.length) updCart();
 });
 let _dataLoaded=false,_dataLoading=false;
 
