@@ -5778,19 +5778,19 @@
             document.getElementById('cfg_disc_gold').value    = cfg.disc_gold    ?? 15;
             document.getElementById('cfg_pts_diamond').value  = cfg.pts_diamond  ?? 4000;
             document.getElementById('cfg_disc_diamond').value = cfg.disc_diamond ?? 20;
-            // wholesale tiers
-            document.getElementById('cfg_bulk_qty1').value   = cfg.bulk_qty1   || '';
-            document.getElementById('cfg_bulk_disc1').value  = cfg.bulk_disc1  || '';
-            document.getElementById('cfg_bulk_label1').value = cfg.bulk_label1 || '';
-            document.getElementById('cfg_bulk_qty2').value   = cfg.bulk_qty2   || '';
-            document.getElementById('cfg_bulk_disc2').value  = cfg.bulk_disc2  || '';
-            document.getElementById('cfg_bulk_label2').value = cfg.bulk_label2 || '';
-            document.getElementById('cfg_bulk_qty3').value   = cfg.bulk_qty3   || '';
-            document.getElementById('cfg_bulk_disc3').value  = cfg.bulk_disc3  || '';
-            document.getElementById('cfg_bulk_label3').value = cfg.bulk_label3 || '';
-            document.getElementById('cfg_bulk_qty4').value   = cfg.bulk_qty4   || '';
-            document.getElementById('cfg_bulk_disc4').value  = cfg.bulk_disc4  || '';
-            document.getElementById('cfg_bulk_label4').value = cfg.bulk_label4 || '';
+            // wholesale tiers — use ?? so 0 values are preserved (not treated as empty)
+            document.getElementById('cfg_bulk_qty1').value   = cfg.bulk_qty1   ?? '';
+            document.getElementById('cfg_bulk_disc1').value  = cfg.bulk_disc1  ?? '';
+            document.getElementById('cfg_bulk_label1').value = cfg.bulk_label1 ?? '';
+            document.getElementById('cfg_bulk_qty2').value   = cfg.bulk_qty2   ?? '';
+            document.getElementById('cfg_bulk_disc2').value  = cfg.bulk_disc2  ?? '';
+            document.getElementById('cfg_bulk_label2').value = cfg.bulk_label2 ?? '';
+            document.getElementById('cfg_bulk_qty3').value   = cfg.bulk_qty3   ?? '';
+            document.getElementById('cfg_bulk_disc3').value  = cfg.bulk_disc3  ?? '';
+            document.getElementById('cfg_bulk_label3').value = cfg.bulk_label3 ?? '';
+            document.getElementById('cfg_bulk_qty4').value   = cfg.bulk_qty4   ?? '';
+            document.getElementById('cfg_bulk_disc4').value  = cfg.bulk_disc4  ?? '';
+            document.getElementById('cfg_bulk_label4').value = cfg.bulk_label4 ?? '';
             updateCfgPreview(cfg);
             refreshDealSummary();
         }
