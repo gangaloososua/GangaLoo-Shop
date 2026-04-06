@@ -14619,13 +14619,26 @@
                 if (paymentsIncome>0) map['💳 Cobros de Ventas']={amount:paymentsIncome,count:filteredPayments.length};
                 if (!Object.keys(map).length) return '<p style="color:#aaa;">No hay ingresos en este período.</p>';
                 const rows = Object.entries(map).sort((a,b)=>b[1].amount-a[1].amount);
-                let t = '<div style="overflow-x:auto;"><table><thead><tr><th>Categoría</th><th>Transacciones</th><th style="text-align:right;">Monto</th><th style="text-align:right;">% del Total</th><th>Barra</th></tr></thead><tbody>';
-                rows.forEach(([k,d],i)=>{
+                let t = '<div>';
+                rows.forEach(([k,d])=>{
                     const pct = totalIncome>0?(d.amount/totalIncome*100):0;
-                    t+=`<tr style="${i%2?'background:#fdfcfb':''}"><td><strong>${k}</strong></td><td style="color:#888;">${d.count}</td><td style="text-align:right;color:#166534;font-weight:700;">$${fmt(d.amount)}</td><td style="text-align:right;">${pct.toFixed(1)}%</td><td style="min-width:80px;"><div style="background:#e9ecef;border-radius:4px;height:8px;"><div style="background:#27ae60;height:100%;border-radius:4px;width:${pct.toFixed(1)}%;"></div></div></td></tr>`;
+                    t+=`<div style="background:white;border:1px solid #e8e4f0;border-radius:10px;padding:10px 14px;margin-bottom:6px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                            <div style="font-weight:700;font-size:.88em;flex:1;">${k}</div>
+                            <div style="font-weight:800;color:#166534;">$${fmt(d.amount)}</div>
+                        </div>
+                        <div style="background:#e9ecef;border-radius:4px;height:6px;overflow:hidden;margin-bottom:4px;">
+                            <div style="background:#22c55e;height:100%;border-radius:4px;width:${pct.toFixed(1)}%;"></div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:.72em;color:#aaa;">
+                            <span>${d.count} transacciones</span><span>${pct.toFixed(1)}%</span>
+                        </div>
+                    </div>`;
                 });
-                t+=`<tr style="background:#f0fdf4;font-weight:bold;border-top:2px solid #86efac;"><td>TOTAL</td><td>${filteredTx.filter(t=>t.type==='income').length+filteredPayments.length}</td><td style="text-align:right;color:#166534;">$${fmt(totalIncome)}</td><td style="text-align:right;">100%</td><td></td></tr>`;
-                return t+'</tbody></table></div>';
+                t+=`<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;font-weight:800;">
+                    <span>TOTAL</span><span style="color:#166534;">$${fmt(totalIncome)}</span>
+                </div>`;
+                return t+'</div>';
             }
 
             function buildExpensesByCategory() {
@@ -14638,13 +14651,26 @@
                 });
                 if (!Object.keys(map).length) return '<p style="color:#aaa;">No hay gastos en este período.</p>';
                 const rows = Object.entries(map).sort((a,b)=>b[1].amount-a[1].amount);
-                let t = '<div style="overflow-x:auto;"><table><thead><tr><th>Categoría</th><th>Transacciones</th><th style="text-align:right;">Monto</th><th style="text-align:right;">% del Total</th><th>Barra</th></tr></thead><tbody>';
-                rows.forEach(([k,d],i)=>{
+                let t = '<div>';
+                rows.forEach(([k,d])=>{
                     const pct = totalExpenses>0?(d.amount/totalExpenses*100):0;
-                    t+=`<tr style="${i%2?'background:#fdfcfb':''}"><td><strong>${k}</strong></td><td style="color:#888;">${d.count}</td><td style="text-align:right;color:#991b1b;font-weight:700;">$${fmt(d.amount)}</td><td style="text-align:right;">${pct.toFixed(1)}%</td><td style="min-width:80px;"><div style="background:#e9ecef;border-radius:4px;height:8px;"><div style="background:#dc2626;height:100%;border-radius:4px;width:${pct.toFixed(1)}%;"></div></div></td></tr>`;
+                    t+=`<div style="background:white;border:1px solid #e8e4f0;border-radius:10px;padding:10px 14px;margin-bottom:6px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                            <div style="font-weight:700;font-size:.88em;flex:1;">${k}</div>
+                            <div style="font-weight:800;color:#991b1b;">$${fmt(d.amount)}</div>
+                        </div>
+                        <div style="background:#e9ecef;border-radius:4px;height:6px;overflow:hidden;margin-bottom:4px;">
+                            <div style="background:#dc2626;height:100%;border-radius:4px;width:${pct.toFixed(1)}%;"></div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:.72em;color:#aaa;">
+                            <span>${d.count} transacciones</span><span>${pct.toFixed(1)}%</span>
+                        </div>
+                    </div>`;
                 });
-                t+=`<tr style="background:#fff5f5;font-weight:bold;border-top:2px solid #fca5a5;"><td>TOTAL</td><td>${filteredTx.filter(t=>t.type==='expense').length}</td><td style="text-align:right;color:#991b1b;">$${fmt(totalExpenses)}</td><td style="text-align:right;">100%</td><td></td></tr>`;
-                return t+'</tbody></table></div>';
+                t+=`<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;font-weight:800;">
+                    <span>TOTAL</span><span style="color:#991b1b;">$${fmt(totalExpenses)}</span>
+                </div>`;
+                return t+'</div>';
             }
 
             function buildCashFlowByAccount() {
@@ -14664,12 +14690,35 @@
                     if(cf[t.fromId]) cf[t.fromId].expenses+=t.amount||0;
                     if(cf[t.toId])   cf[t.toId].income+=t.amount||0;
                 });
-                let t='<div style="overflow-x:auto;"><table><thead><tr><th>Cuenta</th><th style="text-align:right;">Ingresos</th><th style="text-align:right;">Gastos</th><th style="text-align:right;">Cambio Neto</th><th style="text-align:right;">Saldo Actual</th></tr></thead><tbody>';
-                Object.values(cf).forEach((a,i)=>{
+                let t='<div>';
+                Object.values(cf).forEach(a=>{
                     const net=a.income-a.expenses, nc=net>=0?'#166534':'#991b1b';
-                    t+=`<tr style="${i%2?'background:#fdfcfb':''}"><td><strong>${a.name}</strong> <span style="color:#aaa;font-size:.8em;">${a.currency}</span></td><td style="text-align:right;color:#166534;">$${fmt(a.income)}</td><td style="text-align:right;color:#991b1b;">$${fmt(a.expenses)}</td><td style="text-align:right;font-weight:700;color:${nc};">${net>=0?'+':''}$${fmt(net)}</td><td style="text-align:right;font-weight:600;">$${fmt(a.balance)}</td></tr>`;
+                    const borderCol = a.balance>=0?'#22c55e':'#dc2626';
+                    t+=`<div style="background:white;border:1.5px solid #e8e4f0;border-left:4px solid ${borderCol};border-radius:10px;padding:11px 14px;margin-bottom:8px;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+                            <div>
+                                <div style="font-weight:700;font-size:.9em;">${a.name} <span style="font-size:.75em;color:#aaa;">${a.currency}</span></div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;font-size:.8em;">
+                                    <div style="background:#f0fdf4;border-radius:6px;padding:5px 8px;">
+                                        <div style="color:#aaa;font-size:.75em;">Ingresos</div>
+                                        <div style="color:#166534;font-weight:700;">+$${fmt(a.income)}</div>
+                                    </div>
+                                    <div style="background:#fff5f5;border-radius:6px;padding:5px 8px;">
+                                        <div style="color:#aaa;font-size:.75em;">Gastos</div>
+                                        <div style="color:#991b1b;font-weight:700;">-$${fmt(a.expenses)}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:.7em;color:#aaa;">Cambio neto</div>
+                                <div style="font-weight:800;color:${nc};">${net>=0?'+':''}$${fmt(net)}</div>
+                                <div style="font-size:.7em;color:#aaa;margin-top:4px;">Saldo actual</div>
+                                <div style="font-weight:700;font-size:.9em;">$${fmt(a.balance)}</div>
+                            </div>
+                        </div>
+                    </div>`;
                 });
-                return t+'</tbody></table></div>';
+                return t+'</div>';
             }
 
             function buildTotalAssets() {
@@ -14684,13 +14733,22 @@
                 Object.keys(byCurr).sort().forEach(cur=>{
                     const cd=byCurr[cur];
                     h+=`<h4 style="color:var(--brand);margin:16px 0 8px;">Cuentas en ${cur}</h4>`;
-                    h+='<div style="overflow-x:auto;"><table><thead><tr><th>Cuenta</th><th style="text-align:right;">Balance</th><th style="text-align:right;">% del Total</th></tr></thead><tbody>';
-                    cd.accounts.sort((a,b)=>b.balance-a.balance).forEach((a,i)=>{
+                    cd.accounts.sort((a,b)=>b.balance-a.balance).forEach(a=>{
                         const pct=cd.total>0?(a.balance/cd.total*100):0, bc=a.balance>=0?'#166534':'#991b1b';
-                        h+=`<tr style="${i%2?'background:#fdfcfb':''}"><td><strong>${a.name}</strong></td><td style="text-align:right;color:${bc};font-weight:700;">$${fmt(a.balance)}</td><td style="text-align:right;">${pct.toFixed(1)}%</td></tr>`;
+                        h+=`<div style="background:white;border:1px solid #e8e4f0;border-radius:10px;padding:10px 14px;margin-bottom:6px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px;">
+                                <span style="font-weight:700;font-size:.88em;">${a.name}</span>
+                                <span style="font-weight:800;color:${bc};">$${fmt(a.balance)}</span>
+                            </div>
+                            <div style="background:#e9ecef;border-radius:4px;height:5px;overflow:hidden;margin-bottom:3px;">
+                                <div style="background:${bc};height:100%;border-radius:4px;width:${Math.abs(pct).toFixed(1)}%;"></div>
+                            </div>
+                            <div style="font-size:.7em;color:#aaa;text-align:right;">${pct.toFixed(1)}%</div>
+                        </div>`;
                     });
-                    h+=`<tr style="background:linear-gradient(135deg,var(--brand-dark),var(--brand));color:white;font-weight:bold;"><td>TOTAL ${cur}</td><td style="text-align:right;">$${fmt(cd.total)}</td><td style="text-align:right;">100%</td></tr>`;
-                    h+='</tbody></table></div>';
+                    h+=`<div style="background:linear-gradient(135deg,#002D62,#1a4a8a);color:white;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;font-weight:800;margin-bottom:8px;">
+                        <span>TOTAL ${cur}</span><span>$${fmt(cd.total)}</span>
+                    </div>`;
                 });
                 return h;
             }
@@ -14702,17 +14760,36 @@
                 for(let m=1;m<=12;m++) md[m]={inc:0,exp:0};
                 filteredTx.forEach(t=>{ const m=new Date(t.date).getMonth()+1; const a=toDOP(t.amount,t); if(t.type==='income') md[m].inc+=a; else md[m].exp+=a; });
                 filteredPayments.forEach(p=>{ const m=new Date(p.date).getMonth()+1; md[m].inc+=paymentToDOP(p); });
-                let t='<div style="overflow-x:auto;"><table><thead><tr><th>Mes</th><th style="text-align:right;">Ingresos</th><th style="text-align:right;">Gastos</th><th style="text-align:right;">Resultado</th></tr></thead><tbody>';
+                let t='<div>';
                 for(let m=1;m<=12;m++){
                     const d=md[m],net=d.inc-d.exp,nc=net>=0?'#166534':'#991b1b';
                     const isEmpty=d.inc===0&&d.exp===0;
-                    t+=`<tr style="${isEmpty?'color:#ccc':''}${m%2?';background:#fdfcfb':''}"><td><strong>${mn[m-1]}</strong></td><td style="text-align:right;color:${isEmpty?'#ccc':'#166534'};">${isEmpty?'—':'$'+fmt(d.inc)}</td><td style="text-align:right;color:${isEmpty?'#ccc':'#991b1b'};">${isEmpty?'—':'$'+fmt(d.exp)}</td><td style="text-align:right;font-weight:700;color:${isEmpty?'#ccc':nc};">${isEmpty?'—':(net>=0?'+':'')+'$'+fmt(net)}</td></tr>`;
+                    if(isEmpty) continue; // skip empty months
+                    t+=`<div style="background:white;border:1px solid #e8e4f0;border-left:4px solid ${nc};border-radius:10px;padding:10px 14px;margin-bottom:6px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <div style="font-weight:700;font-size:.92em;">${mn[m-1]}</div>
+                            <div style="display:flex;gap:12px;font-size:.82em;flex-wrap:wrap;">
+                                <span style="color:#166534;">+$${fmt(d.inc)}</span>
+                                <span style="color:#991b1b;">-$${fmt(d.exp)}</span>
+                                <span style="font-weight:800;color:${nc};">${net>=0?'+':''}$${fmt(net)}</span>
+                            </div>
+                        </div>
+                    </div>`;
                 }
                 const totInc=Object.values(md).reduce((s,d)=>s+d.inc,0);
                 const totExp=Object.values(md).reduce((s,d)=>s+d.exp,0);
                 const totNet=totInc-totExp, tnc=totNet>=0?'#166534':'#991b1b';
-                t+=`<tr style="background:#f8f9fa;font-weight:bold;border-top:2px solid var(--brand);"><td>TOTAL AÑO</td><td style="text-align:right;color:#166534;">$${fmt(totInc)}</td><td style="text-align:right;color:#991b1b;">$${fmt(totExp)}</td><td style="text-align:right;color:${tnc};">${totNet>=0?'+':''}$${fmt(totNet)}</td></tr>`;
-                return t+'</tbody></table></div>';
+                t+=`<div style="background:#f8f9fa;border:1.5px solid #002D62;border-radius:10px;padding:10px 14px;">
+                    <div style="display:flex;justify-content:space-between;font-weight:800;flex-wrap:wrap;gap:8px;">
+                        <span>TOTAL AÑO</span>
+                        <div style="display:flex;gap:12px;font-size:.88em;">
+                            <span style="color:#166534;">+$${fmt(totInc)}</span>
+                            <span style="color:#991b1b;">-$${fmt(totExp)}</span>
+                            <span style="color:${tnc};">${totNet>=0?'+':''}$${fmt(totNet)}</span>
+                        </div>
+                    </div>
+                </div>`;
+                return t+'</div>';
             }
 
             function buildBusinessVsPersonal() {
