@@ -1203,6 +1203,7 @@ let _dataLoaded=false,_dataLoading=false;
 /* ── LOAD ── */
 async function loadData(){
   if(_dataLoading){ setTimeout(loadData, 800); return; }
+  if(_dataLoaded){ renderProducts(); return; } // already loaded — just re-render
   _dataLoading=true;
   // Never reset user's current view state on reload
   const isFirstLoad = !_dataLoaded;
@@ -1398,10 +1399,8 @@ function buildShowcase(){
 
 /* ── FILTER ── */
 function filterCat(id){
-  if(!_dataLoaded){ console.warn('[filterCat] blocked — data not loaded yet'); return; }
-  if(!allProducts.length){ console.warn('[filterCat] blocked — allProducts empty'); return; }
+  if(!_dataLoaded) return;
   selectedCat=id!=null?String(id):null;
-  console.log('[filterCat] id='+id+' products='+allProducts.length+' purchases='+allPurchases.length);
   setActiveStripBtn(id);
   renderProducts();
   // show subcat container only when a category with subcats is selected
@@ -1455,7 +1454,6 @@ function renderProducts(){
   const grid=document.getElementById('prodGrid');
   const q=searchQuery;
   const ids=getEffIds(selectedCat);
-  console.log('[renderProducts] selectedCat='+selectedCat+' ids='+JSON.stringify(ids)+' selectedWH='+selectedWH);
   const filtered=allProducts.filter(p=>{
     if(p.visibleInStore===false) return false;
     const pCatIds=(p.categoryIds&&p.categoryIds.length?p.categoryIds:[p.categoryId]).map(String);
@@ -1469,7 +1467,7 @@ function renderProducts(){
     const inStock=selectedWH?getStock(p.id,selectedWH)>0:allWarehouses.some(w=>getStock(p.id,w.id)>0);
     return mc&&ms&&inStock;
   });
-  console.log('[renderProducts] filtered='+filtered.length+' (mc check on first: ids='+JSON.stringify(ids)+' pCatIds='+JSON.stringify(allProducts[0]?(allProducts[0].categoryIds||[allProducts[0].categoryId]).map(String):[])+')');
+
   let title='Todos los Productos',bc='';
   if(selectedCat){
     const cat=allCategories.find(c=>String(c.id)===String(selectedCat));
@@ -1566,7 +1564,6 @@ function getBulkDiscount(){
     {min:cfg.bulk_qty1||0, disc:cfg.bulk_disc1||0, label:cfg.bulk_label1||''},
   ].filter(t=>t.min>0&&t.disc>0).sort((a,b)=>b.min-a.min);
   // Debug: log to console so we can verify config is loaded
-  console.log('[BulkDiscount] qty='+qty+' tiers='+JSON.stringify(tiers));
   for(const t of tiers){
     if(qty>=t.min) return t;
   }
