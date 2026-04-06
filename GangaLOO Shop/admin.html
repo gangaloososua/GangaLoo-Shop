@@ -7088,6 +7088,49 @@
             modal.style.display = 'block';
         }
 
+        function bulkOrderCard(order, warehouse, totalQty, totalUSD, totalDOP, status) {
+            const borderColor = status==='delivered' ? '#22c55e' : status==='cancelled' ? '#9ca3af' : '#f59e0b';
+            const dateStr = order.date ? new Date(order.date).toLocaleDateString('es-DO') : '—';
+            const tracking = order.trackingNumber || '—';
+            const isCancelled = status === 'cancelled';
+            const reason = isCancelled ? (order.products[0]?.cancelReason || '—') : null;
+            const cancelDate = isCancelled && order.products[0]?.cancelledAt
+                ? new Date(order.products[0].cancelledAt).toLocaleDateString('es-DO') : null;
+
+            return `<div style="background:white;border:1.5px solid #e8e4f0;border-left:4px solid ${borderColor};border-radius:12px;padding:12px 14px;margin-bottom:8px;${isCancelled?'opacity:.7;':''}">
+                <!-- Row 1: lot + date + warehouse -->
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                    <div>
+                        <div style="font-weight:800;font-size:.95em;color:#002D62;">${order.lotNumber}</div>
+                        <div style="font-size:.75em;color:#aaa;">${dateStr} · ${warehouse ? warehouse.name : '—'}</div>
+                        ${tracking !== '—' ? `<div style="font-size:.72em;color:#888;">🔍 ${tracking}</div>` : ''}
+                        ${isCancelled && reason ? `<div style="font-size:.72em;color:#888;font-style:italic;">Motivo: ${reason}${cancelDate?' · '+cancelDate:''}</div>` : ''}
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:.75em;color:#888;">${order.products.length} prod · ${totalQty} uds</div>
+                    </div>
+                </div>
+                <!-- Row 2: totals + actions -->
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <div style="background:#f0f4ff;border-radius:8px;padding:5px 10px;text-align:center;">
+                            <div style="font-size:.6em;color:#aaa;text-transform:uppercase;">USD</div>
+                            <div style="font-weight:700;font-size:.85em;color:#002D62;">$${totalUSD.toFixed(2)}</div>
+                        </div>
+                        <div style="background:#fff8f0;border-radius:8px;padding:5px 10px;text-align:center;">
+                            <div style="font-size:.6em;color:#aaa;text-transform:uppercase;">DOP</div>
+                            <div style="font-weight:700;font-size:.85em;color:#92400e;">RD$${totalDOP.toFixed(0)}</div>
+                        </div>
+                    </div>
+                    ${!isCancelled ? `<div style="display:flex;gap:4px;">
+                        <button onclick="viewBulkOrder('${order.lotNumber}')" title="Ver detalle" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">👁</button>
+                        <button onclick="editBulkOrder('${order.lotNumber}')" title="Editar" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">✏️</button>
+                        <button onclick="openCancelOrderModal('${order.lotNumber}')" title="Cancelar" style="width:28px;height:28px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:13px;">🚫</button>
+                    </div>` : ''}
+                </div>
+            </div>`;
+        }
+
         function renderBulkOrdersList() {
             const container = document.getElementById('bulkOrdersList');            
             // Group purchases by lot number to find bulk orders
@@ -7143,56 +7186,18 @@
                                 <span>💰 ${totalPendingDOP.toFixed(2)} DOP</span>
                             </div>
                         </div>
-                        <div id="bulk-pending" style="display: none;">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Lote</th>
-                                        <th>Fecha</th>
-                                        <th>Almacén</th>
-                                        <th>Productos</th>
-                                        <th>Total USD</th>
-                                        <th>Total DOP</th>
-                                        <th>Rastreo</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                        <div id="bulk-pending" style="display:none;padding:10px;">
                 `;
-
                 pendingOrders.forEach(order => {
                     const warehouse = warehouses.find(w => w.id === order.warehouseId);
-                    const totalQty = order.products.reduce((sum, p) => sum + p.qty, 0);
-                    const totalUSD = order.products.reduce((sum, p) => sum + (p.costUSD * p.qty), 0);
-                    const totalDOP = order.products.reduce((sum, p) => sum + p.totalCostDOP, 0);
-
-                    html += `
-                        <tr>
-                            <td><strong>${order.lotNumber}</strong></td>
-                            <td>${new Date(order.date).toLocaleDateString()}</td>
-                            <td>${warehouse ? warehouse.name : '-'}</td>
-                            <td>${order.products.length} productos (${totalQty} unidades)</td>
-                            <td>$${totalUSD.toFixed(2)}</td>
-                            <td>$${totalDOP.toFixed(2)}</td>
-                            <td>${order.trackingNumber || '-'}</td>
-                            <td>
-                                <div style="display:flex;gap:4px;">
-                                    <button onclick="viewBulkOrder('${order.lotNumber}')" title="Ver detalle" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">👁</button>
-                                    <button onclick="editBulkOrder('${order.lotNumber}')" title="Editar" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">✏️</button>
-                                    <button onclick="openCancelOrderModal('${order.lotNumber}')" title="Cancelar" style="width:28px;height:28px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:13px;">🚫</button>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
+                    const totalQty = order.products.reduce((sum,p) => sum+p.qty, 0);
+                    const totalUSD = order.products.reduce((sum,p) => sum+(p.costUSD*p.qty), 0);
+                    const totalDOP = order.products.reduce((sum,p) => sum+p.totalCostDOP, 0);
+                    html += bulkOrderCard(order, warehouse, totalQty, totalUSD, totalDOP, 'pending');
                 });
-
-                html += `
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
+                html += `</div></div>`;
             }
+
 
             // Delivered Orders Section (Collapsed by default)
             if (deliveredOrders.length > 0) {
@@ -7214,56 +7219,18 @@
                                 <span>💰 ${totalDeliveredDOP.toFixed(2)} DOP</span>
                             </div>
                         </div>
-                        <div id="bulk-delivered" style="display: none;">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Lote</th>
-                                        <th>Fecha</th>
-                                        <th>Almacén</th>
-                                        <th>Productos</th>
-                                        <th>Total USD</th>
-                                        <th>Total DOP</th>
-                                        <th>Rastreo</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                        <div id="bulk-delivered" style="display:none;padding:10px;">
                 `;
-
                 deliveredOrders.forEach(order => {
                     const warehouse = warehouses.find(w => w.id === order.warehouseId);
-                    const totalQty = order.products.reduce((sum, p) => sum + p.qty, 0);
-                    const totalUSD = order.products.reduce((sum, p) => sum + (p.costUSD * p.qty), 0);
-                    const totalDOP = order.products.reduce((sum, p) => sum + p.totalCostDOP, 0);
-
-                    html += `
-                        <tr>
-                            <td><strong>${order.lotNumber}</strong></td>
-                            <td>${new Date(order.date).toLocaleDateString()}</td>
-                            <td>${warehouse ? warehouse.name : '-'}</td>
-                            <td>${order.products.length} productos (${totalQty} unidades)</td>
-                            <td>$${totalUSD.toFixed(2)}</td>
-                            <td>$${totalDOP.toFixed(2)}</td>
-                            <td>${order.trackingNumber || '-'}</td>
-                            <td>
-                                <div style="display:flex;gap:4px;">
-                                    <button onclick="viewBulkOrder('${order.lotNumber}')" title="Ver detalle" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">👁</button>
-                                    <button onclick="editBulkOrder('${order.lotNumber}')" title="Editar" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">✏️</button>
-                                    <button onclick="openCancelOrderModal('${order.lotNumber}')" title="Cancelar" style="width:28px;height:28px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:13px;">🚫</button>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
+                    const totalQty = order.products.reduce((sum,p) => sum+p.qty, 0);
+                    const totalUSD = order.products.reduce((sum,p) => sum+(p.costUSD*p.qty), 0);
+                    const totalDOP = order.products.reduce((sum,p) => sum+p.totalCostDOP, 0);
+                    html += bulkOrderCard(order, warehouse, totalQty, totalUSD, totalDOP, 'delivered');
                 });
-
-                html += `
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
+                html += `</div></div>`;
             }
+
 
             // Cancelled Orders Section
             if (cancelledOrders.length > 0) {
@@ -7278,28 +7245,16 @@
                                 <span>${cancelledOrders.length} órdenes</span>
                             </div>
                         </div>
-                        <div id="bulk-cancelled" style="display:none;">
-                            <table>
-                                <thead><tr>
-                                    <th>Lote</th><th>Fecha</th><th>Almacén</th>
-                                    <th>Productos</th><th>Motivo</th><th>Cancelado</th>
-                                </tr></thead>
-                                <tbody>`;
+                        <div id="bulk-cancelled" style="display:none;padding:10px;">
+                `;
                 cancelledOrders.forEach(order => {
                     const warehouse = warehouses.find(w => w.id === order.warehouseId);
                     const totalQty = order.products.reduce((s,p) => s+p.qty, 0);
-                    const reason = order.products[0]?.cancelReason || '—';
-                    const cancelDate = order.products[0]?.cancelledAt ? new Date(order.products[0].cancelledAt).toLocaleDateString('es-DO') : '—';
-                    html += `<tr style="color:#888;">
-                        <td><strong style="color:#495057;">${order.lotNumber}</strong></td>
-                        <td>${order.date ? new Date(order.date).toLocaleDateString() : '-'}</td>
-                        <td>${warehouse ? warehouse.name : '-'}</td>
-                        <td>${order.products.length} prod. (${totalQty} uds.)</td>
-                        <td style="font-style:italic;">${reason}</td>
-                        <td>${cancelDate}</td>
-                    </tr>`;
+                    const totalUSD = order.products.reduce((s,p) => s+(p.costUSD*p.qty), 0);
+                    const totalDOP = order.products.reduce((s,p) => s+p.totalCostDOP, 0);
+                    html += bulkOrderCard(order, warehouse, totalQty, totalUSD, totalDOP, 'cancelled');
                 });
-                html += `</tbody></table></div></div>`;
+                html += `</div></div>`;
             }
 
             container.innerHTML = html;
