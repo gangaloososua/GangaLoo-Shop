@@ -1203,7 +1203,6 @@ let _dataLoaded=false,_dataLoading=false;
 /* ── LOAD ── */
 async function loadData(){
   if(_dataLoading){ setTimeout(loadData, 800); return; }
-  if(_dataLoaded){ renderProducts(); return; } // already loaded — just re-render
   _dataLoading=true;
   // Never reset user's current view state on reload
   const isFirstLoad = !_dataLoaded;
@@ -1562,7 +1561,7 @@ function getBulkDiscount(){
     {min:cfg.bulk_qty2||0, disc:cfg.bulk_disc2||0, label:cfg.bulk_label2||''},
     {min:cfg.bulk_qty1||0, disc:cfg.bulk_disc1||0, label:cfg.bulk_label1||''},
   ].filter(t=>t.min>0&&t.disc>0).sort((a,b)=>b.min-a.min);
-  // Debug: log to console so we can verify config is loaded
+  console.log('[BD] qty='+qty+' tiers='+tiers.length+' bulk_qty1='+cfg.bulk_qty1+' bulk_disc1='+cfg.bulk_disc1);
   for(const t of tiers){
     if(qty>=t.min) return t;
   }
