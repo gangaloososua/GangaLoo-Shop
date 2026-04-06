@@ -1140,8 +1140,11 @@
                         <input type="text" id="productSKU" placeholder="Ej: OND-12A-12">
                     </div>
                     <div class="form-group" style="grid-column:1/-1;">
-                        <label>Categorías <span style="font-size:11px;color:#888;">(puedes seleccionar varias)</span></label>
-                        <div id="productCategoryPicker" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;min-height:42px;background:#fff;"></div>
+                        <label style="display:flex;align-items:center;justify-content:space-between;">
+                            Categorías
+                            <span id="catPickerCount" style="font-size:.75em;color:#888;font-weight:400;">ninguna seleccionada</span>
+                        </label>
+                        <div id="productCategoryPicker" style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;min-height:40px;background:#fff;max-height:160px;overflow-y:auto;"></div>
                         <input type="hidden" id="productCategory" value="">
                     </div>
                     <div class="form-group">
@@ -2865,7 +2868,7 @@
                 </div>
 
                 <!-- Tier info -->
-                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:24px;">
                     <div style="background:linear-gradient(135deg,#cd7f3222,#cd7f3211);border:1.5px solid #cd7f32;border-radius:12px;padding:14px;text-align:center;">
                         <div style="font-size:1.6em;">🥉</div>
                         <div style="font-weight:700;color:#cd7f32;margin:4px 0;">Bronce</div>
@@ -2893,8 +2896,8 @@
                 </p>
 
                 <div style="margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-                    <input type="text" id="lealtadSearch" placeholder="Buscar cliente..." oninput="filterLealtad()" style="padding:8px 14px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;width:220px;">
-                    <select id="lealtadTierFilter" onchange="filterLealtad()" style="padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;">
+                    <input type="text" id="lealtadSearch" placeholder="Buscar cliente..." oninput="filterLealtad()" style="padding:8px 14px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;flex:1;min-width:160px;">
+                    <select id="lealtadTierFilter" onchange="filterLealtad()" style="padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;min-width:140px;">
                         <option value="all">Todos los niveles</option>
                         <option value="bronze">🥉 Bronce</option>
                         <option value="silver">🥈 Plata</option>
@@ -4454,8 +4457,7 @@
         let draggedCategoryIndex = null;
 
         function setupCategoryDragAndDrop() {
-            const rows = document.querySelectorAll('#categoriesTable tbody tr.draggable-row');
-            
+            const rows = document.querySelectorAll('#categoriesTable .draggable-row');
             rows.forEach(row => {
                 row.addEventListener('dragstart', handleCategoryDragStart);
                 row.addEventListener('dragover', handleCategoryDragOver);
@@ -4519,10 +4521,9 @@
 
         function handleCategoryDragEnd(e) {
             this.style.opacity = '1';
-            
-            const rows = document.querySelectorAll('#categoriesTable tbody tr.draggable-row');
-            rows.forEach(row => {
-                row.style.backgroundColor = '';
+            document.querySelectorAll('#categoriesTable .draggable-row').forEach(r => {
+                r.classList.remove('drag-over');
+                r.style.opacity = '';
             });
         }
 
@@ -4682,50 +4683,54 @@
             const mainCats = categories.filter(c => !c.parentId);
             const subCats = categories.filter(c => c.parentId);
 
-            let html = '<table id="categoriesTable"><thead><tr><th style="width:40px;">🔀</th><th>Categoría</th><th>Tipo</th><th>Descripción</th><th>Productos</th><th>Visible</th><th>Acciones</th></tr></thead><tbody>';
+            // Helper: render a category card
+            const catCard = (cat, isMain, parentName) => {
+                const productCount = products.filter(p => (p.categoryIds||[p.categoryId]).map(String).includes(String(cat.id))).length;
+                const isVisible = cat.visibleInStore !== false;
+                const realIndex = categories.indexOf(cat);
+                return `<div class="draggable-row prod-card" draggable="true"
+                    data-category-id="${cat.id}" data-index="${realIndex}"
+                    style="background:${isMain?'#f0f4ff':'white'};border:1.5px solid ${isMain?'#c7d2fe':'#e8e4f0'};border-left:4px solid ${isMain?'#002D62':'#17a2b8'};border-radius:12px;padding:12px 14px;margin-bottom:8px;${!isVisible?'opacity:.6;':''}">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <!-- Drag handle -->
+                        <span style="cursor:grab;color:#ccc;font-size:1.1em;flex-shrink:0;">⋮⋮</span>
+                        <!-- Icon + name -->
+                        <div style="flex:1;min-width:120px;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                ${cat.icon ? `<span style="font-size:1.3em;">${cat.icon}</span>` : ''}
+                                <span style="font-weight:700;font-size:.95em;">${cat.name}</span>
+                                <span style="background:${isMain?'#002D62':'#17a2b8'};color:white;padding:2px 8px;border-radius:20px;font-size:.65em;font-weight:700;">
+                                    ${isMain ? 'Principal' : `↳ ${parentName}`}
+                                </span>
+                                ${!isVisible ? `<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;font-size:.65em;font-weight:700;">🚫 Oculta</span>` : ''}
+                            </div>
+                            ${cat.description ? `<div style="font-size:.75em;color:#888;margin-top:2px;">${cat.description}</div>` : ''}
+                        </div>
+                        <!-- Stats -->
+                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                            <span style="font-size:.78em;color:#666;background:#f8f9fa;padding:3px 10px;border-radius:20px;">📦 ${productCount} prod.</span>
+                            <!-- Actions -->
+                            <div style="display:flex;gap:4px;">
+                                <button onclick="toggleCategoryVisibility(${cat.id})" title="${isVisible?'Ocultar':'Mostrar'}" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">${isVisible?'👁':'🚫'}</button>
+                                <button onclick="editCategory(${cat.id})" title="Editar" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">✏️</button>
+                                <button onclick="deleteCategory(${cat.id})" title="Eliminar" style="width:28px;height:28px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:13px;">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            };
 
-            mainCats.forEach((category, index) => {
-                const productCount = products.filter(p => (p.categoryIds||[p.categoryId]).map(String).includes(String(category.id))).length;
+            let html = `<div style="padding:4px 0;" id="categoriesTable">`;
+
+            mainCats.forEach((category) => {
                 const children = subCats.filter(c => c.parentId === category.id);
-                const realIndex = categories.indexOf(category);
-                const isVisible = category.visibleInStore !== false;
-                const visiBadge = isVisible
-                    ? `<span style="background:#d4edda;color:#155724;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;">👁 Visible</span>`
-                    : `<span style="background:#f8d7da;color:#721c24;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;">🚫 Oculta</span>`;
-                html += `
-                    <tr draggable="true" data-category-id="${category.id}" data-index="${realIndex}" class="draggable-row" style="background:#f0f4ff;${!isVisible?'opacity:.65;':''}">
-                        <td style="cursor:move;text-align:center;font-size:1.2em;">⋮⋮</td>
-                        <td><span class="category-badge">${category.icon ? category.icon + ' ' : ''}${category.name}</span></td>
-                        <td><span style="background:var(--brand);color:white;padding:3px 10px;border-radius:12px;font-size:12px;">Principal</span></td>
-                        <td>${category.description || '-'}</td>
-                        <td>${productCount} productos${children.length > 0 ? ` · ${children.length} subcats` : ''}</td>
-                        <td>${visiBadge}<br><button class="btn btn-secondary btn-small" style="margin-top:4px;font-size:11px;" onclick="toggleCategoryVisibility(${category.id})">${isVisible?'Ocultar':'Mostrar'}</button></td>
-                        <td>
-                            <button class="btn btn-secondary btn-small" onclick="editCategory(${category.id})">Editar</button>
-                            <button class="btn btn-danger btn-small" onclick="deleteCategory(${category.id})">Eliminar</button>
-                        </td>
-                    </tr>`;
-                // Show subcategories indented
-                children.forEach(sub => {
-                    const subCount = products.filter(p => (p.categoryIds||[p.categoryId]).map(String).includes(String(sub.id))).length;
-                    const subVisible = sub.visibleInStore !== false;
-                    const subBadge = subVisible
-                        ? `<span style="background:#d4edda;color:#155724;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;">👁 Visible</span>`
-                        : `<span style="background:#f8d7da;color:#721c24;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;">🚫 Oculta</span>`;
-                    html += `
-                        <tr draggable="true" data-category-id="${sub.id}" data-index="${categories.indexOf(sub)}" class="draggable-row" style="${!subVisible?'opacity:.65;':''}">
-                            <td style="cursor:move;text-align:center;font-size:1.2em;">⋮⋮</td>
-                            <td style="padding-left:30px;">↳ <span class="category-badge" style="background:#17a2b8;">${sub.icon ? sub.icon + ' ' : ''}${sub.name}</span></td>
-                            <td><span style="background:#17a2b8;color:white;padding:3px 10px;border-radius:12px;font-size:12px;">Sub de: ${category.name}</span></td>
-                            <td>${sub.description || '-'}</td>
-                            <td>${subCount} productos</td>
-                            <td>${subBadge}<br><button class="btn btn-secondary btn-small" style="margin-top:4px;font-size:11px;" onclick="toggleCategoryVisibility(${sub.id})">${subVisible?'Ocultar':'Mostrar'}</button></td>
-                            <td>
-                                <button class="btn btn-secondary btn-small" onclick="editCategory(${sub.id})">Editar</button>
-                                <button class="btn btn-danger btn-small" onclick="deleteCategory(${sub.id})">Eliminar</button>
-                            </td>
-                        </tr>`;
-                });
+                html += catCard(category, true, '');
+                // Subcategories indented under parent
+                if (children.length) {
+                    html += `<div style="margin-left:20px;margin-bottom:4px;">`;
+                    children.forEach(sub => { html += catCard(sub, false, category.name); });
+                    html += `</div>`;
+                }
             });
 
             // Orphan subcategories (parent deleted)
@@ -4771,23 +4776,30 @@
                 orphanBanner.style.display = bannerHtml ? 'block' : 'none';
             }
 
-            orphans.forEach(cat => {
-                const productCount = products.filter(p => (p.categoryIds||[p.categoryId]).map(String).includes(String(cat.id))).length;
-                html += `
-                    <tr draggable="true" data-category-id="${cat.id}" data-index="${categories.indexOf(cat)}" class="draggable-row">
-                        <td style="cursor:move;text-align:center;">⋮⋮</td>
-                        <td><span class="category-badge" style="background:#ffc107;color:#333;">${cat.icon ? cat.icon + ' ' : ''}${cat.name}</span></td>
-                        <td><span style="background:#ffc107;color:#333;padding:3px 10px;border-radius:12px;font-size:12px;">Sin principal</span></td>
-                        <td>${cat.description || '-'}</td>
-                        <td>${productCount} productos</td>
-                        <td>
-                            <button class="btn btn-secondary btn-small" onclick="editCategory(${cat.id})">Editar</button>
-                            <button class="btn btn-danger btn-small" onclick="deleteCategory(${cat.id})">Eliminar</button>
-                        </td>
-                    </tr>`;
-            });
+            if (orphans.length) {
+                html += `<div style="font-size:.75em;color:#92400e;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:12px 0 6px;padding-left:4px;">⚠️ Huérfanas (sin principal)</div>`;
+                orphans.forEach(cat => {
+                    const productCount = products.filter(p => (p.categoryIds||[p.categoryId]).map(String).includes(String(cat.id))).length;
+                    const realIndex = categories.indexOf(cat);
+                    html += `<div class="draggable-row" draggable="true" data-category-id="${cat.id}" data-index="${realIndex}"
+                        style="background:#fff8e1;border:1.5px solid #fde68a;border-left:4px solid #f59e0b;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                            <span style="cursor:grab;color:#ccc;font-size:1.1em;">⋮⋮</span>
+                            <div style="flex:1;">
+                                <div style="font-weight:700;font-size:.95em;">${cat.icon?cat.icon+' ':''}${cat.name}</div>
+                                ${cat.description?`<div style="font-size:.75em;color:#888;">${cat.description}</div>`:''}
+                            </div>
+                            <span style="font-size:.78em;color:#666;background:#f8f9fa;padding:3px 10px;border-radius:20px;">📦 ${productCount} prod.</span>
+                            <div style="display:flex;gap:4px;">
+                                <button onclick="editCategory(${cat.id})" title="Editar" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">✏️</button>
+                                <button onclick="deleteCategory(${cat.id})" title="Eliminar" style="width:28px;height:28px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:13px;">🗑️</button>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+            }
 
-            html += '</tbody></table>';
+            html += '</div>';
             container.innerHTML = html;
             setupCategoryDragAndDrop();
         }
@@ -5125,45 +5137,45 @@
             const roleColor = { admin: 'var(--brand)', seller: '#f39c12', customer: '#27ae60', club_member: '#002D62' };
             const roleLabel = { admin: '👑 Admin', seller: '🏷️ Vendedor', customer: '🛍 Cliente', club_member: '🏆 Club' };
 
-            list.innerHTML = `<table style="width:100%;border-collapse:collapse;">
-                <thead><tr style="background:#f8f9fa;">
-                    <th style="padding:12px;text-align:left;border-bottom:2px solid #dee2e6;">Email</th>
-                    <th style="padding:12px;text-align:left;border-bottom:2px solid #dee2e6;">Nombre</th>
-                    <th style="padding:12px;text-align:center;border-bottom:2px solid #dee2e6;">Roles</th>
-                    <th style="padding:12px;text-align:left;border-bottom:2px solid #dee2e6;">Registrado</th>
-                    <th style="padding:12px;text-align:center;border-bottom:2px solid #dee2e6;">Rol Principal</th>
-                    <th style="padding:12px;text-align:center;border-bottom:2px solid #dee2e6;">🏆 Club</th>
-                </tr></thead>
-                <tbody>
-                ${filtered.map(u => {
+            list.innerHTML = filtered.map(u => {
                     const isClub = u.is_club_member === true || u.role === 'club_member';
-                    const roleBadge = `<span style="background:${roleColor[u.role]||'#ccc'};color:white;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">${roleLabel[u.role]||u.role}</span>`;
-                    const clubBadge = isClub ? `<span style="background:#002D62;color:white;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;margin-left:4px;">🏆 Club</span>` : '';
+                    const roleCol = roleColor[u.role] || '#aaa';
+                    const initials = (u.full_name || u.email || '?').slice(0,1).toUpperCase();
                     return `
-                    <tr style="border-bottom:1px solid #f0f0f0;" id="urow-${u.id}">
-                        <td style="padding:12px;font-size:.88em;">${u.email || '—'}</td>
-                        <td style="padding:12px;font-size:.88em;">${u.full_name || '—'}</td>
-                        <td style="padding:12px;text-align:center;">${roleBadge}${clubBadge}</td>
-                        <td style="padding:12px;font-size:12px;color:#888;">${u.created_at ? new Date(u.created_at).toLocaleDateString('es-DO') : '—'}</td>
-                        <td style="padding:12px;text-align:center;">
-                            <select onchange="changeUserRole('${u.id}', this.value)" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;font-size:12px;">
-                                <option value="customer" ${u.role==='customer'?'selected':''}>🛍 Cliente</option>
-                                <option value="seller" ${u.role==='seller'?'selected':''}>🏷️ Vendedor</option>
-                                <option value="club_member" ${u.role==='club_member'?'selected':''}>🏆 Club Member</option>
-                                <option value="admin" ${u.role==='admin'?'selected':''}>👑 Admin</option>
-                            </select>
-                        </td>
-                        <td style="padding:12px;text-align:center;">
-                            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
-                                <input type="checkbox" ${isClub?'checked':''} onchange="toggleClubMember('${u.id}', this.checked)"
-                                    style="width:16px;height:16px;accent-color:#002D62;cursor:pointer;">
-                                <span style="font-size:.78em;color:#666;">${isClub?'Activo':'Off'}</span>
-                            </label>
-                        </td>
-                    </tr>`;
-                }).join('')}
-                </tbody>
-            </table>`;
+                    <div style="background:white;border:1.5px solid #e8e4f0;border-left:4px solid ${roleCol};border-radius:12px;padding:14px 16px;margin-bottom:10px;" id="urow-${u.id}">
+                        <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                            <!-- Avatar -->
+                            <div style="width:40px;height:40px;border-radius:50%;background:${roleCol}22;border:2px solid ${roleCol}55;display:flex;align-items:center;justify-content:center;font-weight:800;color:${roleCol};font-size:1.1em;flex-shrink:0;">${initials}</div>
+                            <!-- Info -->
+                            <div style="flex:1;min-width:160px;">
+                                <div style="font-weight:700;font-size:.92em;">${u.full_name || '—'}</div>
+                                <div style="color:#888;font-size:.75em;word-break:break-all;">${u.email || '—'}</div>
+                                <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+                                    <span style="background:${roleCol};color:white;padding:2px 9px;border-radius:20px;font-size:.7em;font-weight:700;">${roleLabel[u.role]||u.role}</span>
+                                    ${isClub ? `<span style="background:#002D62;color:white;padding:2px 9px;border-radius:20px;font-size:.7em;font-weight:700;">🏆 Club</span>` : ''}
+                                    <span style="font-size:.7em;color:#bbb;">${u.created_at ? new Date(u.created_at).toLocaleDateString('es-DO') : '—'}</span>
+                                </div>
+                            </div>
+                            <!-- Controls -->
+                            <div style="display:flex;flex-direction:column;gap:8px;min-width:180px;">
+                                <div>
+                                    <div style="font-size:.68em;color:#aaa;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Rol Principal</div>
+                                    <select onchange="changeUserRole('${u.id}', this.value)" style="width:100%;padding:7px 10px;border-radius:8px;border:1.5px solid #ddd;font-size:.82em;background:white;">
+                                        <option value="customer" ${u.role==='customer'?'selected':''}>🛍 Cliente</option>
+                                        <option value="seller" ${u.role==='seller'?'selected':''}>🏷️ Vendedor</option>
+                                        <option value="club_member" ${u.role==='club_member'?'selected':''}>🏆 Club Member</option>
+                                        <option value="admin" ${u.role==='admin'?'selected':''}>👑 Admin</option>
+                                    </select>
+                                </div>
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;background:${isClub?'#f0f4ff':'#f8f9fa'};border:1.5px solid ${isClub?'#002D62':'#e0e0e0'};border-radius:8px;padding:7px 10px;">
+                                    <input type="checkbox" ${isClub?'checked':''} onchange="toggleClubMember('${u.id}', this.checked)"
+                                        style="width:16px;height:16px;accent-color:#002D62;cursor:pointer;flex-shrink:0;">
+                                    <span style="font-size:.8em;font-weight:600;color:${isClub?'#002D62':'#888'};">🏆 Club GangaLoo ${isClub?'Activo':'Inactivo'}</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
         }
 
         async function changeUserRole(userId, newRole) {
@@ -5655,40 +5667,36 @@
                 document.getElementById('lealtadList').innerHTML = '<div style="text-align:center;padding:30px;color:#888;">Sin resultados.</div>';
                 return;
             }
-            document.getElementById('lealtadList').innerHTML = `
-                <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                    <thead><tr style="background:#f8f9fa;border-bottom:2px solid #dee2e6;">
-                        <th style="padding:11px 12px;text-align:left;">Cliente</th>
-                        <th style="padding:11px 12px;text-align:center;">Nivel</th>
-                        <th style="padding:11px 12px;text-align:right;">Puntos</th>
-                        <th style="padding:11px 12px;text-align:right;">Gastado</th>
-                        <th style="padding:11px 12px;text-align:center;">Pedidos</th>
-                        <th style="padding:11px 12px;text-align:center;">Ajustar</th>
-                    </tr></thead>
-                    <tbody>
-                    ${filtered.map((u,i) => `
-                        <tr style="border-bottom:1px solid #f0f0f0;${i===0?'background:#fffdf5':''}">
-                            <td style="padding:11px 12px;">
-                                <div style="font-weight:600;">${u.full_name||'—'}</div>
-                                <div style="color:#888;font-size:11px;">${u.email}</div>
-                            </td>
-                            <td style="padding:11px 12px;text-align:center;">
-                                <span style="background:${u.tier.color}22;color:${u.tier.color};padding:4px 10px;border-radius:14px;font-size:12px;font-weight:700;border:1px solid ${u.tier.color}44;">
-                                    ${u.tier.icon} ${u.tier.name}
-                                </span>
-                            </td>
-                            <td style="padding:11px 12px;text-align:right;">
-                                <div style="font-weight:700;color:${u.tier.color};font-size:14px;">${u.totalPts.toLocaleString()}</div>
-                                ${u.bonusPts ? `<div style="font-size:10px;color:#888;">+${u.bonusPts} bono</div>` : ''}
-                            </td>
-                            <td style="padding:11px 12px;text-align:right;">RD$ ${parseFloat(u.spent).toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                            <td style="padding:11px 12px;text-align:center;">${u.orderCount}</td>
-                            <td style="padding:11px 12px;text-align:center;">
-                                <button class="btn btn-secondary btn-small" onclick="openAdjustPts('${u.email}','${(u.full_name||u.email).replace(/'/g,"\'")}',${u.totalPts})">⭐ Puntos</button>
-                            </td>
-                        </tr>`).join('')}
-                    </tbody>
-                </table>`;
+            document.getElementById('lealtadList').innerHTML =
+                filtered.map((u,i) => `
+                <div style="background:${i===0?'#fffdf5':'white'};border:1.5px solid ${u.tier.color}33;border-left:4px solid ${u.tier.color};border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
+                    <!-- Avatar + name -->
+                    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:160px;">
+                        <div style="width:40px;height:40px;border-radius:50%;background:${u.tier.color}22;border:2px solid ${u.tier.color}55;display:flex;align-items:center;justify-content:center;font-size:1.2em;flex-shrink:0;">${u.tier.icon}</div>
+                        <div>
+                            <div style="font-weight:700;font-size:.92em;">${u.full_name||'—'}</div>
+                            <div style="color:#888;font-size:.75em;">${u.email}</div>
+                            <span style="background:${u.tier.color}22;color:${u.tier.color};padding:2px 8px;border-radius:10px;font-size:.7em;font-weight:700;border:1px solid ${u.tier.color}44;">${u.tier.name}</span>
+                        </div>
+                    </div>
+                    <!-- Stats -->
+                    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+                        <div style="text-align:center;">
+                            <div style="font-weight:800;color:${u.tier.color};font-size:1.1em;">${u.totalPts.toLocaleString()}</div>
+                            <div style="font-size:.65em;color:#aaa;text-transform:uppercase;">Puntos${u.bonusPts?` <span style='color:#f39c12'>+${u.bonusPts}</span>`:''}</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-weight:700;font-size:.88em;">RD$ ${parseFloat(u.spent).toLocaleString('es-DO',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+                            <div style="font-size:.65em;color:#aaa;text-transform:uppercase;">Gastado</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-weight:700;font-size:.88em;">${u.orderCount}</div>
+                            <div style="font-size:.65em;color:#aaa;text-transform:uppercase;">Pedidos</div>
+                        </div>
+                    </div>
+                    <!-- Action -->
+                    <button class="btn btn-secondary btn-small" onclick="openAdjustPts('${u.email}','${(u.full_name||u.email).replace(/'/g,"\'")}',${u.totalPts})" style="margin-left:auto;white-space:nowrap;">⭐ Ajustar pts</button>
+                </div>`).join('');
         }
 
         function openAdjustPts(email, name, currentPts) {
@@ -6250,7 +6258,7 @@
                 </div>
               </div>` : ''}
 
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
 
                 <!-- Purchases table -->
                 <div>
@@ -8014,48 +8022,75 @@
                 return;
             }
 
-            let html = '<div style="overflow-x: auto;"><table><thead><tr><th>Fecha</th><th>Producto</th><th>Almacén</th><th>Cant.</th><th>Costo Unit.</th><th>Total DOP</th><th>Lote</th><th>Rastreo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>';
-
-            filteredPurchases.slice().reverse().forEach(purchase => {
-                const product = products.find(p => p.id === purchase.productId);
+            const cards = filteredPurchases.slice().reverse().map(purchase => {
+                const product  = products.find(p => p.id === purchase.productId);
                 const warehouse = warehouses.find(w => w.id === purchase.warehouseId);
-                
-                // Safety checks for undefined values
-                const costUSD = purchase.costUSD || 0;
-                const exchangeRate = purchase.exchangeRate || 0;
-                const costDOP = purchase.costDOP || 0;
+                const costUSD      = purchase.costUSD || 0;
+                const costDOP      = purchase.costDOP || 0;
                 const totalCostDOP = purchase.totalCostDOP || 0;
-                const qty = purchase.qty || 0;
-                const lotNumber = purchase.lotNumber || 'N/A';
-                const trackingNumber = purchase.trackingNumber || '-';
-                const status = purchase.status || 'pending';
+                const qty          = purchase.qty || 0;
+                const remaining    = purchase.remainingQty || 0;
+                const lotNumber    = purchase.lotNumber || 'N/A';
+                const tracking     = purchase.trackingNumber || '—';
+                const status       = purchase.status || 'pending';
+                const dateStr      = purchase.date ? new Date(purchase.date).toLocaleDateString('es-DO') : '—';
+                const isDelivered  = status === 'delivered';
+                const statusStyle  = isDelivered
+                    ? 'background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;'
+                    : 'background:#fef3c7;color:#92400e;border:1px solid #fde68a;';
+                const statusLabel  = isDelivered ? '✅ Entregado' : '⏳ Pendiente';
+                const remainPct    = qty > 0 ? Math.round(remaining/qty*100) : 0;
 
-                html += `
-                    <tr>
-                        <td>${purchase.date ? new Date(purchase.date).toLocaleDateString() : 'N/A'}</td>
-                        <td>${product ? product.name : 'Producto eliminado'}</td>
-                        <td><span class="warehouse-badge">${warehouse ? warehouse.name : 'Almacén eliminado'}</span></td>
-                        <td>${qty}</td>
-                        <td>$${costDOP.toFixed(2)}</td>
-                        <td>$${totalCostDOP.toFixed(2)}</td>
-                        <td>${lotNumber}</td>
-                        <td>${trackingNumber}</td>
-                        <td><span class="status-badge ${status}">${status === 'delivered' ? 'Entregado' : 'Pendiente'}</span></td>
-                        <td>
-                            <div class="action-buttons">
-                                ${status === 'pending' ? 
-                                    `<button class="btn btn-success btn-small" onclick="updatePurchaseStatus(${purchase.id}, 'delivered')">Marcar Entregado</button>` : 
-                                    ''}
-                                <button class="btn btn-secondary btn-small" onclick="editPurchase(${purchase.id})">Editar</button>
-                                <button class="btn btn-danger btn-small" onclick="deletePurchase(${purchase.id})">Eliminar</button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            });
+                return `<div style="background:white;border:1.5px solid #e8e4f0;border-left:4px solid ${isDelivered?'#22c55e':'#f59e0b'};border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+                    <!-- Row 1: product + status + date -->
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+                        <div style="flex:1;min-width:150px;">
+                            <div style="font-weight:700;font-size:.92em;">${product ? product.name : '<span style="color:#aaa;">Producto eliminado</span>'}</div>
+                            ${product&&product.sku ? `<div style="font-size:.72em;color:#aaa;">SKU: ${product.sku}</div>` : ''}
+                            <div style="font-size:.75em;color:#aaa;margin-top:2px;">${dateStr}</div>
+                        </div>
+                        <span style="${statusStyle}padding:3px 10px;border-radius:20px;font-size:.72em;font-weight:700;white-space:nowrap;">${statusLabel}</span>
+                    </div>
+                    <!-- Row 2: stats grid -->
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin-bottom:10px;">
+                        <div style="background:#f8f9fa;border-radius:8px;padding:8px;text-align:center;">
+                            <div style="font-size:.62em;color:#aaa;text-transform:uppercase;">Almacén</div>
+                            <div style="font-weight:700;font-size:.8em;color:#002D62;">${warehouse ? warehouse.name : '—'}</div>
+                        </div>
+                        <div style="background:#f8f9fa;border-radius:8px;padding:8px;text-align:center;">
+                            <div style="font-size:.62em;color:#aaa;text-transform:uppercase;">Cantidad</div>
+                            <div style="font-weight:700;font-size:.9em;">${qty}</div>
+                        </div>
+                        <div style="background:#f8f9fa;border-radius:8px;padding:8px;text-align:center;">
+                            <div style="font-size:.62em;color:#aaa;text-transform:uppercase;">Stock</div>
+                            <div style="font-weight:700;font-size:.9em;color:${remaining>0?'#166534':'#dc2626'};">${remaining} <span style="font-size:.7em;color:#aaa;">(${remainPct}%)</span></div>
+                        </div>
+                        <div style="background:#fff8f0;border-radius:8px;padding:8px;text-align:center;">
+                            <div style="font-size:.62em;color:#aaa;text-transform:uppercase;">Costo/u</div>
+                            <div style="font-weight:700;font-size:.78em;color:#92400e;">$${costUSD.toFixed(2)}</div>
+                            <div style="font-size:.68em;color:#aaa;">RD$${costDOP.toFixed(0)}</div>
+                        </div>
+                        <div style="background:#fff8f0;border-radius:8px;padding:8px;text-align:center;">
+                            <div style="font-size:.62em;color:#aaa;text-transform:uppercase;">Total DOP</div>
+                            <div style="font-weight:700;font-size:.82em;color:#92400e;">RD$${totalCostDOP.toFixed(0)}</div>
+                        </div>
+                    </div>
+                    <!-- Row 3: lot + tracking + actions -->
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:.78em;color:#666;">
+                            <span>📦 Lote: <strong style="color:#5b4fcf;">${lotNumber}</strong></span>
+                            ${tracking !== '—' ? `<span>🔍 <strong>${tracking}</strong></span>` : ''}
+                        </div>
+                        <div style="display:flex;gap:4px;">
+                            ${!isDelivered ? `<button onclick="updatePurchaseStatus(${purchase.id},'delivered')" title="Marcar entregado" style="width:28px;height:28px;border:none;border-radius:6px;background:#22c55e;color:white;cursor:pointer;font-size:13px;">✅</button>` : ''}
+                            <button onclick="editPurchase(${purchase.id})" title="Editar" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">✏️</button>
+                            <button onclick="deletePurchase(${purchase.id})" title="Eliminar" style="width:28px;height:28px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:13px;">🗑️</button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
 
-            html += '</tbody></table></div>';
-            container.innerHTML = html;
+            container.innerHTML = `<div style="padding:4px 0;">${cards}</div>`;
         }
         // Transfer Management
         function filterTransferProductDropdown() {
@@ -8271,30 +8306,43 @@
                 return;
             }
 
-            let html = '<table><thead><tr><th>Fecha</th><th>Producto</th><th>Almacén Origen</th><th>Almacén Destino</th><th>Cantidad</th><th>Lote Origen</th><th>Lote Destino</th></tr></thead><tbody>';
-
-            filteredTransfers.slice().reverse().forEach(transfer => {
+            const cards = filteredTransfers.slice().reverse().map(transfer => {
                 const product = products.find(p => p.id === transfer.productId);
                 const fromWarehouse = warehouses.find(w => w.id === transfer.fromWarehouseId);
                 const toWarehouse = warehouses.find(w => w.id === transfer.toWarehouseId);
                 const fromLot = purchases.find(p => p.id === transfer.fromLotId);
                 const toLot = purchases.find(p => p.id === transfer.toLotId);
+                const dateStr = transfer.date ? new Date(transfer.date).toLocaleDateString('es-DO') : '—';
 
-                html += `
-                    <tr>
-                        <td>${new Date(transfer.date).toLocaleDateString()}</td>
-                        <td>${product ? product.name : 'Producto eliminado'}</td>
-                        <td><span class="warehouse-badge warehouse-1">${fromWarehouse ? fromWarehouse.name : 'N/A'}</span></td>
-                        <td><span class="warehouse-badge warehouse-2">${toWarehouse ? toWarehouse.name : 'N/A'}</span></td>
-                        <td>${transfer.quantity}</td>
-                        <td>${fromLot ? fromLot.lotNumber : 'N/A'}</td>
-                        <td>${toLot ? toLot.lotNumber : 'N/A'}</td>
-                    </tr>
-                `;
-            });
+                return `<div style="background:white;border:1.5px solid #e8e4f0;border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+                    <!-- Top row: product + date + qty -->
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+                        <div style="flex:1;min-width:140px;">
+                            <div style="font-weight:700;font-size:.92em;">${product ? product.name : '<span style="color:#aaa;">Producto eliminado</span>'}</div>
+                            <div style="font-size:.75em;color:#aaa;margin-top:2px;">${dateStr}</div>
+                        </div>
+                        <div style="background:#002D62;color:white;border-radius:20px;padding:4px 14px;font-weight:800;font-size:.95em;white-space:nowrap;align-self:flex-start;">
+                            ${transfer.quantity} uds
+                        </div>
+                    </div>
+                    <!-- Arrow row: from → to -->
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <div style="background:#fff3e0;border:1.5px solid #ffb74d;border-radius:8px;padding:6px 12px;font-size:.8em;">
+                            <div style="font-size:.65em;color:#aaa;text-transform:uppercase;letter-spacing:.05em;">Origen</div>
+                            <div style="font-weight:700;color:#e65100;">${fromWarehouse ? fromWarehouse.name : 'N/A'}</div>
+                            <div style="font-size:.7em;color:#aaa;">Lote: ${fromLot ? fromLot.lotNumber : 'N/A'}</div>
+                        </div>
+                        <div style="font-size:1.3em;color:#002D62;font-weight:700;">→</div>
+                        <div style="background:#e8f5e9;border:1.5px solid #66bb6a;border-radius:8px;padding:6px 12px;font-size:.8em;">
+                            <div style="font-size:.65em;color:#aaa;text-transform:uppercase;letter-spacing:.05em;">Destino</div>
+                            <div style="font-weight:700;color:#2e7d32;">${toWarehouse ? toWarehouse.name : 'N/A'}</div>
+                            <div style="font-size:.7em;color:#aaa;">Lote: ${toLot ? toLot.lotNumber : 'N/A'}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
 
-            html += '</tbody></table>';
-            container.innerHTML = html;
+            container.innerHTML = `<div style="padding:4px 0;">${cards}</div>`;
         }
 
         // Lots (FIFO) Management
@@ -11006,22 +11054,48 @@
         function buildCategoryPicker(selectedIds) {
             const picker = document.getElementById('productCategoryPicker');
             if (!picker) return;
-            // selectedIds can be array or single id
             const sel = Array.isArray(selectedIds)
                 ? selectedIds.map(String)
                 : (selectedIds ? [String(selectedIds)] : []);
             picker.innerHTML = '';
-            categories.forEach(cat => {
-                const id = String(cat.id);
-                const checked = sel.includes(id);
-                const chip = document.createElement('label');
-                chip.style.cssText = `display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:50px;border:1.5px solid ${checked?'var(--brand)':'#e2e8f0'};background:${checked?'#eef2ff':'#fafafa'};cursor:pointer;font-size:13px;transition:all .2s;`;
-                chip.innerHTML = `<input type="checkbox" value="${id}" ${checked?'checked':''} style="display:none;" onchange="onCatPickerChange(this,this.parentElement)">
-                    ${cat.icon?cat.icon+' ':''}${cat.name}`;
-                picker.appendChild(chip);
-            });
-            // sync hidden input
+
+            // Split into main (no parent) and sub-categories
+            const mains = categories.filter(c => !c.parentId && !c.PARENTID);
+            const subs   = categories.filter(c =>  c.parentId ||  c.PARENTID);
+
+            // Render main categories first (larger chips)
+            if (mains.length) {
+                const sep = document.createElement('div');
+                sep.style.cssText = 'width:100%;font-size:.65em;color:#aaa;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;';
+                sep.textContent = 'Categorías principales';
+                picker.appendChild(sep);
+                mains.forEach(cat => appendCatChip(picker, cat, sel, false));
+            }
+
+            // Render sub-categories smaller
+            if (subs.length) {
+                const sep2 = document.createElement('div');
+                sep2.style.cssText = 'width:100%;font-size:.65em;color:#aaa;text-transform:uppercase;letter-spacing:.08em;margin-top:6px;margin-bottom:2px;';
+                sep2.textContent = 'Subcategorías';
+                picker.appendChild(sep2);
+                subs.forEach(cat => appendCatChip(picker, cat, sel, true));
+            }
+
+            // If no separation found, just render all
+            if (!mains.length && !subs.length) {
+                categories.forEach(cat => appendCatChip(picker, cat, sel, false));
+            }
+
             syncCategoryHidden();
+        }
+
+        function appendCatChip(picker, cat, sel, isSub) {
+            const id = String(cat.id);
+            const checked = sel.includes(id);
+            const chip = document.createElement('label');
+            chip.style.cssText = `display:inline-flex;align-items:center;gap:4px;padding:${isSub?'3px 9px':'4px 11px'};border-radius:50px;border:1.5px solid ${checked?'var(--brand)':'#e2e8f0'};background:${checked?'#eef2ff':'#fafafa'};cursor:pointer;font-size:${isSub?'11px':'12.5px'};transition:all .15s;user-select:none;`;
+            chip.innerHTML = `<input type="checkbox" value="${id}" ${checked?'checked':''} style="display:none;" onchange="onCatPickerChange(this,this.parentElement)">${cat.icon?cat.icon+' ':''}${cat.name}`;
+            picker.appendChild(chip);
         }
 
         function onCatPickerChange(cb, label) {
@@ -11033,6 +11107,9 @@
         function syncCategoryHidden() {
             const checked = [...document.querySelectorAll('#productCategoryPicker input[type=checkbox]:checked')].map(cb => cb.value);
             document.getElementById('productCategory').value = checked.join(',');
+            // Update counter label
+            const cnt = document.getElementById('catPickerCount');
+            if (cnt) cnt.textContent = checked.length ? `${checked.length} seleccionada${checked.length>1?'s':''}` : 'ninguna seleccionada';
         }
 
         function getSelectedCategoryIds() {
@@ -14774,10 +14851,10 @@
 </div>
 
 <!-- Product Detail Modal -->
-<div id="productDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow-y:auto;">
-  <div style="background:white;border-radius:18px;max-width:860px;margin:30px auto;padding:0;position:relative;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.25);">
+<div id="productDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div style="background:white;border-radius:14px;max-width:860px;margin:10px auto;padding:0;position:relative;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.25);">
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#002D62,#1a4a8a);padding:24px 28px;color:white;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+    <div style="background:linear-gradient(135deg,#002D62,#1a4a8a);padding:16px 18px;color:white;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
       <div style="flex:1;min-width:0;">
         <div id="pdSku" style="font-size:.72em;opacity:.6;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;"></div>
         <div id="pdName" style="font-size:1.4em;font-weight:800;line-height:1.2;"></div>
@@ -14789,7 +14866,7 @@
       </div>
     </div>
     <!-- Body -->
-    <div style="padding:24px 28px;" id="pdBody">
+    <div style="padding:14px 16px;" id="pdBody">
       <div style="text-align:center;padding:40px;color:#aaa;">⏳ Cargando...</div>
     </div>
   </div>
