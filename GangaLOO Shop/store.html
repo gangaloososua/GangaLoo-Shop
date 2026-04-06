@@ -1225,6 +1225,10 @@ async function loadData(){
     </div>`;
   }
   let data,error;
+  // Fetch all rows to find which one has store_config
+  let allRows, allRowsError;
+  try{({data:allRows}=await sb.from('inventory_data').select('id,store_config'));}catch(e){}
+  if(allRows) console.log('[ROWS]', allRows.map(r=>({id:r.id, bulk_qty1: JSON.parse(r.store_config||'{}').bulk_qty1})));
   try{({data,error}=await sb.from('inventory_data').select('products,purchases,warehouses,categories,store_config').limit(1));
     if(data && data[0]){
     }}
