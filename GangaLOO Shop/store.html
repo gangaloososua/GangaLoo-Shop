@@ -1209,8 +1209,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
 let _dataLoaded=false,_dataLoading=false;
 
 /* ── LOAD ── */
+let _lastLoadTime = 0;
 async function loadData(){
   if(_dataLoading){ setTimeout(loadData, 800); return; }
+  // If already loaded and recent (within 5 min), just re-render — don't re-fetch
+  if(_dataLoaded && (Date.now()-_lastLoadTime) < 300000){ renderProducts(); return; }
   _dataLoading=true;
   // Never reset user's current view state on reload
   const isFirstLoad = !_dataLoaded;
@@ -1267,7 +1270,7 @@ async function loadData(){
   // Save backup of data
   _purchasesBackup = allPurchases.slice();
   _productsBackup  = allProducts.slice();
-  _dataLoaded=true;_dataLoading=false;
+  _dataLoaded=true;_dataLoading=false;_lastLoadTime=Date.now();
   // Show guest banner if not logged in and markup configured
   if(!currentUser){
     const markup = parseFloat(storeConfig?.guest_markup||0);
