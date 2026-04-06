@@ -1742,7 +1742,13 @@
                         </div>
                         <div class="form-group">
                             <label>Balance Inicial</label>
+                            <input type="number" id="accountInitialBalance" placeholder="0.00" step="0.01">
+                            <small style="color:#888;font-size:11px;">Saldo de apertura de la cuenta. Solo se usa al crear.</small>
+                        </div>
+                        <div class="form-group" id="accountCurrentBalanceGroup" style="display:none;">
+                            <label>Saldo Actual (editar)</label>
                             <input type="number" id="accountBalance" placeholder="0.00" step="0.01">
+                            <small style="color:#e65100;font-size:11px;">⚠️ Cambia el saldo actual directamente. Usar solo para correcciones.</small>
                         </div>
                     </div>
                     <button class="btn btn-primary" id="accountBtn" onclick="addAccount()">➕ Agregar Cuenta</button>
@@ -4423,32 +4429,42 @@
                 return;
             }
 
-            let html = '<table><thead><tr><th>Nombre</th><th>Ubicación</th><th>Responsable</th><th>Productos</th><th>Stock Total</th><th>Acciones</th></tr></thead><tbody>';
+            let html = '';
 
             warehouses.forEach(warehouse => {
                 const warehouseStock = getWarehouseStock(warehouse.id);
                 const uniqueProducts = new Set(warehouseStock.map(s => s.productId)).size;
                 const totalStock = warehouseStock.reduce((sum, s) => sum + s.quantity, 0);
+                const safeName = warehouse.name.replace(/'/g, "\'");
 
-                html += `
-                    <tr>
-                        <td><span class="warehouse-badge warehouse-${warehouse.id % 2 === 0 ? '2' : '1'}">${warehouse.name}</span></td>
-                        <td>${warehouse.location || '-'}</td>
-                        <td>${warehouse.manager || '-'}</td>
-                        <td>${uniqueProducts} productos</td>
-                        <td>${totalStock} unidades</td>
-                        <td>
-                            <div class="action-buttons">
-                                <button class="btn btn-small" style="background:#e8f4fd;color:#2980b9;border:1px solid #b8d9f0;" onclick="renameWarehouse(${warehouse.id},'${warehouse.name.replace(/'/g,"\\'")}')">✏️ Renombrar</button>
-                                <button class="btn btn-small" style="background:#f0fdf4;color:#166534;border:1px solid #86efac;" onclick="openWarehouseCats(${warehouse.id})">🛍️ Tienda</button>
-                                <button class="btn btn-danger btn-small" onclick="deleteWarehouse(${warehouse.id})">Eliminar</button>
+                html += `<div style="background:white;border:1.5px solid #e8e4f0;border-left:4px solid #002D62;border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:140px;">
+                            <div style="font-weight:800;font-size:1em;color:#002D62;margin-bottom:4px;">🏢 ${warehouse.name}</div>
+                            <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:.78em;color:#666;">
+                                ${warehouse.location ? `<span>📍 ${warehouse.location}</span>` : ''}
+                                ${warehouse.manager ? `<span>👤 ${warehouse.manager}</span>` : ''}
                             </div>
-                        </td>
-                    </tr>
-                `;
+                            <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
+                                <div style="background:#f0f4ff;border-radius:8px;padding:6px 12px;text-align:center;">
+                                    <div style="font-size:.62em;color:#aaa;text-transform:uppercase;">Productos</div>
+                                    <div style="font-weight:800;color:#002D62;">${uniqueProducts}</div>
+                                </div>
+                                <div style="background:#f0fdf4;border-radius:8px;padding:6px 12px;text-align:center;">
+                                    <div style="font-size:.62em;color:#aaa;text-transform:uppercase;">Stock</div>
+                                    <div style="font-weight:800;color:#166534;">${totalStock} uds</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+                            <button onclick="renameWarehouse(${warehouse.id},'${safeName}')" style="padding:7px 12px;background:#e8f4fd;color:#2980b9;border:1px solid #b8d9f0;border-radius:8px;font-size:.8em;font-weight:600;cursor:pointer;white-space:nowrap;">✏️ Renombrar</button>
+                            <button onclick="openWarehouseCats(${warehouse.id})" style="padding:7px 12px;background:#f0fdf4;color:#166534;border:1px solid #86efac;border-radius:8px;font-size:.8em;font-weight:600;cursor:pointer;white-space:nowrap;">🛍️ Tienda</button>
+                            <button onclick="deleteWarehouse(${warehouse.id})" style="padding:7px 12px;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:8px;font-size:.8em;font-weight:600;cursor:pointer;white-space:nowrap;">🗑️ Eliminar</button>
+                        </div>
+                    </div>
+                </div>`;
             });
 
-            html += '</tbody></table>';
             container.innerHTML = html;
         }
 
@@ -8338,7 +8354,7 @@
                 return;
             }
 
-            let html = '<div style="overflow-x: auto;"><table><thead><tr><th>Fecha</th><th>Categoría</th><th>Producto</th><th>Almacén</th><th>Lote</th><th>Cant. Original</th><th>Cant. Restante</th><th>Costo DOP</th><th>Estado</th></tr></thead><tbody>';
+            let html = '';
 
             filteredLots.forEach(lot => {
                 const product = products.find(p => p.id === lot.productId);
@@ -8347,25 +8363,38 @@
                 const remainingQty = lot.remainingQty || 0;
                 const qty = lot.qty || 0;
                 const costDOP = lot.costDOP || 0;
-                const statusClass = remainingQty > 0 ? 'in-stock' : 'out-of-stock';
-                const statusText = remainingQty > 0 ? 'Disponible' : 'Agotado';
+                const costUSD = lot.costUSD || 0;
+                const isActive = remainingQty > 0;
+                const pct = qty > 0 ? Math.round(remainingQty / qty * 100) : 0;
+                const borderColor = isActive ? '#22c55e' : '#e5e7eb';
+                const dateStr = lot.date ? new Date(lot.date).toLocaleDateString('es-DO') : '—';
 
-                html += `
-                    <tr>
-                        <td>${lot.date ? new Date(lot.date).toLocaleDateString() : 'N/A'}</td>
-                        <td><span class="category-badge">${category ? category.name : 'Sin categoría'}</span></td>
-                        <td>${product ? product.name : 'Producto eliminado'}</td>
-                        <td><span class="warehouse-badge">${warehouse ? warehouse.name : 'N/A'}</span></td>
-                        <td>${lot.lotNumber || 'N/A'}</td>
-                        <td>${qty}</td>
-                        <td><strong>${remainingQty}</strong></td>
-                        <td>$${costDOP.toFixed(2)}</td>
-                        <td><span class="stock-badge ${statusClass}">${statusText}</span></td>
-                    </tr>
-                `;
+                html += `<div style="background:white;border:1.5px solid #e8e4f0;border-left:4px solid ${borderColor};border-radius:12px;padding:11px 14px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:140px;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;">
+                                <span style="font-weight:800;color:#002D62;">${lot.lotNumber || '—'}</span>
+                                <span style="font-size:.72em;color:#aaa;">${dateStr}</span>
+                                ${category ? `<span style="font-size:.68em;background:#f0f4ff;color:#002D62;padding:1px 7px;border-radius:10px;">${category.icon||''}${category.name}</span>` : ''}
+                                <span style="font-size:.68em;background:${isActive?'#f0fdf4':'#f9fafb'};color:${isActive?'#166534':'#9ca3af'};padding:1px 7px;border-radius:10px;font-weight:700;">${isActive?'✓ Disponible':'Agotado'}</span>
+                            </div>
+                            <div style="font-weight:600;font-size:.88em;">${product ? product.name : '<em style="color:#aaa">eliminado</em>'}</div>
+                            <div style="font-size:.75em;color:#888;margin-top:2px;">📦 ${warehouse ? warehouse.name : '—'}</div>
+                            <!-- Progress bar -->
+                            <div style="margin-top:6px;background:#f0ede8;border-radius:4px;height:4px;overflow:hidden;max-width:180px;">
+                                <div style="background:${isActive?'#22c55e':'#e5e7eb'};height:100%;width:${pct}%;transition:width .3s;"></div>
+                            </div>
+                            <div style="font-size:.68em;color:#aaa;margin-top:2px;">${remainingQty} de ${qty} restantes (${pct}%)</div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-weight:800;font-size:.95em;color:${isActive?'#166534':'#9ca3af'};">${remainingQty} uds</div>
+                            ${costDOP > 0 ? `<div style="font-size:.75em;color:#92400e;margin-top:2px;">RD$${costDOP.toFixed(0)}/u</div>` : ''}
+                            ${costUSD > 0 ? `<div style="font-size:.72em;color:#aaa;">$${costUSD.toFixed(2)} USD</div>` : ''}
+                        </div>
+                    </div>
+                </div>`;
             });
 
-            html += '</tbody></table></div>';
             container.innerHTML = html;
         }
 
@@ -9217,81 +9246,80 @@
                 return;
             }
 
-            let html = summaryHTML + `<table style="width:100%;table-layout:fixed;">
-                <colgroup>
-                  <col style="width:130px"><col style="width:90px"><col style="width:auto">
-                  <col style="width:120px"><col style="width:100px"><col style="width:90px"><col style="width:80px"><col style="width:110px">
-                </colgroup>
-                <thead><tr>
-                  <th>N° Factura</th><th>Fecha</th><th>Producto</th>
-                  <th>Cliente</th><th>Lote</th><th>Total</th><th>Estado</th><th>Acciones</th>
-                </tr></thead><tbody>`;
+            let html = summaryHTML;
 
             filteredSales.slice().reverse().forEach(sale => {
                 const product = products.find(p => p.id === sale.productId);
                 const warehouse = warehouses.find(w => w.id === sale.warehouseId);
                 const paid = payments.filter(p => String(p.saleId) === String(sale.id)).reduce((sum, p) => sum + p.amount, 0);
                 const pending = (sale.totalSale || 0) - paid;
-                const paymentStatus = Math.round(pending * 100) <= 0 ? 'Pagado' : (paid > 0 ? 'Parcial' : 'Pendiente');
-                const statusClass = Math.round(pending * 100) <= 0 ? 'in-stock' : (paid > 0 ? 'low-stock' : 'out-of-stock');
+                const isPaid = Math.round(pending * 100) <= 0;
+                const isPartial = !isPaid && paid > 0;
+                const paymentStatus = isPaid ? '✅ Pagado' : (isPartial ? '🟡 Parcial' : '⏳ Pendiente');
+                const statusColor = isPaid ? '#166534' : (isPartial ? '#92400e' : '#991b1b');
+                const statusBg = isPaid ? '#f0fdf4' : (isPartial ? '#fffbeb' : '#fef2f2');
+                const borderColor = isPaid ? '#22c55e' : (isPartial ? '#f59e0b' : '#dc2626');
                 const qty = sale.qty || 0;
                 const price = sale.price || 0;
                 const totalSale = sale.totalSale || 0;
-                const fifoCost = sale.fifoCost || 0;
-                const grossProfit = sale.grossProfit || (totalSale - fifoCost);
                 const commissionPaid = sale.commissionPaid || 0;
                 const netProfit = sale.netProfit || sale.profit || 0;
-                const invoiceNumber = sale.invoiceNumber || `SALE-${sale.id}`;
-                const netProfitColor = netProfit >= 0 ? '#28a745' : '#dc3545';
+                const invoiceNumber = sale.invoiceNumber || ('SALE-' + sale.id);
+                const netProfitColor = netProfit >= 0 ? '#166534' : '#dc2626';
                 const lotsInfo = (sale.lotsUsed && sale.lotsUsed.length > 0)
                     ? sale.lotsUsed.map(l => l.lotNumber || l.lotId || '?').join(', ')
-                    : (warehouse ? `📦 ${warehouse.name}` : '-');
-                const detailId = `sale-detail-${sale.id}`;
+                    : (warehouse ? warehouse.name : '—');
+                const detailId = 'sale-detail-' + sale.id;
 
-                html += `
-                    <tr class="sale-row" onclick="toggleSaleDetail('${detailId}', event)">
-                        <td><strong style="font-size:12px;">${invoiceNumber}</strong></td>
-                        <td style="font-size:12px;">${sale.date ? new Date(sale.date).toLocaleDateString() : 'N/A'}</td>
-                        <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;" title="${product ? product.name : ''}">${product ? product.name : '<em style=color:#aaa>eliminado</em>'}</td>
-                        <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${sale.customer || '<span style=color:#aaa>-</span>'}</td>
-                        <td style="font-size:11px;color:#666;">${lotsInfo}</td>
-                        <td><strong>$${totalSale.toFixed(2)}</strong></td>
-                        <td><span class="stock-badge ${statusClass}" style="font-size:10px;">${paymentStatus}</span></td>
-                        <td style="white-space:nowrap;min-width:130px;" onclick="event.stopPropagation()">
-                            <div style="display:flex;gap:4px;flex-wrap:nowrap;">
-                                <button onclick="editSale(${sale.id})" title="Editar" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;">✏️</button>
-                                <button onclick="openSaleInvoicePanel(${sale.id})" title="Factura/PDF" style="width:28px;height:28px;border:none;border-radius:6px;background:#5b4fcf;color:white;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;">📄</button>
-                                <button onclick="addItemToInvoice(${sale.id})" title="Agregar ítem a factura" style="width:28px;height:28px;border:none;border-radius:6px;background:#166534;color:white;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;">➕</button>
-                                <button onclick="confirmDeleteSale(${sale.id})" title="Eliminar" style="width:28px;height:28px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;">🗑️</button>
+                html += `<div style="background:white;border:1.5px solid #e8e4f0;border-left:4px solid ${borderColor};border-radius:12px;margin-bottom:8px;overflow:hidden;">
+                    <!-- Main row - clickable -->
+                    <div onclick="toggleSaleDetail('${detailId}', event)" style="padding:11px 14px;cursor:pointer;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:130px;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;">
+                                <span style="font-weight:800;font-size:.88em;color:#002D62;">${invoiceNumber}</span>
+                                <span style="font-size:.72em;color:#aaa;">${sale.date ? new Date(sale.date).toLocaleDateString('es-DO') : '—'}</span>
+                                <span style="background:${statusBg};color:${statusColor};padding:1px 8px;border-radius:20px;font-size:.68em;font-weight:700;">${paymentStatus}</span>
                             </div>
-                        </td>
-                    </tr>
-                    <tr class="sale-detail-row" id="${detailId}">
-                      <td class="sale-detail-cell" colspan="8">
-                        <div class="sale-detail-inner">
-                          <div class="sale-detail-item"><span class="sale-detail-label">Vendedor</span><span class="sale-detail-value">${sale.seller || '-'}</span></div>
-                          <div class="sale-detail-item"><span class="sale-detail-label">Almacén</span><span class="sale-detail-value">${warehouse ? warehouse.name : '-'}</span></div>
-                          <div class="sale-detail-item"><span class="sale-detail-label">Cantidad</span><span class="sale-detail-value">${qty}</span></div>
-                          <div class="sale-detail-item"><span class="sale-detail-label">Precio Unit.</span><span class="sale-detail-value">$${price.toFixed(2)}</span></div>
-                          <div class="sale-detail-item"><span class="sale-detail-label">Pagado</span><span class="sale-detail-value" style="color:#28a745;">$${paid.toFixed(2)}</span></div>
-                          <div class="sale-detail-item"><span class="sale-detail-label">Pendiente</span><span class="sale-detail-value" style="color:#dc3545;">$${pending.toFixed(2)}</span></div>
-                          <div class="sale-detail-item"><span class="sale-detail-label">Comisión</span><span class="sale-detail-value" style="color:#f39c12;">$${commissionPaid.toFixed(2)}</span></div>
-                          <div class="sale-detail-item"><span class="sale-detail-label">Ganancia Neta</span><span class="sale-detail-value" style="color:${netProfitColor};">$${netProfit.toFixed(2)}</span></div>
-                          <div class="sale-detail-item"><span class="sale-detail-label">Lotes</span><span class="sale-detail-value" style="font-size:11px;">${lotsInfo}</span></div>
+                            <div style="font-size:.88em;font-weight:600;">${product ? product.name : '<em style="color:#aaa">eliminado</em>'}</div>
+                            <div style="font-size:.75em;color:#888;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">
+                                ${sale.customer ? `<span>👤 ${sale.customer}</span>` : ''}
+                                ${lotsInfo !== '—' ? `<span>📦 ${lotsInfo}</span>` : ''}
+                            </div>
                         </div>
-                      </td>
-                    </tr>
-                `;
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-weight:800;font-size:.95em;">$${totalSale.toFixed(2)}</div>
+                            <div onclick="event.stopPropagation()" style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px;">
+                                <button onclick="editSale(${sale.id})" title="Editar" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">✏️</button>
+                                <button onclick="openSaleInvoicePanel(${sale.id})" title="Factura" style="width:28px;height:28px;border:none;border-radius:6px;background:#5b4fcf;color:white;cursor:pointer;font-size:13px;">📄</button>
+                                <button onclick="addItemToInvoice(${sale.id})" title="Agregar ítem" style="width:28px;height:28px;border:none;border-radius:6px;background:#166534;color:white;cursor:pointer;font-size:13px;">➕</button>
+                                <button onclick="confirmDeleteSale(${sale.id})" title="Eliminar" style="width:28px;height:28px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:13px;">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Detail row - expandable -->
+                    <div class="sale-detail-row" id="${detailId}" style="display:none;border-top:1px solid #f0ede8;background:#fdfcfb;padding:10px 14px;">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;font-size:.8em;">
+                            <div><span style="color:#aaa;display:block;font-size:.85em;">Cantidad</span><strong>${qty}</strong></div>
+                            <div><span style="color:#aaa;display:block;font-size:.85em;">Precio Unit.</span><strong>$${price.toFixed(2)}</strong></div>
+                            <div><span style="color:#aaa;display:block;font-size:.85em;">Pagado</span><strong style="color:#166534;">$${paid.toFixed(2)}</strong></div>
+                            <div><span style="color:#aaa;display:block;font-size:.85em;">Pendiente</span><strong style="color:#dc2626;">$${pending.toFixed(2)}</strong></div>
+                            <div><span style="color:#aaa;display:block;font-size:.85em;">Comisión</span><strong style="color:#f39c12;">$${commissionPaid.toFixed(2)}</strong></div>
+                            <div><span style="color:#aaa;display:block;font-size:.85em;">Ganancia</span><strong style="color:${netProfitColor};">$${netProfit.toFixed(2)}</strong></div>
+                            ${sale.seller ? `<div><span style="color:#aaa;display:block;font-size:.85em;">Vendedor</span><strong>${sale.seller}</strong></div>` : ''}
+                            ${warehouse ? `<div><span style="color:#aaa;display:block;font-size:.85em;">Almacén</span><strong>${warehouse.name}</strong></div>` : ''}
+                        </div>
+                    </div>
+                </div>`;
             });
 
-            html += '</tbody></table>';
             container.innerHTML = html;
         }
 
         function toggleSaleDetail(id, event) {
             const row = document.getElementById(id);
             if (!row) return;
-            row.classList.toggle('open');
+            const isOpen = row.style.display !== 'none';
+            row.style.display = isOpen ? 'none' : 'block';
         }
 
         // Helper Functions
@@ -11839,7 +11867,7 @@
             const name     = document.getElementById('accountName').value.trim();
             const group    = document.getElementById('accountGroup').value;
             const currency = document.getElementById('accountCurrency').value;
-            const balance  = parseFloat(document.getElementById('accountBalance').value) || 0;
+            const balance  = parseFloat(document.getElementById('accountInitialBalance').value) || 0;
 
             if (!name) { showToast('Ingresa el nombre de la cuenta', 'error'); return; }
 
@@ -11850,13 +11878,15 @@
                 document.getElementById('accountBtn').textContent = '➕ Agregar Cuenta';
                 showToast('Cuenta actualizada', 'success');
             } else {
-                accounts.push({ id: Date.now(), name, group, currency, balance, initialBalance: balance });
+                accounts.push({ id: Date.now(), name, group, currency, balance, initialBalance: balance, createdAt: new Date().toISOString().split('T')[0] });
                 showToast('Cuenta agregada', 'success');
             }
 
             saveData(); renderAccounts(); updateAccountingDropdowns();
             document.getElementById('accountName').value = '';
+            document.getElementById('accountInitialBalance').value = '';
             document.getElementById('accountBalance').value = '';
+            document.getElementById('accountCurrentBalanceGroup').style.display = 'none';
         }
 
         // Get current date in Dominican Republic timezone (UTC-4)
@@ -12040,7 +12070,10 @@
             document.getElementById('accountName').value = account.name;
             document.getElementById('accountGroup').value = account.group || 'bank';
             document.getElementById('accountCurrency').value = account.currency;
-            document.getElementById('accountBalance').value = account.balance;
+            // Show initial balance (read-only context) and current balance (editable)
+            document.getElementById('accountInitialBalance').value = account.initialBalance ?? 0;
+            document.getElementById('accountBalance').value = account.balance ?? 0;
+            document.getElementById('accountCurrentBalanceGroup').style.display = 'block';
             document.getElementById('accountBtn').textContent = '💾 Actualizar Cuenta';
             document.getElementById('accountName').scrollIntoView({behavior:'smooth',block:'center'});
         }
@@ -12270,26 +12303,37 @@
 
             if (sorted.length === 0) { container.innerHTML = '<div class="form-section"><p>No hay transacciones con estos filtros.</p></div>'; return; }
 
-            let html = '<div class="form-section"><div style="overflow-x: auto;"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Cuenta</th><th>Monto</th><th>Descripción</th><th>Acciones</th></tr></thead><tbody>';
+            let html = '<div class="form-section">';
             sorted.forEach(trans => {
                 const account = accounts.find(a => a.id === trans.accountId);
                 const category = accountingCategories.find(c => c.id === trans.categoryId);
-                const typeClass = trans.type === 'income' ? 'style="color: #28a745;"' : 'style="color: #dc3545;"';
                 const isNegativeExp = trans.type === 'expense' && trans.amount < 0;
                 const typeLabel = trans.type === 'income' ? '💰 Ingreso' : isNegativeExp ? '↩️ Reembolso' : '💸 Gasto';
                 const displayAmt = Math.abs(trans.amount);
-                const amtColor = trans.type === 'income' ? 'color: #28a745;' : trans.amount < 0 ? 'color: #17a2b8;' : 'color: #dc3545;';
-                html += `<tr><td>${trans.date}</td><td ${typeClass}>${typeLabel}</td>
-                    <td>${category ? category.name + (category.subname ? ' - ' + category.subname : '') : '-'}</td>
-                    <td>${account ? account.name : '-'}</td>
-                    <td style="${amtColor}"><strong>${trans.amount < 0 ? '-' : ''}$${displayAmt.toFixed(2)} ${trans.currency}</strong></td>
-                    <td>${trans.description || '-'}</td>
-                    <td>
-                        <button class="btn btn-secondary btn-small" onclick="editTransaction(${trans.id})">Editar</button>
-                        <button class="btn btn-danger btn-small" onclick="deleteTransaction(${trans.id})">Eliminar</button>
-                    </td></tr>`;
+                const borderColor = trans.type === 'income' ? '#22c55e' : trans.amount < 0 ? '#17a2b8' : '#dc2626';
+                const amtColor = trans.type === 'income' ? '#22c55e' : trans.amount < 0 ? '#17a2b8' : '#dc2626';
+                html += `<div style="background:white;border:1.5px solid #f0ede8;border-left:4px solid ${borderColor};border-radius:10px;padding:11px 14px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:130px;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;">
+                                <span style="font-size:.72em;font-weight:700;color:${borderColor};">${typeLabel}</span>
+                                <span style="font-size:.72em;color:#aaa;">${trans.date}</span>
+                                ${account ? `<span style="font-size:.68em;background:#f0f4ff;color:#002D62;padding:1px 7px;border-radius:10px;">${account.name}</span>` : ''}
+                            </div>
+                            <div style="font-size:.88em;font-weight:600;">${trans.description || '—'}</div>
+                            ${category ? `<div style="font-size:.72em;color:#aaa;">${category.name}${category.subname?' — '+category.subname:''}</div>` : ''}
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-weight:800;font-size:.95em;color:${amtColor};">${trans.amount<0?'-':''}$${displayAmt.toFixed(2)} ${trans.currency}</div>
+                            <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px;">
+                                <button onclick="editTransaction(${trans.id})" style="width:26px;height:26px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:12px;">✏️</button>
+                                <button onclick="deleteTransaction(${trans.id})" style="width:26px;height:26px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:12px;">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
             });
-            html += '</tbody></table></div></div>';
+            html += '</div>';
             container.innerHTML = html;
         }
 
@@ -12520,30 +12564,60 @@
 
             // Render Customers
             if (customersList.length > 0) {
-                html += '<div class="form-section"><h3>👥 Clientes</h3><table><thead><tr><th>Nombre</th><th>RNC/Cédula</th><th>Teléfono</th><th>Email</th><th>Límite Crédito</th><th>Deuda</th><th>Acciones</th></tr></thead><tbody>';
+                html += '<div class="form-section"><h3 style="margin-bottom:12px;">👥 Clientes</h3>';
                 customersList.forEach(customer => {
                     const debt = getCustomerDebt(customer.id);
-                    html += `<tr><td>${customer.name}${customer.fromOnlineShop?` <span style="background:var(--brand)22;color:var(--brand);font-size:10px;padding:1px 6px;border-radius:8px;border:1px solid var(--brand)44;">🌐 tienda</span>`:''}</td><td>${customer.rnc || '-'}</td><td>${customer.phone || '-'}</td>
-                        <td>${customer.email || '-'}</td><td>$${customer.creditLimit.toFixed(2)}</td>
-                        <td><strong style="color: ${debt > 0 ? '#dc3545' : '#28a745'};">$${debt.toFixed(2)}</strong></td>
-                        <td><button class="btn btn-secondary btn-small" onclick="editCustomer(${customer.id})">Editar</button>
-                        <button class="btn btn-danger btn-small" onclick="deleteCustomer(${customer.id})">Eliminar</button></td></tr>`;
+                    const debtColor = debt > 0 ? '#dc2626' : '#22c55e';
+                    html += `<div style="background:white;border:1.5px solid #e8e4f0;border-left:4px solid ${debtColor};border-radius:10px;padding:11px 14px;margin-bottom:8px;">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                            <div style="flex:1;min-width:130px;">
+                                <div style="font-weight:700;font-size:.92em;">${customer.name}${customer.fromOnlineShop?' 🌐':''}</div>
+                                <div style="font-size:.75em;color:#888;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">
+                                    ${customer.phone?`<span>📱 ${customer.phone}</span>`:''}
+                                    ${customer.email?`<span>✉️ ${customer.email}</span>`:''}
+                                    ${customer.rnc?`<span>🪪 ${customer.rnc}</span>`:''}
+                                </div>
+                                <div style="font-size:.72em;color:#aaa;margin-top:2px;">Límite: $${customer.creditLimit.toFixed(2)}</div>
+                            </div>
+                            <div style="text-align:right;flex-shrink:0;">
+                                <div style="font-weight:800;color:${debtColor};">${debt>0?'Debe: ':''} $${Math.abs(debt).toFixed(2)}</div>
+                                <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px;">
+                                    <button onclick="editCustomer(${customer.id})" style="width:26px;height:26px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:12px;">✏️</button>
+                                    <button onclick="deleteCustomer(${customer.id})" style="width:26px;height:26px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:12px;">🗑️</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
                 });
-                html += '</tbody></table></div>';
+                html += '</div>';
             }
 
             // Render Sellers
             if (sellersList.length > 0) {
-                html += '<div class="form-section" style="margin-top: 25px;"><h3>💼 Vendedores</h3><table><thead><tr><th>Nombre</th><th>RNC/Cédula</th><th>Teléfono</th><th>Email</th><th>Ventas Realizadas</th><th>Comisiones Ganadas</th><th>Acciones</th></tr></thead><tbody>';
+                html += '<div class="form-section" style="margin-top:16px;"><h3 style="margin-bottom:12px;">💼 Vendedores</h3>';
                 sellersList.forEach(seller => {
                     const sellerStats = getSellerStats(seller.id);
-                    html += `<tr><td>${seller.name}${seller.fromOnlineShop?` <span style="background:#f39c1222;color:#f39c12;font-size:10px;padding:1px 6px;border-radius:8px;border:1px solid #f39c1244;">🌐 tienda</span>`:''}</td><td>${seller.rnc || '-'}</td><td>${seller.phone || '-'}</td>
-                        <td>${seller.email || '-'}</td><td>${sellerStats.salesCount} ventas</td>
-                        <td><strong style="color: #28a745;">$${sellerStats.totalCommission.toFixed(2)} DOP</strong></td>
-                        <td><button class="btn btn-secondary btn-small" onclick="editCustomer(${seller.id})">Editar</button>
-                        <button class="btn btn-danger btn-small" onclick="deleteCustomer(${seller.id})">Eliminar</button></td></tr>`;
+                    html += `<div style="background:white;border:1.5px solid #e8e4f0;border-left:4px solid #f39c12;border-radius:10px;padding:11px 14px;margin-bottom:8px;">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                            <div style="flex:1;min-width:130px;">
+                                <div style="font-weight:700;font-size:.92em;">${seller.name}${seller.fromOnlineShop?' 🌐':''}</div>
+                                <div style="font-size:.75em;color:#888;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">
+                                    ${seller.phone?`<span>📱 ${seller.phone}</span>`:''}
+                                    ${seller.email?`<span>✉️ ${seller.email}</span>`:''}
+                                </div>
+                            </div>
+                            <div style="text-align:right;flex-shrink:0;">
+                                <div style="font-weight:700;font-size:.85em;color:#22c55e;">$${sellerStats.totalCommission.toFixed(2)}</div>
+                                <div style="font-size:.7em;color:#aaa;">${sellerStats.salesCount} ventas</div>
+                                <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px;">
+                                    <button onclick="editCustomer(${seller.id})" style="width:26px;height:26px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:12px;">✏️</button>
+                                    <button onclick="deleteCustomer(${seller.id})" style="width:26px;height:26px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:12px;">🗑️</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
                 });
-                html += '</tbody></table></div>';
+                html += '</div>';
             }
 
             container.innerHTML = html;
@@ -12760,24 +12834,33 @@
 
             if (paymentsList.length === 0) { container.innerHTML = '<div class="form-section"><p>No hay pagos con estos filtros.</p></div>'; return; }
 
-            let html = '<div class="form-section"><div style="overflow-x: auto;"><table><thead><tr><th>Fecha</th><th>Venta</th><th>Cliente</th><th>Monto</th><th>Método</th><th>Cuenta</th><th>Referencia</th><th>Acciones</th></tr></thead><tbody>';
+            let html = '<div class="form-section">';
             paymentsList.forEach(payment => {
                 const sale = sales.find(s => s.id === payment.saleId);
                 const customer = sale ? customers.find(c => c.id === sale.customerId) : null;
                 const account = accounts.find(a => a.id === payment.accountId);
-                html += `<tr><td>${payment.date}</td>
-                    <td>${sale ? (sale.invoiceNumber || '#' + sale.id) : '-'}</td>
-                    <td>${customer ? customer.name : (sale && sale.customer ? sale.customer : '-')}</td>
-                    <td style="color: #28a745;"><strong>$${payment.amount.toFixed(2)}</strong></td>
-                    <td>${payment.method}</td>
-                    <td>${account ? account.name : '-'}</td>
-                    <td>${payment.reference || '-'}</td>
-                    <td>
-                        <button class="btn btn-secondary btn-small" onclick="editPayment(${payment.id})">Editar</button>
-                        <button class="btn btn-danger btn-small" onclick="deletePayment(${payment.id})">Eliminar</button>
-                    </td></tr>`;
+                html += `<div style="background:white;border:1.5px solid #f0ede8;border-left:4px solid #22c55e;border-radius:10px;padding:11px 14px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:130px;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;">
+                                <span style="font-weight:700;font-size:.85em;">${sale ? (sale.invoiceNumber || '#'+sale.id) : '—'}</span>
+                                <span style="font-size:.72em;color:#aaa;">${payment.date}</span>
+                                <span style="font-size:.68em;background:#f0fdf4;color:#166534;padding:1px 7px;border-radius:10px;">${payment.method}</span>
+                            </div>
+                            <div style="font-size:.85em;">${customer ? customer.name : (sale&&sale.customer?sale.customer:'—')}</div>
+                            ${account ? `<div style="font-size:.72em;color:#aaa;">${account.name}${payment.reference&&payment.reference!=='-'?' · '+payment.reference:''}</div>` : ''}
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-weight:800;color:#22c55e;">+$${payment.amount.toFixed(2)}</div>
+                            <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px;">
+                                <button onclick="editPayment(${payment.id})" style="width:26px;height:26px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:12px;">✏️</button>
+                                <button onclick="deletePayment(${payment.id})" style="width:26px;height:26px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:12px;">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
             });
-            html += '</tbody></table></div></div>';
+            html += '</div>';
             container.innerHTML = html;
         }
 
@@ -13124,17 +13207,7 @@
                 return;
             }
             const sorted = [...purchasePayments].sort((a,b) => new Date(b.date) - new Date(a.date));
-            let html = `<div class="form-section"><table style="width:100%;border-collapse:collapse;font-size:13px;">
-                <thead><tr style="background:#f8f6f3;">
-                    <th style="padding:10px 12px;text-align:left;">Fecha</th>
-                    <th style="padding:10px 12px;text-align:left;">Lote</th>
-                    <th style="padding:10px 12px;text-align:right;">Estimado DOP</th>
-                    <th style="padding:10px 12px;text-align:right;">Pagado Real</th>
-                    <th style="padding:10px 12px;text-align:right;">Comisión Banco</th>
-                    <th style="padding:10px 12px;text-align:left;">Cuenta</th>
-                    <th style="padding:10px 12px;text-align:left;">Referencia</th>
-                    <th style="padding:10px 12px;"></th>
-                </tr></thead><tbody>`;
+            let html = `<div class="form-section">`;
             sorted.forEach(p => {
                 const acct = accounts.find(a => a.id === p.accountId);
                 const date = new Date(p.date).toLocaleDateString('es-DO');
@@ -13149,18 +13222,28 @@
                 const paidDisplay = isFx
                     ? `${p.amount.toLocaleString('es-DO',{minimumFractionDigits:2})} ${p.currency}<br><small style="color:#0369a1;">≈ RD$ ${(p.dopAmount||p.amount).toLocaleString('es-DO',{minimumFractionDigits:2})}${p.impliedRate?' · 1 '+p.currency+'='+p.impliedRate.toFixed(2)+' DOP':''}</small>`
                     : `RD$ ${p.amount.toLocaleString('es-DO',{minimumFractionDigits:2})}`;
-                html += `<tr style="border-bottom:1px solid #f0ede8;">
-                    <td style="padding:10px 12px;">${date}</td>
-                    <td style="padding:10px 12px;font-weight:600;color:var(--brand);">${p.lotNumber}</td>
-                    <td style="padding:10px 12px;text-align:right;color:#888;">RD$ ${(p.estimatedDOP||0).toLocaleString('es-DO',{minimumFractionDigits:2})}</td>
-                    <td style="padding:10px 12px;text-align:right;font-weight:700;">${paidDisplay}</td>
-                    <td style="padding:10px 12px;text-align:right;color:${bankFeeColor};font-weight:600;">${bankFeeText}</td>
-                    <td style="padding:10px 12px;">${acct ? acct.name : '—'}</td>
-                    <td style="padding:10px 12px;color:#888;">${p.reference || '—'}</td>
-                    <td style="padding:10px 12px;"><button class="btn btn-danger btn-small" onclick="deletePurchasePayment(${p.id})">🗑️</button></td>
-                </tr>`;
+                html += `<div style="background:white;border:1.5px solid #f0ede8;border-left:4px solid #002D62;border-radius:10px;padding:11px 14px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:130px;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;">
+                                <span style="font-weight:800;color:#002D62;">${p.lotNumber}</span>
+                                <span style="font-size:.72em;color:#aaa;">${date}</span>
+                                ${acct ? `<span style="font-size:.68em;background:#f0f4ff;color:#002D62;padding:1px 7px;border-radius:10px;">${acct.name}</span>` : ''}
+                            </div>
+                            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px;font-size:.8em;">
+                                <span style="color:#888;">Estimado: RD$ ${(p.estimatedDOP||0).toLocaleString('es-DO',{minimumFractionDigits:0})}</span>
+                                ${bankFeeText!=='—'?`<span style="color:${bankFeeColor};font-weight:600;">Fee banco: ${bankFeeText}</span>`:''}
+                                ${p.reference?`<span style="color:#aaa;">${p.reference}</span>`:''}
+                            </div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-weight:800;font-size:.95em;">${paidDisplay}</div>
+                            <button onclick="deletePurchasePayment(${p.id})" style="margin-top:6px;width:26px;height:26px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:12px;">🗑️</button>
+                        </div>
+                    </div>
+                </div>`;
             });
-            html += '</tbody></table></div>';
+            html += '</div>';
             container.innerHTML = html;
         }
 
@@ -13323,22 +13406,34 @@
 
             const sorted = debts.sort((a, b) => b.pending - a.pending);
 
-            let html = '<div class="form-section"><h3>Detalle de Cuentas por Cobrar</h3><table><thead><tr><th>Factura</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Pagado</th><th>Pendiente</th><th>Días</th><th>Estado</th></tr></thead><tbody>';
+            let html = '<div class="form-section"><h3 style="margin-bottom:12px;">Detalle de Cuentas por Cobrar</h3>';
             sorted.forEach(debt => {
-                const statusClass = debt.isOverdue ? 'out-of-stock' : 'in-stock';
-                const statusText = debt.isOverdue ? 'Vencido' : 'Pendiente';
-                html += `<tr>
-                    <td>${debt.invoiceNumber}</td>
-                    <td>${debt.customer}</td>
-                    <td>${debt.date}</td>
-                    <td>$${debt.total.toFixed(2)}</td>
-                    <td style="color: #28a745;">$${debt.paid.toFixed(2)}</td>
-                    <td style="color: #dc3545;"><strong>$${debt.pending.toFixed(2)}</strong></td>
-                    <td>${debt.daysSinceSale} días</td>
-                    <td><span class="stock-badge ${statusClass}">${statusText}</span></td>
-                </tr>`;
+                const borderCol = debt.isOverdue ? '#dc2626' : '#f59e0b';
+                const statusLabel = debt.isOverdue ? '⚠️ Vencido' : '⏳ Pendiente';
+                const pct = debt.total > 0 ? Math.round(debt.paid/debt.total*100) : 0;
+                html += `<div style="background:white;border:1.5px solid #f0ede8;border-left:4px solid ${borderCol};border-radius:10px;padding:11px 14px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:130px;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;">
+                                <span style="font-weight:700;font-size:.88em;">${debt.invoiceNumber}</span>
+                                <span style="font-size:.7em;color:#aaa;">${debt.date}</span>
+                                <span style="font-size:.68em;background:${debt.isOverdue?'#fee2e2':'#fef3c7'};color:${borderCol};padding:1px 7px;border-radius:10px;font-weight:700;">${statusLabel} · ${debt.daysSinceSale}d</span>
+                            </div>
+                            <div style="font-size:.88em;font-weight:600;">${debt.customer}</div>
+                            <div style="margin-top:5px;background:#f0ede8;border-radius:4px;height:4px;overflow:hidden;">
+                                <div style="background:#22c55e;height:100%;width:${pct}%;"></div>
+                            </div>
+                            <div style="font-size:.68em;color:#aaa;margin-top:2px;">Cobrado: ${pct}%</div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-weight:800;color:#dc2626;">$${debt.pending.toFixed(2)}</div>
+                            <div style="font-size:.72em;color:#aaa;">de $${debt.total.toFixed(2)}</div>
+                            <div style="font-size:.72em;color:#22c55e;">pagado $${debt.paid.toFixed(2)}</div>
+                        </div>
+                    </div>
+                </div>`;
             });
-            html += '</tbody></table></div>';
+            html += '</div>';
             container.innerHTML = html;
         }
 
@@ -13728,26 +13823,35 @@
             let rows = '';
             [...movements].reverse().forEach((m, i) => {
                 const isIncome  = m.credit > 0;
-                const rowBg     = i % 2 === 0 ? '' : 'background:#fdfcfb;';
                 const typeIcon  = m.type === 'open' ? '🏁' : isIncome ? '⬆️' : '⬇️';
                 const typeColor = m.type === 'open' ? '#888' : isIncome ? '#27ae60' : '#dc2626';
-                rows += `<tr style="${rowBg}">
-                    <td style="white-space:nowrap;font-size:.85em;">${m.date}</td>
-                    <td>${typeIcon} <span style="font-size:.8em;color:${typeColor};font-weight:600;">${m.type === 'open' ? 'Apertura' : isIncome ? 'Entrada' : 'Salida'}</span></td>
-                    <td style="font-size:.88em;">${m.description}</td>
-                    <td style="font-size:.78em;color:#888;">${m.category || '—'}</td>
-                    <td style="text-align:right;color:#27ae60;font-weight:600;">${m.credit > 0 ? '+' + fmt(m.credit) : ''}</td>
-                    <td style="text-align:right;color:#dc2626;font-weight:600;">${m.debit > 0 ? '-' + fmt(m.debit) : ''}</td>
-                    <td style="text-align:right;font-weight:700;color:${m.balance >= 0 ? '#2d3436' : '#dc2626'};">${fmt(m.balance)}</td>
-                </tr>`;
+                const typeLabel = m.type === 'open' ? 'Apertura' : isIncome ? 'Entrada' : 'Salida';
+                const amt = isIncome ? m.credit : m.debit;
+                rows += `<div style="border:1px solid #f0ede8;border-left:3px solid ${typeColor};border-radius:10px;padding:10px 14px;margin-bottom:8px;background:white;">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:120px;">
+                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+                                <span>${typeIcon}</span>
+                                <span style="font-size:.72em;font-weight:700;color:${typeColor};text-transform:uppercase;letter-spacing:.04em;">${typeLabel}</span>
+                                <span style="font-size:.72em;color:#aaa;">${m.date}</span>
+                            </div>
+                            <div style="font-size:.88em;font-weight:600;">${m.description}</div>
+                            ${m.category && m.category !== '—' ? `<div style="font-size:.72em;color:#aaa;margin-top:1px;">${m.category}</div>` : ''}
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-weight:800;font-size:.95em;color:${typeColor};">${isIncome ? '+' : '-'}RD$ ${fmt(amt)}</div>
+                            <div style="font-size:.72em;color:#aaa;">Saldo: <strong style="color:${m.balance>=0?'#2d3436':'#dc2626'};">RD$ ${fmt(m.balance)}</strong></div>
+                        </div>
+                    </div>
+                </div>`;
             });
 
-            if (!rows) rows = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#aaa;">Sin movimientos registrados.</td></tr>';
+            if (!rows) rows = '<div style="text-align:center;padding:30px;color:#aaa;">Sin movimientos registrados.</div>';
 
             const modalHtml = `
             <div id="statementModal" onclick="if(event.target===this)closeStatementModal()"
-                style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto;">
-                <div style="background:white;border-radius:18px;width:100%;max-width:860px;box-shadow:0 24px 80px rgba(0,0,0,.3);overflow:hidden;">
+                style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:flex-start;justify-content:center;padding:10px;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+                <div style="background:white;border-radius:14px;width:100%;max-width:860px;box-shadow:0 24px 80px rgba(0,0,0,.3);overflow:hidden;margin:auto;">
 
                     <!-- Header -->
                     <div style="background:linear-gradient(135deg,var(--brand-dark),var(--brand));color:white;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
@@ -13774,22 +13878,9 @@
                         </div>
                     </div>
 
-                    <!-- Table -->
-                    <div style="overflow-x:auto;max-height:60vh;overflow-y:auto;">
-                        <table style="width:100%;border-collapse:collapse;">
-                            <thead style="position:sticky;top:0;background:#f8f9fa;z-index:1;">
-                                <tr>
-                                    <th style="padding:10px 12px;text-align:left;font-size:.82em;border-bottom:2px solid #eee;">Fecha</th>
-                                    <th style="padding:10px 12px;text-align:left;font-size:.82em;border-bottom:2px solid #eee;">Tipo</th>
-                                    <th style="padding:10px 12px;text-align:left;font-size:.82em;border-bottom:2px solid #eee;">Descripción</th>
-                                    <th style="padding:10px 12px;text-align:left;font-size:.82em;border-bottom:2px solid #eee;">Categoría</th>
-                                    <th style="padding:10px 12px;text-align:right;font-size:.82em;border-bottom:2px solid #eee;color:#27ae60;">Entrada</th>
-                                    <th style="padding:10px 12px;text-align:right;font-size:.82em;border-bottom:2px solid #eee;color:#dc2626;">Salida</th>
-                                    <th style="padding:10px 12px;text-align:right;font-size:.82em;border-bottom:2px solid #eee;">Saldo</th>
-                                </tr>
-                            </thead>
-                            <tbody>${rows}</tbody>
-                        </table>
+                    <!-- Movements -->
+                    <div style="padding:12px 16px;max-height:60vh;overflow-y:auto;">
+                        ${rows}
                     </div>
 
                     <div style="padding:12px 20px;text-align:right;border-top:1px solid #eee;font-size:.82em;color:#aaa;">${movements.length} movimientos</div>
@@ -13983,27 +14074,36 @@
             }
 
             const sorted = [...accountTransfers].sort((a, b) => new Date(b.date) - new Date(a.date));
-            let html = '<div class="form-section"><h3>Transferencias Registradas</h3><div style="overflow-x:auto;"><table><thead><tr><th>Fecha</th><th>Origen</th><th>Destino</th><th>Monto</th><th>Nota</th><th>Acción</th></tr></thead><tbody>';
+            let html = '<div class="form-section"><h3 style="margin-bottom:12px;">Transferencias Registradas</h3>';
 
             sorted.forEach((t, i) => {
                 const isCross = t.fromCurrency !== t.toCurrency;
                 const amtDisplay = isCross
-                    ? `${t.amount.toLocaleString('es-DO',{minimumFractionDigits:2})} ${t.fromCurrency} → <strong>${(t.toAmount||t.amount).toLocaleString('es-DO',{minimumFractionDigits:2})} ${t.toCurrency}</strong>`
-                    : `<strong>${t.amount.toLocaleString('es-DO',{minimumFractionDigits:2})} ${t.fromCurrency}</strong>`;
-                const rateDisplay = isCross && t.impliedRate
-                    ? `<br><span style="font-size:.75em;color:#0369a1;">💱 1 ${t.toCurrency} = ${t.impliedRate.toFixed(4)} ${t.fromCurrency}</span>`
-                    : '';
-                html += `<tr style="${i%2?'background:#fdfcfb':''}">
-                    <td style="white-space:nowrap;">${new Date(t.date).toLocaleDateString('es-DO')}</td>
-                    <td><span style="background:#fef2f2;color:#dc2626;border-radius:20px;padding:3px 10px;font-size:.82em;font-weight:600;">▼ ${t.fromName}</span></td>
-                    <td><span style="background:#f0fdf4;color:#27ae60;border-radius:20px;padding:3px 10px;font-size:.82em;font-weight:600;">▲ ${t.toName}</span></td>
-                    <td>${amtDisplay}${rateDisplay}</td>
-                    <td style="color:#888;font-size:.88em;">${t.note || '—'}</td>
-                    <td><button onclick="deleteAccountTransfer(${t.id})" style="background:#fff5f5;border:1px solid #ffc9c9;border-radius:7px;padding:4px 8px;font-size:12px;cursor:pointer;color:#c92a2a;">🗑️</button></td>
-                </tr>`;
+                    ? `${t.amount.toLocaleString('es-DO',{minimumFractionDigits:2})} ${t.fromCurrency} → ${(t.toAmount||t.amount).toLocaleString('es-DO',{minimumFractionDigits:2})} ${t.toCurrency}`
+                    : `${t.amount.toLocaleString('es-DO',{minimumFractionDigits:2})} ${t.fromCurrency}`;
+                html += `<div style="background:white;border:1.5px solid #f0ede8;border-radius:10px;padding:11px 14px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:130px;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
+                                <span style="font-size:.72em;color:#aaa;">${new Date(t.date).toLocaleDateString('es-DO')}</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                <span style="background:#fef2f2;color:#dc2626;border-radius:20px;padding:2px 9px;font-size:.78em;font-weight:600;">▼ ${t.fromName}</span>
+                                <span style="color:#aaa;">→</span>
+                                <span style="background:#f0fdf4;color:#27ae60;border-radius:20px;padding:2px 9px;font-size:.78em;font-weight:600;">▲ ${t.toName}</span>
+                            </div>
+                            ${t.note?`<div style="font-size:.72em;color:#aaa;margin-top:3px;">${t.note}</div>`:''}
+                            ${isCross&&t.impliedRate?`<div style="font-size:.68em;color:#0369a1;">💱 1 ${t.toCurrency} = ${t.impliedRate.toFixed(4)} ${t.fromCurrency}</div>`:''}
+                        </div>
+                        <div style="text-align:right;display:flex;align-items:center;gap:8px;">
+                            <div style="font-weight:800;font-size:.92em;">${amtDisplay}</div>
+                            <button onclick="deleteAccountTransfer(${t.id})" style="width:26px;height:26px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:12px;">🗑️</button>
+                        </div>
+                    </div>
+                </div>`;
             });
 
-            html += '</tbody></table></div></div>';
+            html += '</div>';
             container.innerHTML = html;
         }
 
