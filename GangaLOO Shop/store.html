@@ -1443,9 +1443,9 @@ let _purchasesBackup=[], _productsBackup=[];
 
 /* ── RENDER PRODUCTS ── */
 function renderProducts(){
+  console.log('[RP] cat='+selectedCat+' prods='+allProducts.length+' purch='+allPurchases.length, new Error().stack.split('\n').slice(1,3).join(' | '));
   // Safety: restore backup if data was wiped
   if(allPurchases.length===0 && _purchasesBackup.length>0){
-    console.warn('[renderProducts] allPurchases empty — restoring backup');
     allPurchases=_purchasesBackup.slice();
   }
   if(allProducts.length===0 && _productsBackup.length>0){
