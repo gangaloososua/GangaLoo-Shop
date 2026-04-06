@@ -523,6 +523,28 @@ async function submitApplication(e) {
     return;
   }
 
+  // ── Make.com webhook notification ──
+  const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/1gcvk33vjme264wfauvck38akha3us66'; // paste your Make.com webhook URL
+  if (MAKE_WEBHOOK_URL && MAKE_WEBHOOK_URL !== 'YOUR_MAKE_WEBHOOK_URL_HERE') {
+    try {
+      await fetch(MAKE_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'new_seller_application',
+          name: payload.first_name + ' ' + payload.last_name,
+          email: payload.email,
+          phone: payload.phone,
+          city: payload.city || '—',
+          channel: payload.channel,
+          experience: payload.experience,
+          message: payload.message || '—',
+          submitted_at: new Date().toISOString(),
+        })
+      });
+    } catch(e) { /* webhook failure should not block the form */ }
+  }
+
   document.getElementById('formCard').style.display = 'none';
   document.getElementById('successScreen').classList.add('show');
 }
