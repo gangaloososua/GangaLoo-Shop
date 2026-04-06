@@ -1455,9 +1455,9 @@ function renderProducts(){
   const grid=document.getElementById('prodGrid');
   const q=searchQuery;
   const ids=getEffIds(selectedCat);
+  console.log('[renderProducts] selectedCat='+selectedCat+' ids='+JSON.stringify(ids)+' selectedWH='+selectedWH);
   const filtered=allProducts.filter(p=>{
     if(p.visibleInStore===false) return false;
-    // hide if ALL its categories are hidden
     const pCatIds=(p.categoryIds&&p.categoryIds.length?p.categoryIds:[p.categoryId]).map(String);
     const allHidden = pCatIds.length>0 && pCatIds.every(cid=>{
       const cat=allCategories.find(c=>String(c.id)===cid);
@@ -1469,6 +1469,7 @@ function renderProducts(){
     const inStock=selectedWH?getStock(p.id,selectedWH)>0:allWarehouses.some(w=>getStock(p.id,w.id)>0);
     return mc&&ms&&inStock;
   });
+  console.log('[renderProducts] filtered='+filtered.length+' (mc check on first: ids='+JSON.stringify(ids)+' pCatIds='+JSON.stringify(allProducts[0]?(allProducts[0].categoryIds||[allProducts[0].categoryId]).map(String):[])+')');
   let title='Todos los Productos',bc='';
   if(selectedCat){
     const cat=allCategories.find(c=>String(c.id)===String(selectedCat));
