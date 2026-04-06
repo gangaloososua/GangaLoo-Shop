@@ -1237,6 +1237,7 @@ async function loadData(){
   try{ allWarehouses=JSON.parse(row.warehouses||'[]'); }catch(e){ console.log('[PARSE] warehouses error:',e.message); allWarehouses=[]; }
   try{ allCategories=JSON.parse(row.categories||'[]'); }catch(e){ console.log('[PARSE] categories error:',e.message); allCategories=[]; }
   try{ storeConfig=JSON.parse(row.store_config||'{}'); }catch(e){ storeConfig={}; }
+  console.log('[storeConfig] bulk_qty1='+storeConfig.bulk_qty1+' bulk_disc1='+storeConfig.bulk_disc1+' bulk_qty2='+storeConfig.bulk_qty2);
   if(allWarehouses.length){
     // Pick the warehouse with the most delivered stock
     const whWithStock = allWarehouses.reduce((best,w) => {
@@ -1443,7 +1444,6 @@ let _purchasesBackup=[], _productsBackup=[];
 
 /* ── RENDER PRODUCTS ── */
 function renderProducts(){
-  console.log('[RP] cat='+selectedCat+' prods='+allProducts.length+' purch='+allPurchases.length, new Error().stack.split('\n').slice(1,3).join(' | '));
   // Safety: restore backup if data was wiped
   if(allPurchases.length===0 && _purchasesBackup.length>0){
     allPurchases=_purchasesBackup.slice();
