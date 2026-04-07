@@ -11873,7 +11873,16 @@
 
             if (editingAccountId) {
                 const account = accounts.find(a => a.id === editingAccountId);
-                if (account) { account.name = name; account.group = group; account.currency = currency; account.balance = balance; }
+                if (account) {
+                    account.name = name;
+                    account.group = group;
+                    account.currency = currency;
+                    // Update initial balance
+                    account.initialBalance = parseFloat(document.getElementById('accountInitialBalance').value) || 0;
+                    // Update current balance (from the editable field shown when editing)
+                    const currentBalField = document.getElementById('accountBalance').value;
+                    if (currentBalField !== '') account.balance = parseFloat(currentBalField) || 0;
+                }
                 editingAccountId = null;
                 document.getElementById('accountBtn').textContent = '➕ Agregar Cuenta';
                 showToast('Cuenta actualizada', 'success');
