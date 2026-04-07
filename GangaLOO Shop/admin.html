@@ -4073,8 +4073,9 @@
 
         async function loadFromSupabase() {
             if (!currentUser) return;
-            const { data, error } = await sb.from('inventory_data').select('*').eq('user_id', currentUser.id).single();
-            if (error && error.code !== 'PGRST116') {
+            const { data: _rows, error } = await sb.from('inventory_data').select('*').limit(1);
+            const data = _rows && _rows.length ? _rows[0] : null;
+            if (error) {
                 console.error('Load error:', error);
                 return;
             }
