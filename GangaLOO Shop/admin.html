@@ -3274,27 +3274,38 @@
             if (!summary || !list) return;
 
             // Find sales where this seller is the CUSTOMER (what she owes GangaLoo)
-            // Use profile full_name to match against sale.customer field
-            const myProfile = await sb.from('profiles').select('full_name').eq('id', currentUser.id).single();
-            const myFullName = (myProfile?.data?.full_name || currentUser.email.split('@')[0]).toLowerCase().trim();
+            // Find her customer record by matching email or by all possible name variants
+            const myEmail = currentUser.email.toLowerCase();
+            const myEmailUser = myEmail.split('@')[0]; // e.g. "tdelia411"
 
-            // Also find by customerId
+            // Try to find her in customers by email first, then by name/username
             const meAsCustomer = _sellerCustomers.find(c =>
-                (c.email && c.email.toLowerCase() === currentUser.email.toLowerCase()) ||
-                (c.name && c.name.toLowerCase().trim() === myFullName)
+                (c.email && c.email.toLowerCase() === myEmail) ||
+                (c.name && c.name.toLowerCase() === myEmailUser)
             );
 
-            const seenSaleIds = new Set(); // prevent duplicates
+            // Build a set of all name variants to match against sale.customer
+            const myNameVariants = new Set();
+            if (meAsCustomer) myNameVariants.add(meAsCustomer.name.toLowerCase());
+            myNameVariants.add(myEmailUser);
+
+            // Also fetch full_name from profile as another variant
+            try {
+                const { data: prof } = await sb.from('profiles').select('full_name').eq('id', currentUser.id).single();
+                if (prof?.full_name) myNameVariants.add(prof.full_name.toLowerCase().trim());
+            } catch(e) {}
+
+            const seenSaleIds = new Set();
             const debts = [];
             let totalPending = 0, totalOverdue = 0;
 
             _sellerSalesAcct.forEach(sale => {
-                if (seenSaleIds.has(sale.id)) return; // skip duplicates
-                // Match by customerId OR by customer name string
-                const matchById = meAsCustomer && (sale.customerId === meAsCustomer.id || String(sale.customerId) === String(meAsCustomer.id));
-                const matchByName = (sale.customer || '').toLowerCase().trim() === myFullName;
+                if (seenSaleIds.has(String(sale.id))) return;
+                const matchById = meAsCustomer && (String(sale.customerId) === String(meAsCustomer.id));
+                const saleCustomerName = (sale.customer || '').toLowerCase().trim();
+                const matchByName = saleCustomerName && [...myNameVariants].some(v => v && saleCustomerName === v);
                 if (!matchById && !matchByName) return;
-                seenSaleIds.add(sale.id);
+                seenSaleIds.add(String(sale.id));
                 const paid = _sellerPayments.filter(p => String(p.saleId) === String(sale.id)).reduce((s,p) => s + p.amount, 0);
                 const pending = (sale.totalSale || 0) - paid;
                 if (Math.round(pending * 100) <= 0) return;
