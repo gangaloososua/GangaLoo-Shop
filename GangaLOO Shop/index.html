@@ -1137,7 +1137,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     contentEl.innerHTML = `<div class="price-error">⚠️ No se pudieron cargar los precios: ${err.message}</div>`;
     console.error('Supabase price fetch error:', err);
   }
-})();
+});
 
 function switchPriceTab(btn, panelId) {
   document.querySelectorAll('.price-tab-btn').forEach(b => b.classList.remove('active'));
