@@ -3295,12 +3295,12 @@
                 if (prof?.full_name) myNameVariants.add(prof.full_name.toLowerCase().trim());
             } catch(e) {}
 
-            console.log('[DebtMatch] email='+myEmail+' emailUser='+myEmailUser);
-            console.log('[DebtMatch] meAsCustomer=', meAsCustomer);
-            console.log('[DebtMatch] myNameVariants=', [...myNameVariants]);
-            // Log unique customer names in sales to help debug
-            const uniqueCustomers = [...new Set(_sellerSalesAcct.map(s=>s.customer))].slice(0,20);
-            console.log('[DebtMatch] sale.customer values:', uniqueCustomers);
+            // Add all name variants: full name parts, email username
+            if (meAsCustomer?.name) {
+                // Add first name alone (e.g. "delia" from "delia thomas")
+                const parts = meAsCustomer.name.toLowerCase().trim().split(/\s+/);
+                parts.forEach(p => { if (p.length > 2) myNameVariants.add(p); });
+            }
 
             const seenSaleIds = new Set();
             const debts = [];
@@ -3308,7 +3308,8 @@
 
             _sellerSalesAcct.forEach(sale => {
                 if (seenSaleIds.has(String(sale.id))) return;
-                const matchById = meAsCustomer && (String(sale.customerId) === String(meAsCustomer.id));
+                // Match by customerId (compare as strings to handle float IDs)
+                const matchById = meAsCustomer && (String(Math.round(sale.customerId)) === String(Math.round(meAsCustomer.id)));
                 const saleCustomerName = (sale.customer || '').toLowerCase().trim();
                 const matchByName = saleCustomerName && [...myNameVariants].some(v => v && saleCustomerName === v);
                 if (!matchById && !matchByName) return;
