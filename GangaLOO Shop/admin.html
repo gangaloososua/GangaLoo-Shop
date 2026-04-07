@@ -3268,34 +3268,39 @@
             }).join('');
         }
 
-        function renderSellerDebts() {
+        async function renderSellerDebts() {
             const summary = document.getElementById('sellerDebtSummary');
             const list = document.getElementById('sellerDebtsList');
             if (!summary || !list) return;
 
-            // Find sales where this seller is the CUSTOMER (what she owes)
-            // Match by customer name (seller's name stored as customer in the sale)
-            const sellerName = currentUser.email.split('@')[0];
-            // Find this seller in customers list by email or name
-            const sellerAsCustomer = _sellerCustomers.find(c =>
+            // Find sales where this seller is the CUSTOMER (what she owes GangaLoo)
+            // Use profile full_name to match against sale.customer field
+            const myProfile = await sb.from('profiles').select('full_name').eq('id', currentUser.id).single();
+            const myFullName = (myProfile?.data?.full_name || currentUser.email.split('@')[0]).toLowerCase().trim();
+
+            // Also find by customerId
+            const meAsCustomer = _sellerCustomers.find(c =>
                 (c.email && c.email.toLowerCase() === currentUser.email.toLowerCase()) ||
-                (c.name && c.name.toLowerCase().includes(sellerName.toLowerCase()))
+                (c.name && c.name.toLowerCase().trim() === myFullName)
             );
+
+            const seenSaleIds = new Set(); // prevent duplicates
             const debts = [];
             let totalPending = 0, totalOverdue = 0;
 
             _sellerSalesAcct.forEach(sale => {
-                // Match sales where this seller IS the customer (by customerId or customer name)
-                const matchById = sellerAsCustomer && sale.customerId === sellerAsCustomer.id;
-                const matchByName = !sellerAsCustomer && (sale.customer || '').toLowerCase().includes(sellerName.toLowerCase());
+                if (seenSaleIds.has(sale.id)) return; // skip duplicates
+                // Match by customerId OR by customer name string
+                const matchById = meAsCustomer && (sale.customerId === meAsCustomer.id || String(sale.customerId) === String(meAsCustomer.id));
+                const matchByName = (sale.customer || '').toLowerCase().trim() === myFullName;
                 if (!matchById && !matchByName) return;
+                seenSaleIds.add(sale.id);
                 const paid = _sellerPayments.filter(p => String(p.saleId) === String(sale.id)).reduce((s,p) => s + p.amount, 0);
                 const pending = (sale.totalSale || 0) - paid;
                 if (Math.round(pending * 100) <= 0) return;
-                const customer = _sellerCustomers.find(c => c.id === sale.customerId);
                 const days = Math.floor((new Date() - new Date(sale.date)) / (1000*60*60*24));
                 const overdue = days > 30;
-                debts.push({ sale, customer, paid, pending, days, overdue });
+                debts.push({ sale, paid, pending, days, overdue });
                 totalPending += pending;
                 if (overdue) totalOverdue += pending;
             });
