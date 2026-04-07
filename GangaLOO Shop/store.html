@@ -1555,21 +1555,41 @@ function closeMobSearch(e){if(!e||e.target===document.getElementById('mobSearchO
 function syncSearch(val){document.getElementById('searchInput').value=val;searchQuery=val.toLowerCase();renderProducts();}
 
 /* ── CART ── */
-function shareProductWA(id, price) {
+async function shareProductWA(id, price) {
   const p = allProducts.find(x=>x.id===id);
   const name = p ? p.name : '';
   const sku = p ? (p.sku||'') : '';
   const storeUrl = window.location.href.split('?')[0];
+  const text = 'Mira este producto en GangaLoo:\n' + name + '\nPrecio: RD$ ' + fmt(price) + (sku ? '\nSKU: ' + sku : '') + '\n\n' + storeUrl;
+
+  // Try native share API first (works great on mobile with image)
+  if (navigator.share) {
+    const shareData = { title: name, text: text, url: storeUrl };
+    // If product has an image, try to share it as a file
+    if (p && p.imageUrl) {
+      try {
+        const resp = await fetch(p.imageUrl);
+        const blob = await resp.blob();
+        const ext = blob.type.includes('png') ? 'png' : 'jpg';
+        const file = new File([blob], name.replace(/[^a-z0-9]/gi,'_') + '.' + ext, { type: blob.type });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ title: name, text: text, files: [file] });
+          return;
+        }
+      } catch(e) { /* image fetch failed, fall through to text share */ }
+    }
+    // Share text + url without image
+    try { await navigator.share(shareData); return; } catch(e) { /* user cancelled or not supported */ }
+  }
+
+  // Fallback: open WhatsApp web with text
   const nl = '%0A';
   const parts = [
     encodeURIComponent('Mira este producto en GangaLoo:'),
-    nl,
-    encodeURIComponent(name),
-    nl,
-    encodeURIComponent('Precio: RD$ ' + fmt(price)),
+    nl, encodeURIComponent(name),
+    nl, encodeURIComponent('Precio: RD$ ' + fmt(price)),
     sku ? nl + encodeURIComponent('SKU: ' + sku) : '',
-    nl, nl,
-    encodeURIComponent(storeUrl)
+    nl, nl, encodeURIComponent(storeUrl)
   ];
   window.open('https://wa.me/?text=' + parts.join(''), '_blank');
 }
