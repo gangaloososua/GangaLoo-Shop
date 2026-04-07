@@ -3273,15 +3273,22 @@
             const list = document.getElementById('sellerDebtsList');
             if (!summary || !list) return;
 
-            // Find sales assigned to this seller with unpaid balance
+            // Find sales where this seller is the CUSTOMER (what she owes)
+            // Match by customer name (seller's name stored as customer in the sale)
             const sellerName = currentUser.email.split('@')[0];
+            // Find this seller in customers list by email or name
+            const sellerAsCustomer = _sellerCustomers.find(c =>
+                (c.email && c.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+                (c.name && c.name.toLowerCase().includes(sellerName.toLowerCase()))
+            );
             const debts = [];
             let totalPending = 0, totalOverdue = 0;
 
             _sellerSalesAcct.forEach(sale => {
-                // Match by seller field or email
-                const isMine = (sale.seller || '').toLowerCase().includes(sellerName.toLowerCase()) || sale.sellerEmail === currentUser.email;
-                if (!isMine) return;
+                // Match sales where this seller IS the customer (by customerId or customer name)
+                const matchById = sellerAsCustomer && sale.customerId === sellerAsCustomer.id;
+                const matchByName = !sellerAsCustomer && (sale.customer || '').toLowerCase().includes(sellerName.toLowerCase());
+                if (!matchById && !matchByName) return;
                 const paid = _sellerPayments.filter(p => String(p.saleId) === String(sale.id)).reduce((s,p) => s + p.amount, 0);
                 const pending = (sale.totalSale || 0) - paid;
                 if (Math.round(pending * 100) <= 0) return;
@@ -3298,7 +3305,7 @@
             summary.innerHTML = `
               <div style="background:#fef2f2; border-radius:10px; padding:14px; text-align:center;">
                 <div style="font-size:1.5em; font-weight:800; color:#dc2626;">RD$ ${totalPending.toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
-                <div style="color:#888; font-size:.8em; margin-top:3px;">Total por Cobrar</div>
+                <div style="color:#888; font-size:.8em; margin-top:3px;">Lo que debes a GangaLoo</div>
               </div>
               <div style="background:#fffbeb; border-radius:10px; padding:14px; text-align:center;">
                 <div style="font-size:1.5em; font-weight:800; color:#f39c12;">RD$ ${totalOverdue.toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
