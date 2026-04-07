@@ -314,6 +314,8 @@ button{font-family:'Jost',sans-serif;}
 .pcard-price{font-size:1.15em;font-weight:700;}
 .pcard-price .cur{font-size:.6em;color:var(--muted);font-weight:500;vertical-align:super;}
 .pcard-price.discounted{color:#e74c3c;}
+.wa-share-btn{width:28px;height:28px;border-radius:50%;border:none;background:#25D366;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.85;transition:opacity .2s;}
+.wa-share-btn:hover{opacity:1;}
 .add-btn{width:36px;height:36px;border-radius:50%;background:#002D62;color:white;border:none;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
 .add-btn:hover:not(:disabled){background:#CF142B;transform:scale(1.1);}
 .add-btn:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;}
@@ -1552,8 +1554,6 @@ function openMobSearch(){document.getElementById('mobSearchOvl').classList.add('
 function closeMobSearch(e){if(!e||e.target===document.getElementById('mobSearchOvl'))document.getElementById('mobSearchOvl').classList.remove('open');}
 function syncSearch(val){document.getElementById('searchInput').value=val;searchQuery=val.toLowerCase();renderProducts();}
 
-.wa-share-btn{width:28px;height:28px;border-radius:50%;border:none;background:#25D366;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.85;transition:opacity .2s;}
-.wa-share-btn:hover{opacity:1;}
 /* ── CART ── */
 function shareProductWA(id, price) {
   const p = allProducts.find(x=>x.id===id);
