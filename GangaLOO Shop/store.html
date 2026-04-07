@@ -1560,13 +1560,18 @@ function shareProductWA(id, price) {
   const name = p ? p.name : '';
   const sku = p ? (p.sku||'') : '';
   const storeUrl = window.location.href.split('?')[0];
-  const msg = '🛍️ *'+name+'*
-💰 RD$ '+fmt(price)+(sku?'
-SKU: '+sku:'')+'
-
-¡Disponible en GangaLoo! 💇
-'+storeUrl;
-  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+  const nl = '%0A';
+  const parts = [
+    encodeURIComponent('Mira este producto en GangaLoo:'),
+    nl,
+    encodeURIComponent(name),
+    nl,
+    encodeURIComponent('Precio: RD$ ' + fmt(price)),
+    sku ? nl + encodeURIComponent('SKU: ' + sku) : '',
+    nl, nl,
+    encodeURIComponent(storeUrl)
+  ];
+  window.open('https://wa.me/?text=' + parts.join(''), '_blank');
 }
 function addCart(id,name,price,sku,basePrice){
   if(!currentUser){ openAuthWall('login'); toast('Inicia sesión para agregar al carrito',''); return; }
