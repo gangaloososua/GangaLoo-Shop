@@ -3295,6 +3295,13 @@
                 if (prof?.full_name) myNameVariants.add(prof.full_name.toLowerCase().trim());
             } catch(e) {}
 
+            console.log('[DebtMatch] email='+myEmail+' emailUser='+myEmailUser);
+            console.log('[DebtMatch] meAsCustomer=', meAsCustomer);
+            console.log('[DebtMatch] myNameVariants=', [...myNameVariants]);
+            // Log unique customer names in sales to help debug
+            const uniqueCustomers = [...new Set(_sellerSalesAcct.map(s=>s.customer))].slice(0,20);
+            console.log('[DebtMatch] sale.customer values:', uniqueCustomers);
+
             const seenSaleIds = new Set();
             const debts = [];
             let totalPending = 0, totalOverdue = 0;
