@@ -3291,7 +3291,7 @@
 
             // Also fetch full_name from profile as another variant
             try {
-                const { data: prof } = await sb.from('profiles').select('full_name').eq('id', currentUser.id).single();
+                const { data: prof } = await sb.from('profiles').select('full_name').eq('id', currentUser.id).maybeSingle();
                 if (prof?.full_name) myNameVariants.add(prof.full_name.toLowerCase().trim());
             } catch(e) {}
 
