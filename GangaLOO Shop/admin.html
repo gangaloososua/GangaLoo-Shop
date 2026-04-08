@@ -3217,6 +3217,11 @@
             renderSellerInventory();
             // Match seller by email or name
             const sellerName = currentUser.email.split('@')[0];
+            // Find this seller's customer record for ID matching
+            const meAsCustomerLocal = _sellerCustomers.find(c =>
+                (c.email && c.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+                (c.name && c.name.toLowerCase() === sellerName.toLowerCase())
+            );
             const period = document.getElementById('sellerPeriodFilter').value;
             const now = getNowDO();
             const specificMonth = parseInt(document.getElementById('sellerMonthPick')?.value ?? now.getMonth());
@@ -3224,7 +3229,7 @@
             let mySales = allSales.filter(s => {
                 // Match by seller field OR by customer being this seller (for online orders)
                 const matchBySeller = s.seller && (s.seller.toLowerCase().includes(sellerName.toLowerCase()) || s.sellerEmail === currentUser.email);
-                const matchByCustomer = s.customer && (s.customer.toLowerCase() === sellerName.toLowerCase() || (meAsCustomer && String(s.customerId) === String(meAsCustomer?.id)));
+                const matchByCustomer = s.customer && (s.customer.toLowerCase() === sellerName.toLowerCase() || (meAsCustomerLocal && String(s.customerId) === String(meAsCustomerLocal.id)));
                 const match = matchBySeller || matchByCustomer;
                 if (!match) return false;
                 const d = new Date(s.date || s.createdAt);
