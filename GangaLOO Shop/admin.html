@@ -4234,14 +4234,17 @@
             // Attempt to deduct stock via FIFO
             let stockError = null;
             for (const item of items) {
-                const productId = item.product_id;
+                const productId = String(item.product_id);
                 const qtyNeeded = parseInt(item.qty);
-                
-                // FIFO deduction from purchases
+                const whId = String(warehouseId);
+
+                // FIFO deduction from purchases — use String comparison to avoid type mismatch
                 const warehousePurchases = purchases
-                    .filter(p => p.productId == productId && p.warehouseId == warehouseId && p.status === 'delivered' && p.remainingQty > 0)
+                    .filter(p => String(p.productId) === productId && String(p.warehouseId) === whId && p.status === 'delivered' && (p.remainingQty||0) > 0)
                     .sort((a, b) => new Date(a.date) - new Date(b.date));
-                
+
+                console.log('[ApproveOrder] product='+productId+' wh='+whId+' lots found='+warehousePurchases.length+' total stock='+warehousePurchases.reduce((s,p)=>s+(p.remainingQty||0),0));
+
                 let remaining = qtyNeeded;
                 for (const p of warehousePurchases) {
                     if (remaining <= 0) break;
