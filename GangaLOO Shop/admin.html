@@ -3222,8 +3222,10 @@
             const specificMonth = parseInt(document.getElementById('sellerMonthPick')?.value ?? now.getMonth());
             const specificYear = parseInt(document.getElementById('sellerYearPick')?.value ?? now.getFullYear());
             let mySales = allSales.filter(s => {
-                if (!s.seller) return false;
-                const match = s.seller.toLowerCase().includes(sellerName.toLowerCase()) || s.sellerEmail === currentUser.email;
+                // Match by seller field OR by customer being this seller (for online orders)
+                const matchBySeller = s.seller && (s.seller.toLowerCase().includes(sellerName.toLowerCase()) || s.sellerEmail === currentUser.email);
+                const matchByCustomer = s.customer && (s.customer.toLowerCase() === sellerName.toLowerCase() || (meAsCustomer && String(s.customerId) === String(meAsCustomer?.id)));
+                const match = matchBySeller || matchByCustomer;
                 if (!match) return false;
                 const d = new Date(s.date || s.createdAt);
                 if (period === 'month') return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
@@ -4299,6 +4301,13 @@
                 const netProfit = grossProfit - commissionPaid;
                 const saleId = Date.now() + idx;
                 const invoiceNum = items.length > 1 ? `ONL-${orderRef}-${idx+1}` : `ONL-${orderRef}`;
+                // Check if this customer is also a seller
+                const customerAsSeller = customers.find(c =>
+                    (c.type === 'seller') && (
+                        (c.email && order.customer_email && c.email.toLowerCase() === order.customer_email.toLowerCase()) ||
+                        (c.name && order.customer_name && c.name.toLowerCase() === order.customer_name.toLowerCase())
+                    )
+                );
                 const sale = {
                     id: saleId,
                     invoiceNumber: invoiceNum,
@@ -4317,6 +4326,8 @@
                     date: orderDate,
                     customer: order.customer_name || '',
                     customerId: orderCustomer ? orderCustomer.id : null,
+                    seller: customerAsSeller ? customerAsSeller.name : '',
+                    sellerId: customerAsSeller ? customerAsSeller.id : null,
                     lotsUsed,
                     onlineOrderId: orderId,
                     createdAt: new Date().toISOString()
