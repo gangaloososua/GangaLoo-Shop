@@ -9125,10 +9125,11 @@
                 
                 sales.push(newSale);
                 
-                // Update lot quantities
+                // Update lot quantities (use lotId OR purchaseId — calculateFIFOCost stores lotId)
                 if (lotsUsed && Array.isArray(lotsUsed)) {
                     lotsUsed.forEach(lotUsed => {
-                        const lot = purchases.find(p => p.id === lotUsed.purchaseId);
+                        const lotLookupId = lotUsed.purchaseId || lotUsed.lotId;
+                        const lot = purchases.find(p => p.id === lotLookupId);
                         if (lot) {
                             lot.remainingQty -= lotUsed.qtyUsed;
                         }
