@@ -2065,10 +2065,13 @@ async function submitOrder(){
     const _discAmtO=_rawTotalO*(_bulkTierO.disc/100);
     payload.notes=(payload.notes||'')+(_bulkTierO?`\n🏷️ ${_bulkTierO.label||'Descuento mayoreo'} ${_bulkTierO.disc}% aplicado (-RD$ ${fmt(_discAmtO)})`:'');
   }
-  // warehouse_id stored as name string to avoid integer overflow
+  // Save warehouse_id and name
   if(selectedWH){
     const wh=allWarehouses.find(w=>w.id==selectedWH);
-    if(wh) payload.notes = (payload.notes||'') + (payload.notes?'\n':'') + '📍 Tienda: '+wh.name;
+    if(wh){
+      payload.warehouse_id = String(selectedWH); // store as string to avoid integer overflow
+      payload.notes = (payload.notes||'') + (payload.notes?'\n':'') + '📍 Tienda: '+wh.name;
+    }
   }
   const{data,error}=await sb.from('online_orders').insert(payload).select();
   if(error){

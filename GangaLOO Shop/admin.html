@@ -4229,21 +4229,30 @@
             if (error || !order) { showToast('Error al obtener la orden', 'error'); return; }
 
             const items = JSON.parse(order.items || '[]');
-            const warehouseId = order.warehouse_id;
+            // order.warehouse_id may be null — will be resolved per product below
+            const orderWarehouseId = order.warehouse_id;
 
             // Attempt to deduct stock via FIFO
             let stockError = null;
+            const itemWarehouseMap = {}; // track which warehouse used per item
             for (const item of items) {
                 const productId = String(item.product_id);
                 const qtyNeeded = parseInt(item.qty);
-                const whId = String(warehouseId);
 
-                // FIFO deduction from purchases — use String comparison to avoid type mismatch
+                // If order has no warehouse, find the one with most stock for this product
+                let whId = orderWarehouseId ? String(orderWarehouseId) : null;
+                if (!whId) {
+                    const bestLot = purchases
+                        .filter(p => String(p.productId) === productId && p.status === 'delivered' && (p.remainingQty||0) > 0)
+                        .sort((a,b) => (b.remainingQty||0) - (a.remainingQty||0))[0];
+                    whId = bestLot ? String(bestLot.warehouseId) : null;
+                }
+                itemWarehouseMap[productId] = whId;
+
+                // FIFO deduction from purchases
                 const warehousePurchases = purchases
                     .filter(p => String(p.productId) === productId && String(p.warehouseId) === whId && p.status === 'delivered' && (p.remainingQty||0) > 0)
                     .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-                console.log('[ApproveOrder] product='+productId+' wh='+whId+' lots found='+warehousePurchases.length+' total stock='+warehousePurchases.reduce((s,p)=>s+(p.remainingQty||0),0));
 
                 let remaining = qtyNeeded;
                 for (const p of warehousePurchases) {
@@ -4266,10 +4275,11 @@
 
             // Create sale records
             items.forEach(item => {
+                const resolvedWH = itemWarehouseMap[String(item.product_id)] || orderWarehouseId;
                 const sale = {
                     id: Date.now() + Math.random(),
                     productId: parseInt(item.product_id),
-                    warehouseId: parseInt(warehouseId),
+                    warehouseId: parseInt(resolvedWH),
                     qty: parseInt(item.qty),
                     pricePerUnit: parseFloat(item.price),
                     totalPrice: parseFloat(item.price) * parseInt(item.qty),
