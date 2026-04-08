@@ -1010,7 +1010,7 @@ button{font-family:'Jost',sans-serif;}
           <span id="userPillName">Mi cuenta</span>
         </div>
         <div class="user-menu" id="userDropMenu">
-          <button class="user-menu-item" onclick="openProfile()">👤 Mi Perfil & Puntos</button>
+          <button class="user-menu-item" onclick="openProfile()">👤 Mi Perfil</button>
           <button class="user-menu-item" onclick="openMyOrders()">📦 Mis Pedidos</button>
           <button class="user-menu-item" id="clubMenuBtn" style="display:none;" onclick="openClubAccount()">🏆 Mi Cuenta Club</button>
           <div style="height:1px;background:var(--border);margin:4px 0;"></div>
@@ -1593,6 +1593,8 @@ function chQty(id,d){const i=cart.find(c=>c.id==id);if(!i)return;i.qty+=d;if(i.q
 function total(){return cart.reduce((s,i)=>s+i.price*i.qty,0);}
 function getCartQty(){return cart.reduce((s,i)=>s+i.qty,0);}
 function getBulkDiscount(){
+  // Sellers get commission only — no wholesale discount
+  if(isSeller()) return null;
   const cfg=storeConfig||{};
   const qty=getCartQty();
   const tiers=[
@@ -2549,7 +2551,7 @@ async function openClubAccount(){
   // Fetch approved orders for this member
   const{data:orders}=await sb.from('online_orders').select('*').eq('customer_email',currentUser.email).eq('status','approved').order('created_at',{ascending:false});
   const totalSpent=(orders||[]).reduce((s,o)=>s+parseFloat(o.total||0),0);
-  const loyaltyPts=Math.floor(totalSpent/100*2);
+  const loyaltyPts=isSeller()?0:Math.floor(totalSpent/100*2);
 
   const notes=(data.notes||'').split(/[|\n]/).filter(Boolean).reverse();
 
@@ -2856,8 +2858,8 @@ async function openProfile() {
         </div>
       </div>
 
-      <!-- POINTS CARD -->
-      <div class="points-card" style="${tierStyle}">
+      <!-- POINTS CARD — hidden for sellers -->
+      <div class="points-card" style="${tierStyle}${isSeller()?';display:none':''}">
         <div class="points-card-hdr">
           <h3>⭐ Mis Puntos de Lealtad</h3>
           <div class="points-total">${points.toLocaleString()} <span>puntos</span>
