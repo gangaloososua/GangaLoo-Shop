@@ -4293,11 +4293,18 @@
                 (c.email && order.customer_email && c.email.toLowerCase() === order.customer_email.toLowerCase()) ||
                 (c.name && order.customer_name && c.name.toLowerCase() === order.customer_name.toLowerCase())
             );
+            // Calculate discount ratio from order.total vs sum of items (wholesale discount applied at cart level)
+            const itemsRawTotal = items.reduce((s, i) => s + (parseFloat(i.price) * parseInt(i.qty)), 0);
+            const orderActualTotal = parseFloat(order.total) || itemsRawTotal;
+            const discountRatio = itemsRawTotal > 0 ? (orderActualTotal / itemsRawTotal) : 1;
+
             items.forEach((item, idx) => {
                 const resolvedWH = itemWarehouseMap[String(item.product_id)] || orderWarehouseId;
                 const product = products.find(p => String(p.id) === String(item.product_id));
                 const qty = parseInt(item.qty);
-                const price = parseFloat(item.price);
+                const priceRaw = parseFloat(item.price);
+                // Apply discount ratio so commission is on actual amount paid
+                const price = Math.round(priceRaw * discountRatio * 100) / 100;
                 const totalSale = qty * price;
                 const { totalCost: fifoCost, lotsUsed } = calculateFIFOCost(parseInt(resolvedWH), parseInt(item.product_id), qty);
                 const grossProfit = totalSale - fifoCost;
