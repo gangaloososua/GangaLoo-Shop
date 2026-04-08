@@ -4273,20 +4273,46 @@
                 return;
             }
 
-            // Create sale records
-            items.forEach(item => {
+            // Create sale records — one per item, unpaid so payment can be added manually
+            const orderRef = orderId.slice(-8).toUpperCase();
+            const orderDate = new Date().toISOString().split('T')[0];
+            // Find customer record
+            const orderCustomer = customers.find(c =>
+                (c.email && order.customer_email && c.email.toLowerCase() === order.customer_email.toLowerCase()) ||
+                (c.name && order.customer_name && c.name.toLowerCase() === order.customer_name.toLowerCase())
+            );
+            items.forEach((item, idx) => {
                 const resolvedWH = itemWarehouseMap[String(item.product_id)] || orderWarehouseId;
+                const product = products.find(p => String(p.id) === String(item.product_id));
+                const qty = parseInt(item.qty);
+                const price = parseFloat(item.price);
+                const totalSale = qty * price;
+                const { totalCost: fifoCost, lotsUsed } = calculateFIFOCost(parseInt(resolvedWH), parseInt(item.product_id), qty);
+                const grossProfit = totalSale - fifoCost;
+                const commissionPercent = product ? (product.commissionPercent || 0) : 0;
+                const commissionPaid = totalSale * (commissionPercent / 100);
+                const netProfit = grossProfit - commissionPaid;
+                const saleId = Date.now() + idx;
+                const invoiceNum = items.length > 1 ? `ONL-${orderRef}-${idx+1}` : `ONL-${orderRef}`;
                 const sale = {
-                    id: Date.now() + Math.random(),
+                    id: saleId,
+                    invoiceNumber: invoiceNum,
                     productId: parseInt(item.product_id),
                     warehouseId: parseInt(resolvedWH),
-                    qty: parseInt(item.qty),
-                    pricePerUnit: parseFloat(item.price),
-                    totalPrice: parseFloat(item.price) * parseInt(item.qty),
-                    currency: order.currency || 'DOP',
-                    date: new Date().toISOString().split('T')[0],
-                    customer: order.customer_name,
-                    note: `Venta online #${orderId.slice(-8).toUpperCase()}`,
+                    qty,
+                    price,
+                    totalSale,
+                    fifoCost,
+                    grossProfit,
+                    commissionPercent,
+                    commissionPaid,
+                    netProfit,
+                    profit: netProfit,
+                    netMargin: totalSale > 0 ? (netProfit/totalSale*100) : 0,
+                    date: orderDate,
+                    customer: order.customer_name || '',
+                    customerId: orderCustomer ? orderCustomer.id : null,
+                    lotsUsed,
                     onlineOrderId: orderId,
                     createdAt: new Date().toISOString()
                 };
