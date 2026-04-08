@@ -1466,6 +1466,11 @@
                             <option value="delivered">Entregado</option>
                         </select>
                     </div>
+                    <div class="form-group" id="purchaseRemainingQtyGroup" style="display:none;">
+                        <label>Stock Restante (Corrección)</label>
+                        <input type="number" id="purchaseRemainingQty" placeholder="0" min="0" step="0.01">
+                        <small style="color:#e65100;font-size:11px;">⚠️ Usa esto solo para corregir el stock manualmente.</small>
+                    </div>
                     <div class="form-group">
                         <label style="display:flex;align-items:center;justify-content:space-between;">Número de Lote <button type="button" onclick="autoGen('purchaseLotNumber','LOT')" style="font-size:.72em;padding:2px 8px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;cursor:pointer;">🔄 Auto</button></label>
                         <input type="text" id="purchaseLotNumber" placeholder="Ej: LOT-2025-001">
@@ -7602,16 +7607,22 @@
                 // Adjust remaining quantity
                 if (status === 'delivered') {
                     if (wasDelivered) {
-                        // If it was already delivered, adjust remaining by difference
                         const qtyDifference = qty - (purchase.qty - oldRemainingQty);
                         purchase.remainingQty = oldRemainingQty + qtyDifference;
                     } else {
-                        // If changed from pending to delivered
                         purchase.remainingQty = qty;
                     }
                 } else {
-                    // If changed to pending
                     purchase.remainingQty = 0;
+                }
+
+                // Manual override: if user entered a remainingQty correction, use it
+                const rqInput = document.getElementById('purchaseRemainingQty');
+                if (rqInput && rqInput.value !== '' && status === 'delivered') {
+                    const manualRQ = parseFloat(rqInput.value);
+                    if (!isNaN(manualRQ) && manualRQ >= 0) {
+                        purchase.remainingQty = manualRQ;
+                    }
                 }
 
                 showToast('Compra actualizada exitosamente', 'success');
@@ -7684,6 +7695,12 @@
             document.getElementById('purchaseTrackingNumber').value = purchase.trackingNumber || '';
 
             // Update UI for edit mode
+            // Show remaining qty correction field when editing
+            const rqGroup = document.getElementById('purchaseRemainingQtyGroup');
+            if (rqGroup) {
+                rqGroup.style.display = 'block';
+                document.getElementById('purchaseRemainingQty').value = purchase.remainingQty ?? purchase.qty;
+            }
             document.getElementById('purchaseSubmitBtn').textContent = '💾 Actualizar Compra';
             document.getElementById('purchaseCancelBtn').style.display = 'inline-block';
 
@@ -7698,6 +7715,8 @@
 
         function cancelEditPurchase() {
             editingPurchaseId = null;
+            const rqGroup = document.getElementById('purchaseRemainingQtyGroup');
+            if (rqGroup) rqGroup.style.display = 'none';
 
             // Clear form
             document.getElementById('purchaseProduct').value = '';
