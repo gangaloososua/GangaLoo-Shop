@@ -145,16 +145,15 @@ exports.handler = async (event) => {
               tracking_id: TRACKING_ID,
             };
             // Try SKU detail method
+            // Try SKU Dimension API - aliexpress.solution.sku.attribute.query
             const skuParams = {
               app_key: APP_KEY,
-              method: 'aliexpress.ds.product.get',
+              method: 'aliexpress.solution.sku.attribute.query',
               sign_method: 'md5',
               timestamp: getTimestamp(),
               v: '2.0',
               product_id: productId,
-              ship_to_country: 'US',
-              target_currency: 'USD',
-              target_language: 'en',
+              tracking_id: TRACKING_ID,
             };
             skuParams.sign = signRequest(skuParams);
             const r = await fetch(API_URL, {
@@ -162,7 +161,9 @@ exports.handler = async (event) => {
               headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
               body: new URLSearchParams(skuParams).toString()
             });
-            return r.json();
+            const skuData = await r.json();
+            console.log('[SKU API raw]', JSON.stringify(skuData).substring(0, 500));
+            return skuData;
           } catch(e) {
             return null;
           }
@@ -184,43 +185,25 @@ exports.handler = async (event) => {
       let variants = {};
       let skuList = [];
       try {
-        const dsResult = skuResp?.aliexpress_ds_product_get_response?.result;
-        if (dsResult) {
-          const skuInfo = dsResult.ae_item_sku_info_dtos?.ae_item_sku_info_d_t_o || [];
-          // Get property names from first SKU
-          const propNames = {};
-          if (skuInfo.length > 0) {
-            const firstSku = skuInfo[0];
-            (firstSku.ae_sku_property_dtos?.ae_sku_property_d_t_o || []).forEach(p => {
-              propNames[p.property_id] = p.sku_property_name;
-            });
-          }
-          // Group all unique values per property
-          skuInfo.forEach(sku => {
-            (sku.ae_sku_property_dtos?.ae_sku_property_d_t_o || []).forEach(prop => {
-              const name = prop.sku_property_name || propNames[prop.property_id] || ('Attr '+prop.property_id);
-              if (!variants[name]) variants[name] = [];
-              const val = prop.property_value_definition_name || prop.sku_property_value;
-              if (val && !variants[name].find(v => v.value === val)) {
-                variants[name].push({
-                  value: val,
-                  image: prop.sku_image || null
-                });
-              }
-            });
-            // Also collect SKU list with prices
-            skuList.push({
-              skuId: sku.sku_id,
-              price: sku.sku_price,
-              salePrice: sku.offer_sale_price,
-              stock: sku.sku_available_stock,
-              attrs: (sku.ae_sku_property_dtos?.ae_sku_property_d_t_o || []).map(p => ({
-                name: p.sku_property_name,
-                value: p.property_value_definition_name || p.sku_property_value
-              }))
-            });
+        // Log full SKU response to see structure
+        console.log('[SKU full resp]', JSON.stringify(skuResp || {}).substring(0, 800));
+        
+        // aliexpress.solution.sku.attribute.query response
+        const skuResult = skuResp?.aliexpress_solution_sku_attribute_query_response?.result;
+        if (skuResult) {
+          const propList = skuResult.sku_property_list?.sku_property || [];
+          propList.forEach(prop => {
+            const name = prop.sku_property_name;
+            const vals = prop.aeop_sku_property_value_dtos?.aeop_sku_property_value_d_t_o || [];
+            if (name && vals.length) {
+              variants[name] = vals.map(v => ({
+                value: v.sku_property_value_name || v.property_value_definition_name || '',
+                image: v.sku_image || null
+              })).filter(v => v.value);
+            }
           });
         }
+        console.log('[Variants]', JSON.stringify(variants).substring(0, 400));
       } catch(e) {
         console.error('SKU parse error:', e.message);
       }
