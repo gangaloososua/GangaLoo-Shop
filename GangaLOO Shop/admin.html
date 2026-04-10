@@ -9336,6 +9336,22 @@
             closeWriteOffModal();
         }
 
+        function overrideSaleTotal(id, currentTotal) {
+            const newTotal = parseFloat(prompt('Ingresa el nuevo Total de Venta (RD$):\n\nActual: $' + currentTotal.toFixed(2), currentTotal.toFixed(2)));
+            if (isNaN(newTotal) || newTotal < 0) { showToast('Valor inválido', 'error'); return; }
+            const sale = sales.find(s => String(s.id) === String(id));
+            if (!sale) return;
+            sale.totalSale = newTotal;
+            // Recalculate profit
+            sale.grossProfit = newTotal - (sale.fifoCost || 0);
+            sale.commissionPaid = newTotal * ((sale.commissionPercent || 0) / 100);
+            sale.netProfit = sale.grossProfit - sale.commissionPaid;
+            sale.profit = sale.netProfit;
+            saveData();
+            renderSales();
+            showToast('✅ Total actualizado a $' + newTotal.toFixed(2), 'success');
+        }
+
         function confirmDeleteSale(id) {
             const sale = sales.find(s => s.id === id);
             if (!sale) return;
@@ -9924,6 +9940,7 @@
                             <div><span style="color:#aaa;display:block;font-size:.85em;">Pendiente</span><strong style="color:#dc2626;">$${pending.toFixed(2)}</strong></div>`}
                             <div><span style="color:#aaa;display:block;font-size:.85em;">Comisión</span><strong style="color:#f39c12;">$${commissionPaid.toFixed(2)}</strong></div>
                             <div><span style="color:#aaa;display:block;font-size:.85em;">Ganancia</span><strong style="color:${netProfitColor};">$${netProfit.toFixed(2)}</strong></div>
+                            <div style="grid-column:1/-1;margin-top:4px;"><button onclick="overrideSaleTotal(${sale.id},${totalSale})" style="font-size:.75em;padding:5px 10px;border:1px solid #f59e0b;border-radius:7px;background:#fffbeb;color:#92400e;cursor:pointer;font-weight:600;">✏️ Corregir Total</button></div>
                             ${sale.seller ? `<div><span style="color:#aaa;display:block;font-size:.85em;">Vendedor</span><strong>${sale.seller}</strong></div>` : ''}
                             ${warehouse ? `<div><span style="color:#aaa;display:block;font-size:.85em;">Almacén</span><strong>${warehouse.name}</strong></div>` : ''}
                         </div>
