@@ -257,6 +257,8 @@ nav{background:var(--brand);color:#fff;padding:0 5vw;display:flex;align-items:ce
           <label>Descripción (opcional)</label>
           <textarea id="pDesc" placeholder="Descripción breve del producto..."></textarea>
         </div>
+        <input type="hidden" id="pVariants">
+        <div id="variantsPreview" style="margin-bottom:10px;"></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn-primary" onclick="saveProduct()" id="saveBtn">💾 Guardar Producto</button>
           <button class="btn-secondary" onclick="clearForm()">✕ Cancelar</button>
@@ -275,10 +277,12 @@ nav{background:var(--brand);color:#fff;padding:0 5vw;display:flex;align-items:ce
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<script src="/config.js"></script>
 <script>
 // ── CONFIG ──
-const SUPABASE_URL = 'https://xnbkwczolkinurohloxj.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes';
+// Credentials loaded from config.js (excluded from secrets scan)
+const SUPABASE_URL = window.GANGALOO_CONFIG?.supabaseUrl || '';
+const SUPABASE_KEY = window.GANGALOO_CONFIG?.supabaseKey || '';
 const ADMIN_PASSWORD = 'gangaloo2026';
 const API_FN = '/.netlify/functions/aliexpress-api';
 const TABLE = 'aliexpress_products';
@@ -357,6 +361,28 @@ function renderProducts(products) {
         ${p.category ? `<div class="pcard-cat">${p.category}</div>` : ''}
         <div class="pcard-name" title="${p.name}">${p.name}</div>
         ${stars ? `<div class="pcard-rating">${stars}</div>` : ''}
+        ${(() => {
+          if (!p.variants) return '';
+          const v = typeof p.variants === 'string' ? JSON.parse(p.variants) : p.variants;
+          const keys = Object.keys(v||{});
+          if (!keys.length) return '';
+          return '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;">' +
+            keys.map(k => {
+              const vals = v[k];
+              // Show color swatches if name includes color/color
+              const isColor = k.toLowerCase().includes('color') || k.toLowerCase().includes('colour');
+              if (isColor && vals.some(val => val.image)) {
+                return `<div style="font-size:.65em;color:var(--muted);">${k}: ` +
+                  vals.slice(0,6).map(val => val.image
+                    ? `<img src="${val.image}" title="${val.value}" style="width:14px;height:14px;border-radius:50%;object-fit:cover;display:inline-block;border:1px solid #ddd;vertical-align:middle;">`
+                    : `<span style="background:#f0f0f0;border-radius:3px;padding:1px 4px;">${val.value}</span>`
+                  ).join('') +
+                  (vals.length>6?` +${vals.length-6}`:'') + '</div>';
+              }
+              return `<div style="font-size:.65em;color:var(--muted);">${k}: <span style="color:var(--text);font-weight:500;">${vals.slice(0,4).map(v=>v.value).join(', ')}${vals.length>4?' +'+( vals.length-4):''}</span></div>`;
+            }).join('') +
+          '</div>';
+        })()}
       </div>
       <div class="pcard-foot">
         <div>
@@ -469,14 +495,25 @@ async function importFromAli() {
     document.getElementById('pAliUrl').value = p.product_detail_url || url;
     calcDOP();
 
+    // Save variants to hidden field
+    if (data.variants && Object.keys(data.variants).length) {
+      document.getElementById('pVariants').value = JSON.stringify(data.variants);
+      renderVariantsPreview(data.variants);
+    } else {
+      document.getElementById('pVariants').value = '';
+      document.getElementById('variantsPreview').innerHTML = '';
+    }
+
     // Show preview
+    const variantKeys = data.variants ? Object.keys(data.variants) : [];
     result.style.display = 'block';
     result.innerHTML = `<div style="display:flex;gap:12px;align-items:flex-start;">
       ${p.product_main_image_url ? `<img src="${p.product_main_image_url}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;flex-shrink:0;">` : ''}
-      <div>
+      <div style="flex:1;">
         <div style="font-weight:600;font-size:.88em;margin-bottom:4px;">${p.product_title}</div>
         <div style="font-size:.78em;color:var(--muted);">Precio AliExpress: $${p.target_sale_price} USD</div>
         ${p.commission_rate ? `<div style="font-size:.75em;color:#166534;">Comisión: ${p.commission_rate}</div>` : ''}
+        ${variantKeys.length ? `<div style="font-size:.75em;color:#0369a1;margin-top:4px;">✅ Variantes encontradas: ${variantKeys.join(', ')}</div>` : '<div style="font-size:.75em;color:#aaa;margin-top:4px;">Sin variantes detectadas</div>'}
       </div>
     </div>`;
     toast('✅ Producto encontrado — revisa y ajusta el precio en RD$');
@@ -502,6 +539,10 @@ async function saveProduct() {
   const priceDOP = parseInt(document.getElementById('pPriceDOP').value) || 0;
   if (!name || !priceDOP) { toast('Nombre y precio DOP son obligatorios'); return; }
 
+  const variantsRaw = document.getElementById('pVariants').value;
+  let variants = null;
+  try { variants = variantsRaw ? JSON.parse(variantsRaw) : null; } catch(e) {}
+
   const payload = {
     name,
     category: document.getElementById('pCat').value.trim() || null,
@@ -510,6 +551,7 @@ async function saveProduct() {
     image_url: document.getElementById('pImage').value.trim() || null,
     ali_url: document.getElementById('pAliUrl').value.trim() || null,
     description: document.getElementById('pDesc').value.trim() || null,
+    variants: variants,
     active: true
   };
 
@@ -534,13 +576,30 @@ async function saveProduct() {
   loadProducts();
 }
 
+function renderVariantsPreview(variants) {
+  const el = document.getElementById('variantsPreview');
+  if (!el || !variants) return;
+  const keys = Object.keys(variants);
+  if (!keys.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="background:#f0f8ff;border:1.5px solid #c7d2fe;border-radius:9px;padding:12px;font-size:.82em;">' +
+    '<div style="font-weight:700;color:#0369a1;margin-bottom:8px;">🎨 Variantes detectadas</div>' +
+    keys.map(k => {
+      const vals = variants[k];
+      return `<div style="margin-bottom:6px;"><span style="font-weight:600;color:#374151;">${k}:</span> ` +
+        vals.map(v => `<span style="background:white;border:1px solid #e5e7eb;border-radius:6px;padding:2px 8px;margin:2px;display:inline-block;">${v.value}</span>`).join('') +
+        '</div>';
+    }).join('') +
+  '</div>';
+}
+
 function clearForm() {
   editingId = null;
-  ['pName','pCat','pPriceUSD','pPriceDOP','pImage','pAliUrl','pDesc','aliUrl'].forEach(id => {
+  ['pName','pCat','pPriceUSD','pPriceDOP','pImage','pAliUrl','pDesc','aliUrl','pVariants'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
   document.getElementById('importResult').style.display = 'none';
+  document.getElementById('variantsPreview').innerHTML = '';
   document.getElementById('saveBtn').textContent = '💾 Guardar Producto';
 }
 
@@ -579,6 +638,9 @@ async function editProduct(id) {
   document.getElementById('pImage').value = data.image_url || '';
   document.getElementById('pAliUrl').value = data.ali_url || '';
   document.getElementById('pDesc').value = data.description || '';
+  const v = data.variants;
+  document.getElementById('pVariants').value = v ? JSON.stringify(v) : '';
+  if (v) renderVariantsPreview(typeof v === 'string' ? JSON.parse(v) : v);
   document.getElementById('saveBtn').textContent = '💾 Actualizar Producto';
   document.getElementById('pName').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
