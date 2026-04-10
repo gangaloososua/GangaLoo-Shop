@@ -14191,6 +14191,7 @@
                                 <span style="color:${totalPending>0.005?'#dc3545':'#6c757d'};">Pendiente: <strong>$${totalPending.toFixed(2)}</strong></span>
                             </div>
                         </div>
+                        <button onclick="generateSellerStatement(${seller.id})" style="background:#002D62;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:.82em;font-weight:700;cursor:pointer;white-space:nowrap;">📄 Estado de Cuenta PDF</button>
                     </div>
                     <div style="overflow-x:auto;"><table>
                         <thead><tr>
@@ -14274,6 +14275,198 @@
                     </div>`;
                 document.body.appendChild(modal);
             }
+        }
+
+        function generateSellerStatement(sellerId) {
+            const seller = customers.find(c => c.id === sellerId);
+            if (!seller) return;
+
+            const fmt = v => 'RD$ ' + Number(v||0).toLocaleString('es-DO',{minimumFractionDigits:2});
+            const fmtDate = d => d ? new Date(d).toLocaleDateString('es-DO',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+            const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+            // Gather all seller sales
+            const sellerSales = sales.filter(s => String(s.sellerId) === String(sellerId))
+                .sort((a,b) => new Date(a.date) - new Date(b.date));
+
+            // Gather all payments linked to seller sales
+            const saleIds = new Set(sellerSales.map(s => String(s.id)));
+            const sellerPayments = payments.filter(p => saleIds.has(String(p.saleId)))
+                .sort((a,b) => new Date(a.date) - new Date(b.date));
+
+            // Gather commission payouts to this seller
+            const sellerPayouts = commissionPayouts.filter(p => String(p.sellerId) === String(sellerId))
+                .sort((a,b) => new Date(a.date) - new Date(b.date));
+
+            // Group everything by month
+            const months = {};
+            const addToMonth = (dateStr, type, data) => {
+                const d = new Date(dateStr);
+                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                const label = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+                if (!months[key]) months[key] = { label, key, items:[] };
+                months[key].items.push({ date: dateStr, type, ...data });
+            };
+
+            sellerSales.forEach(s => {
+                const product = products.find(p => p.id === s.productId);
+                const paid = payments.filter(p => String(p.saleId)===String(s.id)).reduce((sum,p)=>sum+p.amount,0);
+                const pending = (s.totalSale||0) - paid;
+                addToMonth(s.date, 'sale', {
+                    ref: s.invoiceNumber||('SALE-'+s.id),
+                    desc: product ? product.name : 'Producto',
+                    qty: s.qty||1,
+                    total: s.totalSale||0,
+                    paid,
+                    pending,
+                    commission: s.commissionPaid||0,
+                    notes: s.notes||''
+                });
+            });
+
+            sellerPayments.forEach(p => {
+                const sale = sales.find(s => String(s.id)===String(p.saleId));
+                addToMonth(p.date, 'payment', {
+                    ref: sale ? (sale.invoiceNumber||'SALE-'+sale.id) : '—',
+                    desc: 'Pago recibido',
+                    amount: p.amount,
+                    method: p.method||'',
+                    reference: p.reference||''
+                });
+            });
+
+            sellerPayouts.forEach(p => {
+                addToMonth(p.date, 'payout', {
+                    ref: p.monthKey||'',
+                    desc: 'Pago de comisión',
+                    amount: p.amount,
+                    note: p.note||''
+                });
+            });
+
+            // Totals
+            const totalSales = sellerSales.reduce((s,v)=>s+(v.totalSale||0),0);
+            const totalPaid = sellerPayments.reduce((s,p)=>s+p.amount,0);
+            const totalPending = sellerSales.reduce((s,v)=>{
+                const paid = payments.filter(p=>String(p.saleId)===String(v.id)).reduce((sum,p)=>sum+p.amount,0);
+                return s+Math.max(0,(v.totalSale||0)-paid);
+            },0);
+            const totalComm = sellerSales.reduce((s,v)=>s+(v.commissionPaid||0),0);
+            const totalPayouts = sellerPayouts.reduce((s,p)=>s+p.amount,0);
+            const commPending = totalComm - totalPayouts;
+
+            const dateStr = new Date().toLocaleDateString('es-DO',{day:'2-digit',month:'long',year:'numeric'});
+
+            // Build HTML rows by month
+            let bodyHTML = '';
+            Object.keys(months).sort().reverse().forEach(key => {
+                const mo = months[key];
+                const moSales = mo.items.filter(i=>i.type==='sale');
+                const moPays = mo.items.filter(i=>i.type==='payment');
+                const moPayouts = mo.items.filter(i=>i.type==='payout');
+                const moTotalSales = moSales.reduce((s,i)=>s+i.total,0);
+                const moTotalPaid = moPays.reduce((s,i)=>s+i.amount,0);
+                const moTotalComm = moSales.reduce((s,i)=>s+i.commission,0);
+                const moPayoutAmt = moPayouts.reduce((s,i)=>s+i.amount,0);
+
+                bodyHTML += `<div style="margin-bottom:28px;">
+                    <div style="background:#002D62;color:white;padding:8px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:14px;display:flex;justify-content:space-between;">
+                        <span>${mo.label}</span>
+                        <span style="font-size:12px;opacity:.8;">Ventas: RD$ ${moTotalSales.toLocaleString('es-DO',{minimumFractionDigits:2})} · Comisión: RD$ ${moTotalComm.toLocaleString('es-DO',{minimumFractionDigits:2})}</span>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #ddd;">
+                        <thead><tr style="background:#f0f4ff;">
+                            <th style="padding:7px 10px;text-align:left;border-bottom:1px solid #ddd;">Fecha</th>
+                            <th style="padding:7px 10px;text-align:left;border-bottom:1px solid #ddd;">Referencia</th>
+                            <th style="padding:7px 10px;text-align:left;border-bottom:1px solid #ddd;">Descripción</th>
+                            <th style="padding:7px 10px;text-align:right;border-bottom:1px solid #ddd;">Total Venta</th>
+                            <th style="padding:7px 10px;text-align:right;border-bottom:1px solid #ddd;">Pagado</th>
+                            <th style="padding:7px 10px;text-align:right;border-bottom:1px solid #ddd;">Pendiente</th>
+                            <th style="padding:7px 10px;text-align:right;border-bottom:1px solid #ddd;">Comisión</th>
+                        </tr></thead>
+                        <tbody>`;
+
+                moSales.forEach((i,idx) => {
+                    bodyHTML += `<tr style="${idx%2?'background:#fdfcfb':''}">
+                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;">${fmtDate(i.date)}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;color:#002D62;font-weight:600;">${i.ref}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;">${i.desc}${i.qty>1?' (×'+i.qty+')':''}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;text-align:right;font-weight:600;">${fmt(i.total)}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;text-align:right;color:#166534;">${fmt(i.paid)}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;text-align:right;color:${i.pending>0?'#dc2626':'#166534'};">${fmt(i.pending)}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;text-align:right;color:#f39c12;font-weight:600;">${fmt(i.commission)}</td>
+                    </tr>`;
+                });
+
+                if (moPays.length) {
+                    bodyHTML += `<tr><td colspan="7" style="padding:4px 10px;background:#e8f5e9;font-size:11px;font-weight:700;color:#166534;">💳 PAGOS RECIBIDOS</td></tr>`;
+                    moPays.forEach(i => {
+                        bodyHTML += `<tr style="background:#f0fdf4;">
+                            <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;">${fmtDate(i.date)}</td>
+                            <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;color:#166534;">${i.ref}</td>
+                            <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;">${i.desc} ${i.method?'· '+i.method:''} ${i.reference?'· Ref: '+i.reference:''}</td>
+                            <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;text-align:right;" colspan="2"><strong style="color:#166534;">${fmt(i.amount)}</strong></td>
+                            <td colspan="2" style="padding:6px 10px;border-bottom:1px solid #f0ede8;"></td>
+                        </tr>`;
+                    });
+                }
+
+                if (moPayouts.length) {
+                    bodyHTML += `<tr><td colspan="7" style="padding:4px 10px;background:#fff8e1;font-size:11px;font-weight:700;color:#f39c12;">💸 PAGOS DE COMISIÓN</td></tr>`;
+                    moPayouts.forEach(i => {
+                        bodyHTML += `<tr style="background:#fffbeb;">
+                            <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;">${fmtDate(i.date)}</td>
+                            <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;color:#f39c12;">${i.ref}</td>
+                            <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;">${i.desc} ${i.note?'· '+i.note:''}</td>
+                            <td colspan="3" style="padding:6px 10px;border-bottom:1px solid #f0ede8;text-align:right;"><strong style="color:#f39c12;">${fmt(i.amount)}</strong></td>
+                            <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;"></td>
+                        </tr>`;
+                    });
+                }
+
+                // Month subtotal
+                bodyHTML += `<tr style="background:#f8f6f3;font-weight:700;border-top:2px solid #ddd;">
+                    <td colspan="3" style="padding:8px 10px;">Subtotal ${mo.label}</td>
+                    <td style="padding:8px 10px;text-align:right;">${fmt(moTotalSales)}</td>
+                    <td style="padding:8px 10px;text-align:right;color:#166534;">${fmt(moTotalPaid)}</td>
+                    <td style="padding:8px 10px;text-align:right;color:#dc2626;">${fmt(moTotalSales-moTotalPaid)}</td>
+                    <td style="padding:8px 10px;text-align:right;color:#f39c12;">${fmt(moTotalComm)}</td>
+                </tr>`;
+                bodyHTML += `</tbody></table></div>`;
+            });
+
+            const win = window.open('', '_blank');
+            win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+                <title>Estado de Cuenta — ${seller.name}</title>
+                <style>
+                    body{font-family:Arial,sans-serif;padding:30px;color:#222;font-size:13px;}
+                    h1{color:#002D62;margin-bottom:2px;font-size:20px;}
+                    .sub{color:#888;font-size:12px;margin-bottom:20px;}
+                    .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;}
+                    .scard{background:#f8f9fa;border-radius:8px;padding:12px 14px;text-align:center;border:1px solid #e0e0e0;}
+                    .scard .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#999;margin-bottom:4px;}
+                    .scard .val{font-size:16px;font-weight:800;}
+                    @media print{button{display:none!important} body{padding:15px;}}
+                </style></head><body>
+                <button onclick="window.print()" style="float:right;background:#002D62;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;">🖨️ Imprimir / Guardar PDF</button>
+                <h1>📋 Estado de Cuenta — ${seller.name}</h1>
+                <div class="sub">
+                    ${seller.phone ? '📱 '+seller.phone+' &nbsp;|&nbsp;' : ''}
+                    ${seller.email ? '✉️ '+seller.email+' &nbsp;|&nbsp;' : ''}
+                    Generado: ${dateStr}
+                </div>
+                <div class="summary">
+                    <div class="scard"><div class="lbl">Total Ventas</div><div class="val" style="color:#002D62;">RD$ ${totalSales.toLocaleString('es-DO',{minimumFractionDigits:2})}</div></div>
+                    <div class="scard"><div class="lbl">Cobrado</div><div class="val" style="color:#166534;">RD$ ${totalPaid.toLocaleString('es-DO',{minimumFractionDigits:2})}</div></div>
+                    <div class="scard"><div class="lbl">Pendiente Cliente</div><div class="val" style="color:#dc2626;">RD$ ${totalPending.toLocaleString('es-DO',{minimumFractionDigits:2})}</div></div>
+                    <div class="scard"><div class="lbl">Comisión Pendiente</div><div class="val" style="color:#f39c12;">RD$ ${Math.max(0,commPending).toLocaleString('es-DO',{minimumFractionDigits:2})}</div></div>
+                </div>
+                ${bodyHTML}
+                <div style="margin-top:24px;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:12px;">
+                    GangaLoo · Estado de cuenta generado el ${dateStr}
+                </div>
+                </body></html>`);
+            win.document.close();
         }
 
         let _payoutContext = {};
