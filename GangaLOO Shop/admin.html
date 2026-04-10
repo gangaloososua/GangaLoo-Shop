@@ -1747,6 +1747,10 @@
               <label>Nota (opcional)</label>
               <input type="text" id="exchangeNote" placeholder="Ej: Producto defectuoso, cliente cambió por otro color" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:9px;font-size:.9em;">
             </div>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:#fff8f0;border:1.5px solid #f59e0b;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+              <input type="checkbox" id="exchangeWriteOff" style="width:16px;height:16px;cursor:pointer;accent-color:#92400e;">
+              <span style="font-size:.88em;"><strong>⚠️ Dar de baja el producto original</strong> — el stock NO se restaura (producto dañado/perdido)</span>
+            </label>
             <div style="display:flex;gap:10px;">
               <button onclick="confirmExchange()" class="btn btn-primary" style="flex:1;">✅ Confirmar Intercambio</button>
               <button onclick="closeExchangeModal()" class="btn btn-secondary">Cancelar</button>
@@ -9114,16 +9118,19 @@
                 showToast('Stock insuficiente para el nuevo producto (disponible: ' + newStock + ')', 'error'); return;
             }
 
-            // 1. Restore stock for old product
-            if (sale.lotsUsed && Array.isArray(sale.lotsUsed)) {
+            // 1. Restore stock for old product ONLY if not writing it off
+            const writeOff = document.getElementById('exchangeWriteOff').checked;
+            if (!writeOff && sale.lotsUsed && Array.isArray(sale.lotsUsed)) {
                 sale.lotsUsed.forEach(lu => {
                     const lot = purchases.find(p => p.id === (lu.purchaseId || lu.lotId));
                     if (lot) lot.remainingQty = (lot.remainingQty || 0) + lu.qtyUsed;
                 });
             }
 
-            // 2. Mark old sale as exchanged
-            sale.status = 'exchanged';
+            // 2. Mark old sale as exchanged (and written off if checked)
+            sale.status = writeOff ? 'written_off' : 'exchanged';
+            sale.writeOffType = writeOff ? 'damaged' : undefined;
+            sale.writeOffReason = writeOff ? (note || 'Intercambio — producto dado de baja') : undefined;
             sale.exchangeNote = note || 'Intercambio';
             sale.exchangedAt = new Date().toISOString();
 
