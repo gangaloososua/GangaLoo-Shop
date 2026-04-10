@@ -3636,10 +3636,6 @@
         }
 
         function sellerInvPDF() {
-            // Debug
-            console.log('[PDF] products='+_sellerProducts.length+' purchases='+_sellerPurchases.length+' warehouses='+_sellerWarehouses.length);
-            console.log('[PDF] sample purchase:', _sellerPurchases[0]);
-            console.log('[PDF] sample product:', _sellerProducts[0]);
             if (!_sellerProducts || !_sellerProducts.length) {
                 showToast('Cargando datos... espera un momento e intenta de nuevo.', 'error');
                 return;
@@ -3659,7 +3655,12 @@
             _sellerProducts.forEach(function(p) {
                 if (q && !p.name.toLowerCase().includes(q) && !(p.sku||'').toLowerCase().includes(q)) return;
                 var pCatIds = (p.categoryIds&&p.categoryIds.length ? p.categoryIds : [p.categoryId]).map(String);
-                if (catFilter !== 'all' && !pCatIds.includes(catFilter)) return;
+                if (catFilter !== 'all') {
+                    // Also match subcategories of selected parent
+                    const subIds = _sellerCategories.filter(function(c){ return String(c.parentId) === catFilter; }).map(function(c){ return String(c.id); });
+                    const allIds = [catFilter].concat(subIds);
+                    if (!pCatIds.some(function(id){ return allIds.includes(id); })) return;
+                }
                 var total = whs.reduce(function(s,w){ return s+getStock(p.id,w.id); }, 0);
                 var cat = _sellerCategories.find(function(c){ return pCatIds.includes(String(c.id)); });
                 var catName = cat ? ((cat.icon||'') + ' ' + cat.name) : 'Sin categoría';
