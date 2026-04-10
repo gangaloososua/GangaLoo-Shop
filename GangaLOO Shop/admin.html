@@ -1723,9 +1723,14 @@
             <div id="exchangeOrigInfo" style="background:#f0f4ff;border-radius:10px;padding:12px;margin-bottom:16px;font-size:.88em;"></div>
             <div class="form-group">
               <label>Nuevo Producto</label>
-              <select id="exchangeNewProduct" onchange="calcExchangeDiff()" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:9px;font-size:.9em;">
-                <option value="">Seleccionar producto...</option>
-              </select>
+              <input type="text" id="exchangeProductSearch" placeholder="🔍 Buscar por nombre o SKU..." oninput="filterExchangeProducts()"
+                style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:9px;font-size:.9em;margin-bottom:6px;">
+              <div id="exchangeProductResults" style="max-height:180px;overflow-y:auto;border:1.5px solid #ddd;border-radius:9px;background:white;display:none;"></div>
+              <input type="hidden" id="exchangeNewProduct">
+              <div id="exchangeSelectedProduct" style="display:none;background:#f0f4ff;border:1.5px solid #c7d2fe;border-radius:9px;padding:8px 12px;font-size:.85em;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;">
+                <span id="exchangeSelectedProductName" style="font-weight:600;"></span>
+                <span onclick="clearExchangeProduct()" style="cursor:pointer;color:#dc2626;font-size:1.1em;">✕</span>
+              </div>
             </div>
             <div class="form-group">
               <label>Almacén</label>
@@ -9021,6 +9026,56 @@
             showToast('Venta actualizada ✓', 'success');
         }
 
+        function filterExchangeProducts() {
+            const q = document.getElementById('exchangeProductSearch').value.toLowerCase().trim();
+            const results = document.getElementById('exchangeProductResults');
+            if (!q) { results.style.display = 'none'; return; }
+            const matched = products.filter(p =>
+                p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q)
+            ).slice(0, 15);
+            if (!matched.length) {
+                results.innerHTML = '<div style="padding:12px;font-size:.85em;color:#aaa;text-align:center;">Sin resultados</div>';
+            } else {
+                results.innerHTML = matched.map(p => {
+                    const wh = document.getElementById('exchangeNewWarehouse').value;
+                    const stock = wh ? getWarehouseProductStock(parseInt(wh), p.id) : 0;
+                    return `<div onclick="selectExchangeProduct(${p.id},'${p.name.replace(/'/g,"\'")}',${p.price||0})"
+                        style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0ede8;font-size:.85em;display:flex;justify-content:space-between;align-items:center;"
+                        onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='white'">
+                        <div>
+                            <div style="font-weight:600;">${p.name}</div>
+                            ${p.sku ? `<div style="font-size:.75em;color:#aaa;">SKU: ${p.sku}</div>` : ''}
+                        </div>
+                        <div style="font-size:.78em;color:${stock>0?'#166534':'#dc2626'};font-weight:700;flex-shrink:0;margin-left:8px;">
+                            ${stock} en stock
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+            results.style.display = 'block';
+        }
+
+        function selectExchangeProduct(id, name, price) {
+            document.getElementById('exchangeNewProduct').value = id;
+            document.getElementById('exchangeProductSearch').value = '';
+            document.getElementById('exchangeProductResults').style.display = 'none';
+            document.getElementById('exchangeSelectedProductName').textContent = name;
+            const sel = document.getElementById('exchangeSelectedProduct');
+            sel.style.display = 'flex';
+            // Auto-fill price if empty
+            if (!document.getElementById('exchangeNewPrice').value) {
+                document.getElementById('exchangeNewPrice').value = price || '';
+            }
+            calcExchangeDiff();
+        }
+
+        function clearExchangeProduct() {
+            document.getElementById('exchangeNewProduct').value = '';
+            document.getElementById('exchangeSelectedProduct').style.display = 'none';
+            document.getElementById('exchangeProductSearch').value = '';
+            document.getElementById('exchangeDiffBox').style.display = 'none';
+        }
+
         // ── EXCHANGE ──
         let _exchangeSaleId = null;
 
@@ -9036,10 +9091,11 @@
                 <div>Producto: <strong>${product ? product.name : '—'}</strong></div>
                 <div>Qty: ${sale.qty} · Precio: $${(sale.price||0).toFixed(2)} · Total: $${origTotal.toFixed(2)}</div>`;
 
-            // Populate product dropdown
-            const pSel = document.getElementById('exchangeNewProduct');
-            pSel.innerHTML = '<option value="">Seleccionar producto...</option>' +
-                products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+            // Clear product search
+            document.getElementById('exchangeProductSearch').value = '';
+            document.getElementById('exchangeNewProduct').value = '';
+            document.getElementById('exchangeProductResults').style.display = 'none';
+            document.getElementById('exchangeSelectedProduct').style.display = 'none';
 
             // Populate warehouse dropdown
             const wSel = document.getElementById('exchangeNewWarehouse');
