@@ -3636,6 +3636,15 @@
         }
 
         function sellerInvPDF() {
+            // Guard: make sure data is loaded
+            if (!_sellerProducts || !_sellerProducts.length) {
+                showToast('Cargando datos... espera un momento e intenta de nuevo.', 'error');
+                return;
+            }
+            if (!_sellerPurchases || !_sellerPurchases.length) {
+                showToast('No hay datos de stock disponibles.', 'error');
+                return;
+            }
             const whs = document.getElementById('sellerInvWH').value === 'all' ? _sellerWarehouses : _sellerWarehouses.filter(function(w){ return String(w.id) === document.getElementById('sellerInvWH').value; });
             const q = (document.getElementById('sellerInvSearch').value || '').toLowerCase();
             const catFilter = document.getElementById('sellerInvCat').value;
@@ -3653,7 +3662,6 @@
                 var pCatIds = (p.categoryIds&&p.categoryIds.length ? p.categoryIds : [p.categoryId]).map(String);
                 if (catFilter !== 'all' && !pCatIds.includes(catFilter)) return;
                 var total = whs.reduce(function(s,w){ return s+getStock(p.id,w.id); }, 0);
-                if (total === 0) return;
                 var cat = _sellerCategories.find(function(c){ return pCatIds.includes(String(c.id)); });
                 var catName = cat ? ((cat.icon||'') + ' ' + cat.name) : 'Sin categoría';
                 if (!byCategory[catName]) byCategory[catName] = [];
