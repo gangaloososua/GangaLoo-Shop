@@ -3636,13 +3636,12 @@
         }
 
         function sellerInvPDF() {
-            // Guard: make sure data is loaded
+            // Debug
+            console.log('[PDF] products='+_sellerProducts.length+' purchases='+_sellerPurchases.length+' warehouses='+_sellerWarehouses.length);
+            console.log('[PDF] sample purchase:', _sellerPurchases[0]);
+            console.log('[PDF] sample product:', _sellerProducts[0]);
             if (!_sellerProducts || !_sellerProducts.length) {
                 showToast('Cargando datos... espera un momento e intenta de nuevo.', 'error');
-                return;
-            }
-            if (!_sellerPurchases || !_sellerPurchases.length) {
-                showToast('No hay datos de stock disponibles.', 'error');
                 return;
             }
             const whs = document.getElementById('sellerInvWH').value === 'all' ? _sellerWarehouses : _sellerWarehouses.filter(function(w){ return String(w.id) === document.getElementById('sellerInvWH').value; });
