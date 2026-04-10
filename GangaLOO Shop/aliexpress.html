@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tienda AliExpress — GangaLoo</title>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-2EX25TXEFJ"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-2EX25TXEFJ');
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --brand:#002D62;--gold:#CF142B;--cream:#faf8f5;
+  --text:#002D62;--muted:#6b7280;--border:#e5e7eb;
+  --white:#fff;--green:#166534;--red:#CF142B;
+  --surface:#fff;--surface2:#f8f6f3;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--text);-webkit-font-smoothing:antialiased;}
+a{color:inherit;text-decoration:none;}
+
+/* NAV */
+nav{background:var(--brand);color:#fff;padding:0 5vw;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:'Cormorant Garamond',serif;font-size:1.4em;font-weight:600;letter-spacing:.02em;}
+.nav-logo span{color:#CF142B;}
+.nav-links{display:flex;gap:20px;font-size:.85em;}
+.nav-links a{opacity:.8;transition:opacity .2s;}
+.nav-links a:hover{opacity:1;}
+.cart-pill{background:#CF142B;color:#fff;border-radius:20px;padding:6px 14px;font-size:.82em;font-weight:700;cursor:pointer;border:none;font-family:'Jost',sans-serif;}
+
+/* HERO */
+.hero{background:linear-gradient(135deg,#002D62 0%,#1a4a8a 100%);color:#fff;padding:60px 5vw 50px;text-align:center;}
+.hero-tag{font-size:.72em;font-weight:700;text-transform:uppercase;letter-spacing:.12em;opacity:.7;margin-bottom:12px;}
+.hero h1{font-family:'Cormorant Garamond',serif;font-size:clamp(2em,5vw,3.2em);font-weight:400;line-height:1.1;margin-bottom:12px;}
+.hero h1 em{color:#CF142B;font-style:italic;}
+.hero p{opacity:.75;font-size:.95em;max-width:500px;margin:0 auto 24px;}
+.hero-note{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:6px 16px;font-size:.78em;}
+
+/* SEARCH/FILTER */
+.filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 5vw;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.search-input{flex:1;min-width:200px;padding:9px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:'Jost',sans-serif;font-size:.9em;background:var(--surface2);color:var(--text);}
+.search-input:focus{outline:none;border-color:var(--brand);}
+.cat-filter{padding:8px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:'Jost',sans-serif;font-size:.85em;background:var(--surface2);color:var(--text);}
+
+/* GRID */
+.products-section{padding:32px 5vw;}
+.section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px;}
+.section-hdr h2{font-family:'Cormorant Garamond',serif;font-size:1.6em;font-weight:600;}
+.prod-count{font-size:.8em;color:var(--muted);}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;}
+
+/* PRODUCT CARD */
+.pcard{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:transform .2s,box-shadow .2s;display:flex;flex-direction:column;}
+.pcard:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,45,98,.12);}
+.pcard-img{position:relative;aspect-ratio:1;overflow:hidden;background:var(--surface2);}
+.pcard-img img{width:100%;height:100%;object-fit:cover;}
+.pcard-img .ali-badge{position:absolute;top:8px;left:8px;background:#e62f01;color:#fff;font-size:.6em;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.04em;}
+.pcard-img .disc-badge{position:absolute;top:8px;right:8px;background:#CF142B;color:#fff;font-size:.65em;font-weight:700;padding:2px 7px;border-radius:10px;}
+.pcard-body{padding:12px 14px;flex:1;}
+.pcard-cat{font-size:.65em;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px;}
+.pcard-name{font-size:.88em;font-weight:600;line-height:1.35;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.pcard-rating{font-size:.72em;color:#f59e0b;margin-bottom:4px;}
+.pcard-foot{padding:10px 14px;background:var(--surface2);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.pcard-price{font-family:'Cormorant Garamond',serif;font-size:1.2em;font-weight:600;color:var(--brand);}
+.pcard-orig{font-size:.75em;color:var(--muted);text-decoration:line-through;}
+.add-btn{width:34px;height:34px;border-radius:50%;background:var(--brand);color:#fff;border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
+.add-btn:hover{background:#CF142B;transform:scale(1.1);}
+.view-btn{font-size:.72em;color:var(--muted);text-decoration:underline;cursor:pointer;flex-shrink:0;}
+
+/* EMPTY */
+.empty{text-align:center;padding:80px 20px;color:var(--muted);}
+.empty-ico{font-size:3em;margin-bottom:12px;}
+
+/* CART PANEL */
+.cart-ovl{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:none;}
+.cart-ovl.open{display:block;}
+.cart-bar{position:fixed;right:0;top:0;bottom:0;width:min(380px,100vw);background:var(--surface);z-index:301;transform:translateX(100%);transition:transform .3s;display:flex;flex-direction:column;}
+.cart-bar.open{transform:translateX(0);}
+.cart-hdr{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.cart-hdr h3{font-family:'Cormorant Garamond',serif;font-size:1.2em;}
+.cart-close{background:none;border:none;font-size:1.3em;cursor:pointer;color:var(--muted);}
+.cart-body{flex:1;overflow-y:auto;padding:16px;}
+.cart-foot{padding:16px 20px;border-top:1px solid var(--border);}
+.cart-total-row{display:flex;justify-content:space-between;font-weight:700;font-size:1.05em;margin-bottom:14px;}
+.checkout-btn{width:100%;padding:13px;background:var(--brand);color:#fff;border:none;border-radius:10px;font-family:'Jost',sans-serif;font-size:.95em;font-weight:700;cursor:pointer;transition:background .2s;}
+.checkout-btn:hover{background:#CF142B;}
+.citem{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.citem-img{width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--surface2);}
+.citem-info{flex:1;min-width:0;}
+.citem-name{font-size:.82em;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.citem-price{font-size:.78em;color:var(--muted);margin-top:2px;}
+.citem-ctrl{display:flex;align-items:center;gap:6px;margin-top:6px;}
+.qty-btn{width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;}
+.qty-n{font-size:.82em;font-weight:700;min-width:18px;text-align:center;}
+.rm-btn{font-size:12px;color:var(--muted);cursor:pointer;margin-left:4px;background:none;border:none;}
+
+/* ADMIN PANEL */
+.admin-toggle{position:fixed;bottom:20px;right:20px;background:var(--brand);color:#fff;border:none;border-radius:50%;width:48px;height:48px;font-size:1.2em;cursor:pointer;box-shadow:0 4px 12px rgba(0,45,98,.3);z-index:200;}
+.admin-panel{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;display:none;align-items:center;justify-content:center;padding:20px;}
+.admin-panel.open{display:flex;}
+.admin-box{background:var(--surface);border-radius:16px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;padding:24px;}
+.admin-box h2{font-family:'Cormorant Garamond',serif;font-size:1.4em;margin-bottom:6px;}
+.admin-box .sub{font-size:.82em;color:var(--muted);margin-bottom:20px;}
+.form-group{margin-bottom:14px;}
+.form-group label{display:block;font-size:.78em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px;}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Jost',sans-serif;font-size:.9em;background:var(--surface2);color:var(--text);}
+.form-group input:focus,.form-group textarea:focus{outline:none;border-color:var(--brand);}
+.form-group textarea{min-height:60px;resize:vertical;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.btn-primary{background:var(--brand);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-family:'Jost',sans-serif;font-size:.88em;font-weight:700;cursor:pointer;transition:background .2s;}
+.btn-primary:hover{background:#1a4a8a;}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1.5px solid var(--border);border-radius:9px;padding:10px 18px;font-family:'Jost',sans-serif;font-size:.88em;font-weight:600;cursor:pointer;}
+.btn-danger{background:#dc2626;color:#fff;border:none;border-radius:9px;padding:8px 14px;font-family:'Jost',sans-serif;font-size:.82em;font-weight:700;cursor:pointer;}
+.ali-import-result{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:12px;display:none;}
+.admin-products{margin-top:20px;border-top:1px solid var(--border);padding-top:16px;}
+.admin-prod-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.admin-prod-img{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--surface2);flex-shrink:0;}
+.admin-prod-info{flex:1;min-width:0;}
+.admin-prod-name{font-size:.82em;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.admin-prod-price{font-size:.75em;color:var(--muted);}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:10px;font-size:.85em;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;}
+.toast.show{opacity:1;}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--brand);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Ganga<span>Loo</span> <span style="font-size:.6em;opacity:.7;font-family:'Jost',sans-serif;font-weight:400;">× AliExpress</span></div>
+  <div class="nav-links">
+    <a href="/store.html">← Tienda</a>
+    <a href="/">Inicio</a>
+  </div>
+  <button class="cart-pill" onclick="openCart()">🛒 <span id="cartCount">0</span></button>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">Catálogo AliExpress</div>
+  <h1>Compra desde <em>AliExpress</em><br>con precio en RD$</h1>
+  <p>Selecciona productos, agrega al carrito y coordina tu pedido por WhatsApp. Nosotros hacemos la compra por ti.</p>
+  <div class="hero-note">🚚 Envío incluido · 💳 Paga en RD$ · 📦 Recíbelo en tu puerta</div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  <input class="search-input" id="searchInput" type="text" placeholder="Buscar productos..." oninput="filterProducts()">
+  <select class="cat-filter" id="catFilter" onchange="filterProducts()">
+    <option value="">Todas las categorías</option>
+  </select>
+</div>
+
+<!-- PRODUCTS -->
+<div class="products-section">
+  <div class="section-hdr">
+    <h2>Productos Disponibles</h2>
+    <span class="prod-count" id="prodCount"></span>
+  </div>
+  <div class="grid" id="prodGrid">
+    <div class="empty"><div class="empty-ico">⏳</div><p>Cargando productos...</p></div>
+  </div>
+</div>
+
+<!-- CART -->
+<div class="cart-ovl" id="cartOvl" onclick="closeCart()"></div>
+<div class="cart-bar" id="cartBar">
+  <div class="cart-hdr">
+    <h3>Tu Carrito</h3>
+    <button class="cart-close" onclick="closeCart()">✕</button>
+  </div>
+  <div class="cart-body" id="cartBody">
+    <div style="text-align:center;padding:40px;color:var(--muted);">Tu carrito está vacío</div>
+  </div>
+  <div class="cart-foot" id="cartFoot" style="display:none;">
+    <div class="cart-total-row"><span>Total estimado</span><span id="cartTotal">RD$ 0</span></div>
+    <button class="checkout-btn" onclick="sendCartWA()">📲 Enviar pedido por WhatsApp</button>
+    <p style="font-size:.72em;color:var(--muted);text-align:center;margin-top:8px;">Te contactaremos para confirmar y coordinar el pago</p>
+  </div>
+</div>
+
+<!-- ADMIN BUTTON -->
+<button class="admin-toggle" onclick="openAdmin()" title="Admin">⚙️</button>
+
+<!-- ADMIN PANEL -->
+<div class="admin-panel" id="adminPanel">
+  <div class="admin-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <h2>⚙️ Admin — Catálogo AliExpress</h2>
+        <div class="sub">Importa productos desde AliExpress y gestiona tu catálogo</div>
+      </div>
+      <button onclick="closeAdmin()" style="background:none;border:none;font-size:1.4em;cursor:pointer;color:var(--muted);">✕</button>
+    </div>
+
+    <!-- Password -->
+    <div id="adminLogin">
+      <div class="form-group">
+        <label>Contraseña Admin</label>
+        <input type="password" id="adminPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')checkAdminPass()">
+      </div>
+      <button class="btn-primary" onclick="checkAdminPass()">Entrar</button>
+    </div>
+
+    <!-- Admin content -->
+    <div id="adminContent" style="display:none;">
+
+      <!-- Import from URL -->
+      <div style="background:var(--surface2);border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid var(--border);">
+        <div style="font-size:.82em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px;">📥 Importar desde AliExpress</div>
+        <div class="form-group">
+          <label>URL del producto AliExpress</label>
+          <input type="url" id="aliUrl" placeholder="https://www.aliexpress.com/item/12345.html">
+        </div>
+        <button class="btn-secondary" onclick="importFromAli()" id="importBtn">🔍 Buscar producto</button>
+        <div class="ali-import-result" id="importResult"></div>
+      </div>
+
+      <!-- Manual / Edit form -->
+      <div style="background:var(--surface2);border-radius:12px;padding:16px;margin-bottom:16px;border:1px solid var(--border);">
+        <div style="font-size:.82em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px;">✏️ Detalles del Producto</div>
+        <div class="form-group">
+          <label>Nombre del Producto</label>
+          <input type="text" id="pName" placeholder="Nombre del producto">
+        </div>
+        <div class="form-group">
+          <label>Categoría</label>
+          <input type="text" id="pCat" placeholder="Ej: Electrónicos, Ropa, Hogar...">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Precio AliExpress (USD)</label>
+            <input type="number" id="pPriceUSD" placeholder="0.00" step="0.01" oninput="calcDOP()">
+          </div>
+          <div class="form-group">
+            <label>Tu Precio (RD$)</label>
+            <input type="number" id="pPriceDOP" placeholder="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Imagen URL</label>
+          <input type="url" id="pImage" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label>URL AliExpress (para cliente)</label>
+          <input type="url" id="pAliUrl" placeholder="https://www.aliexpress.com/item/...">
+        </div>
+        <div class="form-group">
+          <label>Descripción (opcional)</label>
+          <textarea id="pDesc" placeholder="Descripción breve del producto..."></textarea>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn-primary" onclick="saveProduct()" id="saveBtn">💾 Guardar Producto</button>
+          <button class="btn-secondary" onclick="clearForm()">✕ Cancelar</button>
+        </div>
+      </div>
+
+      <!-- Product list -->
+      <div class="admin-products">
+        <div style="font-size:.82em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px;">📦 Productos en Catálogo (<span id="adminProdCount">0</span>)</div>
+        <div id="adminProdList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ──
+const SUPABASE_URL = 'https://xnbkwczolkinurohloxj.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes';
+const ADMIN_PASSWORD = 'gangaloo2026';
+const API_FN = '/.netlify/functions/aliexpress-api';
+const TABLE = 'aliexpress_products';
+const WA_NUMBER = '18292867868';
+const EXCHANGE_RATE = 61.5; // fallback, fetched live
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let allProducts = [];
+let cart = [];
+let editingId = null;
+let liveRate = EXCHANGE_RATE;
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', async () => {
+  fetchRate();
+  await loadProducts();
+  // Restore cart from localStorage
+  try { cart = JSON.parse(localStorage.getItem('ali_cart') || '[]'); } catch(e) { cart = []; }
+  updCart();
+});
+
+async function fetchRate() {
+  try {
+    const r = await fetch('https://open.er-api.com/v6/latest/USD');
+    const d = await r.json();
+    if (d?.rates?.DOP) liveRate = d.rates.DOP;
+  } catch(e) {}
+}
+
+// ── PRODUCTS ──
+async function loadProducts() {
+  const { data, error } = await sb.from(TABLE).select('*').eq('active', true).order('created_at', { ascending: false });
+  if (error) { console.error(error); allProducts = []; }
+  else allProducts = data || [];
+  renderProducts(allProducts);
+  buildCatFilter();
+}
+
+function buildCatFilter() {
+  const cats = [...new Set(allProducts.map(p => p.category).filter(Boolean))];
+  const sel = document.getElementById('catFilter');
+  sel.innerHTML = '<option value="">Todas las categorías</option>' +
+    cats.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function filterProducts() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const cat = document.getElementById('catFilter').value;
+  const filtered = allProducts.filter(p =>
+    (!q || p.name.toLowerCase().includes(q) || (p.description||'').toLowerCase().includes(q)) &&
+    (!cat || p.category === cat)
+  );
+  renderProducts(filtered);
+}
+
+function renderProducts(products) {
+  const grid = document.getElementById('prodGrid');
+  document.getElementById('prodCount').textContent = products.length + ' productos';
+  if (!products.length) {
+    grid.innerHTML = '<div class="empty"><div class="empty-ico">🛒</div><p>No hay productos disponibles</p></div>';
+    return;
+  }
+  grid.innerHTML = products.map(p => {
+    const origUSD = p.original_price_usd;
+    const priceDOP = p.price_dop || Math.round(p.price_usd * liveRate * 1.15);
+    const origDOP = origUSD ? Math.round(origUSD * liveRate * 1.15) : null;
+    const discPct = origUSD && p.price_usd < origUSD ? Math.round((1 - p.price_usd/origUSD)*100) : null;
+    const stars = p.rating ? '⭐'.repeat(Math.round(parseFloat(p.rating))) : '';
+    return `<div class="pcard">
+      <div class="pcard-img">
+        ${p.image_url ? `<img src="${p.image_url}" alt="${p.name}" onerror="this.style.display='none'">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:3em;">📦</div>'}
+        <span class="ali-badge">AliExpress</span>
+        ${discPct ? `<span class="disc-badge">-${discPct}%</span>` : ''}
+      </div>
+      <div class="pcard-body">
+        ${p.category ? `<div class="pcard-cat">${p.category}</div>` : ''}
+        <div class="pcard-name" title="${p.name}">${p.name}</div>
+        ${stars ? `<div class="pcard-rating">${stars}</div>` : ''}
+      </div>
+      <div class="pcard-foot">
+        <div>
+          ${origDOP && origDOP > priceDOP ? `<div class="pcard-orig">RD$ ${origDOP.toLocaleString('es-DO')}</div>` : ''}
+          <div class="pcard-price">RD$ ${priceDOP.toLocaleString('es-DO')}</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${p.ali_url ? `<span class="view-btn" onclick="window.open('${p.ali_url}','_blank')">Ver en AliExpress</span>` : ''}
+          <button class="add-btn" onclick="addToCart(${p.id},'${p.name.replace(/'/g,"\\'")}',${priceDOP},'${p.image_url||''}')">+</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── CART ──
+function addToCart(id, name, price, img) {
+  const existing = cart.find(i => i.id === id);
+  if (existing) existing.qty++;
+  else cart.push({ id, name, price, img, qty: 1 });
+  saveCart();
+  updCart();
+  toast('✓ ' + name.substring(0,30));
+}
+
+function rmCart(id) { cart = cart.filter(i => i.id !== id); saveCart(); updCart(); }
+function chQty(id, d) { const i = cart.find(c => c.id===id); if(!i) return; i.qty+=d; if(i.qty<=0) rmCart(id); else { saveCart(); updCart(); } }
+function saveCart() { try { localStorage.setItem('ali_cart', JSON.stringify(cart)); } catch(e) {} }
+
+function updCart() {
+  const cnt = cart.reduce((s,i) => s+i.qty, 0);
+  document.getElementById('cartCount').textContent = cnt;
+  const body = document.getElementById('cartBody');
+  const foot = document.getElementById('cartFoot');
+  if (!cart.length) {
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:3em;margin-bottom:12px">🛒</div><p style="font-size:13px">Tu carrito está vacío</p></div>';
+    foot.style.display = 'none';
+    return;
+  }
+  const total = cart.reduce((s,i) => s+i.price*i.qty, 0);
+  body.innerHTML = cart.map(i => `
+    <div class="citem">
+      ${i.img ? `<img class="citem-img" src="${i.img}" alt="">` : '<div class="citem-img" style="display:flex;align-items:center;justify-content:center;font-size:1.5em;">📦</div>'}
+      <div class="citem-info">
+        <div class="citem-name">${i.name}</div>
+        <div class="citem-price">RD$ ${i.price.toLocaleString('es-DO')} c/u</div>
+        <div class="citem-ctrl">
+          <button class="qty-btn" onclick="chQty(${i.id},-1)">−</button>
+          <span class="qty-n">${i.qty}</span>
+          <button class="qty-btn" onclick="chQty(${i.id},1)">+</button>
+          <button class="rm-btn" onclick="rmCart(${i.id})">🗑</button>
+        </div>
+      </div>
+      <div style="font-weight:700;font-size:13px;white-space:nowrap;">RD$ ${(i.price*i.qty).toLocaleString('es-DO')}</div>
+    </div>`).join('');
+  document.getElementById('cartTotal').textContent = 'RD$ ' + total.toLocaleString('es-DO');
+  foot.style.display = 'block';
+}
+
+function openCart() { document.getElementById('cartOvl').classList.add('open'); document.getElementById('cartBar').classList.add('open'); }
+function closeCart() { document.getElementById('cartOvl').classList.remove('open'); document.getElementById('cartBar').classList.remove('open'); }
+
+function sendCartWA() {
+  const lines = ['🛒 *Pedido GangaLoo × AliExpress*\n'];
+  cart.forEach(i => lines.push(`• ${i.qty}× ${i.name} — RD$ ${(i.price*i.qty).toLocaleString('es-DO')}`));
+  const total = cart.reduce((s,i) => s+i.price*i.qty, 0);
+  lines.push(`\n*Total estimado: RD$ ${total.toLocaleString('es-DO')}*`);
+  lines.push('\n_Por favor confírmenme disponibilidad y coordinen el pago._');
+  window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
+}
+
+// ── ADMIN ──
+function openAdmin() { document.getElementById('adminPanel').classList.add('open'); }
+function closeAdmin() { document.getElementById('adminPanel').classList.remove('open'); }
+
+function checkAdminPass() {
+  const pass = document.getElementById('adminPass').value;
+  if (pass === ADMIN_PASSWORD) {
+    document.getElementById('adminLogin').style.display = 'none';
+    document.getElementById('adminContent').style.display = 'block';
+    loadAdminProducts();
+  } else {
+    toast('❌ Contraseña incorrecta');
+  }
+}
+
+async function importFromAli() {
+  const url = document.getElementById('aliUrl').value.trim();
+  if (!url) { toast('Pega la URL del producto'); return; }
+  const btn = document.getElementById('importBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Buscando...';
+  const result = document.getElementById('importResult');
+  result.style.display = 'none';
+
+  try {
+    const resp = await fetch(API_FN, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getProduct', url })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    const p = data.product;
+
+    // Fill form
+    document.getElementById('pName').value = p.product_title || '';
+    document.getElementById('pPriceUSD').value = p.target_sale_price || p.target_original_price || '';
+    document.getElementById('pImage').value = p.product_main_image_url || '';
+    document.getElementById('pAliUrl').value = p.product_detail_url || url;
+    calcDOP();
+
+    // Show preview
+    result.style.display = 'block';
+    result.innerHTML = `<div style="display:flex;gap:12px;align-items:flex-start;">
+      ${p.product_main_image_url ? `<img src="${p.product_main_image_url}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;flex-shrink:0;">` : ''}
+      <div>
+        <div style="font-weight:600;font-size:.88em;margin-bottom:4px;">${p.product_title}</div>
+        <div style="font-size:.78em;color:var(--muted);">Precio AliExpress: $${p.target_sale_price} USD</div>
+        ${p.commission_rate ? `<div style="font-size:.75em;color:#166534;">Comisión: ${p.commission_rate}</div>` : ''}
+      </div>
+    </div>`;
+    toast('✅ Producto encontrado — revisa y ajusta el precio en RD$');
+  } catch(e) {
+    result.style.display = 'block';
+    result.innerHTML = `<div style="color:#dc2626;font-size:.85em;">❌ Error: ${e.message}</div>`;
+    toast('Error al importar: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = '🔍 Buscar producto';
+}
+
+function calcDOP() {
+  const usd = parseFloat(document.getElementById('pPriceUSD').value) || 0;
+  if (usd > 0 && !document.getElementById('pPriceDOP').value) {
+    document.getElementById('pPriceDOP').value = Math.round(usd * liveRate * 1.20);
+  }
+}
+
+async function saveProduct() {
+  const name = document.getElementById('pName').value.trim();
+  const priceUSD = parseFloat(document.getElementById('pPriceUSD').value) || 0;
+  const priceDOP = parseInt(document.getElementById('pPriceDOP').value) || 0;
+  if (!name || !priceDOP) { toast('Nombre y precio DOP son obligatorios'); return; }
+
+  const payload = {
+    name,
+    category: document.getElementById('pCat').value.trim() || null,
+    price_usd: priceUSD || null,
+    price_dop: priceDOP,
+    image_url: document.getElementById('pImage').value.trim() || null,
+    ali_url: document.getElementById('pAliUrl').value.trim() || null,
+    description: document.getElementById('pDesc').value.trim() || null,
+    active: true
+  };
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  let error;
+  if (editingId) {
+    ({ error } = await sb.from(TABLE).update(payload).eq('id', editingId));
+  } else {
+    ({ error } = await sb.from(TABLE).insert(payload));
+  }
+
+  btn.disabled = false;
+  btn.textContent = '💾 Guardar Producto';
+
+  if (error) { toast('Error: ' + error.message); return; }
+  toast(editingId ? '✅ Producto actualizado' : '✅ Producto guardado');
+  clearForm();
+  loadAdminProducts();
+  loadProducts();
+}
+
+function clearForm() {
+  editingId = null;
+  ['pName','pCat','pPriceUSD','pPriceDOP','pImage','pAliUrl','pDesc','aliUrl'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('importResult').style.display = 'none';
+  document.getElementById('saveBtn').textContent = '💾 Guardar Producto';
+}
+
+async function loadAdminProducts() {
+  const { data } = await sb.from(TABLE).select('*').order('created_at', { ascending: false });
+  const list = document.getElementById('adminProdList');
+  const count = document.getElementById('adminProdCount');
+  if (!data || !data.length) {
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:.85em;">No hay productos aún</div>';
+    count.textContent = '0';
+    return;
+  }
+  count.textContent = data.length;
+  list.innerHTML = data.map(p => `
+    <div class="admin-prod-row">
+      ${p.image_url ? `<img class="admin-prod-img" src="${p.image_url}" alt="">` : '<div class="admin-prod-img" style="display:flex;align-items:center;justify-content:center;font-size:1.4em;">📦</div>'}
+      <div class="admin-prod-info">
+        <div class="admin-prod-name">${p.name}</div>
+        <div class="admin-prod-price">RD$ ${(p.price_dop||0).toLocaleString('es-DO')} · ${p.active ? '✅ Activo' : '⛔ Oculto'}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="btn-secondary" style="padding:5px 10px;font-size:.75em;" onclick="editProduct(${p.id})">✏️</button>
+        <button class="btn-danger" style="padding:5px 10px;" onclick="deleteProduct(${p.id})">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+async function editProduct(id) {
+  const { data } = await sb.from(TABLE).select('*').eq('id', id).single();
+  if (!data) return;
+  editingId = id;
+  document.getElementById('pName').value = data.name || '';
+  document.getElementById('pCat').value = data.category || '';
+  document.getElementById('pPriceUSD').value = data.price_usd || '';
+  document.getElementById('pPriceDOP').value = data.price_dop || '';
+  document.getElementById('pImage').value = data.image_url || '';
+  document.getElementById('pAliUrl').value = data.ali_url || '';
+  document.getElementById('pDesc').value = data.description || '';
+  document.getElementById('saveBtn').textContent = '💾 Actualizar Producto';
+  document.getElementById('pName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function deleteProduct(id) {
+  if (!confirm('¿Eliminar este producto?')) return;
+  await sb.from(TABLE).delete().eq('id', id);
+  toast('🗑️ Producto eliminado');
+  loadAdminProducts();
+  loadProducts();
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
