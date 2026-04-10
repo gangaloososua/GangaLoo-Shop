@@ -2524,7 +2524,7 @@ async function doResetPass(){
   if(error){err.textContent=error.message;return;}
   document.getElementById('forgotPassSection').innerHTML='<div style="text-align:center;padding:12px;background:#f0fdf4;border-radius:10px;color:#166534;font-size:.88em;">✅ Enlace enviado. Revisa tu bandeja de entrada (y spam).</div>';
 }
-function doLogin(){
+async function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
   const pass=document.getElementById('loginPass').value;
   const btn=document.getElementById('loginBtn');
