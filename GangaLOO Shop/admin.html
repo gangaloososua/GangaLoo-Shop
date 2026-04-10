@@ -9039,7 +9039,8 @@
                 results.innerHTML = matched.map(p => {
                     const wh = document.getElementById('exchangeNewWarehouse').value;
                     const stock = wh ? getWarehouseProductStock(parseInt(wh), p.id) : 0;
-                    return `<div onclick="selectExchangeProduct(${p.id},'${p.name.replace(/'/g,"\'")}',${p.price||0})"
+                    return `<div onclick="selectExchangeProduct(${p.id},${p.price||0})"
+                        data-pid="${p.id}"
                         style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0ede8;font-size:.85em;display:flex;justify-content:space-between;align-items:center;"
                         onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='white'">
                         <div>
@@ -9055,7 +9056,9 @@
             results.style.display = 'block';
         }
 
-        function selectExchangeProduct(id, name, price) {
+        function selectExchangeProduct(id, price) {
+            const p = products.find(x => x.id === id);
+            const name = p ? p.name : '';
             document.getElementById('exchangeNewProduct').value = id;
             document.getElementById('exchangeProductSearch').value = '';
             document.getElementById('exchangeProductResults').style.display = 'none';
