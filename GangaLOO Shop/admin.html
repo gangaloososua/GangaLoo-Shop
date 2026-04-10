@@ -9197,16 +9197,21 @@
             const { totalCost: newFifoCost, lotsUsed: newLotsUsed } = calculateFIFOCost(newWarehouseId, newProductId, newQty);
             deductFromFIFO(newProductId, newWarehouseId, newQty);
 
-            // 4. Calculate diff
+            // 4. Calculate diff — only the difference is owed/refunded
             const origTotal = sale.totalSale || 0;
             const newTotal = newPrice * newQty;
-            const diff = newTotal - origTotal;
+            const diff = newTotal - origTotal; // positive = client pays more, negative = refund
 
             // 5. Create new exchange sale
+            // totalSale = only the price difference (what client actually owes/gets back)
+            // Commission = calculated on the CHEAPER of the two products (lower price)
             const newSaleId = Date.now();
             const commissionPercent = newProduct ? (newProduct.commissionPercent || 0) : 0;
-            const grossProfit = newTotal - newFifoCost;
-            const commissionPaid = newTotal * (commissionPercent / 100);
+            const cheaperTotal = Math.min(origTotal, newTotal);
+            const commissionPaid = cheaperTotal * (commissionPercent / 100);
+            // For accounting: the exchange sale represents only the diff amount
+            const exchangeAmount = Math.abs(diff); // amount to collect or refund
+            const grossProfit = diff - newFifoCost + (sale.fifoCost || 0); // net profit change
             const netProfit = grossProfit - commissionPaid;
 
             const newSale = {
@@ -9216,11 +9221,16 @@
                 warehouseId: newWarehouseId,
                 qty: newQty,
                 price: newPrice,
-                totalSale: newTotal,
+                totalSale: diff > 0 ? diff : 0,  // only the extra amount owed (0 if refund)
+                refundAmount: diff < 0 ? Math.abs(diff) : 0, // refund if cheaper
+                origSaleTotal: origTotal,
+                newProductTotal: newTotal,
+                exchangeDiff: diff,
                 fifoCost: newFifoCost,
                 grossProfit,
                 commissionPercent,
                 commissionPaid,
+                commissionBase: cheaperTotal,
                 netProfit,
                 profit: netProfit,
                 date: new Date().toISOString().split('T')[0],
@@ -9230,7 +9240,7 @@
                 sellerId: sale.sellerId || null,
                 lotsUsed: newLotsUsed,
                 exchangeFromId: sale.id,
-                exchangeDiff: diff,
+                isExchange: true,
                 notes: note || ('Intercambio de ' + (sale.invoiceNumber || '#'+sale.id)),
                 createdAt: new Date().toISOString()
             };
@@ -9838,16 +9848,33 @@
                 const product = products.find(p => p.id === sale.productId);
                 const warehouse = warehouses.find(w => w.id === sale.warehouseId);
                 const paid = payments.filter(p => String(p.saleId) === String(sale.id)).reduce((sum, p) => sum + p.amount, 0);
-                const pending = (sale.totalSale || 0) - paid;
-                const isPaid = Math.round(pending * 100) <= 0;
+                // For exchange sales: totalSale = diff only; show special status
+                const isExchange = sale.isExchange === true;
+                const isWrittenOff = sale.status === 'written_off';
+                const isExchangedOld = sale.status === 'exchanged';
+                const effectiveTotal = isExchange
+                    ? (sale.exchangeDiff > 0 ? sale.exchangeDiff : 0)  // only diff owed
+                    : (sale.totalSale || 0);
+                const refundAmt = isExchange && sale.exchangeDiff < 0 ? Math.abs(sale.exchangeDiff) : 0;
+                const pending = effectiveTotal - paid;
+                const isPaid = Math.round(pending * 100) <= 0 || refundAmt > 0;
                 const isPartial = !isPaid && paid > 0;
-                const paymentStatus = isPaid ? '✅ Pagado' : (isPartial ? '🟡 Parcial' : '⏳ Pendiente');
-                const statusColor = isPaid ? '#166534' : (isPartial ? '#92400e' : '#991b1b');
-                const statusBg = isPaid ? '#f0fdf4' : (isPartial ? '#fffbeb' : '#fef2f2');
-                const borderColor = isPaid ? '#22c55e' : (isPartial ? '#f59e0b' : '#dc2626');
+                let paymentStatus, statusColor, statusBg, borderColor;
+                if (isWrittenOff || isExchangedOld) {
+                    paymentStatus = isWrittenOff ? '⚠️ Baja' : '🔄 Intercambiado';
+                    statusColor = '#92400e'; statusBg = '#fff8f0'; borderColor = '#f59e0b';
+                } else if (refundAmt > 0) {
+                    paymentStatus = '💰 Reembolso';
+                    statusColor = '#166534'; statusBg = '#f0fdf4'; borderColor = '#22c55e';
+                } else {
+                    paymentStatus = isPaid ? '✅ Pagado' : (isPartial ? '🟡 Parcial' : '⏳ Pendiente');
+                    statusColor = isPaid ? '#166534' : (isPartial ? '#92400e' : '#991b1b');
+                    statusBg = isPaid ? '#f0fdf4' : (isPartial ? '#fffbeb' : '#fef2f2');
+                    borderColor = isPaid ? '#22c55e' : (isPartial ? '#f59e0b' : '#dc2626');
+                }
                 const qty = sale.qty || 0;
                 const price = sale.price || 0;
-                const totalSale = sale.totalSale || 0;
+                const totalSale = isExchange ? effectiveTotal : (sale.totalSale || 0);
                 const commissionPaid = sale.commissionPaid || 0;
                 const netProfit = sale.netProfit || sale.profit || 0;
                 const invoiceNumber = sale.invoiceNumber || ('SALE-' + sale.id);
@@ -9889,8 +9916,12 @@
                         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;font-size:.8em;">
                             <div><span style="color:#aaa;display:block;font-size:.85em;">Cantidad</span><strong>${qty}</strong></div>
                             <div><span style="color:#aaa;display:block;font-size:.85em;">Precio Unit.</span><strong>$${price.toFixed(2)}</strong></div>
-                            <div><span style="color:#aaa;display:block;font-size:.85em;">Pagado</span><strong style="color:#166534;">$${paid.toFixed(2)}</strong></div>
-                            <div><span style="color:#aaa;display:block;font-size:.85em;">Pendiente</span><strong style="color:#dc2626;">$${pending.toFixed(2)}</strong></div>
+                            ${isExchange ? `<div><span style="color:#aaa;display:block;font-size:.85em;">Prod. original</span><strong>$${(sale.origSaleTotal||0).toFixed(2)}</strong></div>
+                            <div><span style="color:#aaa;display:block;font-size:.85em;">Prod. nuevo</span><strong>$${(sale.newProductTotal||0).toFixed(2)}</strong></div>
+                            <div><span style="color:#aaa;display:block;font-size:.85em;">${refundAmt>0?'Reembolso':'Diferencia a cobrar'}</span><strong style="color:${refundAmt>0?'#166534':'#92400e'};">$${(refundAmt||effectiveTotal).toFixed(2)}</strong></div>
+                            <div><span style="color:#aaa;display:block;font-size:.85em;">Base comisión</span><strong style="color:#f39c12;">$${(sale.commissionBase||0).toFixed(2)} (menor)</strong></div>` :
+                            `<div><span style="color:#aaa;display:block;font-size:.85em;">Pagado</span><strong style="color:#166534;">$${paid.toFixed(2)}</strong></div>
+                            <div><span style="color:#aaa;display:block;font-size:.85em;">Pendiente</span><strong style="color:#dc2626;">$${pending.toFixed(2)}</strong></div>`}
                             <div><span style="color:#aaa;display:block;font-size:.85em;">Comisión</span><strong style="color:#f39c12;">$${commissionPaid.toFixed(2)}</strong></div>
                             <div><span style="color:#aaa;display:block;font-size:.85em;">Ganancia</span><strong style="color:${netProfitColor};">$${netProfit.toFixed(2)}</strong></div>
                             ${sale.seller ? `<div><span style="color:#aaa;display:block;font-size:.85em;">Vendedor</span><strong>${sale.seller}</strong></div>` : ''}
