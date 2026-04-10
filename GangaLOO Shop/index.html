@@ -1336,7 +1336,16 @@ function switchPriceTab(btn, panelId) {
     <div style="height:16px"></div>
     <div class="pay-toggle">
       <button class="popt on" id="pFull" onclick="setPay('full')">Pago completo</button>
-      <button class="popt" id="pHalf" onclick="setPay('half')">50% adelanto · +20% financiero</button>
+      <button class="popt" id="pHalf" onclick="setPay('half')">Adelanto + financiero</button>
+    </div>
+    <div id="adelantoRow" style="display:none;margin-bottom:12px;">
+      <label style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);display:block;margin-bottom:6px;">¿Cuánto pagas de adelanto?</label>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="font-size:13px;color:var(--text2);font-family:'DM Mono',monospace;">RD$</div>
+        <input type="number" id="adelantoInput" placeholder="0.00" min="0" step="1"
+          style="flex:1;padding:10px 12px;font-size:17px;font-family:'DM Mono',monospace;border:1.5px solid var(--border);border-radius:9px;background:var(--surface2);color:var(--text);"
+          oninput="renderPay(totalDOP)" />
+      </div>
     </div>
     <div id="payDetail"></div>
     <button class="wa-btn" onclick="sendWA()">
@@ -1355,12 +1364,12 @@ let totalDOP = 0;
 
 // Store rules: bank fee % and whether flete is "at delivery"
 const STORE_RULES = {
-  'Temu':       { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 250 },
-  'Shein':      { bank: 3,   tax: 0,  fleteAtDelivery: false, ship: 250 },
-  'Amazon':     { bank: 0,   tax: 0,  fleteAtDelivery: true,  ship: 0   },
-  'eBay':       { bank: 3,   tax: 0,  fleteAtDelivery: true,  ship: 0   },
-  'AliExpress': { bank: 3,   tax: 7,  fleteAtDelivery: true,  ship: 0   },
-  'Otra':       { bank: 3,   tax: 7,  fleteAtDelivery: true,  ship: 0   },
+  'Temu':       { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 250, minFee: 0,   minFeeThresholdUSD: 0  },
+  'Shein':      { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 250, minFee: 0,   minFeeThresholdUSD: 0  },
+  'Amazon':     { bank: 0,   tax: 0,  fleteAtDelivery: true,  ship: 0,   minFee: 150, minFeeThresholdUSD: 35 },
+  'eBay':       { bank: 3,   tax: 0,  fleteAtDelivery: true,  ship: 0,   minFee: 0,   minFeeThresholdUSD: 0  },
+  'AliExpress': { bank: 3,   tax: 7,  fleteAtDelivery: true,  ship: 0,   minFee: 0,   minFeeThresholdUSD: 0  },
+  'Otra':       { bank: 3,   tax: 7,  fleteAtDelivery: true,  ship: 0,   minFee: 0,   minFeeThresholdUSD: 0  },
 };
 
 function getRate() { return parseFloat(document.getElementById('rateInput').value) || 61.50; }
@@ -1501,7 +1510,10 @@ function calc() {
   const sAmt     = subtotal * fS / 100;
   const bAmt     = subtotal * fB / 100;
   const tAmt     = subtotal * fT / 100;
-  const total    = subtotal + sAmt + bAmt + tAmt + ship;
+  // Minimum fee for Amazon orders under $35 USD
+  const minFeeAmt = (rules.minFee > 0 && subtotalUSD < rules.minFeeThresholdUSD) ? rules.minFee : 0;
+  const totalRaw = subtotal + sAmt + bAmt + tAmt + ship + minFeeAmt;
+  const total    = roundUp25(totalRaw);
   totalDOP       = total;
 
   const fleteRow = rules.fleteAtDelivery
@@ -1516,14 +1528,29 @@ function calc() {
     ? `<div class="br-row"><span>Impuesto importación (${fT}%)</span><span class="br-val">${fmt(tAmt)}</span></div>`
     : '';
 
+  const minFeeRow = minFeeAmt > 0
+    ? `<div class="br-row"><span>Cargo mínimo (pedido menor $35 USD)</span><span class="br-val">${fmt(minFeeAmt)}</span></div>`
+    : '';
+
   document.getElementById('breakdown').innerHTML = `
     <div class="br-row"><span>Subtotal carrito ($${(subtotal/getRate()).toFixed(2)} USD)</span><span class="br-val">${fmt(subtotal)}</span></div>
     <div class="br-row"><span>Comisión de servicio (${fS}%)</span><span class="br-val">${fmt(sAmt)}</span></div>
     ${bankRow}
     ${taxRow}
+    ${minFeeRow}
     ${fleteRow}
     <div class="br-row total"><span>Total a pagar</span><span class="br-val">${fmt(total)}</span></div>
   `;
+
+  // Show pickup info note
+  let pickupNote = document.getElementById('pickupNote');
+  if (!pickupNote) {
+    pickupNote = document.createElement('div');
+    pickupNote.id = 'pickupNote';
+    pickupNote.style.cssText = 'margin-top:10px;padding:10px 14px;background:#fffbe6;border:1px solid #f0e080;border-radius:9px;font-size:12px;color:#5a4a00;display:flex;align-items:flex-start;gap:8px;';
+    pickupNote.innerHTML = '<span style="flex-shrink:0;font-size:15px;">ℹ️</span><span><strong>Cobro a domicilio:</strong> Se cobra un adicional de <strong>RD$ 200</strong> para recogida del pago en tu dirección. Si pagas en tienda no aplica.</span>';
+    document.getElementById('breakdown').after(pickupNote);
+  }
 
   renderPay(total);
   document.getElementById('resultCard').classList.remove('hidden');
@@ -1534,37 +1561,61 @@ function setPay(mode) {
   payMode = mode;
   document.getElementById('pFull').classList.toggle('on', mode === 'full');
   document.getElementById('pHalf').classList.toggle('on', mode === 'half');
+  const adelantoRow = document.getElementById('adelantoRow');
+  if (adelantoRow) adelantoRow.style.display = mode === 'half' ? 'block' : 'none';
+  if (mode === 'half' && document.getElementById('adelantoInput').value === '') {
+    // Default to 50%
+    document.getElementById('adelantoInput').value = Math.round(totalDOP / 2);
+  }
   renderPay(totalDOP);
 }
 
 function renderPay(total) {
   const pd = document.getElementById('payDetail');
   if (payMode === 'full') { pd.innerHTML = ''; return; }
-  const half   = total / 2;
-  const fin    = half * 0.20;
-  const second = half + fin;
+  // Use custom adelanto amount, fallback to 50%
+  const adelantoInput = document.getElementById('adelantoInput');
+  const adelanto = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
+  const restante = total - adelanto;
+  // 20% financiero applies ONLY on the restante (what's not paid upfront)
+  const fin = restante * 0.20;
+  const alRecogerRaw = restante + fin;
+  const alRecoger = roundUp25(alRecogerRaw);
+  const totalAcum = adelanto + alRecoger;
+  const adelantoPct = total > 0 ? Math.round(adelanto / total * 100) : 0;
+
   pd.innerHTML = `
     <div class="split-grid">
       <div class="sbox now">
         <div class="slbl">Pagar ahora</div>
-        <div class="samt">${fmt(half)}</div>
-        <div class="snote">50% para confirmar</div>
+        <div class="samt">${fmt(adelanto)}</div>
+        <div class="snote">${adelantoPct}% del total</div>
       </div>
       <div class="sbox later">
         <div class="slbl">Al recoger</div>
-        <div class="samt">${fmt(second)}</div>
+        <div class="samt">${fmt(alRecoger)}</div>
         <div class="snote">+20% financiero (${fmt(fin)})</div>
       </div>
     </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+      Restante: ${fmt(restante)} + 20% financiero (${fmt(fin)}) = ${fmt(alRecoger)} (redondeado)
+    </div>
     <div style="background:#1a1a2e;border:2px solid #c8502a;border-radius:10px;padding:16px 20px;margin-bottom:14px;text-align:center;">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#c8502a;margin-bottom:6px;">⚠️ Total acumulado a pagar</div>
-      <div style="font-size:28px;font-weight:700;font-family:'DM Mono',monospace;color:#fff;">${fmt(half + second)}</div>
-      <div style="font-size:11px;color:#a09890;margin-top:4px;">(50% ahora + 50% al recoger con cargo financiero)</div>
+      <div style="font-size:28px;font-weight:700;font-family:'DM Mono',monospace;color:#fff;">${fmt(totalAcum)}</div>
+      <div style="font-size:11px;color:#a09890;margin-top:4px;">(${fmt(adelanto)} ahora + ${fmt(alRecoger)} al recoger)</div>
     </div>`;
 }
 
+function roundUp25(n) {
+  return Math.ceil(n / 25) * 25;
+}
 function fmt(n) {
   return 'RD$ ' + Number(n).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtR(n) {
+  // fmt with roundUp25
+  return 'RD$ ' + Number(roundUp25(n)).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function sendWA() {
@@ -1600,12 +1651,15 @@ function sendWA() {
   lines.push(`*TOTAL: ${fmt(total)}*`);
 
   if (payMode === 'half') {
-    const half   = total / 2;
-    const second = half * 1.20;
-    lines.push(`\n*Opción de pago 50/50:*`);
-    lines.push(`Adelanto ahora: ${fmt(half)}`);
-    lines.push(`Al recoger: ${fmt(second)} (+20% financiero)`);
-    lines.push(`Total acumulado: ${fmt(half + second)}`);
+    const adelantoInput = document.getElementById('adelantoInput');
+    const adelanto = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
+    const restante = total - adelanto;
+    const fin = restante * 0.20;
+    const alRecoger = roundUp25(restante + fin);
+    lines.push(`\n*Opción con financiero:*`);
+    lines.push(`Adelanto ahora: ${fmt(adelanto)}`);
+    lines.push(`Al recoger: ${fmt(alRecoger)} (restante + 20% financiero ${fmt(fin)})`);
+    lines.push(`Total acumulado: ${fmt(adelanto + alRecoger)}`);
   }
 
   window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
