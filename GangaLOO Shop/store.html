@@ -1122,7 +1122,20 @@ button{font-family:'Jost',sans-serif;}
         <div class="auth-field"><label>Contraseña</label><input type="password" id="loginPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
         <div class="auth-err" id="loginErr"></div>
         <button class="auth-submit" id="loginBtn" onclick="doLogin()">Entrar →</button>
+        <div style="text-align:center;margin-top:10px;">
+          <span style="font-size:.8em;color:#aaa;cursor:pointer;" onclick="showForgotPass()">¿Olvidaste tu contraseña?</span>
+        </div>
         <div class="auth-divider">¿No tienes cuenta? <span style="color:var(--gd);cursor:pointer;font-weight:600" onclick="switchAuthTab('signup')">Regístrate gratis</span></div>
+        <!-- FORGOT PASSWORD -->
+        <div id="forgotPassSection" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+          <p style="font-size:.85em;color:#555;margin-bottom:10px;">Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.</p>
+          <div class="auth-field"><label>Email</label><input type="email" id="resetEmail" placeholder="tu@email.com" onkeydown="if(event.key==='Enter')doResetPass()"></div>
+          <div class="auth-err" id="resetErr"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="auth-submit" onclick="doResetPass()" style="flex:1;">Enviar enlace →</button>
+            <button onclick="hideForgotPass()" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:none;cursor:pointer;font-family:'Jost',sans-serif;font-size:.88em;">Cancelar</button>
+          </div>
+        </div>
       </div>
       <!-- SIGNUP -->
       <div id="authSignup" style="display:none">
@@ -1209,6 +1222,20 @@ let selectedWH=null,selectedCat=null,searchQuery='';
 let cart=[];
 try{ const saved=localStorage.getItem('gangaloo_cart'); if(saved) cart=JSON.parse(saved); }catch(e){ cart=[]; }
 // Update cart badge and panel immediately on page load
+// Handle password reset redirect
+if(window.location.search.includes('reset=true')){
+  sb.auth.getSession().then(({data:{session}})=>{
+    if(session){
+      const newPass=prompt('Ingresa tu nueva contraseña (mínimo 6 caracteres):');
+      if(newPass&&newPass.length>=6){
+        sb.auth.updateUser({password:newPass}).then(({error})=>{
+          if(error) alert('Error: '+error.message);
+          else { alert('✅ Contraseña actualizada correctamente. Ya puedes iniciar sesión.'); window.location.href=window.location.pathname; }
+        });
+      }
+    }
+  });
+}
 document.addEventListener('DOMContentLoaded', ()=>{
   if(cart.length) updCart();
 });
@@ -2476,7 +2503,28 @@ function switchAuthTab(tab){
   document.getElementById('signupErr').textContent='';
 }
 
-async function doLogin(){
+async function showForgotPass(){
+  document.getElementById('forgotPassSection').style.display='block';
+  document.getElementById('resetEmail').value=document.getElementById('loginEmail').value||'';
+  document.getElementById('resetErr').textContent='';
+  document.getElementById('resetEmail').focus();
+}
+function hideForgotPass(){
+  document.getElementById('forgotPassSection').style.display='none';
+  document.getElementById('resetErr').textContent='';
+}
+async function doResetPass(){
+  const email=document.getElementById('resetEmail').value.trim();
+  const err=document.getElementById('resetErr');
+  if(!email){err.textContent='Ingresa tu email.';return;}
+  err.textContent='';
+  const{error}=await sb.auth.resetPasswordForEmail(email,{
+    redirectTo: window.location.origin+window.location.pathname+'?reset=true'
+  });
+  if(error){err.textContent=error.message;return;}
+  document.getElementById('forgotPassSection').innerHTML='<div style="text-align:center;padding:12px;background:#f0fdf4;border-radius:10px;color:#166534;font-size:.88em;">✅ Enlace enviado. Revisa tu bandeja de entrada (y spam).</div>';
+}
+function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
   const pass=document.getElementById('loginPass').value;
   const btn=document.getElementById('loginBtn');
