@@ -14373,15 +14373,34 @@
             sellerSales.forEach(s => {
                 const product = products.find(p => p.id === s.productId);
                 const paid = payments.filter(p => String(p.saleId)===String(s.id)).reduce((sum,p)=>sum+p.amount,0);
-                const pending = (s.totalSale||0) - paid;
-                addToMonth(s.date, 'sale', {
+                const isExchange = s.isExchange === true;
+                const isWrittenOff = s.status === 'written_off';
+                const isExchangedOld = s.status === 'exchanged';
+                const effectiveTotal = isExchange
+                    ? (s.exchangeDiff > 0 ? s.exchangeDiff : 0)
+                    : (s.totalSale||0);
+                const refundAmt = isExchange && s.exchangeDiff < 0 ? Math.abs(s.exchangeDiff) : 0;
+                const pending = Math.max(0, effectiveTotal - paid);
+
+                let type = 'sale';
+                if (isExchange) type = 'exchange';
+                else if (isWrittenOff) type = 'writeoff';
+                else if (isExchangedOld) type = 'exchanged';
+
+                addToMonth(s.date, type, {
                     ref: s.invoiceNumber||('SALE-'+s.id),
                     desc: product ? product.name : 'Producto',
                     qty: s.qty||1,
-                    total: s.totalSale||0,
+                    total: effectiveTotal,
+                    origTotal: s.origSaleTotal||s.totalSale||0,
+                    newTotal: s.newProductTotal||s.totalSale||0,
+                    refundAmt,
+                    exchangeDiff: s.exchangeDiff||0,
                     paid,
                     pending,
                     commission: s.commissionPaid||0,
+                    commissionBase: s.commissionBase||0,
+                    writeOffReason: s.writeOffReason||'',
                     notes: s.notes||''
                 });
             });
@@ -14449,13 +14468,40 @@
                         <tbody>`;
 
                 moSales.forEach((i,idx) => {
-                    bodyHTML += `<tr style="${idx%2?'background:#fdfcfb':''}">
+                    let rowBg = idx%2 ? '#fdfcfb' : '';
+                    let typeTag = '';
+                    let descExtra = i.qty>1 ? ' (×'+i.qty+')' : '';
+                    let totalCell = fmt(i.total);
+                    let pendingCell = fmt(i.pending);
+                    let pendingColor = i.pending>0 ? '#dc2626' : '#166534';
+
+                    if (i.type === 'exchange') {
+                        rowBg = '#f0f8ff';
+                        typeTag = ' <span style="background:#0369a1;color:white;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700;">🔄 INTC</span>';
+                        descExtra += i.exchangeDiff>0
+                            ? ' · Diferencia a cobrar'
+                            : i.exchangeDiff<0 ? ' · Reembolso' : ' · Sin diferencia';
+                        totalCell = i.exchangeDiff>0 ? fmt(i.exchangeDiff) : '<span style="color:#166534;">Reembolso '+fmt(i.refundAmt)+'</span>';
+                        pendingCell = i.exchangeDiff>0 ? fmt(i.pending) : '—';
+                        pendingColor = '#0369a1';
+                    } else if (i.type === 'writeoff') {
+                        rowBg = '#fff8f0';
+                        typeTag = ' <span style="background:#92400e;color:white;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700;">⚠️ BAJA</span>';
+                        descExtra += i.writeOffReason ? ' · '+i.writeOffReason : '';
+                        pendingCell = '—';
+                    } else if (i.type === 'exchanged') {
+                        rowBg = '#fff8f0';
+                        typeTag = ' <span style="background:#f59e0b;color:white;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700;">🔄 CANJEADO</span>';
+                        pendingCell = '—';
+                    }
+
+                    bodyHTML += `<tr style="background:${rowBg}">
                         <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;">${fmtDate(i.date)}</td>
-                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;color:#002D62;font-weight:600;">${i.ref}</td>
-                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;">${i.desc}${i.qty>1?' (×'+i.qty+')':''}</td>
-                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;text-align:right;font-weight:600;">${fmt(i.total)}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;color:#002D62;font-weight:600;">${i.ref}${typeTag}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;">${i.desc}${descExtra}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;text-align:right;font-weight:600;">${totalCell}</td>
                         <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;text-align:right;color:#166534;">${fmt(i.paid)}</td>
-                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;text-align:right;color:${i.pending>0?'#dc2626':'#166534'};">${fmt(i.pending)}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;text-align:right;color:${pendingColor};">${pendingCell}</td>
                         <td style="padding:6px 10px;border-bottom:1px solid #f0ede8;text-align:right;color:#f39c12;font-weight:600;">${fmt(i.commission)}</td>
                     </tr>`;
                 });
