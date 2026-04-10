@@ -1712,6 +1712,84 @@
             <div id="salesList"></div>
         </div>
 
+        <!-- EXCHANGE MODAL -->
+        <div id="exchangeModal" onclick="if(event.target===this)closeExchangeModal()"
+            style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;align-items:center;justify-content:center;padding:16px;">
+          <div style="background:white;border-radius:16px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+              <h3 style="font-size:1.1em;color:#0369a1;">🔄 Intercambio de Producto</h3>
+              <button onclick="closeExchangeModal()" style="background:none;border:none;font-size:1.3em;cursor:pointer;color:#aaa;">✕</button>
+            </div>
+            <div id="exchangeOrigInfo" style="background:#f0f4ff;border-radius:10px;padding:12px;margin-bottom:16px;font-size:.88em;"></div>
+            <div class="form-group">
+              <label>Nuevo Producto</label>
+              <select id="exchangeNewProduct" onchange="calcExchangeDiff()" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:9px;font-size:.9em;">
+                <option value="">Seleccionar producto...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Almacén</label>
+              <select id="exchangeNewWarehouse" onchange="calcExchangeDiff()" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:9px;font-size:.9em;"></select>
+            </div>
+            <div class="form-group">
+              <label>Cantidad</label>
+              <input type="number" id="exchangeNewQty" min="1" value="1" oninput="calcExchangeDiff()" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:9px;font-size:.9em;">
+            </div>
+            <div class="form-group">
+              <label>Precio nuevo (RD$)</label>
+              <input type="number" id="exchangeNewPrice" step="0.01" oninput="calcExchangeDiff()" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:9px;font-size:.9em;">
+            </div>
+            <div id="exchangeDiffBox" style="display:none;border-radius:10px;padding:14px;margin-bottom:16px;text-align:center;">
+              <div id="exchangeDiffLabel" style="font-size:.82em;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"></div>
+              <div id="exchangeDiffAmt" style="font-size:1.6em;font-weight:800;"></div>
+            </div>
+            <div class="form-group">
+              <label>Nota (opcional)</label>
+              <input type="text" id="exchangeNote" placeholder="Ej: Producto defectuoso, cliente cambió por otro color" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:9px;font-size:.9em;">
+            </div>
+            <div style="display:flex;gap:10px;">
+              <button onclick="confirmExchange()" class="btn btn-primary" style="flex:1;">✅ Confirmar Intercambio</button>
+              <button onclick="closeExchangeModal()" class="btn btn-secondary">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- WRITE-OFF MODAL -->
+        <div id="writeOffModal" onclick="if(event.target===this)closeWriteOffModal()"
+            style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;align-items:center;justify-content:center;padding:16px;">
+          <div style="background:white;border-radius:16px;width:100%;max-width:480px;padding:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+              <h3 style="font-size:1.1em;color:#92400e;">⚠️ Baja / Producto Dañado</h3>
+              <button onclick="closeWriteOffModal()" style="background:none;border:none;font-size:1.3em;cursor:pointer;color:#aaa;">✕</button>
+            </div>
+            <div id="writeOffInfo" style="background:#fff8f0;border-radius:10px;padding:12px;margin-bottom:16px;font-size:.88em;"></div>
+            <div class="form-group">
+              <label>Tipo de baja</label>
+              <select id="writeOffType" onchange="toggleWriteOffSell()" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:9px;font-size:.9em;">
+                <option value="damaged">🗑️ Producto dañado / pérdida total</option>
+                <option value="liquidation">💸 Liquidación — vender a precio reducido</option>
+              </select>
+            </div>
+            <div id="writeOffSellSection" style="display:none;">
+              <div class="form-group">
+                <label>Precio de liquidación (RD$)</label>
+                <input type="number" id="writeOffPrice" step="0.01" placeholder="0.00" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:9px;font-size:.9em;">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Motivo</label>
+              <input type="text" id="writeOffReason" placeholder="Ej: Llegó roto, manchado, defecto de fábrica..." style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:9px;font-size:.9em;">
+            </div>
+            <div style="background:#fff5f5;border-radius:10px;padding:12px;margin-bottom:16px;font-size:.82em;color:#92400e;">
+              ⚠️ El stock de este producto será eliminado permanentemente. No se puede deshacer.
+            </div>
+            <div style="display:flex;gap:10px;">
+              <button onclick="confirmWriteOff()" class="btn btn-danger" style="flex:1;">Confirmar Baja</button>
+              <button onclick="closeWriteOffModal()" class="btn btn-secondary">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Accounting Tab -->        <div id="accounting" class="tab-content">
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 25px;">
                 <button class="btn btn-primary" onclick="showAccountingSection('accounts')">💼 Cuentas</button>
@@ -8939,6 +9017,249 @@
             showToast('Venta actualizada ✓', 'success');
         }
 
+        // ── EXCHANGE ──
+        let _exchangeSaleId = null;
+
+        function openExchangeModal(saleId) {
+            const sale = sales.find(s => s.id === saleId);
+            if (!sale) return;
+            _exchangeSaleId = saleId;
+            const product = products.find(p => p.id === sale.productId);
+            const origTotal = (sale.totalSale || 0);
+
+            document.getElementById('exchangeOrigInfo').innerHTML = `
+                <div style="font-weight:700;margin-bottom:6px;">Venta original: ${sale.invoiceNumber || '#'+sale.id}</div>
+                <div>Producto: <strong>${product ? product.name : '—'}</strong></div>
+                <div>Qty: ${sale.qty} · Precio: $${(sale.price||0).toFixed(2)} · Total: $${origTotal.toFixed(2)}</div>`;
+
+            // Populate product dropdown
+            const pSel = document.getElementById('exchangeNewProduct');
+            pSel.innerHTML = '<option value="">Seleccionar producto...</option>' +
+                products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+            // Populate warehouse dropdown
+            const wSel = document.getElementById('exchangeNewWarehouse');
+            wSel.innerHTML = warehouses.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
+
+            document.getElementById('exchangeNewQty').value = sale.qty || 1;
+            document.getElementById('exchangeNewPrice').value = '';
+            document.getElementById('exchangeNote').value = '';
+            document.getElementById('exchangeDiffBox').style.display = 'none';
+
+            const modal = document.getElementById('exchangeModal');
+            modal.style.display = 'flex';
+        }
+
+        function closeExchangeModal() {
+            document.getElementById('exchangeModal').style.display = 'none';
+            _exchangeSaleId = null;
+        }
+
+        function calcExchangeDiff() {
+            const sale = sales.find(s => s.id === _exchangeSaleId);
+            if (!sale) return;
+            const newPrice = parseFloat(document.getElementById('exchangeNewPrice').value) || 0;
+            const newQty = parseInt(document.getElementById('exchangeNewQty').value) || 1;
+            const newTotal = newPrice * newQty;
+            const origTotal = sale.totalSale || 0;
+            const diff = newTotal - origTotal;
+            const box = document.getElementById('exchangeDiffBox');
+            const lbl = document.getElementById('exchangeDiffLabel');
+            const amt = document.getElementById('exchangeDiffAmt');
+            if (newPrice > 0) {
+                box.style.display = 'block';
+                if (diff > 0) {
+                    box.style.background = '#fff8f0';
+                    box.style.border = '1.5px solid #f59e0b';
+                    lbl.style.color = '#92400e';
+                    lbl.textContent = '💳 Cliente debe pagar adicional';
+                    amt.style.color = '#92400e';
+                    amt.textContent = '+$' + diff.toFixed(2);
+                } else if (diff < 0) {
+                    box.style.background = '#f0fdf4';
+                    box.style.border = '1.5px solid #86efac';
+                    lbl.style.color = '#166534';
+                    lbl.textContent = '💰 Reembolso al cliente';
+                    amt.style.color = '#166534';
+                    amt.textContent = '-$' + Math.abs(diff).toFixed(2);
+                } else {
+                    box.style.background = '#f0f4ff';
+                    box.style.border = '1.5px solid #c7d2fe';
+                    lbl.style.color = '#002D62';
+                    lbl.textContent = '✅ Mismo precio';
+                    amt.style.color = '#002D62';
+                    amt.textContent = '$0.00';
+                }
+            } else {
+                box.style.display = 'none';
+            }
+        }
+
+        function confirmExchange() {
+            const sale = sales.find(s => s.id === _exchangeSaleId);
+            if (!sale) return;
+            const newProductId = parseInt(document.getElementById('exchangeNewProduct').value);
+            const newWarehouseId = parseInt(document.getElementById('exchangeNewWarehouse').value);
+            const newQty = parseInt(document.getElementById('exchangeNewQty').value) || 1;
+            const newPrice = parseFloat(document.getElementById('exchangeNewPrice').value) || 0;
+            const note = document.getElementById('exchangeNote').value.trim();
+
+            if (!newProductId || !newWarehouseId || !newPrice) {
+                showToast('Selecciona producto, almacén y precio', 'error'); return;
+            }
+
+            const newProduct = products.find(p => p.id === newProductId);
+            const newStock = getWarehouseProductStock(newWarehouseId, newProductId);
+            if (newStock < newQty) {
+                showToast('Stock insuficiente para el nuevo producto (disponible: ' + newStock + ')', 'error'); return;
+            }
+
+            // 1. Restore stock for old product
+            if (sale.lotsUsed && Array.isArray(sale.lotsUsed)) {
+                sale.lotsUsed.forEach(lu => {
+                    const lot = purchases.find(p => p.id === (lu.purchaseId || lu.lotId));
+                    if (lot) lot.remainingQty = (lot.remainingQty || 0) + lu.qtyUsed;
+                });
+            }
+
+            // 2. Mark old sale as exchanged
+            sale.status = 'exchanged';
+            sale.exchangeNote = note || 'Intercambio';
+            sale.exchangedAt = new Date().toISOString();
+
+            // 3. Deduct stock for new product via FIFO
+            const { totalCost: newFifoCost, lotsUsed: newLotsUsed } = calculateFIFOCost(newWarehouseId, newProductId, newQty);
+            deductFromFIFO(newProductId, newWarehouseId, newQty);
+
+            // 4. Calculate diff
+            const origTotal = sale.totalSale || 0;
+            const newTotal = newPrice * newQty;
+            const diff = newTotal - origTotal;
+
+            // 5. Create new exchange sale
+            const newSaleId = Date.now();
+            const commissionPercent = newProduct ? (newProduct.commissionPercent || 0) : 0;
+            const grossProfit = newTotal - newFifoCost;
+            const commissionPaid = newTotal * (commissionPercent / 100);
+            const netProfit = grossProfit - commissionPaid;
+
+            const newSale = {
+                id: newSaleId,
+                invoiceNumber: 'INTC-' + (sale.invoiceNumber || sale.id),
+                productId: newProductId,
+                warehouseId: newWarehouseId,
+                qty: newQty,
+                price: newPrice,
+                totalSale: newTotal,
+                fifoCost: newFifoCost,
+                grossProfit,
+                commissionPercent,
+                commissionPaid,
+                netProfit,
+                profit: netProfit,
+                date: new Date().toISOString().split('T')[0],
+                customer: sale.customer || '',
+                customerId: sale.customerId || null,
+                seller: sale.seller || '',
+                sellerId: sale.sellerId || null,
+                lotsUsed: newLotsUsed,
+                exchangeFromId: sale.id,
+                exchangeDiff: diff,
+                notes: note || ('Intercambio de ' + (sale.invoiceNumber || '#'+sale.id)),
+                createdAt: new Date().toISOString()
+            };
+            sales.push(newSale);
+
+            saveData(); renderSales(); renderLots(); renderInventoryComplete();
+            closeExchangeModal();
+
+            const diffMsg = diff > 0 ? ` · Cliente debe pagar $${diff.toFixed(2)} adicional` :
+                            diff < 0 ? ` · Reembolso de $${Math.abs(diff).toFixed(2)}` : '';
+            showToast('✅ Intercambio confirmado. Nueva factura: INTC-' + (sale.invoiceNumber||sale.id) + diffMsg, 'success');
+        }
+
+        // ── WRITE-OFF ──
+        let _writeOffSaleId = null;
+
+        function openWriteOffModal(saleId) {
+            const sale = sales.find(s => s.id === saleId);
+            if (!sale) return;
+            _writeOffSaleId = saleId;
+            const product = products.find(p => p.id === sale.productId);
+            document.getElementById('writeOffInfo').innerHTML = `
+                <div style="font-weight:700;margin-bottom:4px;">Factura: ${sale.invoiceNumber || '#'+sale.id}</div>
+                <div>Producto: <strong>${product ? product.name : '—'}</strong> · ${sale.qty} unidades · Total: $${(sale.totalSale||0).toFixed(2)}</div>`;
+            document.getElementById('writeOffType').value = 'damaged';
+            document.getElementById('writeOffPrice').value = '';
+            document.getElementById('writeOffReason').value = '';
+            document.getElementById('writeOffSellSection').style.display = 'none';
+            document.getElementById('writeOffModal').style.display = 'flex';
+        }
+
+        function closeWriteOffModal() {
+            document.getElementById('writeOffModal').style.display = 'none';
+            _writeOffSaleId = null;
+        }
+
+        function toggleWriteOffSell() {
+            const type = document.getElementById('writeOffType').value;
+            document.getElementById('writeOffSellSection').style.display = type === 'liquidation' ? 'block' : 'none';
+        }
+
+        function confirmWriteOff() {
+            const sale = sales.find(s => s.id === _writeOffSaleId);
+            if (!sale) return;
+            const type = document.getElementById('writeOffType').value;
+            const reason = document.getElementById('writeOffReason').value.trim();
+            const liquidPrice = parseFloat(document.getElementById('writeOffPrice').value) || 0;
+
+            if (!reason) { showToast('Ingresa el motivo de la baja', 'error'); return; }
+            if (type === 'liquidation' && !liquidPrice) { showToast('Ingresa el precio de liquidación', 'error'); return; }
+
+            // Permanently remove stock (DO NOT restore to available)
+            sale.status = 'written_off';
+            sale.writeOffType = type;
+            sale.writeOffReason = reason;
+            sale.writeOffAt = new Date().toISOString();
+
+            if (type === 'liquidation' && liquidPrice > 0) {
+                // Create a liquidation sale
+                const product = products.find(p => p.id === sale.productId);
+                const liqSaleId = Date.now();
+                const liqTotal = liquidPrice * sale.qty;
+                const liqFifoCost = sale.fifoCost || 0;
+                const liqProfit = liqTotal - liqFifoCost;
+                sales.push({
+                    id: liqSaleId,
+                    invoiceNumber: 'LIQ-' + (sale.invoiceNumber || sale.id),
+                    productId: sale.productId,
+                    warehouseId: sale.warehouseId,
+                    qty: sale.qty,
+                    price: liquidPrice,
+                    totalSale: liqTotal,
+                    fifoCost: liqFifoCost,
+                    grossProfit: liqProfit,
+                    commissionPercent: 0,
+                    commissionPaid: 0,
+                    netProfit: liqProfit,
+                    profit: liqProfit,
+                    date: new Date().toISOString().split('T')[0],
+                    customer: sale.customer || '',
+                    customerId: sale.customerId || null,
+                    notes: 'Liquidación — ' + reason,
+                    lotsUsed: sale.lotsUsed || [],
+                    writeOffFromId: sale.id,
+                    createdAt: new Date().toISOString()
+                });
+                showToast('✅ Baja registrada. Factura de liquidación: LIQ-' + (sale.invoiceNumber||sale.id), 'success');
+            } else {
+                showToast('✅ Producto dado de baja. Stock eliminado permanentemente.', 'success');
+            }
+
+            saveData(); renderSales(); renderLots(); renderInventoryComplete();
+            closeWriteOffModal();
+        }
+
         function confirmDeleteSale(id) {
             const sale = sales.find(s => s.id === id);
             if (!sale) return;
@@ -9491,6 +9812,8 @@
                                 <button onclick="editSale(${sale.id})" title="Editar" style="width:28px;height:28px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">✏️</button>
                                 <button onclick="openSaleInvoicePanel(${sale.id})" title="Factura" style="width:28px;height:28px;border:none;border-radius:6px;background:#5b4fcf;color:white;cursor:pointer;font-size:13px;">📄</button>
                                 <button onclick="addItemToInvoice(${sale.id})" title="Agregar ítem" style="width:28px;height:28px;border:none;border-radius:6px;background:#166534;color:white;cursor:pointer;font-size:13px;">➕</button>
+                                <button onclick="openExchangeModal(${sale.id})" title="Intercambio" style="width:28px;height:28px;border:none;border-radius:6px;background:#0369a1;color:white;cursor:pointer;font-size:13px;">🔄</button>
+                                <button onclick="openWriteOffModal(${sale.id})" title="Baja / Dañado" style="width:28px;height:28px;border:none;border-radius:6px;background:#92400e;color:white;cursor:pointer;font-size:13px;">⚠️</button>
                                 <button onclick="confirmDeleteSale(${sale.id})" title="Eliminar" style="width:28px;height:28px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:13px;">🗑️</button>
                             </div>
                         </div>
