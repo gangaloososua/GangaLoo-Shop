@@ -1,45 +1,30 @@
 // netlify/functions/aliexpress-api.js
-// Calls AliExpress Affiliate API to get product details by URL or ID
-
-const APP_KEY    = process.env.ALI_APP_KEY    || '531720';
-const APP_SECRET = process.env.ALI_APP_SECRET || '98Lm9UyKT81kSxaIy9BGj2tSZIHn7A0w';
+const APP_KEY     = process.env.ALI_APP_KEY;
+const APP_SECRET  = process.env.ALI_APP_SECRET;
 const TRACKING_ID = process.env.ALI_TRACKING_ID || 'gangaloo';
+
+if (!APP_KEY || !APP_SECRET) {
+  console.error('Missing ALI_APP_KEY or ALI_APP_SECRET environment variables');
+}
 
 const API_URL = 'https://api-sg.aliexpress.com/sync';
 
-// MD5 implementation (no external deps)
+// ── MD5 (no external deps) ──
 function md5(str) {
-  function safeAdd(x, y) {
-    const lsw = (x & 0xffff) + (y & 0xffff);
-    const msw = (x >> 16) + (y >> 16) + (lsw >> 16);
-    return (msw << 16) | (lsw & 0xffff);
-  }
-  function bitRotateLeft(num, cnt) { return (num << cnt) | (num >>> (32 - cnt)); }
-  function md5cmn(q, a, b, x, s, t) { return safeAdd(bitRotateLeft(safeAdd(safeAdd(a, q), safeAdd(x, t)), s), b); }
+  function safeAdd(x,y){const lsw=(x&0xffff)+(y&0xffff);const msw=(x>>16)+(y>>16)+(lsw>>16);return(msw<<16)|(lsw&0xffff);}
+  function bitRotateLeft(num,cnt){return(num<<cnt)|(num>>>(32-cnt));}
+  function md5cmn(q,a,b,x,s,t){return safeAdd(bitRotateLeft(safeAdd(safeAdd(a,q),safeAdd(x,t)),s),b);}
   function md5ff(a,b,c,d,x,s,t){return md5cmn((b&c)|((~b)&d),a,b,x,s,t);}
   function md5gg(a,b,c,d,x,s,t){return md5cmn((b&d)|(c&(~d)),a,b,x,s,t);}
   function md5hh(a,b,c,d,x,s,t){return md5cmn(b^c^d,a,b,x,s,t);}
   function md5ii(a,b,c,d,x,s,t){return md5cmn(c^(b|(~d)),a,b,x,s,t);}
-  function strToUTF8Arr(str) {
-    const arr = [];
-    for (let i = 0; i < str.length; i++) {
-      let c = str.charCodeAt(i);
-      if (c < 128) arr.push(c);
-      else if (c < 2048) { arr.push(192 + (c >> 6)); arr.push(128 + (c & 63)); }
-      else { arr.push(224 + (c >> 12)); arr.push(128 + ((c >> 6) & 63)); arr.push(128 + (c & 63)); }
-    }
-    return arr;
-  }
-  const bytes = strToUTF8Arr(str);
-  const len8 = bytes.length;
-  const len32 = Math.ceil((len8 + 9) / 64) * 16;
-  const M = new Array(len32).fill(0);
-  for (let i = 0; i < len8; i++) M[i >> 2] |= bytes[i] << ((i % 4) * 8);
-  M[len8 >> 2] |= 0x80 << ((len8 % 4) * 8);
-  M[len32 - 2] = len8 * 8;
-  let a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
-  for (let i = 0; i < len32; i += 16) {
-    const [oa, ob, oc, od] = [a, b, c, d];
+  function strToUTF8Arr(str){const arr=[];for(let i=0;i<str.length;i++){let c=str.charCodeAt(i);if(c<128)arr.push(c);else if(c<2048){arr.push(192+(c>>6));arr.push(128+(c&63));}else{arr.push(224+(c>>12));arr.push(128+((c>>6)&63));arr.push(128+(c&63));}}return arr;}
+  const bytes=strToUTF8Arr(str);const len8=bytes.length;const len32=Math.ceil((len8+9)/64)*16;
+  const M=new Array(len32).fill(0);
+  for(let i=0;i<len8;i++)M[i>>2]|=bytes[i]<<((i%4)*8);
+  M[len8>>2]|=0x80<<((len8%4)*8);M[len32-2]=len8*8;
+  let a=1732584193,b=-271733879,c=-1732584194,d=271733878;
+  for(let i=0;i<len32;i+=16){const[oa,ob,oc,od]=[a,b,c,d];
     a=md5ff(a,b,c,d,M[i],7,-680876936);d=md5ff(d,a,b,c,M[i+1],12,-389564586);c=md5ff(c,d,a,b,M[i+2],17,606105819);b=md5ff(b,c,d,a,M[i+3],22,-1044525330);
     a=md5ff(a,b,c,d,M[i+4],7,-176418897);d=md5ff(d,a,b,c,M[i+5],12,1200080426);c=md5ff(c,d,a,b,M[i+6],17,-1473231341);b=md5ff(b,c,d,a,M[i+7],22,-45705983);
     a=md5ff(a,b,c,d,M[i+8],7,1770035416);d=md5ff(d,a,b,c,M[i+9],12,-1958414417);c=md5ff(c,d,a,b,M[i+10],17,-42063);b=md5ff(b,c,d,a,M[i+11],22,-1990404162);
@@ -58,12 +43,7 @@ function md5(str) {
     a=md5ii(a,b,c,d,M[i+4],6,-145523070);d=md5ii(d,a,b,c,M[i+11],10,-1120210379);c=md5ii(c,d,a,b,M[i+2],15,718787259);b=md5ii(b,c,d,a,M[i+9],21,-343485551);
     a=safeAdd(a,oa);b=safeAdd(b,ob);c=safeAdd(c,oc);d=safeAdd(d,od);
   }
-  const nums = [a,b,c,d];
-  return nums.map(n => {
-    const hex = [];
-    for (let i = 0; i < 4; i++) hex.push(('0'+(( n >> (i*8)) & 0xff).toString(16)).slice(-2));
-    return hex.join('');
-  }).join('');
+  return [a,b,c,d].map(n=>{const h=[];for(let i=0;i<4;i++)h.push(('0'+((n>>(i*8))&0xff).toString(16)).slice(-2));return h.join('');}).join('');
 }
 
 function signRequest(params) {
@@ -73,14 +53,36 @@ function signRequest(params) {
 
 function getTimestamp() {
   const now = new Date();
-  const pad = n => String(n).padStart(2, '0');
+  const pad = n => String(n).padStart(2,'0');
   return `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 }
 
-// Extract product ID from AliExpress URL
 function extractProductId(url) {
   const match = url.match(/\/item\/(\d+)\.html/) || url.match(/\/(\d+)\.html/) || url.match(/id=(\d+)/);
   return match ? match[1] : null;
+}
+
+// ── Parse SKU attributes into clean groups ──
+// Returns e.g. { Color: ['Red','Blue'], Size: ['S','M','L'], Length: ['10"','12"'] }
+function parseSkuAttributes(skuInfo) {
+  const groups = {};
+  try {
+    const props = skuInfo?.aeop_sku_property_dtos?.aeop_sku_property_d_t_o || [];
+    props.forEach(prop => {
+      const name = prop.sku_property_name;
+      const values = prop.aeop_sku_property_value_dtos?.aeop_sku_property_value_d_t_o || [];
+      if (name && values.length) {
+        groups[name] = values.map(v => ({
+          value: v.sku_property_value_name || v.property_value_definition_name || '',
+          image: v.sku_image || null,
+          id: v.property_value_id || null
+        })).filter(v => v.value);
+      }
+    });
+  } catch(e) {
+    console.error('SKU parse error:', e.message);
+  }
+  return groups;
 }
 
 exports.handler = async (event) => {
@@ -95,44 +97,142 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || '{}');
-    const action = body.action; // 'getProduct' | 'getLink'
+    const action = body.action;
 
+    // ── GET PRODUCT + SKU VARIANTS ──
     if (action === 'getProduct') {
       const { url } = body;
       const productId = extractProductId(url);
       if (!productId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Could not extract product ID from URL' }) };
 
-      const params = {
-        app_key: APP_KEY,
-        method: 'aliexpress.affiliate.productdetail.get',
-        sign_method: 'md5',
-        timestamp: getTimestamp(),
-        v: '2.0',
-        fields: 'product_id,product_title,product_main_image_url,product_small_image_urls,target_sale_price,target_original_price,target_sale_price_currency,commission_rate,shop_id,shop_url,product_detail_url,evaluate_rate,lastest_volume',
-        product_ids: productId,
-        tracking_id: TRACKING_ID,
-        target_currency: 'USD',
-        target_language: 'EN',
-      };
-      params.sign = signRequest(params);
+      // Call both APIs in parallel
+      const [productResp, skuResp] = await Promise.all([
+        // 1. Standard affiliate product detail
+        (async () => {
+          const params = {
+            app_key: APP_KEY,
+            method: 'aliexpress.affiliate.productdetail.get',
+            sign_method: 'md5',
+            timestamp: getTimestamp(),
+            v: '2.0',
+            fields: 'product_id,product_title,product_main_image_url,product_small_image_urls,target_sale_price,target_original_price,target_sale_price_currency,commission_rate,shop_id,shop_url,product_detail_url,evaluate_rate,lastest_volume',
+            product_ids: productId,
+            tracking_id: TRACKING_ID,
+            target_currency: 'USD',
+            target_language: 'EN',
+          };
+          params.sign = signRequest(params);
+          const r = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+            body: new URLSearchParams(params).toString()
+          });
+          return r.json();
+        })(),
 
-      const resp = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
-        body: new URLSearchParams(params).toString()
-      });
-      const data = await resp.json();
-      const result = data?.aliexpress_affiliate_productdetail_get_response?.resp_result;
+        // 2. SKU Dimension API — product detail at SKU level
+        (async () => {
+          try {
+            const params = {
+              app_key: APP_KEY,
+              method: 'aliexpress.affiliate.product.smartmatch',
+              sign_method: 'md5',
+              timestamp: getTimestamp(),
+              v: '2.0',
+              product_id: productId,
+              target_currency: 'USD',
+              target_language: 'EN',
+              tracking_id: TRACKING_ID,
+            };
+            // Try SKU detail method
+            const skuParams = {
+              app_key: APP_KEY,
+              method: 'aliexpress.ds.product.get',
+              sign_method: 'md5',
+              timestamp: getTimestamp(),
+              v: '2.0',
+              product_id: productId,
+              ship_to_country: 'US',
+              target_currency: 'USD',
+              target_language: 'en',
+            };
+            skuParams.sign = signRequest(skuParams);
+            const r = await fetch(API_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+              body: new URLSearchParams(skuParams).toString()
+            });
+            return r.json();
+          } catch(e) {
+            return null;
+          }
+        })()
+      ]);
+
+      // Parse standard product
+      const result = productResp?.aliexpress_affiliate_productdetail_get_response?.resp_result;
       if (!result || result.resp_code !== 200) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: result?.resp_msg || 'API error', raw: data }) };
+        return { statusCode: 400, headers, body: JSON.stringify({ error: result?.resp_msg || 'API error', raw: productResp }) };
       }
       const products = result.result?.products?.product;
       if (!products || !products.length) {
         return { statusCode: 404, headers, body: JSON.stringify({ error: 'Product not found' }) };
       }
-      return { statusCode: 200, headers, body: JSON.stringify({ product: products[0] }) };
+      const product = products[0];
+
+      // Parse SKU attributes from DS product response
+      let variants = {};
+      let skuList = [];
+      try {
+        const dsResult = skuResp?.aliexpress_ds_product_get_response?.result;
+        if (dsResult) {
+          const skuInfo = dsResult.ae_item_sku_info_dtos?.ae_item_sku_info_d_t_o || [];
+          // Get property names from first SKU
+          const propNames = {};
+          if (skuInfo.length > 0) {
+            const firstSku = skuInfo[0];
+            (firstSku.ae_sku_property_dtos?.ae_sku_property_d_t_o || []).forEach(p => {
+              propNames[p.property_id] = p.sku_property_name;
+            });
+          }
+          // Group all unique values per property
+          skuInfo.forEach(sku => {
+            (sku.ae_sku_property_dtos?.ae_sku_property_d_t_o || []).forEach(prop => {
+              const name = prop.sku_property_name || propNames[prop.property_id] || ('Attr '+prop.property_id);
+              if (!variants[name]) variants[name] = [];
+              const val = prop.property_value_definition_name || prop.sku_property_value;
+              if (val && !variants[name].find(v => v.value === val)) {
+                variants[name].push({
+                  value: val,
+                  image: prop.sku_image || null
+                });
+              }
+            });
+            // Also collect SKU list with prices
+            skuList.push({
+              skuId: sku.sku_id,
+              price: sku.sku_price,
+              salePrice: sku.offer_sale_price,
+              stock: sku.sku_available_stock,
+              attrs: (sku.ae_sku_property_dtos?.ae_sku_property_d_t_o || []).map(p => ({
+                name: p.sku_property_name,
+                value: p.property_value_definition_name || p.sku_property_value
+              }))
+            });
+          });
+        }
+      } catch(e) {
+        console.error('SKU parse error:', e.message);
+      }
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ product, variants, skuList })
+      };
     }
 
+    // ── GENERATE AFFILIATE LINK ──
     if (action === 'getLink') {
       const { url } = body;
       const params = {
@@ -146,7 +246,6 @@ exports.handler = async (event) => {
         tracking_id: TRACKING_ID,
       };
       params.sign = signRequest(params);
-
       const resp = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
@@ -163,7 +262,7 @@ exports.handler = async (event) => {
 
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Unknown action' }) };
 
-  } catch (e) {
+  } catch(e) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
   }
 };
