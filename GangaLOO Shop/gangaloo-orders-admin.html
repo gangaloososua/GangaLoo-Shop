@@ -352,19 +352,21 @@ async function initApp() {
 }
 
 // ── SUPABASE HELPERS ──
-async function sb(method, path, body) {
+async function sb(method, path, body, extraHeaders) {
+  const headers = {
+    'apikey': CFG.key,
+    'Authorization': `Bearer ${CFG.key}`,
+    'Content-Type': 'application/json',
+    ...( extraHeaders || {} )
+  };
   const r = await fetch(`${CFG.url}/rest/v1/${path}`, {
     method,
-    headers: {
-      'apikey': CFG.key,
-      'Authorization': `Bearer ${CFG.key}`,
-      'Content-Type': 'application/json',
-      'Prefer': method === 'POST' ? 'return=representation' : ''
-    },
+    headers,
     body: body ? JSON.stringify(body) : undefined
   });
   if (!r.ok) {
     const err = await r.text();
+    console.error('Supabase error:', method, path, err);
     throw new Error(err);
   }
   const text = await r.text();
@@ -372,8 +374,6 @@ async function sb(method, path, body) {
 }
 
 async function ensureTable() {
-  // Try to create table via RPC or just proceed — table must be created manually
-  // We'll just try a select and if it fails, show instructions
   try {
     await sb('GET', 'gl_orders?limit=1');
   } catch(e) {
@@ -392,23 +392,16 @@ async function loadOrders() {
   } catch(e) { console.error('Load error', e); }
 }
 
-async function saveOrder_sb(o) {
-  try {
-    await sb('POST', 'gl_orders', { id: o.id, data: o, updated_at: new Date().toISOString() });
-  } catch(e) {
-    // Try upsert
-    try {
-      await sb('PATCH', `gl_orders?id=eq.${o.id}`, { data: o, updated_at: new Date().toISOString() });
-    } catch(e2) { console.error('Save error', e2); }
-  }
-}
-
 async function upsertOrder(o) {
-  const existing = orders.find(x => x.id === o.id);
-  if (existing) {
-    await sb('PATCH', `gl_orders?id=eq.${o.id}`, { data: o, updated_at: new Date().toISOString() });
-  } else {
-    await sb('POST', 'gl_orders', { id: o.id, data: o, updated_at: new Date().toISOString() });
+  try {
+    // Single upsert call — works for both insert and update
+    await sb('POST', 'gl_orders', 
+      { id: o.id, data: o, updated_at: new Date().toISOString() },
+      { 'Prefer': 'resolution=merge-duplicates,return=minimal' }
+    );
+  } catch(e) {
+    console.error('Upsert failed:', e);
+    alert('Failed to save order. Check console for details.');
   }
 }
 
