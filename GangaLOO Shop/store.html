@@ -1260,9 +1260,9 @@ async function loadData(){
     document.getElementById('prodGrid').innerHTML='<div class="empty"><div class="ico">🌐</div><h3>Abre en un servidor</h3><p>Los archivos locales no pueden conectar a Supabase. Sube a Netlify o usa <code>npx serve .</code> y abre localhost.</p></div>';
     return;
   }
-  // Show skeleton cards only on very first load
+  // Show spinner only on very first load when grid is empty
   const grid = document.getElementById('prodGrid');
-  if (grid && grid.children.length === 0 && !_dataLoaded) {
+  if (grid && !_dataLoaded && grid.children.length === 0) {
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted);">
       <div class="spinner" style="margin:0 auto 16px;width:36px;height:36px;border:3px solid #f0ede8;border-top-color:var(--text);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
       <p style="font-size:.9em;">Cargando productos...</p>
@@ -1275,15 +1275,7 @@ async function loadData(){
   catch(e){console.warn('[store] fetch error:',e.message);return;}
   if(error||!data||!data.length){
     _dataLoading=false;
-    // Auto-retry once after 3 seconds
-    if(!window._storeRetried){
-      window._storeRetried=true;
-      console.warn('[store] Load failed, retrying in 3s...');
-      setTimeout(()=>{ window._storeRetried=false; loadData(); }, 3000);
-      document.getElementById('prodGrid').innerHTML='<div class="empty"><div class="ico">⏳</div><h3>Conectando...</h3><p>Cargando tienda, un momento...</p></div>';
-    } else {
-      document.getElementById('prodGrid').innerHTML='<div class="empty"><div class="ico">⚠️</div><h3>Error de conexión</h3><p>'+(error?.message||'Sin datos')+'</p><button onclick="location.reload()" style="margin-top:12px;padding:10px 20px;background:var(--text);color:white;border:none;border-radius:10px;cursor:pointer;font-family:sans-serif;font-size:.9em;">🔄 Recargar</button></div>';
-    }
+    document.getElementById('prodGrid').innerHTML='<div class="empty"><div class="ico">⚠️</div><h3>Error de conexión</h3><p>'+(error?.message||'Sin datos')+'</p><button onclick="location.reload()" style="margin-top:12px;padding:10px 20px;background:var(--text);color:white;border:none;border-radius:10px;cursor:pointer;font-family:sans-serif;font-size:.9em;">🔄 Recargar</button></div>';
     return;
   }
   const row=data[0];
@@ -2476,8 +2468,13 @@ async function onSignedIn(user){
     renderProducts();
     return;
   }
-  _dataLoaded=false;
-  await loadData();
+  // Only reload if we don't already have products in memory
+  if(allProducts.length > 0){
+    renderProducts();
+  } else {
+    _dataLoaded=false;
+    await loadData();
+  }
   loadLoyaltyDot();
   // If returning from successful Stripe payment, open orders page
   if(window._stripeSuccess){
