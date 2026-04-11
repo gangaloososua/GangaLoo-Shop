@@ -4277,8 +4277,7 @@
                 dealType: p.dealType,
                 dealDiscount: p.dealDiscount,
                 dealEnd: p.dealEnd,
-                // Strip base64 images — only keep URL references
-                imageUrl: (p.imageUrl && !p.imageUrl.startsWith('data:')) ? p.imageUrl : '',
+                imageUrl: p.imageUrl || '',
                 visibleInStore: p.visibleInStore,
                 commissionPercent: p.commissionPercent,
                 description: p.description,
