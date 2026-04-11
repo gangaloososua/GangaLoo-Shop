@@ -2683,7 +2683,7 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                     <h2>📋 Solicitudes de Vendedor <span id="appsBadge" style="display:inline-block;background:#e67e22;color:white;font-size:12px;padding:2px 9px;border-radius:20px;margin-left:8px;vertical-align:middle;"></span></h2>
                     <div style="display:flex;gap:8px;">
-                        <a href="/seller-signup.html" target="_blank" class="btn btn-secondary btn-small">🔗 Ver formulario</a>
+                        <a href="https://gangaloo.netlify.app/partners.html?tab=seller" target="_blank" class="btn btn-secondary btn-small">🔗 Ver formulario</a>
                         <button class="btn btn-secondary btn-small" onclick="loadSellerApplications()">🔄 Actualizar</button>
                     </div>
                 </div>
@@ -5355,37 +5355,62 @@
             const channelLabel = { presencial: '🏪 Presencial', rrss: '📱 Redes sociales', ambos: '🌐 Ambos' };
             const expLabel = { si: '✅ Sí', no: '➖ No' };
 
-            list.innerHTML = filtered.map(a => `
-                <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:14px;padding:20px;margin-bottom:14px;" id="app-${a.id}">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-                        <div>
-                            <div style="font-size:16px;font-weight:700;margin-bottom:4px;">${a.first_name} ${a.last_name}</div>
-                            <div style="font-size:13px;color:#555;margin-bottom:2px;">📧 ${a.email}</div>
-                            <div style="font-size:13px;color:#555;margin-bottom:2px;">📱 ${a.phone}  &nbsp;·&nbsp;  📍 ${a.city || '—'}</div>
-                            ${a.cedula ? `<div style="font-size:12px;color:#888;">🪪 ${a.cedula}</div>` : ''}
+            list.innerHTML = filtered.map(a => {
+                const waLink = a.phone ? `https://wa.me/${a.phone.replace(/[^0-9]/g,'')}` : null;
+                const dateStr = a.created_at ? new Date(a.created_at).toLocaleDateString('es-DO',{day:'2-digit',month:'long',year:'numeric'}) : '—';
+                return `
+                <div style="background:white;border:1.5px solid #e8e4f0;border-left:4px solid ${a.status==='approved'?'#27ae60':a.status==='rejected'?'#e74c3c':'#f39c12'};border-radius:14px;margin-bottom:14px;overflow:hidden;" id="app-${a.id}">
+                    <!-- Header -->
+                    <div style="padding:16px 18px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                        <div style="display:flex;gap:12px;align-items:center;">
+                            <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#002D62,#CF142B);color:white;font-weight:800;font-size:1.2em;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${(a.first_name||'?').slice(0,1).toUpperCase()}</div>
+                            <div>
+                                <div style="font-weight:700;font-size:1em;">${a.first_name} ${a.last_name}</div>
+                                <div style="font-size:.78em;color:#888;">${dateStr}</div>
+                            </div>
                         </div>
-                        <div style="text-align:right;">
-                            ${statusBadge[a.status] || ''}
-                            <div style="font-size:11px;color:#999;margin-top:6px;">${a.created_at ? new Date(a.created_at).toLocaleDateString('es-DO') : ''}</div>
+                        ${statusBadge[a.status] || ''}
+                    </div>
+                    <!-- Contact Info -->
+                    <div style="padding:0 18px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">
+                        <div style="background:#f8f6f3;border-radius:9px;padding:10px 12px;">
+                            <div style="font-size:.65em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:3px;">📧 Email</div>
+                            <div style="font-size:.85em;font-weight:600;word-break:break-all;">${a.email||'—'}</div>
+                            <a href="mailto:${a.email}" style="font-size:.72em;color:#0369a1;text-decoration:none;">✉️ Enviar email</a>
                         </div>
+                        <div style="background:#f0fdf4;border-radius:9px;padding:10px 12px;">
+                            <div style="font-size:.65em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:3px;">📱 WhatsApp / Teléfono</div>
+                            <div style="font-size:.85em;font-weight:600;">${a.phone||'—'}</div>
+                            ${waLink ? `<a href="${waLink}" target="_blank" style="font-size:.72em;color:#25D366;text-decoration:none;font-weight:700;">💬 Abrir WhatsApp</a>` : ''}
+                        </div>
+                        <div style="background:#f8f6f3;border-radius:9px;padding:10px 12px;">
+                            <div style="font-size:.65em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:3px;">📍 Ciudad</div>
+                            <div style="font-size:.85em;font-weight:600;">${a.city||'—'}</div>
+                        </div>
+                        ${a.cedula ? `<div style="background:#f8f6f3;border-radius:9px;padding:10px 12px;">
+                            <div style="font-size:.65em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:3px;">🪪 Cédula / Pasaporte</div>
+                            <div style="font-size:.85em;font-weight:600;">${a.cedula}</div>
+                        </div>` : ''}
                     </div>
-                    <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e9ecef;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;font-size:12px;color:#666;">
-                        <div>🧑‍💼 <b>Experiencia:</b> ${expLabel[a.experience] || a.experience}</div>
-                        <div>📣 <b>Canal:</b> ${channelLabel[a.channel] || a.channel}</div>
-                        ${a.exp_detail ? `<div style="grid-column:1/-1;">💬 <b>Exp. detalle:</b> ${a.exp_detail}</div>` : ''}
-                        ${a.message    ? `<div style="grid-column:1/-1;">✉️ <b>Mensaje:</b> ${a.message}</div>` : ''}
+                    <!-- Application Details -->
+                    <div style="padding:12px 18px 14px;border-top:1px solid #f0ede8;background:#fdfcfb;">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:${a.exp_detail||a.message?'10px':'0'};">
+                            <div><span style="font-size:.72em;color:#aaa;font-weight:700;text-transform:uppercase;">🧑‍💼 Experiencia</span><br><span style="font-size:.85em;font-weight:600;">${expLabel[a.experience]||a.experience||'—'}</span></div>
+                            <div><span style="font-size:.72em;color:#aaa;font-weight:700;text-transform:uppercase;">📣 Canal de venta</span><br><span style="font-size:.85em;font-weight:600;">${channelLabel[a.channel]||a.channel||'—'}</span></div>
+                        </div>
+                        ${a.exp_detail ? `<div style="background:#fff;border:1px solid #e8e4f0;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:.83em;"><span style="font-weight:700;color:#555;">💬 Experiencia detallada:</span><br>${a.exp_detail}</div>` : ''}
+                        ${a.message ? `<div style="background:#fff;border:1px solid #e8e4f0;border-radius:8px;padding:10px 12px;font-size:.83em;"><span style="font-weight:700;color:#555;">✉️ Mensaje:</span><br>${a.message}</div>` : ''}
                     </div>
-                    ${a.status === 'pending' ? `
-                    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-                        <button class="btn btn-primary btn-small" onclick="approveApplication('${a.id}','${a.email}','${a.first_name} ${a.last_name}')">
-                            ✅ Aprobar como Vendedor
-                        </button>
-                        <button class="btn btn-secondary btn-small" style="border-color:#e74c3c;color:#e74c3c;" onclick="rejectApplication('${a.id}')">
-                            ❌ Rechazar
-                        </button>
-                    </div>` : (a.status === 'approved' ? `<div style="margin-top:10px;font-size:12px;color:#27ae60;">✅ Cuenta de vendedor creada</div>` : '')}
-                </div>
-            `).join('');
+                    <!-- Actions -->
+                    <div style="padding:12px 18px;border-top:1px solid #f0ede8;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        ${a.status === 'pending' ? `
+                        <button class="btn btn-primary btn-small" onclick="approveApplication('${a.id}','${a.email}','${a.first_name} ${a.last_name}')">✅ Aprobar como Vendedor</button>
+                        <button class="btn btn-secondary btn-small" style="border-color:#e74c3c;color:#e74c3c;" onclick="rejectApplication('${a.id}')">❌ Rechazar</button>
+                        ` : a.status === 'approved' ? `<span style="font-size:.82em;color:#27ae60;font-weight:700;">✅ Aprobado — cuenta de vendedor creada</span>` : `<span style="font-size:.82em;color:#e74c3c;font-weight:700;">❌ Rechazado</span>`}
+                        ${waLink ? `<a href="${waLink}" target="_blank" class="btn btn-secondary btn-small" style="background:#25D366;color:white;border-color:#25D366;">💬 WhatsApp</a>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
         }
 
         async function approveApplication(appId, email, fullName) {
