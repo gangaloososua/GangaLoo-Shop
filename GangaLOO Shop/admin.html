@@ -5406,11 +5406,35 @@
                         ${a.status === 'pending' ? `
                         <button class="btn btn-primary btn-small" onclick="approveApplication('${a.id}','${a.email}','${a.first_name} ${a.last_name}')">✅ Aprobar como Vendedor</button>
                         <button class="btn btn-secondary btn-small" style="border-color:#e74c3c;color:#e74c3c;" onclick="rejectApplication('${a.id}')">❌ Rechazar</button>
-                        ` : a.status === 'approved' ? `<span style="font-size:.82em;color:#27ae60;font-weight:700;">✅ Aprobado — cuenta de vendedor creada</span>` : `<span style="font-size:.82em;color:#e74c3c;font-weight:700;">❌ Rechazado</span>`}
+                        ` : a.status === 'approved' ? `
+                        <span style="font-size:.82em;color:#27ae60;font-weight:700;">✅ Aprobado</span>
+                        <button class="btn btn-secondary btn-small" style="background:#25D366;color:white;border-color:#25D366;" onclick="sendApprovalWA('${a.first_name}','${a.email}','${a.phone}')">💬 Enviar instrucciones por WA</button>
+                        ` : `<span style="font-size:.82em;color:#e74c3c;font-weight:700;">❌ Rechazado</span>`}
                         ${waLink ? `<a href="${waLink}" target="_blank" class="btn btn-secondary btn-small" style="background:#25D366;color:white;border-color:#25D366;">💬 WhatsApp</a>` : ''}
                     </div>
                 </div>`;
             }).join('');
+        }
+
+        function sendApprovalWA(firstName, email, phone) {
+            const msg = `¡Hola ${firstName}! 🎉 Tu solicitud como vendedora GangaLoo fue *aprobada*.
+
+Para acceder a tu cuenta sigue estos pasos:
+
+1️⃣ Revisa tu correo *${email}* — te enviamos un enlace de confirmación, haz clic en él.
+
+2️⃣ Ve a 👉 https://gangaloo.netlify.app/store.html
+
+3️⃣ Haz clic en *"¿Olvidaste tu contraseña?"* e ingresa tu email para crear tu propia contraseña.
+
+4️⃣ Inicia sesión y ya puedes empezar a vender 💪
+
+¡Bienvenida al equipo GangaLoo! 🌟`;
+            const phoneClean = (phone||'').replace(/[^0-9]/g,'');
+            const url = phoneClean
+                ? `https://wa.me/${phoneClean}?text=${encodeURIComponent(msg)}`
+                : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+            window.open(url, '_blank');
         }
 
         async function approveApplication(appId, email, fullName) {
@@ -5444,12 +5468,15 @@
             }
 
             // 3. Upsert profile with seller role
+            const sellerApp = allApplications.find(a => a.email === email);
             if (userId) {
                 await sb.from('profiles').upsert({
                     id: userId,
                     email,
                     full_name: fullName,
                     role: 'seller',
+                    phone: sellerApp?.phone || null,
+                    city: sellerApp?.city || null,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'id' });
             } else {
@@ -5545,6 +5572,8 @@
                             <div style="flex:1;min-width:160px;">
                                 <div style="font-weight:700;font-size:.92em;">${u.full_name || '—'}</div>
                                 <div style="color:#888;font-size:.75em;word-break:break-all;">${u.email || '—'}</div>
+                                ${u.phone ? `<div style="color:#25D366;font-size:.75em;font-weight:600;">📱 <a href="https://wa.me/${(u.phone||'').replace(/[^0-9]/g,'')}" target="_blank" style="color:#25D366;">${u.phone}</a></div>` : ''}
+                                ${u.city ? `<div style="color:#888;font-size:.73em;">📍 ${u.city}</div>` : ''}
                                 <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
                                     <span style="background:${roleCol};color:white;padding:2px 9px;border-radius:20px;font-size:.7em;font-weight:700;">${roleLabel[u.role]||u.role}</span>
                                     ${isClub ? `<span style="background:#002D62;color:white;padding:2px 9px;border-radius:20px;font-size:.7em;font-weight:700;">🏆 Club</span>` : ''}
