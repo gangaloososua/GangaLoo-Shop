@@ -1511,19 +1511,25 @@ function renderProducts(){
   const q=searchQuery;
   const ids=getEffIds(selectedCat);
   console.log('[renderProducts] filtering '+allProducts.length+' products, wh:'+selectedWH+' cat:'+selectedCat);
+  // Debug: check why products are filtered out
+  let _dbgHidden=0,_dbgNoStock=0,_dbgNoCat=0,_dbgNoSearch=0;
   const filtered=allProducts.filter(p=>{
-    if(p.visibleInStore===false) return false;
+    if(p.visibleInStore===false){_dbgHidden++;return false;}
     const pCatIds=(p.categoryIds&&p.categoryIds.length?p.categoryIds:[p.categoryId]).map(String);
     const allHidden = pCatIds.length>0 && pCatIds.every(cid=>{
       const cat=allCategories.find(c=>String(c.id)===cid);
       return cat && cat.visibleInStore===false;
     });
-    if(allHidden) return false;
+    if(allHidden){_dbgHidden++;return false;}
     const mc=!ids||prodMatchesCat(p,ids);
+    if(!mc){_dbgNoCat++;return false;}
     const ms=!q||p.name.toLowerCase().includes(q)||(p.sku||'').toLowerCase().includes(q);
+    if(!ms){_dbgNoSearch++;return false;}
     const inStock=selectedWH?getStock(p.id,selectedWH)>0:allWarehouses.some(w=>getStock(p.id,w.id)>0);
-    return mc&&ms&&inStock;
+    if(!inStock) _dbgNoStock++;
+    return inStock;
   });
+  console.log('[filter result] shown:'+filtered.length+' hidden:'+_dbgHidden+' noStock:'+_dbgNoStock+' noCat:'+_dbgNoCat+' noSearch:'+_dbgNoSearch+' purchases:'+allPurchases.length);
 
   let title='Todos los Productos',bc='';
   if(selectedCat){
