@@ -446,6 +446,17 @@ async function saveResponse(fields) {
     });
     ORDER = updated;
   } catch(e) { console.error('Save error', e); }
+
+  // Notify admin via WhatsApp
+  try {
+    const choice = fields.clientChoice === 'pickup' ? '🏪 RECOGIDA en tienda' : '🚚 ENTREGA a domicilio';
+    let msg = `🔔 GangaLoo Orders%0A%0ACliente: ${encodeURIComponent(ORDER.client)}%0APedido: ${ORDER_ID}%0APlataforma: ${encodeURIComponent(ORDER.platform)}%0ARespuesta: ${encodeURIComponent(choice)}`;
+    if (fields.clientChoice === 'delivery') {
+      msg += `%0AFecha: ${encodeURIComponent(fields.clientDeliveryDate)}%0ADirección: ${encodeURIComponent(fields.clientAddress)}`;
+    }
+    msg += `%0ASaldo a cobrar: RD$ ${Number(ORDER.balance||0).toLocaleString('es-DO',{minimumFractionDigits:2})}`;
+    await fetch(`https://api.callmebot.com/whatsapp.php?phone=18292867868&apikey=3286436&text=${msg}`);
+  } catch(e) { console.error('Notify error', e); }
 }
 
 function showSuccess(type, date, address) {
