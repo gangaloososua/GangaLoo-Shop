@@ -1,4 +1,5 @@
 [build]
+  command = "bash 'GangaLOO Shop/inject-config.sh'"
   functions = "GangaLOO Shop/netlify/functions"
   publish = "GangaLOO Shop"
 
