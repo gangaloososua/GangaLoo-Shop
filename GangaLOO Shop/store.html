@@ -1001,7 +1001,7 @@ button{font-family:'Jost',sans-serif;}
     <div class="nav-right">
       <div class="search-wrap">
         <span class="search-ico">🔍</span>
-        <input type="text" class="search-inp" id="searchInput" placeholder="Buscar..." oninput="searchQuery=this.value.toLowerCase();if(typeof renderProducts==='function')renderProducts();" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="product-search-x-nofill">
+        <input type="text" class="search-inp" id="searchInput" placeholder="Buscar..." oninput="searchQuery=this.value.toLowerCase();if(typeof renderProducts==='function')renderProducts();" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" name="search-nofill-gangaloo" readonly onfocus="this.removeAttribute('readonly');">
       </div>
       <!-- user pill (shown when logged in) -->
       <div class="user-pill-wrap" id="userPillWrap" style="position:relative;display:none;" onclick="toggleUserMenu(event)">
@@ -1532,8 +1532,8 @@ function renderProducts(){
     if(!inStock) _dbgNoStock++;
     return inStock;
   });
-  console.log('[filter result] shown:'+filtered.length+' hidden:'+_dbgHidden+' noStock:'+_dbgNoStock+' noCat:'+_dbgNoCat+' noSearch:'+_dbgNoSearch+' purchases:'+allPurchases.length+' q='+JSON.stringify(q));
-  if(_dbgNoSearch > 0) console.trace('[search filter active]');
+  console.log('[filter result] shown:'+filtered.length+' hidden:'+_dbgHidden+' noStock:'+_dbgNoStock+' noCat:'+_dbgNoCat+' noSearch:'+_dbgNoSearch+' purchases:'+allPurchases.length);
+
 
   let title='Todos los Productos',bc='';
   if(selectedCat){
@@ -3087,15 +3087,20 @@ function closeMyOrders(){
 document.addEventListener('DOMContentLoaded', () => {
   const si = document.getElementById('searchInput');
   if(si){
-    // Poll every 500ms for autofill changes (browsers don't fire input event on autofill)
+    // Clear autofill immediately — browser silently fills search with email
     let _lastVal = '';
     setInterval(() => {
       if(si.value !== _lastVal){
-        console.log('[autofill detected] old:'+JSON.stringify(_lastVal)+' new:'+JSON.stringify(si.value));
         _lastVal = si.value;
-        if(!si.value){ searchQuery=''; }
+        // If browser autofilled with something (email etc), clear it
+        if(si.value && si.value !== searchQuery){
+          si.value = '';
+          searchQuery = '';
+          _lastVal = '';
+          if(typeof renderProducts === 'function') renderProducts();
+        }
       }
-    }, 500);
+    }, 200);
   }
 });
 if(sb){initAuth();}else{loadData();}
