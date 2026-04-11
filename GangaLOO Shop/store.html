@@ -1496,11 +1496,14 @@ let _purchasesBackup=[], _productsBackup=[];
 
 /* ── RENDER PRODUCTS ── */
 function renderProducts(){
+  console.log('[render] products:'+allProducts.length+' purchases:'+allPurchases.length+' wh:'+selectedWH);
   // Safety: restore backup if data was wiped
   if(allPurchases.length===0 && _purchasesBackup.length>0){
+    console.warn('[render] restoring purchases from backup');
     allPurchases=_purchasesBackup.slice();
   }
   if(allProducts.length===0 && _productsBackup.length>0){
+    console.warn('[render] restoring products from backup');
     allProducts=_productsBackup.slice();
   }
   const grid=document.getElementById('prodGrid');
@@ -2414,11 +2417,15 @@ async function initAuth(){
     showGuestState();
   }
   sb.auth.onAuthStateChange(async(event,session)=>{
+    console.log('[auth]', event, 'products:', allProducts.length, 'loaded:', _dataLoaded);
     if(event==='SIGNED_IN' && session?.user){
       // Skip if we already loaded for this user
       if(_lastLoadedUserId === session.user.id) return;
       _lastLoadedUserId = session.user.id;
       await onSignedIn(session.user);
+    } else if(event==='TOKEN_REFRESHED' && session?.user){
+      // Token refresh — just update user, never re-fetch products
+      currentUser = session.user;
     } else if(event==='SIGNED_OUT'){
       _lastLoadedUserId = null;
       showGuestState();
