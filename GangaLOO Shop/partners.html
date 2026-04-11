@@ -487,7 +487,12 @@ async function loadWholesaleTiers() {
     console.warn('Wholesale tiers fetch failed:', e.message);
   }
 }
-document.addEventListener('DOMContentLoaded', loadWholesaleTiers);
+document.addEventListener('DOMContentLoaded', () => {
+  loadWholesaleTiers();
+  // Open tab from URL param e.g. ?tab=seller
+  const tab = new URLSearchParams(window.location.search).get('tab');
+  if(tab) showTab(tab);
+});
 
 // ── TAB SWITCHING ──
 function showTab(tab) {
