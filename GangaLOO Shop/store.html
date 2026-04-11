@@ -1532,7 +1532,8 @@ function renderProducts(){
     if(!inStock) _dbgNoStock++;
     return inStock;
   });
-  console.log('[filter result] shown:'+filtered.length+' hidden:'+_dbgHidden+' noStock:'+_dbgNoStock+' noCat:'+_dbgNoCat+' noSearch:'+_dbgNoSearch+' purchases:'+allPurchases.length);
+  console.log('[filter result] shown:'+filtered.length+' hidden:'+_dbgHidden+' noStock:'+_dbgNoStock+' noCat:'+_dbgNoCat+' noSearch:'+_dbgNoSearch+' purchases:'+allPurchases.length+' q='+JSON.stringify(q));
+  if(_dbgNoSearch > 0) console.trace('[search filter active]');
 
   let title='Todos los Productos',bc='';
   if(selectedCat){
@@ -3082,6 +3083,21 @@ function closeMyOrders(){
   }
 })();
 
+// Watch for browser autofill on search input
+document.addEventListener('DOMContentLoaded', () => {
+  const si = document.getElementById('searchInput');
+  if(si){
+    // Poll every 500ms for autofill changes (browsers don't fire input event on autofill)
+    let _lastVal = '';
+    setInterval(() => {
+      if(si.value !== _lastVal){
+        console.log('[autofill detected] old:'+JSON.stringify(_lastVal)+' new:'+JSON.stringify(si.value));
+        _lastVal = si.value;
+        if(!si.value){ searchQuery=''; }
+      }
+    }, 500);
+  }
+});
 if(sb){initAuth();}else{loadData();}
 </script>
 </body>
