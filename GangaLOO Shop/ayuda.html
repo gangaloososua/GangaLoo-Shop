@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>¿Cómo funciona GangaLoo? — Guía completa</title>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-2EX25TXEFJ"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-2EX25TXEFJ');</script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --brand:#002D62;--red:#CF142B;--cream:#faf8f5;
+  --text:#002D62;--muted:#6b7280;--border:#e5e7eb;
+  --white:#fff;--green:#166534;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--text);-webkit-font-smoothing:antialiased;}
+
+/* NAV */
+nav{background:var(--brand);color:#fff;padding:0 5vw;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.2);}
+.nav-logo{font-family:'Cormorant Garamond',serif;font-size:1.4em;font-weight:600;}
+.nav-logo span{color:var(--red);}
+.nav-links{display:flex;gap:16px;font-size:.82em;}
+.nav-links a{color:rgba(255,255,255,.8);text-decoration:none;transition:color .2s;}
+.nav-links a:hover{color:#fff;}
+
+/* HERO */
+.hero{background:linear-gradient(135deg,var(--brand) 0%,#1a4a8a 100%);color:#fff;padding:60px 5vw 50px;text-align:center;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");}
+.hero-tag{font-size:.72em;font-weight:700;text-transform:uppercase;letter-spacing:.15em;opacity:.7;margin-bottom:12px;}
+.hero h1{font-family:'Cormorant Garamond',serif;font-size:clamp(2em,5vw,3.2em);font-weight:400;line-height:1.15;margin-bottom:14px;}
+.hero h1 em{color:var(--red);font-style:italic;}
+.hero p{opacity:.8;font-size:.95em;max-width:540px;margin:0 auto 28px;line-height:1.7;}
+.hero-wa{display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;padding:12px 24px;border-radius:30px;font-weight:700;font-size:.9em;text-decoration:none;transition:transform .2s,box-shadow .2s;}
+.hero-wa:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(37,211,102,.4);}
+
+/* QUICK NAV */
+.quick-nav{background:var(--white);border-bottom:1px solid var(--border);padding:0 5vw;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;}
+.quick-nav::-webkit-scrollbar{display:none;}
+.quick-nav a{display:inline-block;padding:14px 16px;font-size:.82em;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;transition:all .2s;}
+.quick-nav a:hover,.quick-nav a.active{color:var(--brand);border-bottom-color:var(--red);}
+
+/* SECTIONS */
+.section{padding:50px 5vw;max-width:860px;margin:0 auto;}
+.section-num{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:var(--red);color:#fff;font-weight:800;font-size:.9em;flex-shrink:0;margin-right:12px;}
+.section-hdr{display:flex;align-items:center;margin-bottom:28px;}
+.section-hdr h2{font-family:'Cormorant Garamond',serif;font-size:1.9em;font-weight:600;}
+.section-icon{font-size:2em;margin-right:14px;}
+
+/* STEPS */
+.steps{display:flex;flex-direction:column;gap:16px;}
+.step{display:flex;gap:16px;align-items:flex-start;background:var(--white);border:1px solid var(--border);border-radius:14px;padding:18px 20px;transition:box-shadow .2s;}
+.step:hover{box-shadow:0 4px 16px rgba(0,45,98,.08);}
+.step-num{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#1a4a8a);color:#fff;font-weight:800;font-size:.88em;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.step-body h3{font-size:.95em;font-weight:700;margin-bottom:4px;color:var(--brand);}
+.step-body p{font-size:.85em;color:var(--muted);line-height:1.6;}
+.step-body .tip{margin-top:8px;background:#f0f4ff;border-left:3px solid var(--brand);padding:8px 12px;border-radius:0 8px 8px 0;font-size:.78em;color:var(--brand);}
+
+/* INFO BOXES */
+.info-box{border-radius:14px;padding:20px 24px;margin-bottom:16px;}
+.info-box.blue{background:linear-gradient(135deg,#f0f4ff,#e8eeff);border:1px solid #c7d2fe;}
+.info-box.green{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;}
+.info-box.red{background:linear-gradient(135deg,#fff5f5,#fee2e2);border:1px solid #fca5a5;}
+.info-box.gold{background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;}
+.info-box h3{font-size:.95em;font-weight:700;margin-bottom:8px;}
+.info-box p,.info-box li{font-size:.85em;color:#374151;line-height:1.7;}
+.info-box ul{padding-left:18px;}
+.info-box li{margin-bottom:4px;}
+
+/* FAQ */
+.faq{display:flex;flex-direction:column;gap:10px;}
+.faq-item{background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.faq-q{width:100%;text-align:left;background:none;border:none;padding:16px 20px;font-family:'Jost',sans-serif;font-size:.9em;font-weight:600;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.faq-q:hover{background:#fafaf9;}
+.faq-arrow{font-size:1.1em;transition:transform .25s;flex-shrink:0;}
+.faq-a{display:none;padding:0 20px 16px;font-size:.85em;color:var(--muted);line-height:1.7;border-top:1px solid var(--border);}
+.faq-item.open .faq-arrow{transform:rotate(180deg);}
+.faq-item.open .faq-a{display:block;}
+
+/* DIVIDER */
+.divider{border:none;border-top:1px solid var(--border);margin:0;}
+
+/* CTA CARDS */
+.cta-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-top:8px;}
+.cta-card{background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:22px;text-align:center;text-decoration:none;color:var(--text);transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:10px;}
+.cta-card:hover{border-color:var(--brand);box-shadow:0 6px 20px rgba(0,45,98,.1);transform:translateY(-2px);}
+.cta-card .ico{font-size:2.2em;}
+.cta-card h3{font-size:.92em;font-weight:700;}
+.cta-card p{font-size:.78em;color:var(--muted);line-height:1.5;}
+.cta-card .btn{margin-top:6px;background:var(--brand);color:#fff;padding:8px 18px;border-radius:20px;font-size:.78em;font-weight:700;}
+
+/* BADGE */
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.72em;font-weight:700;}
+.badge.new{background:#dcfce7;color:#166534;}
+.badge.hot{background:#fee2e2;color:#991b1b;}
+
+/* WA FLOAT */
+.wa-float{position:fixed;bottom:20px;right:20px;background:#25D366;color:#fff;width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5em;box-shadow:0 4px 16px rgba(37,211,102,.4);z-index:200;text-decoration:none;transition:transform .2s;}
+.wa-float:hover{transform:scale(1.1);}
+
+@media(max-width:600px){
+  .section{padding:36px 4vw;}
+  .hero{padding:44px 5vw 36px;}
+  .step{padding:14px 16px;}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Ganga<span>Loo</span></div>
+  <div class="nav-links">
+    <a href="https://gangaloo.netlify.app/store.html">🛍 Tienda</a>
+    <a href="https://gangaloo.netlify.app/">Inicio</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">Centro de Ayuda</div>
+  <h1>¿Cómo funciona<br><em>GangaLoo</em>?</h1>
+  <p>Aquí te explicamos todo paso a paso, de forma sencilla. Si tienes dudas, escríbenos por WhatsApp.</p>
+  <a href="https://wa.me/18292867868" class="hero-wa" target="_blank">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+    Escríbenos por WhatsApp
+  </a>
+</div>
+
+<!-- QUICK NAV -->
+<div class="quick-nav">
+  <a href="#registro">📝 Registro</a>
+  <a href="#comprar">🛒 Comprar</a>
+  <a href="#pago">💳 Pago</a>
+  <a href="#pedidos">📦 Pedidos</a>
+  <a href="#vendedor">🤝 Vendedor</a>
+  <a href="#mayoreo">🏷️ Mayoreo</a>
+  <a href="#club">🏆 Club</a>
+  <a href="#preguntas">❓ Preguntas</a>
+</div>
+
+<!-- 1. REGISTRO -->
+<div class="section" id="registro">
+  <div class="section-hdr">
+    <div class="section-num">1</div>
+    <h2>Cómo crear tu cuenta</h2>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Entra a nuestra tienda</h3>
+        <p>Ve a <strong>gangaloo.netlify.app/store.html</strong> desde tu celular o computadora.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Haz clic en "Iniciar Sesión"</h3>
+        <p>Verás el botón en la parte de arriba de la página. Si no tienes cuenta aún, selecciona <strong>"Crear Cuenta"</strong>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Llena el formulario</h3>
+        <p>Ingresa tu <strong>nombre completo</strong>, tu número de <strong>WhatsApp</strong> y tu <strong>correo electrónico</strong>. Crea una contraseña de al menos 6 caracteres.</p>
+        <div class="tip">💡 Usa un correo que revises seguido — te enviaremos confirmaciones de pedido ahí.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3>¡Listo! Ya tienes tu cuenta</h3>
+        <p>Con tu cuenta puedes ver los precios completos, hacer pedidos y llevar el control de tus compras.</p>
+      </div>
+    </div>
+  </div>
+  <div class="info-box gold" style="margin-top:20px;">
+    <h3>🔑 ¿Olvidaste tu contraseña?</h3>
+    <p>En la pantalla de inicio de sesión haz clic en <strong>"¿Olvidaste tu contraseña?"</strong>, ingresa tu correo y te enviamos un enlace para crear una nueva contraseña.</p>
+  </div>
+</div>
+<hr class="divider">
+
+<!-- 2. COMPRAR -->
+<div class="section" id="comprar">
+  <div class="section-hdr">
+    <div class="section-num">2</div>
+    <h2>Cómo comprar en la tienda</h2>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Explora los productos</h3>
+        <p>Navega por las categorías en la parte de arriba. Puedes filtrar por <strong>almacén</strong> (Sosúa o Montellano) o buscar por nombre.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Agrega al carrito</h3>
+        <p>Haz clic en el botón <strong>"+"</strong> en el producto que quieres. Puedes agregar varios productos al mismo tiempo.</p>
+        <div class="tip">💡 El ícono del carrito 🛒 en la parte de arriba te muestra cuántos productos tienes.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Revisa tu carrito</h3>
+        <p>Haz clic en el carrito para ver todo lo que seleccionaste. Puedes cambiar cantidades o eliminar productos.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3>Haz tu pedido</h3>
+        <p>Cuando estés lista, haz clic en <strong>"Hacer Pedido"</strong>. Elige cómo quieres pagar y confirma.</p>
+      </div>
+    </div>
+  </div>
+  <div class="info-box blue" style="margin-top:20px;">
+    <h3>📦 ¿Cómo recibo mis productos?</h3>
+    <ul>
+      <li>Recogida en tienda en <strong>Sosúa o Montellano</strong></li>
+      <li>Entrega a domicilio disponible (costo adicional de RD$200 para recogida de pago)</li>
+      <li>Te avisamos por WhatsApp cuando tu pedido está listo</li>
+    </ul>
+  </div>
+</div>
+<hr class="divider">
+
+<!-- 3. PAGO -->
+<div class="section" id="pago">
+  <div class="section-hdr">
+    <div class="section-num">3</div>
+    <h2>Cómo pagar tu pedido</h2>
+  </div>
+  <div class="info-box green" style="margin-bottom:20px;">
+    <h3>✅ Opciones de pago disponibles</h3>
+    <ul>
+      <li><strong>Efectivo</strong> — en tienda al recoger tu pedido</li>
+      <li><strong>Transferencia bancaria</strong> — te damos los datos por WhatsApp</li>
+      <li><strong>Tarjeta de crédito/débito</strong> — disponible en línea</li>
+      <li><strong>PayPal</strong> — disponible en línea</li>
+    </ul>
+  </div>
+  <div class="info-box gold">
+    <h3>💰 Opción de pago en dos partes (Financiero)</h3>
+    <p>Si no puedes pagar todo de una vez, puedes pagar <strong>una parte por adelantado</strong> para confirmar tu pedido y el resto cuando recoges. Se aplica un cargo financiero del <strong>20%</strong> sobre el monto pendiente.</p>
+    <p style="margin-top:8px;"><strong>Ejemplo:</strong> Total RD$2,000 → Pagas RD$1,000 ahora y RD$1,200 al recoger (RD$1,000 + 20% = RD$200 financiero).</p>
+  </div>
+</div>
+<hr class="divider">
+
+<!-- 4. PEDIDOS -->
+<div class="section" id="pedidos">
+  <div class="section-hdr">
+    <div class="section-num">4</div>
+    <h2>Seguimiento de pedidos</h2>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>⏳ Pendiente</h3>
+        <p>Tu pedido fue recibido y estamos preparándolo. Te contactamos pronto para coordinar.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>✅ Listo para recoger</h3>
+        <p>Tu pedido está listo. Te avisamos por WhatsApp con los detalles de dónde y cuándo recoger.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>📦 Entregado</h3>
+        <p>Recibiste tu pedido. ¡Gracias por tu compra! No olvides compartir tu experiencia.</p>
+      </div>
+    </div>
+  </div>
+  <div class="info-box blue" style="margin-top:20px;">
+    <h3>👤 Ver mis pedidos</h3>
+    <p>Inicia sesión en la tienda → toca tu nombre en la parte superior → selecciona <strong>"Mis Pedidos"</strong> para ver el estado de todas tus compras.</p>
+  </div>
+</div>
+<hr class="divider">
+
+<!-- 5. VENDEDOR -->
+<div class="section" id="vendedor">
+  <div class="section-hdr">
+    <div class="section-num">5</div>
+    <h2>Cómo ser Vendedora GangaLoo</h2>
+  </div>
+  <div class="info-box blue" style="margin-bottom:20px;">
+    <h3>💡 ¿Qué es ser vendedora GangaLoo?</h3>
+    <p>Como vendedora, compras los productos al <strong>precio normal</strong> y los vendes a tus clientas. Al final de cada mes recibes una <strong>comisión</strong> sobre todas las ventas registradas a tu nombre. ¡Ganas dinero sin tener que comprar inventario por adelantado!</p>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Llena la solicitud</h3>
+        <p>Ve a <strong>gangaloo.netlify.app/partners.html</strong> y selecciona la pestaña <strong>"Vendedores"</strong>. Llena el formulario con tus datos.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Esperamos tu aprobación</h3>
+        <p>Revisamos tu solicitud y te contactamos por WhatsApp en máximo 48 horas.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Crea tu cuenta</h3>
+        <p>Si eres aprobada, recibirás un correo para confirmar tu cuenta. Luego usa <strong>"¿Olvidaste tu contraseña?"</strong> en la tienda para crear tu contraseña de acceso.</p>
+        <div class="tip">💡 Usa el mismo correo que pusiste en la solicitud.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3>Empieza a vender</h3>
+        <p>Una vez dentro, tienes acceso a tu panel de vendedora donde puedes ver tus ventas, tu inventario disponible y tus comisiones acumuladas.</p>
+      </div>
+    </div>
+  </div>
+  <div class="info-box gold" style="margin-top:20px;">
+    <h3>📋 Requisito de los primeros 3 meses</h3>
+    <p>Durante los primeros 3 meses debes comprar un mínimo de <strong>2 productos por mes</strong> para mantenerte activa como vendedora. Después de los 3 meses no hay mínimo obligatorio.</p>
+  </div>
+  <div class="info-box green" style="margin-top:16px;">
+    <h3>💸 ¿Cuándo recibo mi comisión?</h3>
+    <p>Al final de cada mes calculamos todas tus ventas y te pagamos tu comisión. El porcentaje varía según el producto. Puedes ver todo en detalle en tu panel de vendedora.</p>
+  </div>
+</div>
+<hr class="divider">
+
+<!-- 6. MAYOREO -->
+<div class="section" id="mayoreo">
+  <div class="section-hdr">
+    <div class="section-num">6</div>
+    <h2>Compras al por mayor (Mayoreo)</h2>
+  </div>
+  <div class="info-box blue" style="margin-bottom:20px;">
+    <h3>🏷️ ¿Qué es el mayoreo?</h3>
+    <p>Si compras <strong>varios productos a la vez</strong>, obtienes un descuento automático. Entre más compras, mayor es tu descuento. Ideal para revendedoras o salones de belleza.</p>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Agrega varios productos al carrito</h3>
+        <p>El descuento se aplica automáticamente cuando tu carrito alcanza la cantidad mínima requerida.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Ve el descuento aplicado</h3>
+        <p>En el carrito verás el descuento de mayoreo aplicado automáticamente con el porcentaje de ahorro.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>O aplica como mayorista</h3>
+        <p>Para precios de mayoreo permanentes y condiciones especiales, ve a <strong>gangaloo.netlify.app/partners.html</strong> y llena la solicitud de mayorista.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<hr class="divider">
+
+<!-- 7. CLUB -->
+<div class="section" id="club">
+  <div class="section-hdr">
+    <div class="section-num">7</div>
+    <h2>Club GangaLoo 🏆</h2>
+  </div>
+  <div class="info-box" style="background:linear-gradient(135deg,#002D62,#CF142B);border:none;margin-bottom:20px;">
+    <h3 style="color:#fff;margin-bottom:10px;">👑 ¿Qué es el Club GangaLoo?</h3>
+    <p style="color:rgba(255,255,255,.9);">El Club GangaLoo es nuestro programa de membresía premium para clientas frecuentes. Con tu membresía Club obtienes beneficios exclusivos que no están disponibles para clientas regulares.</p>
+  </div>
+  <div class="info-box green">
+    <h3>✨ Beneficios de ser miembro Club</h3>
+    <ul>
+      <li><strong>10% de descuento</strong> en todos los productos de la tienda</li>
+      <li><strong>Envío GRATIS</strong> en todas tus órdenes</li>
+      <li><strong>Puntos de lealtad dobles</strong> en cada compra</li>
+      <li>Acceso a <strong>ofertas exclusivas</strong> antes que nadie</li>
+      <li>Atención prioritaria por WhatsApp</li>
+    </ul>
+  </div>
+  <div class="info-box gold" style="margin-top:16px;">
+    <h3>💎 ¿Cómo me uno al Club?</h3>
+    <p>Contáctanos por WhatsApp para conocer los detalles de membresía y precios. Somos nosotras quienes activamos tu cuenta Club una vez confirmado el pago.</p>
+  </div>
+  <div style="margin-top:20px;text-align:center;">
+    <a href="https://wa.me/18292867868?text=Hola%2C%20me%20interesa%20unirme%20al%20Club%20GangaLoo%20%F0%9F%8F%86" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;padding:13px 26px;border-radius:30px;font-weight:700;font-size:.9em;text-decoration:none;">
+      💬 Preguntar sobre el Club por WhatsApp
+    </a>
+  </div>
+</div>
+<hr class="divider">
+
+<!-- 8. FAQ -->
+<div class="section" id="preguntas">
+  <div class="section-hdr">
+    <div class="section-num">8</div>
+    <h2>Preguntas frecuentes</h2>
+  </div>
+  <div class="faq">
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Tienen tienda física? ¿Dónde están ubicados?
+        <span class="faq-arrow">▼</span>
+      </button>
+      <div class="faq-a">Sí, tenemos dos ubicaciones: <strong>Sosúa</strong> y <strong>Montellano</strong>, Puerto Plata. Puedes pasar a recoger tu pedido en cualquiera de las dos. Escríbenos por WhatsApp para confirmar el horario.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Puedo pedir sin crear una cuenta?
+        <span class="faq-arrow">▼</span>
+      </button>
+      <div class="faq-a">Puedes ver los productos sin cuenta, pero para ver los precios completos y hacer pedidos necesitas crear una cuenta gratuita. Solo toma un minuto y es completamente gratis.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Cuánto tiempo tarda en llegar mi pedido?
+        <span class="faq-arrow">▼</span>
+      </button>
+      <div class="faq-a">Los productos en stock están disponibles inmediatamente para recoger en tienda. Si el producto viene de pedido especial, te avisamos el tiempo de espera por WhatsApp. Generalmente entre 7 y 21 días hábiles.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Puedo devolver un producto?
+        <span class="faq-arrow">▼</span>
+      </button>
+      <div class="faq-a">Si el producto tiene un defecto de fábrica, lo cambiamos sin problema. Contáctanos dentro de los primeros 3 días después de recibirlo. Para cambios por otro motivo, evaluamos caso por caso. Escríbenos por WhatsApp.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Cómo sé si un producto está en stock?
+        <span class="faq-arrow">▼</span>
+      </button>
+      <div class="faq-a">En la tienda online puedes ver la disponibilidad de cada producto. Si dice <strong>"Disponible"</strong> está en stock. Si dice <strong>"Agotado"</strong> no hay unidades en ese momento. También puedes escribirnos por WhatsApp para confirmar.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Tienen productos de AliExpress?
+        <span class="faq-arrow">▼</span>
+      </button>
+      <div class="faq-a">Sí, tenemos una sección especial de productos importados desde AliExpress en <strong>gangaloo.netlify.app/aliexpress.html</strong>. Nosotros hacemos la compra por ti y te la entregamos en República Dominicana. Pagas en RD$ y sin complicaciones de aduana.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Puedo pagar a plazos?
+        <span class="faq-arrow">▼</span>
+      </button>
+      <div class="faq-a">Sí. Puedes pagar una parte ahora para reservar tu pedido y el resto cuando lo recoges. Se aplica un cargo financiero del 20% sobre el monto que queda pendiente. Usa nuestra <a href="https://gangaloo.netlify.app/#cotizador" style="color:var(--brand);font-weight:600;">calculadora de precios</a> para saber exactamente cuánto pagas.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Cómo me convierto en vendedora?
+        <span class="faq-arrow">▼</span>
+      </button>
+      <div class="faq-a">Llena el formulario en <strong>gangaloo.netlify.app/partners.html</strong> en la pestaña "Vendedores". Te contactamos en máximo 48 horas para revisar tu solicitud. <a href="#vendedor" style="color:var(--brand);font-weight:600;">Ver más detalles arriba ↑</a></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Tienen WhatsApp para dudas?
+        <span class="faq-arrow">▼</span>
+      </button>
+      <div class="faq-a">¡Sí! Escríbenos al <strong>+1 (829) 286-7868</strong> y con gusto te ayudamos. También puedes hacer clic en el botón verde flotante 💬 en cualquier página.</div>
+    </div>
+  </div>
+</div>
+<hr class="divider">
+
+<!-- CTA FINAL -->
+<div class="section" style="text-align:center;padding-bottom:60px;">
+  <h2 style="font-family:'Cormorant Garamond',serif;font-size:1.8em;margin-bottom:10px;">¿Lista para empezar? 🌟</h2>
+  <p style="color:var(--muted);font-size:.9em;margin-bottom:28px;">Explora nuestra tienda, crea tu cuenta y empieza a disfrutar de los mejores productos de extensiones en República Dominicana.</p>
+  <div class="cta-grid">
+    <a href="https://gangaloo.netlify.app/store.html" class="cta-card">
+      <div class="ico">🛍️</div>
+      <h3>Ir a la Tienda</h3>
+      <p>Explora todos nuestros productos disponibles</p>
+      <div class="btn">Ver productos →</div>
+    </a>
+    <a href="https://gangaloo.netlify.app/partners.html?tab=seller" class="cta-card">
+      <div class="ico">🤝</div>
+      <h3>Ser Vendedora</h3>
+      <p>Aplica para unirte a nuestro equipo de vendedoras</p>
+      <div class="btn">Aplicar ahora →</div>
+    </a>
+    <a href="https://gangaloo.netlify.app/partners.html" class="cta-card">
+      <div class="ico">🏷️</div>
+      <h3>Mayoreo</h3>
+      <p>Precios especiales para compras al por mayor</p>
+      <div class="btn">Ver precios →</div>
+    </a>
+    <a href="https://wa.me/18292867868" target="_blank" class="cta-card">
+      <div class="ico">💬</div>
+      <h3>WhatsApp</h3>
+      <p>¿Tienes dudas? Escríbenos directamente</p>
+      <div class="btn" style="background:#25D366;">Escribir →</div>
+    </a>
+  </div>
+</div>
+
+<!-- WA FLOAT -->
+<a href="https://wa.me/18292867868" class="wa-float" target="_blank" title="WhatsApp">💬</a>
+
+<script>
+function toggleFaq(btn){
+  const item = btn.closest('.faq-item');
+  item.classList.toggle('open');
+}
+
+// Highlight active quick nav on scroll
+const sections = document.querySelectorAll('.section[id]');
+const navLinks = document.querySelectorAll('.quick-nav a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if(window.scrollY >= s.offsetTop - 80) current = s.id;
+  });
+  navLinks.forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#'+current);
+  });
+}, {passive:true});
+</script>
+</body>
+</html>
