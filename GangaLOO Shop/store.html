@@ -1001,7 +1001,7 @@ button{font-family:'Jost',sans-serif;}
     <div class="nav-right">
       <div class="search-wrap">
         <span class="search-ico">🔍</span>
-        <input type="search" class="search-inp" id="searchInput" placeholder="Buscar..." oninput="searchQuery=this.value.toLowerCase();if(typeof renderProducts==='function')renderProducts();" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="product-search-x">
+        <input type="text" class="search-inp" id="searchInput" placeholder="Buscar..." oninput="searchQuery=this.value.toLowerCase();if(typeof renderProducts==='function')renderProducts();" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="product-search-x-nofill">
       </div>
       <!-- user pill (shown when logged in) -->
       <div class="user-pill-wrap" id="userPillWrap" style="position:relative;display:none;" onclick="toggleUserMenu(event)">
@@ -1508,7 +1508,10 @@ function renderProducts(){
     allProducts=_productsBackup.slice();
   }
   const grid=document.getElementById('prodGrid');
-  const q=searchQuery;
+  // Always read from input directly to avoid browser autofill issues
+  const _si = document.getElementById('searchInput');
+  const q = (_si ? _si.value : searchQuery).toLowerCase().trim();
+  if(q !== searchQuery){ searchQuery = q; } // sync variable
   const ids=getEffIds(selectedCat);
   console.log('[renderProducts] filtering '+allProducts.length+' products, wh:'+selectedWH+' cat:'+selectedCat);
   // Debug: check why products are filtered out
@@ -2430,6 +2433,10 @@ async function initAuth(){
       // Skip if we already loaded for this user in this session
       if(_lastLoadedUserId === session.user.id && _dataLoaded && allProducts.length > 0) return;
       _lastLoadedUserId = session.user.id;
+      // Clear any browser-autofilled search before rendering
+      const _si2 = document.getElementById('searchInput');
+      if(_si2) _si2.value = '';
+      searchQuery = '';
       await onSignedIn(session.user);
     } else if(event==='INITIAL_SESSION' && !session){
       // No session — load as guest
