@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GangaLoo — Order Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d0d;--surface:#161616;--surface2:#1e1e1e;--surface3:#272727;
+  --border:#2a2a2a;--accent:#00e5a0;--accent2:#00b37a;--warn:#ffb84d;
+  --danger:#ff5f5f;--text:#f0f0f0;--muted:#666;--wa:#25D366;
+}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* SETUP SCREEN */
+.setup-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.setup-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px;width:100%;max-width:480px}
+.setup-card h1{font-size:24px;font-weight:800;margin-bottom:6px}
+.setup-card p{color:var(--muted);font-size:14px;margin-bottom:24px;line-height:1.6}
+.setup-warning{background:#1a0d00;border:1px solid var(--warn);border-radius:8px;padding:12px;font-size:13px;color:var(--warn);margin-bottom:20px;line-height:1.5}
+
+.header{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+.logo{font-size:22px;font-weight:800;letter-spacing:-0.5px}
+.logo span{color:var(--accent)}
+.header-actions{display:flex;gap:10px;align-items:center}
+.badge-count{background:var(--accent);color:#000;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700;font-family:'DM Mono',monospace}
+
+.layout{display:grid;grid-template-columns:1fr 390px;gap:0;min-height:calc(100vh - 61px)}
+.main{padding:28px;overflow-y:auto}
+.sidebar{border-left:1px solid var(--border);padding:24px;background:var(--surface);overflow-y:auto;max-height:calc(100vh - 61px);position:sticky;top:61px}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;border:none;cursor:pointer;font-family:'Syne',sans-serif;font-size:14px;font-weight:600;transition:all .15s;text-decoration:none}
+.btn-primary{background:var(--accent);color:#000}
+.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-wa{background:var(--wa);color:#fff}
+.btn-wa:hover{background:#1da851}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger)}
+.btn-danger:hover{background:var(--danger);color:#fff}
+.btn-warn{background:var(--warn);color:#000}
+.btn-sm{padding:6px 12px;font-size:12px}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+.field input,.field select,.field textarea{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Syne',sans-serif;font-size:14px;transition:border .15s;outline:none;width:100%}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+.field select option{background:var(--surface2)}
+.field textarea{resize:vertical;min-height:60px}
+.field-hint{font-size:11px;color:var(--muted);margin-top:2px}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:14px;transition:border .2s;cursor:pointer}
+.card:hover{border-color:#333}
+.card.selected{border-color:var(--accent);background:#0d1f18}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.card-name{font-size:16px;font-weight:700}
+.card-source{font-size:11px;font-family:'DM Mono',monospace;padding:3px 8px;border-radius:4px;font-weight:500}
+.src-amazon{background:#ff9900;color:#000}
+.src-temu{background:#f0380a;color:#fff}
+.src-shein{background:#222;color:#fff;border:1px solid #555}
+.src-aliexpress{background:#e62f18;color:#fff}
+.src-other{background:var(--surface3);color:var(--muted)}
+.card-meta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+.meta-item{font-size:13px;color:var(--muted);font-family:'DM Mono',monospace}
+.meta-item strong{color:var(--text)}
+.status-pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:'DM Mono',monospace;letter-spacing:0.5px}
+.s-pending{background:#1a1400;color:var(--warn);border:1px solid var(--warn)}
+.s-notified{background:#001a12;color:var(--accent);border:1px solid var(--accent)}
+.s-form_sent{background:#001a20;color:#5ab4ff;border:1px solid #5ab4ff}
+.s-form_filled{background:#1a0020;color:#c084fc;border:1px solid #c084fc}
+.s-pickup{background:#1a1a00;color:#e5e500;border:1px solid #e5e500}
+.s-scheduled{background:#100020;color:#c084fc;border:1px solid #c084fc}
+.s-done{background:#1a1a1a;color:var(--muted);border:1px solid var(--border)}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px}
+.stat-val{font-size:22px;font-weight:800;font-family:'DM Mono',monospace;margin-bottom:2px}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+
+.tabs{display:flex;gap:4px;margin-bottom:24px;background:var(--surface2);border-radius:10px;padding:4px}
+.tab{flex:1;padding:8px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:'Syne',sans-serif;font-size:12px;font-weight:600;border-radius:7px;transition:all .15s}
+.tab.active{background:var(--surface3);color:var(--text)}
+
+.search-bar{position:relative;margin-bottom:20px}
+.search-bar input{width:100%;padding:10px 14px 10px 38px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:14px;outline:none;transition:border .15s}
+.search-bar input:focus{border-color:var(--accent)}
+.search-bar svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto}
+.modal h2{font-size:18px;font-weight:800;margin-bottom:20px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap}
+
+.detail-section{margin-bottom:22px}
+.detail-section h3{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.detail-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;font-size:13px}
+.detail-row:last-child{border-bottom:none}
+.detail-label{color:var(--muted)}
+.detail-value{font-weight:600;font-family:'DM Mono',monospace;text-align:right;max-width:200px}
+.amount-total{font-size:18px;color:var(--accent);font-weight:800}
+.amount-owed{font-size:18px;color:var(--warn);font-weight:800}
+
+.wa-box{background:#001a0d;border:1px solid var(--accent);border-radius:10px;padding:14px;font-size:12px;line-height:1.8;font-family:'DM Mono',monospace;color:#b0ffdc;white-space:pre-wrap;word-break:break-word;margin-bottom:10px}
+
+.timeline{position:relative;padding-left:20px}
+.timeline::before{content:'';position:absolute;left:6px;top:0;bottom:0;width:2px;background:var(--border)}
+.tl-item{position:relative;padding:0 0 12px 16px;font-size:12px}
+.tl-item::before{content:'';position:absolute;left:-8px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
+.tl-item.old::before{background:var(--muted)}
+.tl-time{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+
+.new-response-alert{background:#0d1f18;border:1px solid var(--accent);border-radius:10px;padding:14px;margin-bottom:16px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{border-color:var(--accent)}50%{border-color:var(--accent2)}}
+
+.map-preview{width:100%;height:180px;border-radius:8px;border:1px solid var(--border);overflow:hidden;margin-top:8px}
+.map-preview iframe{width:100%;height:100%;border:none}
+
+.no-select{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:var(--muted);text-align:center;gap:10px;font-size:14px}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+
+.divider{height:1px;background:var(--border);margin:16px 0}
+
+.copy-link{display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;font-family:'DM Mono',monospace;color:var(--muted);word-break:break-all;margin-bottom:10px}
+.copy-link button{flex-shrink:0;background:var(--surface3);border:none;color:var(--text);padding:4px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-family:'Syne',sans-serif;font-weight:600}
+.copy-link button:hover{background:var(--accent);color:#000}
+
+@media(max-width:900px){.layout{grid-template-columns:1fr}.sidebar{border-left:none;border-top:1px solid var(--border);position:static;max-height:none}.stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.form-grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setupScreen" class="setup-screen" style="display:none">
+  <div class="setup-card">
+    <h1>⚙️ Setup Required</h1>
+    <p>Connect your Supabase project so client forms sync in real time across devices.</p>
+    <div class="setup-warning">⚠️ You only need to do this once. Use your existing GangaLoo Supabase project.</div>
+    <div class="field" style="margin-bottom:14px">
+      <label>Supabase URL</label>
+      <input type="text" id="setup_url" placeholder="https://xxxx.supabase.co">
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <label>Supabase Anon Key</label>
+      <input type="text" id="setup_key" placeholder="eyJhbGci...">
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <label>Client Form Base URL</label>
+      <input type="text" id="setup_baseurl" placeholder="https://yourdomain.com/gangaloo-client-form.html">
+      <div class="field-hint">Where will you host gangaloo-client-form.html? (GitHub Pages, Render, etc.)</div>
+    </div>
+    <div class="field" style="margin-bottom:20px">
+      <label>Your WhatsApp Business Number</label>
+      <input type="tel" id="setup_waphone" placeholder="+1 829 000 0000">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="saveSetup()">Save & Continue</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" style="display:none">
+
+<div class="header">
+  <div class="logo">Ganga<span>Loo</span> <span style="font-weight:400;font-size:14px;color:var(--muted)">/ Orders</span></div>
+  <div class="header-actions">
+    <span class="badge-count" id="pendingBadge">0 pending</span>
+    <button class="btn btn-ghost btn-sm" onclick="openSetup()">⚙️</button>
+    <button class="btn btn-primary" onclick="openNewOrder()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      New Order
+    </button>
+  </div>
+</div>
+
+<div class="layout">
+<div class="main">
+
+  <div class="stats">
+    <div class="stat"><div class="stat-val" id="statTotal">0</div><div class="stat-label">Total</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--warn)" id="statPending">0</div><div class="stat-label">Pending</div></div>
+    <div class="stat"><div class="stat-val" style="color:#c084fc" id="statResponse">0</div><div class="stat-label">New Responses</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--accent)" id="statDone">0</div><div class="stat-label">Done</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="filterTab('all',this)">All</button>
+    <button class="tab" onclick="filterTab('pending',this)">Pending</button>
+    <button class="tab" onclick="filterTab('form_filled',this)">🔔 Responded</button>
+    <button class="tab" onclick="filterTab('scheduled',this)">Scheduled</button>
+    <button class="tab" onclick="filterTab('pickup',this)">Pickup</button>
+    <button class="tab" onclick="filterTab('done',this)">Done</button>
+  </div>
+
+  <div class="search-bar">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" placeholder="Search client, order ID, platform…" oninput="renderOrders()" id="searchInput">
+  </div>
+
+  <div id="orderList"></div>
+</div>
+
+<div class="sidebar">
+  <div id="sidebarContent">
+    <div class="no-select">
+      <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+      <p>Select an order to<br>view details & actions</p>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- NEW ORDER MODAL -->
+<div class="modal-overlay" id="newOrderModal" style="display:none">
+<div class="modal">
+  <h2>📦 New Third-Party Order</h2>
+  <div class="form-grid" style="margin-bottom:14px">
+    <div class="field">
+      <label>Client Name</label>
+      <input type="text" id="f_client" placeholder="Full name">
+    </div>
+    <div class="field">
+      <label>WhatsApp Number</label>
+      <input type="tel" id="f_phone" placeholder="+1 829 000 0000">
+    </div>
+    <div class="field">
+      <label>Platform</label>
+      <select id="f_platform">
+        <option value="amazon">Amazon</option>
+        <option value="temu">Temu</option>
+        <option value="shein">Shein</option>
+        <option value="aliexpress">AliExpress</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Order ID / Tracking</label>
+      <input type="text" id="f_orderId" placeholder="e.g. TRK-29483">
+    </div>
+  </div>
+  <div class="field" style="margin-bottom:14px">
+    <label>Product Description</label>
+    <textarea id="f_desc" placeholder="What was ordered…"></textarea>
+  </div>
+  <div class="divider"></div>
+  <div style="margin-bottom:8px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px">💰 Payment</div>
+  <div class="form-grid" style="margin-bottom:14px">
+    <div class="field">
+      <label>Total Order Amount (RD$)</label>
+      <input type="number" id="f_amount" placeholder="0.00" min="0" step="0.01" oninput="calcBalance('f')">
+    </div>
+    <div class="field">
+      <label>Already Paid (RD$)</label>
+      <input type="number" id="f_paid" placeholder="0.00" min="0" step="0.01" oninput="calcBalance('f')">
+    </div>
+    <div class="field">
+      <label>Delivery Fee (RD$)</label>
+      <input type="number" id="f_deliveryFee" placeholder="200" min="0" step="0.01" value="200" oninput="calcBalance('f')">
+    </div>
+    <div class="field">
+      <label>Balance Owed (RD$)</label>
+      <input type="number" id="f_balance" placeholder="Auto-calculated" min="0" step="0.01" style="color:var(--warn);font-weight:700">
+      <div class="field-hint">Edit manually if needed</div>
+    </div>
+  </div>
+  <div class="field" style="margin-bottom:14px">
+    <label>Notes (optional)</label>
+    <input type="text" id="f_notes" placeholder="Any extra info…">
+  </div>
+  <div class="modal-actions">
+    <button class="btn btn-ghost" onclick="closeModal('newOrderModal')">Cancel</button>
+    <button class="btn btn-primary" onclick="saveOrder()">Save Order</button>
+  </div>
+</div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="editModal" style="display:none">
+<div class="modal">
+  <h2>✏️ Edit Order</h2>
+  <div class="form-grid" style="margin-bottom:14px">
+    <div class="field"><label>Client Name</label><input type="text" id="e_client"></div>
+    <div class="field"><label>WhatsApp</label><input type="tel" id="e_phone"></div>
+    <div class="field"><label>Platform</label>
+      <select id="e_platform">
+        <option value="amazon">Amazon</option><option value="temu">Temu</option>
+        <option value="shein">Shein</option><option value="aliexpress">AliExpress</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field"><label>Order ID</label><input type="text" id="e_orderId"></div>
+  </div>
+  <div class="field" style="margin-bottom:14px"><label>Description</label><textarea id="e_desc"></textarea></div>
+  <div class="divider"></div>
+  <div style="margin-bottom:8px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px">💰 Payment</div>
+  <div class="form-grid" style="margin-bottom:14px">
+    <div class="field"><label>Total Amount (RD$)</label><input type="number" id="e_amount" min="0" step="0.01" oninput="calcBalance('e')"></div>
+    <div class="field"><label>Already Paid (RD$)</label><input type="number" id="e_paid" min="0" step="0.01" oninput="calcBalance('e')"></div>
+    <div class="field"><label>Delivery Fee (RD$)</label><input type="number" id="e_deliveryFee" min="0" step="0.01" oninput="calcBalance('e')"></div>
+    <div class="field"><label>Balance Owed (RD$)</label><input type="number" id="e_balance" min="0" step="0.01" style="color:var(--warn);font-weight:700"></div>
+  </div>
+  <div class="field" style="margin-bottom:14px"><label>Notes</label><input type="text" id="e_notes"></div>
+  <div class="modal-actions">
+    <button class="btn btn-ghost" onclick="closeModal('editModal')">Cancel</button>
+    <button class="btn btn-danger btn-sm" onclick="deleteCurrentOrder()">Delete</button>
+    <button class="btn btn-primary" onclick="updateOrder()">Save Changes</button>
+  </div>
+</div>
+</div>
+
+<script>
+// ── CONFIG ──
+let CFG = JSON.parse(localStorage.getItem('gl_cfg') || '{}');
+let orders = [];
+let selectedId = null;
+let filterMode = 'all';
+let editingId = null;
+let pollTimer = null;
+
+// ── SETUP ──
+function openSetup() {
+  document.getElementById('setup_url').value = CFG.url || '';
+  document.getElementById('setup_key').value = CFG.key || '';
+  document.getElementById('setup_baseurl').value = CFG.baseurl || '';
+  document.getElementById('setup_waphone').value = CFG.waphone || '';
+  document.getElementById('setupScreen').style.display = 'flex';
+  document.getElementById('mainApp').style.display = 'none';
+}
+
+function saveSetup() {
+  const url = document.getElementById('setup_url').value.trim();
+  const key = document.getElementById('setup_key').value.trim();
+  const baseurl = document.getElementById('setup_baseurl').value.trim().replace(/\/$/, '');
+  const waphone = document.getElementById('setup_waphone').value.trim();
+  if (!url || !key || !baseurl || !waphone) { alert('All fields required.'); return; }
+  CFG = { url, key, baseurl, waphone };
+  localStorage.setItem('gl_cfg', JSON.stringify(CFG));
+  initApp();
+}
+
+async function initApp() {
+  if (!CFG.url || !CFG.key) { openSetup(); return; }
+  // Ensure table exists (will silently fail if already exists)
+  await ensureTable();
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  await loadOrders();
+  startPolling();
+}
+
+// ── SUPABASE HELPERS ──
+async function sb(method, path, body) {
+  const r = await fetch(`${CFG.url}/rest/v1/${path}`, {
+    method,
+    headers: {
+      'apikey': CFG.key,
+      'Authorization': `Bearer ${CFG.key}`,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'return=representation' : ''
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!r.ok) {
+    const err = await r.text();
+    throw new Error(err);
+  }
+  const text = await r.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function ensureTable() {
+  // Try to create table via RPC or just proceed — table must be created manually
+  // We'll just try a select and if it fails, show instructions
+  try {
+    await sb('GET', 'gl_orders?limit=1');
+  } catch(e) {
+    if (e.message.includes('relation') || e.message.includes('does not exist')) {
+      alert(`Please create the Supabase table first!\n\nRun this SQL in your Supabase dashboard → SQL Editor:\n\nCREATE TABLE gl_orders (\n  id text PRIMARY KEY,\n  data jsonb NOT NULL,\n  updated_at timestamptz DEFAULT now()\n);`);
+    }
+  }
+}
+
+async function loadOrders() {
+  try {
+    const rows = await sb('GET', 'gl_orders?order=updated_at.desc');
+    orders = (rows || []).map(r => r.data);
+    renderOrders();
+    renderSidebar();
+  } catch(e) { console.error('Load error', e); }
+}
+
+async function saveOrder_sb(o) {
+  try {
+    await sb('POST', 'gl_orders', { id: o.id, data: o, updated_at: new Date().toISOString() });
+  } catch(e) {
+    // Try upsert
+    try {
+      await sb('PATCH', `gl_orders?id=eq.${o.id}`, { data: o, updated_at: new Date().toISOString() });
+    } catch(e2) { console.error('Save error', e2); }
+  }
+}
+
+async function upsertOrder(o) {
+  const existing = orders.find(x => x.id === o.id);
+  if (existing) {
+    await sb('PATCH', `gl_orders?id=eq.${o.id}`, { data: o, updated_at: new Date().toISOString() });
+  } else {
+    await sb('POST', 'gl_orders', { id: o.id, data: o, updated_at: new Date().toISOString() });
+  }
+}
+
+async function deleteOrder_sb(id) {
+  await sb('DELETE', `gl_orders?id=eq.${id}`);
+}
+
+// Polling for client responses
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    const prev = orders.filter(o => o.status === 'form_filled').map(o => o.id);
+    await loadOrders();
+    const curr = orders.filter(o => o.status === 'form_filled').map(o => o.id);
+    const newOnes = curr.filter(id => !prev.includes(id));
+    if (newOnes.length) {
+      // Flash notification
+      document.title = `🔔 ${newOnes.length} NEW RESPONSE — GangaLoo`;
+      setTimeout(() => document.title = 'GangaLoo — Order Manager', 5000);
+    }
+  }, 15000); // every 15 seconds
+}
+
+// ── UTILS ──
+function genId() { return 'ORD-' + Date.now().toString(36).toUpperCase(); }
+function cleanPhone(p) { return p.replace(/[\s\-\(\)]/g, ''); }
+function fmt(n) { return 'RD$ ' + Number(n || 0).toLocaleString('es-DO', { minimumFractionDigits: 2 }); }
+function fmtDate(ts) { if (!ts) return '—'; return new Date(ts).toLocaleDateString('es-DO', { day:'2-digit', month:'short', year:'numeric' }); }
+function srcClass(p) { return { amazon:'src-amazon', temu:'src-temu', shein:'src-shein', aliexpress:'src-aliexpress' }[p] || 'src-other'; }
+
+const STATUS_LABELS = {
+  pending: 'Arrived — Pending',
+  notified: 'Client Notified',
+  form_sent: 'Form Sent',
+  form_filled: '🔔 Client Responded',
+  pickup: 'Pickup',
+  scheduled: 'Scheduled ✓',
+  done: 'Completed'
+};
+const STATUS_CLASS = {
+  pending:'s-pending', notified:'s-notified', form_sent:'s-form_sent',
+  form_filled:'s-form_filled', pickup:'s-pickup', scheduled:'s-scheduled', done:'s-done'
+};
+
+function calcBalance(prefix) {
+  const amount = parseFloat(document.getElementById(`${prefix}_amount`).value) || 0;
+  const paid = parseFloat(document.getElementById(`${prefix}_paid`).value) || 0;
+  const fee = parseFloat(document.getElementById(`${prefix}_deliveryFee`).value) || 0;
+  document.getElementById(`${prefix}_balance`).value = Math.max(0, amount + fee - paid).toFixed(2);
+}
+
+function clientFormLink(orderId) {
+  return `${CFG.baseurl}?order=${orderId}`;
+}
+
+// ── WA MESSAGES ──
+function buildWANotify(o) {
+  const balance = Number(o.balance || 0);
+  const paid = Number(o.paid || 0);
+  let msg = `Hola ${o.client}! 👋\n\n`;
+  msg += `Tu pedido de *${o.platform.charAt(0).toUpperCase()+o.platform.slice(1)}* ha llegado! 📦\n`;
+  if (o.orderId) msg += `🔖 Ref: ${o.orderId}\n`;
+  if (o.desc) msg += `📋 ${o.desc}\n`;
+  msg += `\n💰 Total del pedido: *${fmt(o.amount)}*`;
+  if (paid > 0) msg += `\n✅ Ya pagado: *${fmt(paid)}*`;
+  msg += `\n⚡ Saldo pendiente: *${fmt(balance)}*`;
+  msg += `\n\n¿Cómo prefieres recibirlo?\n\n`;
+  msg += `🏪 *1 — Recojo en tienda* (gratis)\n`;
+  msg += `🚚 *2 — Envío a domicilio* (+${fmt(o.deliveryFee)})\n\n`;
+  msg += `Responde aquí o haz clic en el enlace para elegir fecha y dirección de entrega:\n`;
+  msg += `👉 ${clientFormLink(o.id)}`;
+  return msg;
+}
+
+function buildWAConfirm(o) {
+  const balance = Number(o.balance || 0);
+  const totalWithDelivery = Number(o.amount || 0) + Number(o.deliveryFee || 0);
+  let msg = `✅ *Confirmación de entrega — GangaLoo*\n\n`;
+  msg += `Hola ${o.client}! Tu entrega está confirmada 🎉\n\n`;
+  msg += `📦 *Pedido:* ${o.platform.charAt(0).toUpperCase()+o.platform.slice(1)}`;
+  if (o.orderId) msg += ` | Ref: ${o.orderId}`;
+  msg += `\n📅 *Fecha:* ${o.clientDeliveryDate}\n`;
+  msg += `🕐 *Horario:* A coordinar\n`;
+  msg += `📍 *Dirección:* ${o.clientAddress}\n\n`;
+  msg += `💳 *Resumen de pago:*\n`;
+  msg += `   Pedido: ${fmt(o.amount)}\n`;
+  msg += `   Envío: ${fmt(o.deliveryFee)}\n`;
+  if (Number(o.paid) > 0) msg += `   Ya pagado: -${fmt(o.paid)}\n`;
+  msg += `   ⚡ *A pagar al recibir: ${fmt(balance)}*\n\n`;
+  msg += `Nos comunicamos contigo el día de la entrega. ¡Gracias! 🙏`;
+  return msg;
+}
+
+function buildWAPickupConfirm(o) {
+  return `✅ *Recogida confirmada — GangaLoo*\n\nHola ${o.client}! 🎉\n\nTu pedido está listo para recoger.\n\n📦 ${o.desc || o.platform}\n💳 *A pagar: ${fmt(o.balance)}*\n\nPuedes pasar cuando gustes. ¡Te esperamos! 🙌`;
+}
+
+function waLink(phone, msg) {
+  return `https://wa.me/${cleanPhone(phone)}?text=${encodeURIComponent(msg)}`;
+}
+
+// ── RENDER ──
+function renderOrders() {
+  const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  let list = orders.filter(o => {
+    if (filterMode !== 'all') {
+      if (filterMode === 'pending' && !['pending','notified'].includes(o.status)) return false;
+      if (filterMode === 'form_filled' && o.status !== 'form_filled') return false;
+      if (filterMode === 'scheduled' && o.status !== 'scheduled') return false;
+      if (filterMode === 'pickup' && o.status !== 'pickup') return false;
+      if (filterMode === 'done' && o.status !== 'done') return false;
+    }
+    if (q) { const h = `${o.client} ${o.orderId} ${o.platform} ${o.phone}`.toLowerCase(); if (!h.includes(q)) return false; }
+    return true;
+  });
+
+  const el = document.getElementById('orderList');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><p>No orders found</p></div>`; return;
+  }
+
+  el.innerHTML = list.map(o => {
+    const isNew = o.status === 'form_filled';
+    return `
+    <div class="card ${selectedId === o.id ? 'selected' : ''} ${isNew ? 'selected' : ''}" onclick="selectOrder('${o.id}')">
+      <div class="card-header">
+        <div>
+          <div class="card-name">${o.client} ${isNew ? '🔔' : ''}</div>
+          <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:3px">${o.id}</div>
+        </div>
+        <span class="card-source ${srcClass(o.platform)}">${o.platform.toUpperCase()}</span>
+      </div>
+      <div class="card-meta">
+        <div class="meta-item">📱 <strong>${o.phone}</strong></div>
+        <div class="meta-item">⚡ <strong style="color:var(--warn)">${fmt(o.balance)}</strong></div>
+        <div class="meta-item">📅 <strong>${fmtDate(o.createdAt)}</strong></div>
+      </div>
+      ${o.desc ? `<div style="font-size:13px;color:var(--muted);margin-bottom:10px">${o.desc.substring(0,70)}${o.desc.length>70?'…':''}</div>` : ''}
+      <span class="status-pill ${STATUS_CLASS[o.status]}">${STATUS_LABELS[o.status]}</span>
+    </div>`;
+  }).join('');
+
+  updateStats();
+}
+
+function selectOrder(id) {
+  selectedId = id;
+  renderOrders();
+  renderSidebar();
+}
+
+function renderSidebar() {
+  const o = orders.find(x => x.id === selectedId);
+  const el = document.getElementById('sidebarContent');
+  if (!o) {
+    el.innerHTML = `<div class="no-select"><svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg><p>Select an order to view details</p></div>`;
+    return;
+  }
+
+  const formLink = clientFormLink(o.id);
+
+  // New response alert
+  let responseAlert = '';
+  if (o.status === 'form_filled') {
+    const mapEmbed = o.clientLat && o.clientLng
+      ? `<div class="map-preview"><iframe src="https://maps.google.com/maps?q=${o.clientLat},${o.clientLng}&z=15&output=embed" allowfullscreen></iframe></div>`
+      : '';
+    responseAlert = `
+    <div class="new-response-alert">
+      <div style="font-weight:700;margin-bottom:8px;color:var(--accent)">🔔 Client responded!</div>
+      <div class="detail-row"><span class="detail-label">Chose</span><span class="detail-value">${o.clientChoice === 'delivery' ? '🚚 Delivery' : '🏪 Pickup'}</span></div>
+      ${o.clientChoice === 'delivery' ? `
+      <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${o.clientDeliveryDate || '—'}</span></div>
+      <div class="detail-row"><span class="detail-label">Address</span><span class="detail-value">${o.clientAddress || '—'}</span></div>
+      ${mapEmbed}
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <a href="${waLink(o.phone, buildWAConfirm(o))}" target="_blank" class="btn btn-wa btn-sm" style="flex:1;justify-content:center">✅ Send Confirmation</a>
+        <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center" onclick="confirmDelivery('${o.id}')">Mark Scheduled</button>
+      </div>` : `
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <a href="${waLink(o.phone, buildWAPickupConfirm(o))}" target="_blank" class="btn btn-wa btn-sm" style="flex:1;justify-content:center">✅ Send Pickup Confirm</a>
+        <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center" onclick="confirmPickup('${o.id}')">Mark Pickup</button>
+      </div>`}
+    </div>`;
+  }
+
+  // Main send WA button
+  let mainAction = '';
+  if (['pending', 'notified'].includes(o.status)) {
+    mainAction = `
+    <a href="${waLink(o.phone, buildWANotify(o))}" target="_blank" class="btn btn-wa" style="width:100%;justify-content:center;margin-bottom:8px" onclick="markNotified('${o.id}')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+      Send WhatsApp Notification
+    </a>`;
+  }
+
+  // Form link section (after notified)
+  let formSection = '';
+  if (['notified','form_sent'].includes(o.status)) {
+    formSection = `
+    <div class="detail-section">
+      <h3>Client Form Link</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">The WhatsApp message includes this link. Client opens it to choose pickup/delivery, date & location.</p>
+      <div class="copy-link">
+        <span id="formLinkText">${formLink}</span>
+        <button onclick="copyLink('${formLink}')">Copy</button>
+      </div>
+      <p style="font-size:11px;color:var(--muted)">Waiting for client to fill the form… (auto-refreshes every 15s)</p>
+    </div>`;
+  }
+
+  // Done button
+  let doneBtn = '';
+  if (['scheduled','pickup'].includes(o.status)) {
+    doneBtn = `<button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:12px" onclick="markDone('${o.id}')">✅ Mark as Completed</button>`;
+  }
+
+  // Timeline
+  const tl = (o.timeline || []).slice().reverse().map((t,i) => `
+    <div class="tl-item ${i > 0 ? 'old' : ''}">
+      <div>${t.label}</div>
+      <div class="tl-time">${new Date(t.ts).toLocaleString('es-DO')}</div>
+    </div>`).join('') || '<div class="tl-item old"><div style="color:var(--muted)">No activity</div></div>';
+
+  // Delivery info
+  let deliveryInfo = '';
+  if (o.status === 'scheduled' && o.clientDeliveryDate) {
+    const mapEmbed = o.clientLat && o.clientLng
+      ? `<div class="map-preview"><iframe src="https://maps.google.com/maps?q=${o.clientLat},${o.clientLng}&z=15&output=embed" allowfullscreen></iframe></div>`
+      : '';
+    deliveryInfo = `
+    <div class="detail-section">
+      <h3>Delivery Details</h3>
+      <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${o.clientDeliveryDate}</span></div>
+      <div class="detail-row"><span class="detail-label">Address</span><span class="detail-value">${o.clientAddress}</span></div>
+      ${mapEmbed}
+    </div>`;
+  }
+
+  el.innerHTML = `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+    <div>
+      <div style="font-size:18px;font-weight:800">${o.client}</div>
+      <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace">${o.id}</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="openEdit('${o.id}')">✏️ Edit</button>
+  </div>
+
+  ${responseAlert}
+
+  <div class="detail-section">
+    <h3>Order Info</h3>
+    <div class="detail-row"><span class="detail-label">Platform</span><span class="detail-value"><span class="card-source ${srcClass(o.platform)}">${o.platform.toUpperCase()}</span></span></div>
+    ${o.orderId ? `<div class="detail-row"><span class="detail-label">Ref</span><span class="detail-value">${o.orderId}</span></div>` : ''}
+    <div class="detail-row"><span class="detail-label">WhatsApp</span><span class="detail-value">${o.phone}</span></div>
+    <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value"><span class="status-pill ${STATUS_CLASS[o.status]}">${STATUS_LABELS[o.status]}</span></span></div>
+  </div>
+
+  <div class="detail-section">
+    <h3>Payment</h3>
+    <div class="detail-row"><span class="detail-label">Order Total</span><span class="detail-value">${fmt(o.amount)}</span></div>
+    <div class="detail-row"><span class="detail-label">Delivery Fee</span><span class="detail-value">${fmt(o.deliveryFee)}</span></div>
+    <div class="detail-row"><span class="detail-label">Already Paid</span><span class="detail-value" style="color:var(--accent)">-${fmt(o.paid)}</span></div>
+    <div class="detail-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:8px">
+      <span class="detail-label" style="font-weight:700">Balance Owed</span>
+      <span class="detail-value amount-owed">${fmt(o.balance)}</span>
+    </div>
+  </div>
+
+  ${deliveryInfo}
+  ${formSection}
+
+  <div class="detail-section">
+    <h3>WhatsApp Message Preview</h3>
+    <div class="wa-box">${buildWANotify(o)}</div>
+    ${mainAction}
+  </div>
+
+  ${doneBtn}
+
+  <div class="detail-section">
+    <h3>Activity Log</h3>
+    <div class="timeline">${tl}</div>
+  </div>`;
+}
+
+function updateStats() {
+  document.getElementById('statTotal').textContent = orders.length;
+  document.getElementById('statPending').textContent = orders.filter(o => ['pending','notified','form_sent'].includes(o.status)).length;
+  document.getElementById('statResponse').textContent = orders.filter(o => o.status === 'form_filled').length;
+  document.getElementById('statDone').textContent = orders.filter(o => o.status === 'done').length;
+  document.getElementById('pendingBadge').textContent = orders.filter(o => ['pending','notified','form_filled'].includes(o.status)).length + ' pending';
+}
+
+// ── ACTIONS ──
+function addTimeline(o, label) {
+  if (!o.timeline) o.timeline = [];
+  o.timeline.push({ label, ts: Date.now() });
+}
+
+async function markNotified(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o || o.status !== 'pending') return;
+  o.status = 'form_sent';
+  addTimeline(o, '📱 Client notified via WhatsApp + form link sent');
+  await upsertOrder(o);
+  renderOrders(); renderSidebar();
+}
+
+async function confirmDelivery(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  o.status = 'scheduled';
+  addTimeline(o, `📅 Delivery confirmed: ${o.clientDeliveryDate}`);
+  await upsertOrder(o);
+  renderOrders(); renderSidebar();
+}
+
+async function confirmPickup(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  o.status = 'pickup';
+  addTimeline(o, '🏪 Pickup confirmed');
+  await upsertOrder(o);
+  renderOrders(); renderSidebar();
+}
+
+async function markDone(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  o.status = 'done';
+  addTimeline(o, '✅ Order completed');
+  await upsertOrder(o);
+  renderOrders(); renderSidebar();
+}
+
+function copyLink(link) {
+  navigator.clipboard.writeText(link).then(() => {
+    const b = event.target; b.textContent = 'Copied!';
+    setTimeout(() => b.textContent = 'Copy', 1500);
+  });
+}
+
+// ── NEW ORDER ──
+function openNewOrder() {
+  ['f_client','f_phone','f_orderId','f_desc','f_notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f_amount').value = '';
+  document.getElementById('f_paid').value = '';
+  document.getElementById('f_deliveryFee').value = '200';
+  document.getElementById('f_balance').value = '';
+  document.getElementById('f_platform').value = 'amazon';
+  document.getElementById('newOrderModal').style.display = 'flex';
+}
+
+async function saveOrder() {
+  const client = document.getElementById('f_client').value.trim();
+  const phone = document.getElementById('f_phone').value.trim();
+  if (!client || !phone) { alert('Client name and WhatsApp required.'); return; }
+  const o = {
+    id: genId(),
+    client, phone,
+    platform: document.getElementById('f_platform').value,
+    orderId: document.getElementById('f_orderId').value.trim(),
+    amount: parseFloat(document.getElementById('f_amount').value) || 0,
+    paid: parseFloat(document.getElementById('f_paid').value) || 0,
+    deliveryFee: parseFloat(document.getElementById('f_deliveryFee').value) || 0,
+    balance: parseFloat(document.getElementById('f_balance').value) || 0,
+    desc: document.getElementById('f_desc').value.trim(),
+    notes: document.getElementById('f_notes').value.trim(),
+    status: 'pending',
+    createdAt: Date.now(),
+    timeline: [{ label: '📦 Order registered', ts: Date.now() }]
+  };
+  orders.unshift(o);
+  await upsertOrder(o);
+  closeModal('newOrderModal');
+  selectedId = o.id;
+  renderOrders(); renderSidebar();
+}
+
+// ── EDIT ──
+let editingOrder = null;
+function openEdit(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  editingId = id; editingOrder = o;
+  document.getElementById('e_client').value = o.client;
+  document.getElementById('e_phone').value = o.phone;
+  document.getElementById('e_platform').value = o.platform;
+  document.getElementById('e_orderId').value = o.orderId || '';
+  document.getElementById('e_amount').value = o.amount;
+  document.getElementById('e_paid').value = o.paid || 0;
+  document.getElementById('e_deliveryFee').value = o.deliveryFee;
+  document.getElementById('e_balance').value = o.balance || 0;
+  document.getElementById('e_desc').value = o.desc || '';
+  document.getElementById('e_notes').value = o.notes || '';
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+async function updateOrder() {
+  const o = orders.find(x => x.id === editingId);
+  if (!o) return;
+  o.client = document.getElementById('e_client').value.trim();
+  o.phone = document.getElementById('e_phone').value.trim();
+  o.platform = document.getElementById('e_platform').value;
+  o.orderId = document.getElementById('e_orderId').value.trim();
+  o.amount = parseFloat(document.getElementById('e_amount').value) || 0;
+  o.paid = parseFloat(document.getElementById('e_paid').value) || 0;
+  o.deliveryFee = parseFloat(document.getElementById('e_deliveryFee').value) || 0;
+  o.balance = parseFloat(document.getElementById('e_balance').value) || 0;
+  o.desc = document.getElementById('e_desc').value.trim();
+  o.notes = document.getElementById('e_notes').value.trim();
+  addTimeline(o, '✏️ Order updated');
+  await upsertOrder(o);
+  closeModal('editModal'); renderOrders(); renderSidebar();
+}
+
+async function deleteCurrentOrder() {
+  if (!confirm('Delete this order?')) return;
+  orders = orders.filter(x => x.id !== editingId);
+  await deleteOrder_sb(editingId);
+  if (selectedId === editingId) selectedId = null;
+  closeModal('editModal'); renderOrders(); renderSidebar();
+}
+
+function filterTab(mode, btn) {
+  filterMode = mode;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderOrders();
+}
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; }));
+
+// ── INIT ──
+initApp();
+</script>
+</body>
+</html>

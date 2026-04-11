@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>GangaLoo — Tu Pedido</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#00c97a;--green-dark:#00a362;--green-light:#e6fff5;
+  --bg:#f5f7f5;--white:#ffffff;--text:#1a1a1a;--muted:#6b7280;
+  --border:#e5e7eb;--warn:#f59e0b;--danger:#ef4444;
+  --wa:#25D366;
+}
+html,body{height:100%;font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text)}
+
+.screen{display:none;min-height:100vh;flex-direction:column}
+.screen.active{display:flex}
+
+/* LOADING */
+#loadingScreen{align-items:center;justify-content:center;background:var(--white)}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ERROR */
+#errorScreen{align-items:center;justify-content:center;padding:24px;text-align:center;background:var(--white)}
+
+/* HEADER */
+.header{background:var(--white);padding:20px 20px 0;border-bottom:1px solid var(--border)}
+.brand{font-size:20px;font-weight:800;color:var(--green);margin-bottom:4px}
+.brand span{color:var(--text)}
+.order-ref{font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:16px}
+
+/* ORDER CARD */
+.order-summary{background:var(--white);margin:16px;border-radius:16px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.order-summary h2{font-size:16px;font-weight:700;margin-bottom:14px;color:var(--text)}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px}
+.row:last-child{border-bottom:none}
+.row-label{color:var(--muted)}
+.row-value{font-weight:600;text-align:right;max-width:55%}
+.balance-row{border-top:2px solid var(--border);margin-top:4px;padding-top:12px !important}
+.balance-row .row-value{color:var(--warn);font-size:18px;font-weight:800}
+
+/* CHOICE SCREEN */
+#choiceScreen .content{padding:20px;flex:1}
+#choiceScreen h2{font-size:20px;font-weight:800;margin-bottom:6px}
+#choiceScreen p{color:var(--muted);font-size:14px;margin-bottom:24px}
+
+.choice-card{background:var(--white);border:2px solid var(--border);border-radius:16px;padding:20px;margin-bottom:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:16px}
+.choice-card:hover,.choice-card.selected{border-color:var(--green);background:var(--green-light)}
+.choice-icon{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;background:var(--bg);flex-shrink:0}
+.choice-info h3{font-size:16px;font-weight:700;margin-bottom:3px}
+.choice-info p{font-size:13px;color:var(--muted);line-height:1.4}
+.choice-fee{font-size:13px;font-weight:700;color:var(--green);margin-top:4px}
+
+.btn-continue{width:100%;padding:16px;background:var(--green);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer;transition:background .15s;margin-top:8px}
+.btn-continue:hover{background:var(--green-dark)}
+.btn-continue:disabled{background:var(--border);color:var(--muted);cursor:not-allowed}
+
+/* DELIVERY FORM */
+#deliveryScreen .content{padding:20px;flex:1;overflow-y:auto}
+#deliveryScreen h2{font-size:20px;font-weight:800;margin-bottom:6px}
+#deliveryScreen p{color:var(--muted);font-size:14px;margin-bottom:20px}
+
+.field{margin-bottom:18px}
+.field label{display:block;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.field input,.field select{width:100%;padding:14px;border:2px solid var(--border);border-radius:12px;font-size:15px;font-family:'Plus Jakarta Sans',sans-serif;outline:none;transition:border .15s;background:var(--white)}
+.field input:focus,.field select:focus{border-color:var(--green)}
+
+/* MAP */
+.map-section{margin-bottom:18px}
+.map-section label{display:block;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.map-wrap{border-radius:14px;overflow:hidden;border:2px solid var(--border);height:260px;position:relative}
+.map-wrap.has-pin{border-color:var(--green)}
+#map{width:100%;height:100%}
+.map-hint{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;font-size:12px;padding:6px 14px;border-radius:20px;z-index:1000;pointer-events:none;white-space:nowrap;font-weight:600}
+.map-hint.hidden{display:none}
+
+.loc-btn{width:100%;padding:12px;background:var(--white);border:2px solid var(--green);border-radius:12px;color:var(--green);font-size:14px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s}
+.loc-btn:hover{background:var(--green-light)}
+.pin-info{font-size:12px;color:var(--muted);text-align:center;padding:6px;background:var(--green-light);border-radius:8px;margin-top:6px}
+
+.address-field textarea{width:100%;padding:14px;border:2px solid var(--border);border-radius:12px;font-size:15px;font-family:'Plus Jakarta Sans',sans-serif;outline:none;resize:none;min-height:80px;transition:border .15s}
+.address-field textarea:focus{border-color:var(--green)}
+
+/* SUCCESS */
+#successScreen{align-items:center;justify-content:center;padding:32px;text-align:center;background:var(--white)}
+.success-icon{width:80px;height:80px;background:var(--green-light);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 20px}
+#successScreen h2{font-size:24px;font-weight:800;margin-bottom:8px}
+#successScreen p{color:var(--muted);font-size:15px;line-height:1.6;margin-bottom:24px}
+.wa-cta{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--wa);color:#fff;padding:16px 28px;border-radius:14px;font-weight:700;font-size:16px;text-decoration:none;margin-top:8px}
+
+/* ALREADY DONE */
+#alreadyScreen{align-items:center;justify-content:center;padding:32px;text-align:center;background:var(--white)}
+
+.step-indicator{display:flex;align-items:center;gap:8px;margin-bottom:24px}
+.step{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.step.done{background:var(--green);color:#fff}
+.step.active{background:var(--text);color:#fff}
+.step.todo{background:var(--border);color:var(--muted)}
+.step-line{flex:1;height:2px;background:var(--border)}
+.step-line.done{background:var(--green)}
+
+.bottom-safe{height:env(safe-area-inset-bottom,16px)}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loadingScreen" class="screen active">
+  <div class="spinner"></div>
+  <p style="color:#6b7280;font-size:14px">Loading your order…</p>
+</div>
+
+<!-- ERROR -->
+<div id="errorScreen" class="screen">
+  <div style="font-size:48px;margin-bottom:16px">😕</div>
+  <h2 style="font-size:20px;font-weight:800;margin-bottom:8px">Order not found</h2>
+  <p style="color:#6b7280;font-size:14px">This link may have expired or is invalid. Please contact us on WhatsApp.</p>
+</div>
+
+<!-- ALREADY RESPONDED -->
+<div id="alreadyScreen" class="screen">
+  <div style="font-size:48px;margin-bottom:16px">✅</div>
+  <h2 style="font-size:20px;font-weight:800;margin-bottom:8px">Ya respondiste</h2>
+  <p style="color:#6b7280;font-size:14px;line-height:1.6">Tu respuesta ya fue recibida. Pronto te confirmamos los detalles por WhatsApp.</p>
+</div>
+
+<!-- CHOICE SCREEN -->
+<div id="choiceScreen" class="screen">
+  <div class="header">
+    <div class="brand">Ganga<span>Loo</span></div>
+    <div class="order-ref" id="orderRefLabel"></div>
+    <div class="step-indicator">
+      <div class="step active">1</div>
+      <div class="step-line"></div>
+      <div class="step todo">2</div>
+      <div class="step-line"></div>
+      <div class="step todo">3</div>
+    </div>
+  </div>
+
+  <div id="orderSummaryChoice"></div>
+
+  <div class="content">
+    <h2>¿Cómo quieres recibir tu pedido?</h2>
+    <p>Elige una opción para continuar.</p>
+
+    <div class="choice-card" id="pickupCard" onclick="selectChoice('pickup')">
+      <div class="choice-icon">🏪</div>
+      <div class="choice-info">
+        <h3>Recoger en tienda</h3>
+        <p>Pasa cuando quieras a buscar tu pedido.</p>
+        <div class="choice-fee">Gratis</div>
+      </div>
+    </div>
+
+    <div class="choice-card" id="deliveryCard" onclick="selectChoice('delivery')">
+      <div class="choice-icon">🚚</div>
+      <div class="choice-info">
+        <h3>Envío a domicilio</h3>
+        <p>Te lo llevamos a donde estés.</p>
+        <div class="choice-fee" id="deliveryFeeLabel">+RD$ 200.00</div>
+      </div>
+    </div>
+
+    <button class="btn-continue" id="continueChoiceBtn" disabled onclick="proceedFromChoice()">Continuar →</button>
+  </div>
+  <div class="bottom-safe"></div>
+</div>
+
+<!-- DELIVERY FORM SCREEN -->
+<div id="deliveryScreen" class="screen">
+  <div class="header">
+    <div class="brand">Ganga<span>Loo</span></div>
+    <div class="order-ref" id="orderRefLabel2"></div>
+    <div class="step-indicator">
+      <div class="step done">✓</div>
+      <div class="step-line done"></div>
+      <div class="step active">2</div>
+      <div class="step-line"></div>
+      <div class="step todo">3</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <h2>Datos de entrega</h2>
+    <p>Elige una fecha y marca tu dirección en el mapa.</p>
+
+    <div class="field">
+      <label>📅 Fecha de entrega preferida</label>
+      <input type="date" id="deliveryDate" min="">
+    </div>
+
+    <div class="map-section">
+      <label>📍 Tu ubicación de entrega</label>
+      <button class="loc-btn" onclick="useMyLocation()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+        Usar mi ubicación actual
+      </button>
+      <div class="map-wrap" id="mapWrap">
+        <div class="map-hint" id="mapHint">Toca el mapa para marcar tu dirección</div>
+        <div id="map"></div>
+      </div>
+      <div class="pin-info" id="pinInfo" style="display:none"></div>
+    </div>
+
+    <div class="field address-field">
+      <label>📝 Descripción de la dirección</label>
+      <textarea id="deliveryAddress" placeholder="Ej: Calle Las Rosas #12, Sector Los Jardines, cerca del parque. Edificio amarillo, apartamento 3B." rows="3"></textarea>
+    </div>
+
+    <div class="field">
+      <label>💬 Nota adicional (opcional)</label>
+      <input type="text" id="deliveryNote" placeholder="Código de puerta, piso, referencia…">
+    </div>
+
+    <button class="btn-continue" id="submitDeliveryBtn" onclick="submitDelivery()">Confirmar entrega →</button>
+  </div>
+  <div class="bottom-safe"></div>
+</div>
+
+<!-- SUCCESS SCREEN -->
+<div id="successScreen" class="screen">
+  <div style="width:100%;max-width:400px">
+    <div class="step-indicator" style="margin-bottom:32px">
+      <div class="step done">✓</div>
+      <div class="step-line done"></div>
+      <div class="step done">✓</div>
+      <div class="step-line done"></div>
+      <div class="step done">✓</div>
+    </div>
+    <div class="success-icon">🎉</div>
+    <h2 id="successTitle">¡Listo!</h2>
+    <p id="successMsg"></p>
+    <div id="successBalance"></div>
+    <a id="waBackBtn" href="#" class="wa-cta" target="_blank">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+      Volver al chat
+    </a>
+  </div>
+</div>
+
+<script>
+// ── CONFIG from URL ──
+const params = new URLSearchParams(location.search);
+const ORDER_ID = params.get('order');
+let ORDER = null;
+let CFG = null;
+let leafletMap = null;
+let marker = null;
+let clientChoice = null;
+let pinLat = null, pinLng = null;
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── LOAD CONFIG + ORDER ──
+// Config is embedded at build time OR stored in a shared Supabase row
+// For simplicity: config is stored in a special row with id='__config__'
+async function init() {
+  if (!ORDER_ID) { show('errorScreen'); return; }
+
+  // First load config row to get Supabase credentials
+  // The config must be embedded in this HTML by the admin
+  // We read it from the page's own data attribute set during hosting
+  const cfgEl = document.getElementById('appConfig');
+  if (!cfgEl) { show('errorScreen'); return; }
+  try { CFG = JSON.parse(cfgEl.textContent); } catch(e) { show('errorScreen'); return; }
+
+  // Load order
+  try {
+    const r = await fetch(`${CFG.url}/rest/v1/gl_orders?id=eq.${ORDER_ID}`, {
+      headers: { 'apikey': CFG.key, 'Authorization': `Bearer ${CFG.key}` }
+    });
+    const rows = await r.json();
+    if (!rows || !rows.length) { show('errorScreen'); return; }
+    ORDER = rows[0].data;
+  } catch(e) { show('errorScreen'); return; }
+
+  // Check if already responded
+  if (['pickup','delivery','scheduled','form_filled','done'].includes(ORDER.status) && ORDER.clientChoice) {
+    show('alreadyScreen'); return;
+  }
+
+  // Show choice screen
+  setupChoiceScreen();
+  show('choiceScreen');
+}
+
+function fmt(n) { return 'RD$ ' + Number(n||0).toLocaleString('es-DO', {minimumFractionDigits:2}); }
+
+function setupChoiceScreen() {
+  document.getElementById('orderRefLabel').textContent = ORDER.id;
+  document.getElementById('orderRefLabel2').textContent = ORDER.id;
+  document.getElementById('deliveryFeeLabel').textContent = `+${fmt(ORDER.deliveryFee)}`;
+
+  // Summary card
+  const paid = Number(ORDER.paid||0);
+  const balance = Number(ORDER.balance||0);
+  document.getElementById('orderSummaryChoice').innerHTML = `
+  <div class="order-summary">
+    <h2>📦 Tu pedido</h2>
+    ${ORDER.desc ? `<div class="row"><span class="row-label">Producto</span><span class="row-value">${ORDER.desc}</span></div>` : ''}
+    <div class="row"><span class="row-label">Plataforma</span><span class="row-value">${ORDER.platform.charAt(0).toUpperCase()+ORDER.platform.slice(1)}</span></div>
+    <div class="row"><span class="row-label">Total pedido</span><span class="row-value">${fmt(ORDER.amount)}</span></div>
+    ${paid > 0 ? `<div class="row"><span class="row-label">Ya pagado</span><span class="row-value" style="color:#00c97a">-${fmt(paid)}</span></div>` : ''}
+    <div class="row balance-row"><span class="row-label" style="font-weight:700">💳 Saldo a pagar</span><span class="row-value">${fmt(balance)}</span></div>
+  </div>`;
+
+  // Set min date for delivery (tomorrow)
+  const tom = new Date(); tom.setDate(tom.getDate()+1);
+  document.getElementById('deliveryDate').min = tom.toISOString().split('T')[0];
+  document.getElementById('deliveryDate').value = tom.toISOString().split('T')[0];
+}
+
+function selectChoice(choice) {
+  clientChoice = choice;
+  document.getElementById('pickupCard').classList.toggle('selected', choice === 'pickup');
+  document.getElementById('deliveryCard').classList.toggle('selected', choice === 'delivery');
+  document.getElementById('continueChoiceBtn').disabled = false;
+}
+
+function proceedFromChoice() {
+  if (!clientChoice) return;
+  if (clientChoice === 'pickup') {
+    submitPickup();
+  } else {
+    show('deliveryScreen');
+    initMap();
+  }
+}
+
+// ── MAP ──
+function initMap() {
+  if (leafletMap) return; // already initialized
+  setTimeout(() => {
+    leafletMap = L.map('map', { zoomControl: true }).setView([18.735, -70.163], 12); // DR center
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap', maxZoom: 19
+    }).addTo(leafletMap);
+
+    leafletMap.on('click', e => setPin(e.latlng.lat, e.latlng.lng));
+  }, 100);
+}
+
+function setPin(lat, lng) {
+  pinLat = lat; pinLng = lng;
+  const greenIcon = L.divIcon({
+    html: '<div style="background:#00c97a;width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>',
+    iconSize: [28,28], iconAnchor:[14,28]
+  });
+  if (marker) leafletMap.removeLayer(marker);
+  marker = L.marker([lat, lng], { icon: greenIcon }).addTo(leafletMap);
+  document.getElementById('mapWrap').classList.add('has-pin');
+  document.getElementById('mapHint').classList.add('hidden');
+  document.getElementById('pinInfo').style.display = 'block';
+  document.getElementById('pinInfo').textContent = `📍 Pin colocado: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+
+function useMyLocation() {
+  if (!navigator.geolocation) { alert('Tu navegador no soporta geolocalización.'); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      leafletMap.setView([lat, lng], 16);
+      setPin(lat, lng);
+    },
+    err => alert('No se pudo obtener tu ubicación. Toca el mapa manualmente.')
+  );
+}
+
+// ── SUBMIT PICKUP ──
+async function submitPickup() {
+  await saveResponse({ clientChoice: 'pickup', status: 'form_filled' });
+  showSuccess('pickup');
+}
+
+// ── SUBMIT DELIVERY ──
+async function submitDelivery() {
+  const date = document.getElementById('deliveryDate').value;
+  const address = document.getElementById('deliveryAddress').value.trim();
+  const note = document.getElementById('deliveryNote').value.trim();
+
+  if (!date) { alert('Por favor elige una fecha de entrega.'); return; }
+  if (!address && !pinLat) { alert('Por favor escribe tu dirección o marca tu ubicación en el mapa.'); return; }
+  if (!address) { alert('Por favor describe tu dirección en el campo de texto.'); return; }
+
+  document.getElementById('submitDeliveryBtn').disabled = true;
+  document.getElementById('submitDeliveryBtn').textContent = 'Enviando…';
+
+  await saveResponse({
+    clientChoice: 'delivery',
+    clientDeliveryDate: date,
+    clientAddress: address,
+    clientNote: note,
+    clientLat: pinLat,
+    clientLng: pinLng,
+    status: 'form_filled'
+  });
+
+  showSuccess('delivery', date, address);
+}
+
+async function saveResponse(fields) {
+  const updated = { ...ORDER, ...fields, timeline: [...(ORDER.timeline||[]), { label: `📱 Client responded: ${fields.clientChoice}`, ts: Date.now() }] };
+  try {
+    await fetch(`${CFG.url}/rest/v1/gl_orders?id=eq.${ORDER_ID}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': CFG.key,
+        'Authorization': `Bearer ${CFG.key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ data: updated, updated_at: new Date().toISOString() })
+    });
+    ORDER = updated;
+  } catch(e) { console.error('Save error', e); }
+}
+
+function showSuccess(type, date, address) {
+  const balance = Number(ORDER.balance||0);
+  if (type === 'pickup') {
+    document.getElementById('successTitle').textContent = '¡Perfecto!';
+    document.getElementById('successMsg').innerHTML = `Hemos recibido tu respuesta. <strong>Recogerás tu pedido en tienda.</strong><br><br>Te enviaremos una confirmación por WhatsApp pronto. 🙌`;
+  } else {
+    document.getElementById('successTitle').textContent = '¡Entrega confirmada!';
+    document.getElementById('successMsg').innerHTML = `Hemos recibido tu solicitud de entrega para el <strong>${date}</strong>.<br>Dirección: <strong>${address}</strong><br><br>Te confirmaremos por WhatsApp.`;
+  }
+  document.getElementById('successBalance').innerHTML = balance > 0
+    ? `<div style="background:#fff8e1;border:2px solid #f59e0b;border-radius:12px;padding:16px;margin:16px 0;font-size:15px"><strong>💳 Saldo a pagar al recibir:</strong><br><span style="font-size:22px;font-weight:800;color:#d97706">RD$ ${Number(balance).toLocaleString('es-DO',{minimumFractionDigits:2})}</span></div>`
+    : '';
+
+  // Back to WA button
+  if (CFG.waphone) {
+    const msg = type === 'pickup'
+      ? `Hola! Acabo de confirmar que voy a recoger mi pedido (${ORDER_ID}).`
+      : `Hola! Acabo de confirmar mi entrega para el ${date}. Pedido: ${ORDER_ID}.`;
+    document.getElementById('waBackBtn').href = `https://wa.me/${CFG.waphone.replace(/[\s\-\(\)]/g,'')}?text=${encodeURIComponent(msg)}`;
+    document.getElementById('waBackBtn').style.display = 'flex';
+  } else {
+    document.getElementById('waBackBtn').style.display = 'none';
+  }
+
+  show('successScreen');
+}
+
+// ── BOOT ──
+init();
+</script>
+
+<!-- CONFIG: Replace the JSON below with your actual Supabase credentials before hosting -->
+<script id="appConfig" type="application/json">
+{
+  "url": "https://xnbkwczolkinurohloxj.supabase.co",
+  "key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes",
+  "waphone": "+18292867868"
+}
+</script>
+
+</body>
+</html>
