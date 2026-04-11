@@ -4261,6 +4261,9 @@
 
             // Save a slim version of products for the store (only fields the store needs)
             // This keeps the products column small and fast to load
+            // Debug: log sizes
+            const _fullSize = JSON.stringify(products).length;
+            console.log('[saveData] full products size:', _fullSize, 'bytes, count:', products.length);
             const storeProducts = products.map(p => ({
                 id: p.id,
                 name: p.name,
@@ -4276,7 +4279,8 @@
                 dealType: p.dealType,
                 dealDiscount: p.dealDiscount,
                 dealEnd: p.dealEnd,
-                imageUrl: p.imageUrl,
+                // Strip base64 images — only keep URL references
+                imageUrl: (p.imageUrl && !p.imageUrl.startsWith('data:')) ? p.imageUrl : '',
                 visibleInStore: p.visibleInStore,
                 commissionPercent: p.commissionPercent,
                 description: p.description,
@@ -4295,6 +4299,9 @@
                 realMargin: p.realMargin,
             }));
             
+            const _slimSize = JSON.stringify(storeProducts).length;
+            console.log('[saveData] slim products size:', _slimSize, 'bytes — saved', Math.round((_fullSize-_slimSize)/1024), 'KB');
+
             const payload = {
                 user_id: currentUser.id,
                 warehouses: JSON.stringify(warehouses),
@@ -4350,6 +4357,16 @@
                 monthlyRates = JSON.parse(data.monthly_rates || '{}');
             }
             renderAll();
+            // One-time migration: slim products field if it's still large
+            // Runs once, sets a flag so it doesn't repeat
+            if (!localStorage.getItem('_prodSlimmed')) {
+                console.log('[admin] Running one-time products slim migration...');
+                setTimeout(async () => {
+                    await saveData();
+                    localStorage.setItem('_prodSlimmed', '1');
+                    console.log('[admin] Products slim migration done ✓');
+                }, 2000);
+            }
         }
 
         function renderAll() {
