@@ -4258,12 +4258,48 @@
         // ============================================================
         async function saveData() {
             if (!currentUser) return;
+
+            // Save a slim version of products for the store (only fields the store needs)
+            // This keeps the products column small and fast to load
+            const storeProducts = products.map(p => ({
+                id: p.id,
+                name: p.name,
+                sku: p.sku || '',
+                categoryId: p.categoryId,
+                categoryIds: p.categoryIds,
+                price: p.price,
+                finalPrice: p.finalPrice,
+                salePrice: p.salePrice,
+                discountPrice: p.discountPrice,
+                discountType: p.discountType,
+                discountValue: p.discountValue,
+                dealType: p.dealType,
+                dealDiscount: p.dealDiscount,
+                dealEnd: p.dealEnd,
+                imageUrl: p.imageUrl,
+                visibleInStore: p.visibleInStore,
+                commissionPercent: p.commissionPercent,
+                description: p.description,
+                // Keep cost fields for admin calculations
+                baseCostUSD: p.baseCostUSD,
+                shippingUSD: p.shippingUSD,
+                taxPercent: p.taxPercent,
+                totalUSD: p.totalUSD,
+                exchangeRate: p.exchangeRate,
+                bankFeeDOP: p.bankFeeDOP,
+                transportDOP: p.transportDOP,
+                totalBaseDOP: p.totalBaseDOP,
+                profitPercent: p.profitPercent,
+                paybackPercent: p.paybackPercent,
+                calculatedPrice: p.calculatedPrice,
+                realMargin: p.realMargin,
+            }));
             
             const payload = {
                 user_id: currentUser.id,
                 warehouses: JSON.stringify(warehouses),
                 categories: JSON.stringify(categories),
-                products: JSON.stringify(products),
+                products: JSON.stringify(storeProducts),
                 purchases: JSON.stringify(purchases),
                 transfers: JSON.stringify(transfers),
                 sales: JSON.stringify(sales),
