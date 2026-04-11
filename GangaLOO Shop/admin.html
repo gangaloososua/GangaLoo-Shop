@@ -4277,7 +4277,8 @@
                 dealType: p.dealType,
                 dealDiscount: p.dealDiscount,
                 dealEnd: p.dealEnd,
-                imageUrl: p.imageUrl || '',
+                // Never save base64 images — they bloat the DB. URLs only.
+                imageUrl: (p.imageUrl && p.imageUrl.startsWith('http')) ? p.imageUrl : '',
                 visibleInStore: p.visibleInStore,
                 commissionPercent: p.commissionPercent,
                 description: p.description,
@@ -5300,10 +5301,11 @@
                 document.getElementById('productImageUrl').value = urlData.publicUrl;
                 showToast('✓ Imagen subida correctamente', 'success');
             } catch(e) {
-                console.warn('Storage upload failed:', e.message);
-                // Fallback to base64 if storage not set up yet
-                document.getElementById('productImageUrl').value = canvas.toDataURL('image/jpeg', 0.75);
-                showToast('✓ Imagen lista', 'success');
+                console.error('Storage upload failed:', e.message);
+                // Do NOT save base64 — it bloats the database
+                document.getElementById('productImageUrl').value = '';
+                document.getElementById('productImgPreview').innerHTML = '📷';
+                showToast('❌ Error subiendo imagen: ' + e.message + ' — verifica el bucket en Supabase', 'error');
             }
         }
 

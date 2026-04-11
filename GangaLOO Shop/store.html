@@ -1246,7 +1246,7 @@ let _lastLoadTime = 0;
 async function loadData(){
   if(_dataLoading){ setTimeout(loadData, 800); return; }
   // If already loaded and recent (within 5 min), just re-render — don't re-fetch
-  if(_dataLoaded && (Date.now()-_lastLoadTime) < 300000 && allProducts.length > 0){ renderProducts(); return; }
+  if(_dataLoaded && (Date.now()-_lastLoadTime) < 1800000 && allProducts.length > 0){ renderProducts(); return; }
   _dataLoading=true;
   // Never reset user's current view state on reload
   const isFirstLoad = !_dataLoaded;
@@ -1286,15 +1286,9 @@ async function loadData(){
   try{ storeConfig=JSON.parse(row.store_config||'{}'); }catch(e){ storeConfig={}; }
   // Detect data issues and log clearly
   console.log('[store] loaded products:'+allProducts.length+' purchases:'+allPurchases.length+' warehouses:'+allWarehouses.length);
-  // If products empty but purchases exist — data likely truncated, retry fetch of just products
-  if(allProducts.length===0 && row){
-    console.warn('[store] ⚠️ products empty, products field length:',(row.products||'').length,'. Retrying products-only fetch...');
-    try {
-      const {data:d2}=await sb.from('inventory_data').select('products').limit(1);
-      if(d2&&d2[0]&&d2[0].products){
-        try{ allProducts=JSON.parse(d2[0].products); console.log('[store] retry got products:'+allProducts.length); }catch(e){}
-      }
-    } catch(e){ console.warn('[store] retry failed:',e.message); }
+  // Log if products empty
+  if(allProducts.length===0){
+    console.warn('[store] ⚠️ products empty after parse, field length:',(row.products||'').length);
   }
   if(allWarehouses.length){
     // Pick the warehouse with the most delivered stock
