@@ -266,22 +266,46 @@ function show(id) {
 async function init() {
   if (!ORDER_ID) { show('errorScreen'); return; }
 
-  // First load config row to get Supabase credentials
-  // The config must be embedded in this HTML by the admin
-  // We read it from the page's own data attribute set during hosting
+  // Read config
   const cfgEl = document.getElementById('appConfig');
   if (!cfgEl) { show('errorScreen'); return; }
-  try { CFG = JSON.parse(cfgEl.textContent); } catch(e) { show('errorScreen'); return; }
-
-  // Load order
   try {
-    const r = await fetch(`${CFG.url}/rest/v1/gl_orders?id=eq.${ORDER_ID}`, {
-      headers: { 'apikey': CFG.key, 'Authorization': `Bearer ${CFG.key}` }
+    CFG = JSON.parse(cfgEl.textContent.trim());
+  } catch(e) {
+    console.error('Config parse error:', e);
+    show('errorScreen'); return;
+  }
+
+  if (!CFG.url || CFG.url === 'SUPABASE_URL_PLACEHOLDER') {
+    console.error('Config not set');
+    show('errorScreen'); return;
+  }
+
+  // Load order from Supabase
+  try {
+    const url = `${CFG.url}/rest/v1/gl_orders?id=eq.${encodeURIComponent(ORDER_ID)}&select=*`;
+    console.log('Fetching:', url);
+    const r = await fetch(url, {
+      headers: {
+        'apikey': CFG.key,
+        'Authorization': `Bearer ${CFG.key}`,
+        'Accept': 'application/json'
+      }
     });
+    console.log('Response status:', r.status);
+    if (!r.ok) {
+      const err = await r.text();
+      console.error('Supabase error:', err);
+      show('errorScreen'); return;
+    }
     const rows = await r.json();
+    console.log('Rows returned:', rows.length, rows);
     if (!rows || !rows.length) { show('errorScreen'); return; }
     ORDER = rows[0].data;
-  } catch(e) { show('errorScreen'); return; }
+  } catch(e) {
+    console.error('Fetch error:', e);
+    show('errorScreen'); return;
+  }
 
   // Check if already responded
   if (['pickup','delivery','scheduled','form_filled','done'].includes(ORDER.status) && ORDER.clientChoice) {
