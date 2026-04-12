@@ -5416,20 +5416,31 @@
             }).join('');
         }
 
+        function buildSellerWAMsg(firstName, email) {
+            const msg = [
+                `¡Hola ${firstName}! 🎉 Tu cuenta como *Vendedor/a GangaLoo* fue *aprobada*.`,
+                ``,
+                `Sigue estos pasos para entrar a la tienda:`,
+                ``,
+                `1️⃣ Ve a 👉 https://gangaloo.netlify.app/store.html`,
+                ``,
+                `2️⃣ Haz clic en *"¿No tienes cuenta? Regístrate"*`,
+                ``,
+                `3️⃣ Escribe tu correo *${email}* y crea una contraseña`,
+                ``,
+                `4️⃣ Si ya tenías cuenta, usa *"¿Olvidaste tu contraseña?"* con ese correo`,
+                ``,
+                `5️⃣ Inicia sesión y ya puedes ver los productos y precios 💪`,
+                ``,
+                `_Si tienes algún problema escíbenos aquí mismo._`,
+                ``,
+                `¡Bienvenido/a al equipo GangaLoo! 🌟`
+            ].join('\n');
+            return msg;
+        }
+
         function sendApprovalWA(firstName, email, phone) {
-            const msg = `¡Hola ${firstName}! 🎉 Tu solicitud como vendedora GangaLoo fue *aprobada*.
-
-Para acceder a tu cuenta sigue estos pasos:
-
-1️⃣ Revisa tu correo *${email}* — te enviamos un enlace de confirmación, haz clic en él.
-
-2️⃣ Ve a 👉 https://gangaloo.netlify.app/store.html
-
-3️⃣ Haz clic en *"¿Olvidaste tu contraseña?"* e ingresa tu email para crear tu propia contraseña.
-
-4️⃣ Inicia sesión y ya puedes empezar a vender 💪
-
-¡Bienvenida al equipo GangaLoo! 🌟`;
+            const msg = buildSellerWAMsg(firstName, email);
             const phoneClean = (phone||'').replace(/[^0-9]/g,'');
             const url = phoneClean
                 ? `https://wa.me/${phoneClean}?text=${encodeURIComponent(msg)}`
@@ -5437,7 +5448,17 @@ Para acceder a tu cuenta sigue estos pasos:
             window.open(url, '_blank');
         }
 
-        async function approveApplication(appId, email, fullName) {
+        function sendSellerInstructionsWA(fullName, email, phone) {
+            const firstName = (fullName||email||'').split(' ')[0];
+            const msg = buildSellerWAMsg(firstName, email);
+            const phoneClean = (phone||'').replace(/[^0-9]/g,'');
+            const url = phoneClean
+                ? `https://wa.me/${phoneClean}?text=${encodeURIComponent(msg)}`
+                : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+            window.open(url, '_blank');
+        }
+
+                async function approveApplication(appId, email, fullName) {
             if (!confirm(`¿Aprobar a "${fullName}" como vendedor?\n\nSe le enviará una invitación por correo a: ${email}\nPodrá crear su contraseña y acceder a la tienda como vendedor.`)) return;
 
             // 1. Send magic-link invite via Supabase Auth (admin invite)
@@ -5596,6 +5617,7 @@ Para acceder a tu cuenta sigue estos pasos:
                                         style="width:16px;height:16px;accent-color:#002D62;cursor:pointer;flex-shrink:0;">
                                     <span style="font-size:.8em;font-weight:600;color:${isClub?'#002D62':'#888'};">🏆 Club GangaLoo ${isClub?'Activo':'Inactivo'}</span>
                                 </label>
+                                ${u.role==='seller' && u.phone ? `<button onclick="sendSellerInstructionsWA('${u.full_name}','${u.email}','${u.phone}')" style="width:100%;padding:7px 10px;border-radius:8px;border:none;background:#25D366;color:white;font-size:.8em;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">💬 Enviar instrucciones de acceso</button>` : ''}
                             </div>
                         </div>
                     </div>`;
