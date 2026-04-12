@@ -153,7 +153,7 @@ nav{background:var(--brand);color:#fff;padding:0 5vw;display:flex;align-items:ce
 
 <!-- FILTER BAR -->
 <div class="filter-bar">
-  <input class="search-input" id="searchInput" type="text" placeholder="Buscar productos..." oninput="filterProducts()">
+  <input class="search-input" id="searchInput" type="text" placeholder="Buscar productos..." oninput="filterProducts()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
   <select class="cat-filter" id="catFilter" onchange="filterProducts()">
     <option value="">Todas las categorías</option>
   </select>
