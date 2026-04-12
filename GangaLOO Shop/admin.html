@@ -3082,6 +3082,10 @@
             <div style="font-size:1.9em; font-weight:800; color:#27ae60;" id="sellerTotalRevenue">RD$ 0</div>
             <div style="color:#888; font-size:.82em; margin-top:4px;">Total Ventas</div>
           </div>
+          <div id="distributorKpiCard" style="display:none; background:linear-gradient(135deg,#7c3aed,#a855f7); border-radius:14px; padding:18px; box-shadow:0 2px 8px rgba(124,58,237,.25); text-align:center;">
+            <div style="font-size:1.9em; font-weight:800; color:white;" id="distributorTotalIncome">RD$ 0</div>
+            <div style="color:rgba(255,255,255,.8); font-size:.82em; margin-top:4px;">🏢 Ingreso Distribuidor</div>
+          </div>
         </div>
 
         <!-- Period filter bar -->
@@ -3112,6 +3116,23 @@
           <div id="sellerBody-ventas" style="display:block;">
             <div id="sellerSalesList" style="padding:16px;">
               <div style="text-align:center; padding:40px; color:#aaa;">Cargando ventas...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ACCORDION: Ingresos como Distribuidor (only shown if user is a distributor) -->
+        <div id="distributorAccordion" style="display:none; background:white; border-radius:14px; box-shadow:0 2px 8px rgba(124,58,237,.15); border:1.5px solid #e9d5ff; overflow:hidden; margin-bottom:14px;">
+          <div onclick="toggleSellerSection('distribuidor')" style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" id="sellerHdr-distribuidor">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:1.2em;">🏢</span>
+              <span style="font-weight:700; color:#7c3aed;">Ingresos como Distribuidora</span>
+              <span id="sellerBadge-distribuidor" style="background:#7c3aed; color:white; border-radius:20px; padding:2px 10px; font-size:.75em; font-weight:700;">0</span>
+            </div>
+            <span id="sellerArrow-distribuidor" style="color:#aaa; font-size:1.1em; transition:transform .2s;">▶</span>
+          </div>
+          <div id="sellerBody-distribuidor" style="display:none;">
+            <div id="distributorIncomeList" style="padding:16px;">
+              <div style="text-align:center; padding:30px; color:#aaa;">Cargando...</div>
             </div>
           </div>
         </div>
@@ -3392,6 +3413,64 @@
             document.getElementById('sellerTotalCommission').textContent = 'RD$ ' + totalComm.toLocaleString('es-DO', {minimumFractionDigits:2, maximumFractionDigits:2});
             document.getElementById('sellerTotalRevenue').textContent = 'RD$ ' + totalRev.toLocaleString('es-DO', {minimumFractionDigits:2, maximumFractionDigits:2});
             document.getElementById('sellerBadge-ventas').textContent = mySales.length;
+
+            // ── Distributor income section ──
+            // Check if this seller is also a distributor in the customers list
+            const meAsDistributor = _sellerCustomers.find(cx =>
+                cx.type === 'distributor' && (
+                    (cx.email && cx.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+                    (cx.name && cx.name.toLowerCase().includes(sellerName.toLowerCase()))
+                )
+            );
+            if (meAsDistributor) {
+                // Show the distributor card and accordion
+                document.getElementById('distributorKpiCard').style.display = 'block';
+                document.getElementById('distributorAccordion').style.display = 'block';
+                // Filter sales where this person is the distributor, within selected period
+                const distSales = allSales.filter(s => {
+                    if (String(s.distributorId) !== String(meAsDistributor.id)) return false;
+                    if ((s.distributorCommissionPaid || 0) <= 0) return false;
+                    const d = new Date(s.date || s.createdAt);
+                    if (period === 'month') return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+                    if (period === 'specific') return d.getMonth()===specificMonth && d.getFullYear()===specificYear;
+                    if (period === 'week') return (now - d) / (1000*60*60*24) <= 7;
+                    return true;
+                });
+                const totalDistIncome = distSales.reduce((sum, s) => sum + (s.distributorCommissionPaid || 0), 0);
+                document.getElementById('distributorTotalIncome').textContent = 'RD$ ' + totalDistIncome.toLocaleString('es-DO', {minimumFractionDigits:2, maximumFractionDigits:2});
+                document.getElementById('sellerBadge-distribuidor').textContent = distSales.length;
+                const distList = document.getElementById('distributorIncomeList');
+                if (!distSales.length) {
+                    distList.innerHTML = '<div style="text-align:center;padding:30px;color:#aaa;">No hay ventas de vendedores en tu almacén en este periodo.</div>';
+                } else {
+                    const fmt2 = v => 'RD$ ' + v.toLocaleString('es-DO', {minimumFractionDigits:2, maximumFractionDigits:2});
+                    const wh = _sellerWarehouses.find(w => w.id === meAsDistributor.distributorWarehouseId);
+                    distList.innerHTML = `<div style="background:#f5f0ff;border-radius:10px;padding:12px 16px;margin-bottom:12px;font-size:.85em;color:#7c3aed;font-weight:600;">
+                        🏢 Almacén: ${wh ? wh.name : '—'} · ${meAsDistributor.distributorCommissionPct ?? 5}% por venta de vendedor
+                    </div>` +
+                    '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.82em;">' +
+                    '<thead><tr style="background:#f5f0ff;"><th style="padding:7px 10px;text-align:left;">Fecha</th><th style="padding:7px 10px;text-align:left;">Factura</th><th style="padding:7px 10px;text-align:left;">Vendedor</th><th style="padding:7px 10px;text-align:right;">Venta Total</th><th style="padding:7px 10px;text-align:right;color:#7c3aed;">Tu Ingreso (${meAsDistributor.distributorCommissionPct ?? 5}%)</th></tr></thead>' +
+                    '<tbody>' +
+                    distSales.map(s => {
+                        const d2 = new Date(s.date||s.createdAt);
+                        const dateStr = isNaN(d2) ? '—' : d2.toLocaleDateString('es-DO');
+                        return `<tr style="border-bottom:1px solid #f0ece8;">
+                            <td style="padding:6px 10px;">${dateStr}</td>
+                            <td style="padding:6px 10px;color:#888;">${s.invoiceNumber||'—'}</td>
+                            <td style="padding:6px 10px;">${s.seller||'—'}</td>
+                            <td style="padding:6px 10px;text-align:right;">${fmt2(s.totalSale||0)}</td>
+                            <td style="padding:6px 10px;text-align:right;font-weight:800;color:#7c3aed;">${fmt2(s.distributorCommissionPaid||0)}</td>
+                        </tr>`;
+                    }).join('') +
+                    `</tbody><tfoot><tr style="background:#f5f0ff;font-weight:700;">
+                        <td colspan="4" style="padding:7px 10px;text-align:right;">Total ingreso distribuidor:</td>
+                        <td style="padding:7px 10px;text-align:right;color:#7c3aed;">${fmt2(totalDistIncome)}</td>
+                    </tr></tfoot></table></div>';
+                }
+            } else {
+                document.getElementById('distributorKpiCard').style.display = 'none';
+                document.getElementById('distributorAccordion').style.display = 'none';
+            }
             if (!mySales.length) {
                 list.innerHTML = '<div style="text-align:center;padding:40px;color:#aaa;">No hay ventas registradas para tu usuario en este periodo.</div>';
                 return;
