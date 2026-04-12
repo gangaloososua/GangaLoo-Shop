@@ -5726,10 +5726,24 @@
                                     <span style="font-size:.8em;font-weight:600;color:${isClub?'#002D62':'#888'};">🏆 Club GangaLoo ${isClub?'Activo':'Inactivo'}</span>
                                 </label>
                                 ${u.role==='seller' && u.phone ? `<button onclick="sendSellerInstructionsWA('${u.full_name}','${u.email}','${u.phone}')" style="width:100%;padding:7px 10px;border-radius:8px;border:none;background:#25D366;color:white;font-size:.8em;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">💬 Enviar instrucciones de acceso</button>` : ''}
+                                ${u.role !== 'admin' ? `<button onclick="deleteOnlineUser('${u.id}','${(u.full_name||u.email||'').replace(/'/g,'')}')" style="width:100%;padding:7px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;font-size:.8em;font-weight:700;cursor:pointer;margin-top:2px;">🗑️ Eliminar usuario</button>` : ''}
                             </div>
                         </div>
                     </div>`;
                 }).join('');
+        }
+
+        async function deleteOnlineUser(userId, userName) {
+            if (!confirm(`¿Eliminar al usuario "${userName}"?
+
+Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
+            // Delete from profiles table first
+            const { error: profErr } = await sb.from('profiles').delete().eq('id', userId);
+            if (profErr) { showToast('Error eliminando perfil: ' + profErr.message, 'error'); return; }
+            // Remove from local array and refresh
+            allUsuarios = allUsuarios.filter(u => u.id !== userId);
+            showToast('✓ Usuario eliminado', 'success');
+            renderUsuarios();
         }
 
         async function changeUserRole(userId, newRole) {
