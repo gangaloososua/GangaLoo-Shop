@@ -2017,10 +2017,11 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Tipo</label>
-                            <select id="customerType">
+                            <select id="customerType" onchange="toggleDistributorFields(this.value)">
                                 <option value="customer">Cliente</option>
                                 <option value="seller">Vendedor</option>
                                 <option value="club_member">🏆 Club Member</option>
+                                <option value="distributor">🏢 Distribuidor</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -2046,6 +2047,21 @@
                         <div class="form-group">
                             <label>Límite de Crédito (DOP)</label>
                             <input type="number" id="customerCreditLimit" placeholder="0.00" step="0.01">
+                        </div>
+                        <!-- Distributor-only fields -->
+                        <div id="distributorFields" style="display:none;">
+                            <div class="form-group">
+                                <label>🏢 Almacén asignado</label>
+                                <select id="distributorWarehouseId">
+                                    <option value="">— Seleccionar almacén —</option>
+                                </select>
+                                <small style="color:#888;font-size:.75em;">Ventas de vendedores en este almacén generarán comisión al distribuidor.</small>
+                            </div>
+                            <div class="form-group">
+                                <label>% Comisión del Distribuidor</label>
+                                <input type="number" id="distributorCommissionPct" placeholder="5" step="0.1" min="0" max="100" value="5">
+                                <small style="color:#888;font-size:.75em;">Porcentaje sobre el total de venta (separado del vendedor, costo del negocio).</small>
+                            </div>
                         </div>
                     </div>
                     <button class="btn btn-primary" id="customerBtn" onclick="addCustomer()">➕ Agregar</button>
@@ -4556,11 +4572,20 @@
                         (c.name && order.customer_name && c.name.toLowerCase() === order.customer_name.toLowerCase())
                     )
                 );
+                // Distributor commission for online orders
+                const resolvedWHInt = parseInt(resolvedWH);
+                const distObjOnl = customers.find(cx => cx.type === 'distributor' && cx.distributorWarehouseId === resolvedWHInt);
+                const onlDistId   = distObjOnl ? distObjOnl.id : null;
+                const onlDistName = distObjOnl ? distObjOnl.name : null;
+                const onlDistPct  = distObjOnl ? (distObjOnl.distributorCommissionPct ?? 5) : 0;
+                const onlDistPaid = (customerAsSeller && distObjOnl) ? Math.round(totalSale * (onlDistPct / 100) * 100) / 100 : 0;
+                const netProfitFinal = netProfit - onlDistPaid;
+
                 const sale = {
                     id: saleId,
                     invoiceNumber: invoiceNum,
                     productId: parseInt(item.product_id),
-                    warehouseId: parseInt(resolvedWH),
+                    warehouseId: resolvedWHInt,
                     qty,
                     price,
                     totalSale,
@@ -4568,9 +4593,13 @@
                     grossProfit,
                     commissionPercent,
                     commissionPaid,
-                    netProfit,
-                    profit: netProfit,
-                    netMargin: totalSale > 0 ? (netProfit/totalSale*100) : 0,
+                    netProfit: netProfitFinal,
+                    profit: netProfitFinal,
+                    netMargin: totalSale > 0 ? (netProfitFinal/totalSale*100) : 0,
+                    distributorId: onlDistId,
+                    distributorName: onlDistName,
+                    distributorCommissionPct: onlDistPct,
+                    distributorCommissionPaid: onlDistPaid,
                     date: orderDate,
                     customer: order.customer_name || '',
                     customerId: orderCustomer ? orderCustomer.id : null,
@@ -9011,6 +9040,15 @@
             const netProfit = grossProfit - commissionPaid;
             const netMargin = saleTotal > 0 ? ((netProfit / saleTotal) * 100) : 0;
 
+            // Distributor commission — find distributor linked to this warehouse
+            const distObj = customers.find(c => c.type === 'distributor' && c.distributorWarehouseId === warehouseId);
+            const distributorId = distObj ? distObj.id : null;
+            const distributorName = distObj ? distObj.name : null;
+            const distributorCommissionPct = distObj ? (distObj.distributorCommissionPct ?? 5) : 0;
+            // Only applies when a seller is on the sale AND there is a distributor for this warehouse
+            const distributorCommissionPaid = (sellerId && distObj) ? Math.round(saleTotal * (distributorCommissionPct / 100) * 100) / 100 : 0;
+            const netProfitAfterDist = netProfit - distributorCommissionPaid;
+
             const sale = {
                 id: saleId,
                 invoiceNumber: invoiceNumber || `SALE-${saleId}`,
@@ -9023,8 +9061,12 @@
                 grossProfit,
                 commissionPercent,
                 commissionPaid,
-                netProfit,
-                netMargin,
+                netProfit: netProfitAfterDist,
+                netMargin: saleTotal > 0 ? (netProfitAfterDist / saleTotal * 100) : 0,
+                distributorId,
+                distributorName,
+                distributorCommissionPct,
+                distributorCommissionPaid,
                 date,
                 customer,
                 customerId,
@@ -13368,6 +13410,22 @@
             }
         }
 
+        function toggleDistributorFields(type) {
+            const el = document.getElementById('distributorFields');
+            if (!el) return;
+            el.style.display = type === 'distributor' ? 'block' : 'none';
+            if (type === 'distributor') populateDistributorWarehouseDropdown();
+        }
+
+        function populateDistributorWarehouseDropdown() {
+            const sel = document.getElementById('distributorWarehouseId');
+            if (!sel) return;
+            const current = sel.value;
+            sel.innerHTML = '<option value="">— Seleccionar almacén —</option>' +
+                warehouses.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
+            if (current) sel.value = current;
+        }
+
         function addCustomer() {
             const type = document.getElementById('customerType').value;
             const name = document.getElementById('customerName').value.trim();
@@ -13379,18 +13437,25 @@
 
             if (!name) { showToast('Ingresa el nombre', 'error'); return; }
 
+            const distributorWarehouseId = type === 'distributor' ? (parseInt(document.getElementById('distributorWarehouseId').value) || null) : null;
+            const distributorCommissionPct = type === 'distributor' ? (parseFloat(document.getElementById('distributorCommissionPct').value) || 5) : null;
+
             if (editingCustomerId) {
                 const customer = customers.find(c => c.id === editingCustomerId);
                 if (customer) {
                     customer.type = type; customer.name = name; customer.rnc = rnc; customer.phone = phone;
                     customer.email = email; customer.address = address; customer.creditLimit = creditLimit;
+                    customer.distributorWarehouseId = distributorWarehouseId;
+                    customer.distributorCommissionPct = distributorCommissionPct;
                 }
                 editingCustomerId = null;
                 document.getElementById('customerBtn').textContent = '➕ Agregar';
-                showToast(type === 'seller' ? 'Vendedor actualizado' : 'Cliente actualizado', 'success');
+                const typeLabel = type === 'seller' ? 'Vendedor' : type === 'distributor' ? 'Distribuidor' : 'Cliente';
+                showToast(typeLabel + ' actualizado', 'success');
             } else {
-                customers.push({ id: Date.now(), type, name, rnc, phone, email, address, creditLimit });
-                showToast(type === 'seller' ? 'Vendedor agregado' : 'Cliente agregado', 'success');
+                customers.push({ id: Date.now(), type, name, rnc, phone, email, address, creditLimit, distributorWarehouseId, distributorCommissionPct });
+                const typeLabel = type === 'seller' ? 'Vendedor' : type === 'distributor' ? 'Distribuidor' : 'Cliente';
+                showToast(typeLabel + ' agregado', 'success');
             }
 
             saveData(); renderCustomers(); updatePaymentDropdowns(); updateDropdowns();
@@ -13400,6 +13465,9 @@
             document.getElementById('customerEmail').value = '';
             document.getElementById('customerAddress').value = '';
             document.getElementById('customerCreditLimit').value = '';
+            document.getElementById('distributorWarehouseId').value = '';
+            document.getElementById('distributorCommissionPct').value = '5';
+            toggleDistributorFields('customer');
         }
 
         function renderCustomers() {
@@ -13469,6 +13537,40 @@
                 html += '</div>';
             }
 
+            // Render Distributors
+            const distributorsList = customers.filter(c => c.type === 'distributor');
+            if (distributorsList.length > 0) {
+                html += '<div class="form-section" style="margin-top:16px;"><h3 style="margin-bottom:12px;">🏢 Distribuidores</h3>';
+                distributorsList.forEach(dist => {
+                    const wh = warehouses.find(w => w.id === dist.distributorWarehouseId);
+                    const distSales = sales.filter(s => s.distributorId === dist.id);
+                    const totalDistComm = distSales.reduce((sum, s) => sum + (s.distributorCommissionPaid || 0), 0);
+                    html += `<div style="background:white;border:1.5px solid #e8e4f0;border-left:4px solid #7c3aed;border-radius:10px;padding:11px 14px;margin-bottom:8px;">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                            <div style="flex:1;min-width:130px;">
+                                <div style="font-weight:700;font-size:.92em;">🏢 ${dist.name}</div>
+                                <div style="font-size:.75em;color:#888;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">
+                                    ${dist.phone?`<span>📱 ${dist.phone}</span>`:''}
+                                    ${dist.email?`<span>✉️ ${dist.email}</span>`:''}
+                                </div>
+                                <div style="font-size:.72em;color:#7c3aed;margin-top:3px;font-weight:600;">
+                                    Almacén: ${wh ? wh.name : '—'} · ${dist.distributorCommissionPct ?? 5}% comisión
+                                </div>
+                            </div>
+                            <div style="text-align:right;flex-shrink:0;">
+                                <div style="font-weight:700;font-size:.85em;color:#7c3aed;">$${totalDistComm.toFixed(2)}</div>
+                                <div style="font-size:.7em;color:#aaa;">${distSales.length} ventas</div>
+                                <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px;">
+                                    <button onclick="editCustomer(${dist.id})" style="width:26px;height:26px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:12px;">✏️</button>
+                                    <button onclick="deleteCustomer(${dist.id})" style="width:26px;height:26px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:12px;">🗑️</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+
             container.innerHTML = html;
         }
 
@@ -13495,6 +13597,13 @@
             document.getElementById('customerEmail').value = customer.email || '';
             document.getElementById('customerAddress').value = customer.address || '';
             document.getElementById('customerCreditLimit').value = customer.creditLimit;
+            // Distributor fields
+            toggleDistributorFields(customer.type || 'customer');
+            if (customer.type === 'distributor') {
+                populateDistributorWarehouseDropdown();
+                document.getElementById('distributorWarehouseId').value = customer.distributorWarehouseId || '';
+                document.getElementById('distributorCommissionPct').value = customer.distributorCommissionPct ?? 5;
+            }
             document.getElementById('customerBtn').textContent = '💾 Actualizar';
             
             // Scroll to form
@@ -14430,6 +14539,54 @@
             });
 
             listContainer.innerHTML = html;
+
+            // ── Distributor commissions section ──
+            const distributors = customers.filter(cx => cx.type === 'distributor');
+            if (distributors.length > 0) {
+                let distHtml = '<div class="form-section" style="margin-top:20px;"><h3 style="margin-bottom:12px;color:#7c3aed;">🏢 Comisiones de Distribuidores</h3>';
+                distributors.forEach(dist => {
+                    const wh = warehouses.find(w => w.id === dist.distributorWarehouseId);
+                    const distSales = sales.filter(s => s.distributorId === dist.id && (s.distributorCommissionPaid || 0) > 0);
+                    const totalEarned = distSales.reduce((sum, s) => sum + (s.distributorCommissionPaid || 0), 0);
+                    if (!distSales.length) return;
+                    distHtml += `<div style="background:white;border:1.5px solid #e8e4f0;border-left:4px solid #7c3aed;border-radius:12px;padding:14px 16px;margin-bottom:12px;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+                            <div>
+                                <div style="font-weight:700;">🏢 ${dist.name}</div>
+                                <div style="font-size:.78em;color:#888;">Almacén: ${wh ? wh.name : '—'} · ${dist.distributorCommissionPct ?? 5}% sobre ventas con vendedor</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:1.1em;font-weight:800;color:#7c3aed;">$${fmt(totalEarned)}</div>
+                                <div style="font-size:.72em;color:#aaa;">${distSales.length} venta${distSales.length!==1?'s':''} con comisión</div>
+                            </div>
+                        </div>
+                        <table style="width:100%;margin-top:10px;border-collapse:collapse;font-size:.8em;">
+                            <thead><tr style="background:#f5f0ff;">
+                                <th style="padding:6px 8px;text-align:left;">Fecha</th>
+                                <th style="padding:6px 8px;text-align:left;">Factura</th>
+                                <th style="padding:6px 8px;text-align:left;">Vendedor</th>
+                                <th style="padding:6px 8px;text-align:right;">Venta</th>
+                                <th style="padding:6px 8px;text-align:right;">Comisión (${dist.distributorCommissionPct ?? 5}%)</th>
+                            </tr></thead>
+                            <tbody>
+                                ${distSales.map(s => `<tr style="border-bottom:1px solid #f0ece8;">
+                                    <td style="padding:5px 8px;">${s.date||'—'}</td>
+                                    <td style="padding:5px 8px;">${s.invoiceNumber||'—'}</td>
+                                    <td style="padding:5px 8px;">${s.seller||'—'}</td>
+                                    <td style="padding:5px 8px;text-align:right;">$${fmt(s.totalSale||0)}</td>
+                                    <td style="padding:5px 8px;text-align:right;font-weight:700;color:#7c3aed;">$${fmt(s.distributorCommissionPaid||0)}</td>
+                                </tr>`).join('')}
+                            </tbody>
+                            <tfoot><tr style="background:#f5f0ff;font-weight:700;">
+                                <td colspan="4" style="padding:6px 8px;text-align:right;">Total:</td>
+                                <td style="padding:6px 8px;text-align:right;color:#7c3aed;">$${fmt(totalEarned)}</td>
+                            </tr></tfoot>
+                        </table>
+                    </div>`;
+                });
+                distHtml += '</div>';
+                listContainer.innerHTML += distHtml;
+            }
 
             // Payout modal (injected once)
             if (!document.getElementById('payoutModal')) {
