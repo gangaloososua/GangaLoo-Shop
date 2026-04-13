@@ -15071,25 +15071,37 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
         function viewPayouts(sellerId, monthKey, monthLabel) {
             const seller  = customers.find(c => c.id === sellerId);
             const payouts = commissionPayouts.filter(p => String(p.sellerId) === String(sellerId) && p.monthKey === monthKey);
+            if (!payouts.length) { alert('No hay pagos registrados.'); return; }
 
-            let msg = `✅ Pagos registrados\n${seller ? seller.name : ''} — ${monthLabel}\n${'─'.repeat(35)}\n`;
-            if (!payouts.length) {
-                msg += 'No hay pagos registrados.';
-            } else {
-                payouts.forEach(p => {
+            // Build HTML popup with delete buttons
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+            const box = document.createElement('div');
+            box.style.cssText = 'background:#fff;border-radius:14px;padding:24px;min-width:340px;max-width:480px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.2);';
+            const total = payouts.reduce((s,p)=>s+p.amount,0);
+            box.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h3 style="font-family:serif;font-size:1.1em;">✅ Pagos registrados</h3>
+                    <button id="closePayoutView" style="background:#f0ede8;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:1.1em;">✕</button>
+                </div>
+                <div style="font-size:.82em;color:#888;margin-bottom:12px;">${seller ? seller.name : ''} — ${monthLabel}</div>
+                ${payouts.map(p => {
                     const acct = p.accountId ? accounts.find(a => a.id === p.accountId) : null;
-                    const cat  = p.categoryId ? accountingCategories.find(c => c.id === p.categoryId) : null;
-                    msg += `\n• ${p.date}  $${p.amount.toFixed(2)}`;
-                    if (acct) msg += `  ← ${acct.name}`;
-                    if (cat)  msg += `  [${cat.name}]`;
-                    if (p.note) msg += `\n  "${p.note}"`;
-                });
-                const total = payouts.reduce((s,p)=>s+p.amount,0);
-                msg += `\n${'─'.repeat(35)}\nTotal pagado: $${total.toFixed(2)}`;
-            }
-            alert(msg);
+                    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #f0ede8;">
+                        <div>
+                            <div style="font-weight:700;">RD$ ${p.amount.toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
+                            <div style="font-size:.75em;color:#888;">${p.date}${acct?' · '+acct.name:''}${p.note?' · '+p.note:''}</div>
+                        </div>
+                        <button onclick="deletePayoutById(${p.id},this)" style="background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:.78em;font-weight:700;white-space:nowrap;flex-shrink:0;">🗑 Eliminar</button>
+                    </div>`;
+                }).join('')}
+                <div style="margin-top:12px;font-weight:700;font-size:.95em;">Total pagado: RD$ ${total.toLocaleString('es-DO',{minimumFractionDigits:2})}</div>`;
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            overlay.addEventListener('click', e => { if(e.target===overlay) document.body.removeChild(overlay); });
+            document.getElementById('closePayoutView').onclick = () => document.body.removeChild(overlay);
         }
-        async function deletePayoutById(payoutId) {
+        async function deletePayoutById(payoutId, btnEl) {
             if (!confirm('¿Eliminar este pago de comisión? Se restaurará el pendiente.')) return;
             const payout = commissionPayouts.find(p => p.id === payoutId);
             if (!payout) { showToast('Pago no encontrado', 'error'); return; }
@@ -15106,6 +15118,11 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
             renderCommissions();
             renderAccounts();
             renderAccountingTransactions();
+            // Close the popup
+            if (btnEl) {
+                const overlay = btnEl.closest('[style*="position:fixed"]') || document.querySelector('[style*="z-index:9999"]');
+                if (overlay) document.body.removeChild(overlay);
+            }
             showToast('✓ Pago eliminado — pendiente restaurado', 'success');
         }
 
