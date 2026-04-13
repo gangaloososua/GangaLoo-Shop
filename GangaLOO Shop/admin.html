@@ -13373,13 +13373,24 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
         function deleteTransaction(id) {
             const trans = transactions.find(t => t.id === id);
             if (!trans) return;
+            // Reverse account balance
             const account = accounts.find(a => a.id === trans.accountId);
             if (account) {
                 if (trans.type === 'income') account.balance -= trans.amount;
                 else account.balance += trans.amount;
             }
+            // If this was a commission payout transaction, also remove the payout record
+            if (trans.reference && trans.reference.startsWith('commission-payout-')) {
+                const payoutId = parseInt(trans.reference.replace('commission-payout-', ''));
+                const removed = commissionPayouts.find(p => p.id === payoutId);
+                commissionPayouts = commissionPayouts.filter(p => p.id !== payoutId);
+                if (removed) showToast('Transacción y pago de comisión eliminados — pendiente restaurado', 'success');
+            }
             transactions = transactions.filter(t => t.id !== id);
-            saveData(); renderTransactions(); renderAccounts();
+            saveData();
+            renderTransactions();
+            renderAccounts();
+            if (typeof renderCommissions === 'function') renderCommissions();
             showToast('Transacción eliminada', 'success');
         }
 
@@ -14715,7 +14726,7 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
                             <input type="text" id="payoutNote" placeholder="Ej: Transferencia bancaria" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:8px 12px;">
                         </div>
                         <div style="display:flex;gap:10px;">
-                            <button class="btn btn-primary" style="flex:1;" onclick="confirmPayout()">💸 Confirmar Pago</button>
+                            <button class="btn btn-primary" style="flex:1;" id="payoutConfirmBtn" onclick="confirmPayout()">💸 Confirmar Pago</button>
                             <button class="btn btn-secondary" onclick="closePayoutModal()">Cancelar</button>
                         </div>
                     </div>`;
@@ -15007,6 +15018,10 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
         }
 
         async function confirmPayout() {
+            // Prevent double-click
+            const btn = document.getElementById('payoutConfirmBtn');
+            if (btn) { if (btn.disabled) return; btn.disabled = true; }
+
             const amount     = parseFloat(document.getElementById('payoutAmount').value);
             const date       = document.getElementById('payoutDate').value;
             const note       = document.getElementById('payoutNote').value.trim();
@@ -15015,9 +15030,9 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
             const { sellerId, monthKey, monthLabel, pendingAmount } = _payoutContext;
             const seller = customers.find(c => c.id === sellerId);
 
-            if (!amount || amount <= 0)         { showToast('Ingresa un monto válido', 'error'); return; }
-            if (amount > pendingAmount + 0.01)  { showToast(`El monto excede lo pendiente ($${pendingAmount.toFixed(2)})`, 'error'); return; }
-            if (!date)                           { showToast('Selecciona una fecha', 'error'); return; }
+            if (!amount || amount <= 0)         { showToast('Ingresa un monto válido', 'error'); if(btn) btn.disabled=false; return; }
+            if (amount > pendingAmount + 0.01)  { showToast(`El monto excede lo pendiente ($${pendingAmount.toFixed(2)})`, 'error'); if(btn) btn.disabled=false; return; }
+            if (!date)                           { showToast('Selecciona una fecha', 'error'); if(btn) btn.disabled=false; return; }
 
             const payoutId = Date.now();
 
@@ -15074,6 +15089,26 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
             }
             alert(msg);
         }
+        async function deletePayoutById(payoutId) {
+            if (!confirm('¿Eliminar este pago de comisión? Se restaurará el pendiente.')) return;
+            const payout = commissionPayouts.find(p => p.id === payoutId);
+            if (!payout) { showToast('Pago no encontrado', 'error'); return; }
+            // Restore account balance
+            if (payout.accountId) {
+                const acct = accounts.find(a => a.id === payout.accountId);
+                if (acct) acct.balance += payout.amount;
+            }
+            // Remove paired transaction
+            transactions = transactions.filter(t => t.reference !== `commission-payout-${payoutId}`);
+            // Remove payout
+            commissionPayouts = commissionPayouts.filter(p => p.id !== payoutId);
+            await saveData();
+            renderCommissions();
+            renderAccounts();
+            renderAccountingTransactions();
+            showToast('✓ Pago eliminado — pendiente restaurado', 'success');
+        }
+
         function openAccountStatement(accountId) {
             const account = accounts.find(a => a.id === accountId);
             if (!account) return;
