@@ -14975,6 +14975,7 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
         let _payoutContext = {};
 
         function openPayoutModal(sellerId, monthKey, monthLabel, pendingAmount) {
+            _payoutInProgress = false; // Reset lock on open
             const seller = customers.find(c => c.id === sellerId);
             _payoutContext = { sellerId, monthKey, monthLabel, pendingAmount };
 
@@ -15014,58 +15015,84 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
         }
 
         function closePayoutModal() {
+            _payoutInProgress = false; // Reset lock on close
             document.getElementById('payoutModal').style.display = 'none';
+            const btn = document.getElementById('payoutConfirmBtn');
+            if (btn) { btn.disabled = false; btn.textContent = '💸 Confirmar Pago'; }
         }
 
+        let _payoutInProgress = false; // Global lock to prevent double submission
+
         async function confirmPayout() {
-            // Prevent double-click
+            // Hard lock — prevents any double submission
+            if (_payoutInProgress) return;
+            _payoutInProgress = true;
+
             const btn = document.getElementById('payoutConfirmBtn');
-            if (btn) { if (btn.disabled) return; btn.disabled = true; }
+            if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
 
-            const amount     = parseFloat(document.getElementById('payoutAmount').value);
-            const date       = document.getElementById('payoutDate').value;
-            const note       = document.getElementById('payoutNote').value.trim();
-            const accountId  = parseInt(document.getElementById('payoutAccount').value) || null;
-            const categoryId = parseInt(document.getElementById('payoutCategory').value) || null;
-            const { sellerId, monthKey, monthLabel, pendingAmount } = _payoutContext;
-            const seller = customers.find(c => c.id === sellerId);
+            try {
+                const amount     = parseFloat(document.getElementById('payoutAmount').value);
+                const date       = document.getElementById('payoutDate').value;
+                const note       = document.getElementById('payoutNote').value.trim();
+                const accountId  = parseInt(document.getElementById('payoutAccount').value) || null;
+                const categoryId = parseInt(document.getElementById('payoutCategory').value) || null;
+                const { sellerId, monthKey, monthLabel, pendingAmount } = _payoutContext;
+                const seller = customers.find(c => c.id === sellerId);
 
-            if (!amount || amount <= 0)         { showToast('Ingresa un monto válido', 'error'); if(btn) btn.disabled=false; return; }
-            if (amount > pendingAmount + 0.01)  { showToast(`El monto excede lo pendiente ($${pendingAmount.toFixed(2)})`, 'error'); if(btn) btn.disabled=false; return; }
-            if (!date)                           { showToast('Selecciona una fecha', 'error'); if(btn) btn.disabled=false; return; }
+                if (!amount || amount <= 0)        { showToast('Ingresa un monto válido', 'error'); return; }
+                if (amount > pendingAmount + 0.01) { showToast(`El monto excede lo pendiente ($${pendingAmount.toFixed(2)})`, 'error'); return; }
+                if (!date)                          { showToast('Selecciona una fecha', 'error'); return; }
 
-            const payoutId = Date.now();
+                // Safety check — prevent duplicate payout for same seller+month+amount
+                const existingPayouts = commissionPayouts.filter(p =>
+                    String(p.sellerId) === String(sellerId) &&
+                    p.monthKey === monthKey
+                );
+                const alreadyFullyPaid = existingPayouts.reduce((s,p) => s+p.amount, 0) >= pendingAmount - 0.01;
+                if (alreadyFullyPaid) {
+                    showToast('⚠️ Esta comisión ya está completamente pagada', 'error');
+                    return;
+                }
 
-            // 1. Record the payout
-            commissionPayouts.push({ id: payoutId, sellerId, monthKey, amount, date, note, accountId, categoryId });
+                const payoutId = Date.now();
 
-            // 2. Deduct from account balance
-            if (accountId) {
-                const account = accounts.find(a => a.id === accountId);
-                if (account) account.balance -= amount;
+                // 1. Record the payout
+                commissionPayouts.push({ id: payoutId, sellerId, monthKey, amount, date, note, accountId, categoryId });
+
+                // 2. Deduct from account balance
+                if (accountId) {
+                    const account = accounts.find(a => a.id === accountId);
+                    if (account) account.balance -= amount;
+                }
+
+                // 3. Create expense transaction with unique reference
+                const sellerName = seller ? seller.name : 'Vendedor';
+                const description = `Comisión ${sellerName} — ${monthLabel}${note ? ' — ' + note : ''}`;
+                transactions.push({
+                    id: payoutId + 1,
+                    type: 'expense',
+                    accountId: accountId || null,
+                    categoryId: categoryId || null,
+                    amount,
+                    date,
+                    description,
+                    reference: `commission-payout-${payoutId}`,
+                    currency: accountId ? (accounts.find(a => a.id === accountId)?.currency || 'DOP') : 'DOP'
+                });
+
+                await saveData();
+                closePayoutModal();
+                renderCommissions();
+                if (accountId) renderAccounts();
+                renderAccountingTransactions();
+                showToast(`Comisión pagada ✅ — RD$ ${amount.toLocaleString('es-DO',{minimumFractionDigits:2})} descontado de cuenta`, 'success');
+
+            } finally {
+                // Always release lock and re-enable button
+                _payoutInProgress = false;
+                if (btn) { btn.disabled = false; btn.textContent = '💸 Confirmar Pago'; }
             }
-
-            // 3. Create expense transaction in accounting
-            const sellerName = seller ? seller.name : 'Vendedor';
-            const description = `Comisión ${sellerName} — ${monthLabel}${note ? ' — ' + note : ''}`;
-            transactions.push({
-                id: payoutId + 1,
-                type: 'expense',
-                accountId: accountId || null,
-                categoryId: categoryId || null,
-                amount,
-                date,
-                description,
-                reference: `commission-payout-${payoutId}`,
-                currency: accountId ? (accounts.find(a => a.id === accountId)?.currency || 'DOP') : 'DOP'
-            });
-
-            await saveData();
-            closePayoutModal();
-            renderCommissions();
-            if (accountId) renderAccounts();
-            renderAccountingTransactions();
-            showToast(`Comisión pagada ✅ — $${amount.toFixed(2)} descontado de cuenta`, 'success');
         }
 
         function viewPayouts(sellerId, monthKey, monthLabel) {
@@ -15105,12 +15132,13 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
             if (!confirm('¿Eliminar este pago de comisión? Se restaurará el pendiente.')) return;
             const payout = commissionPayouts.find(p => p.id === payoutId);
             if (!payout) { showToast('Pago no encontrado', 'error'); return; }
-            // Restore account balance
-            if (payout.accountId) {
+            // Only restore account balance if the paired transaction still exists
+            const pairedTx = transactions.find(t => t.reference === `commission-payout-${payoutId}`);
+            if (pairedTx && payout.accountId) {
                 const acct = accounts.find(a => a.id === payout.accountId);
                 if (acct) acct.balance += payout.amount;
             }
-            // Remove paired transaction
+            // Remove paired transaction (if it exists)
             transactions = transactions.filter(t => t.reference !== `commission-payout-${payoutId}`);
             // Remove payout
             commissionPayouts = commissionPayouts.filter(p => p.id !== payoutId);
