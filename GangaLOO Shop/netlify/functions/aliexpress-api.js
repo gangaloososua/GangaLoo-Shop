@@ -1,7 +1,7 @@
 // netlify/functions/aliexpress-api.js
-const APP_KEY     = process.env.ALI_APP_KEY;
-const APP_SECRET  = process.env.ALI_APP_SECRET;
-const TRACKING_ID = process.env.ALI_TRACKING_ID || 'gangaloo';
+// AliExpress Dropshipping API (aliexpress.ds.product.get)
+const APP_KEY    = process.env.ALI_APP_KEY;
+const APP_SECRET = process.env.ALI_APP_SECRET;
 
 if (!APP_KEY || !APP_SECRET) {
   console.error('Missing ALI_APP_KEY or ALI_APP_SECRET environment variables');
@@ -58,29 +58,64 @@ function getTimestamp() {
 }
 
 function extractProductId(url) {
-  const match = url.match(/\/item\/(\d+)\.html/) || url.match(/\/(\d+)\.html/) || url.match(/id=(\d+)/);
+  const match = url.match(/\/item\/(\d+)\.html/) || url.match(/\/(\d+)\.html/) || url.match(/id=(\d+)/) || url.match(/\/(\d{10,})/) ;
   return match ? match[1] : null;
 }
 
-// ── Parse SKU attributes into clean groups ──
-// Returns e.g. { Color: ['Red','Blue'], Size: ['S','M','L'], Length: ['10"','12"'] }
-function parseSkuAttributes(skuInfo) {
+// Parse DS product variants into clean groups
+// DS API returns: ae_item_sku_info_dtos → ae_item_sku_info_d_t_o[]
+// Each SKU has: sku_attr (e.g. "14:350853#Black;5:361386#XL"), sku_id, offer_sale_price
+function parseDsVariants(skuInfoDtos) {
   const groups = {};
   try {
-    const props = skuInfo?.aeop_sku_property_dtos?.aeop_sku_property_d_t_o || [];
+    const skus = skuInfoDtos?.ae_item_sku_info_d_t_o || [];
+    // Collect all unique attribute options across all SKUs
+    skus.forEach(sku => {
+      const attrStr = sku.sku_attr || '';
+      // Format: "propId:valueId#valueName;propId:valueId#valueName"
+      attrStr.split(';').forEach(part => {
+        if (!part.trim()) return;
+        const hashIdx = part.indexOf('#');
+        if (hashIdx === -1) return;
+        const valueName = part.substring(hashIdx + 1).trim();
+        // We need the property name — it comes from ae_skuProperty in product props
+        // For now, group by prop ID
+        const propId = part.split(':')[0];
+        if (!groups[propId]) groups[propId] = { name: propId, values: new Map() };
+        if (!groups[propId].values.has(valueName)) {
+          groups[propId].values.set(valueName, { value: valueName, image: null });
+        }
+      });
+    });
+  } catch(e) {
+    console.error('DS variant parse error:', e.message);
+  }
+  // Convert to simple format
+  const result = {};
+  for (const [, group] of Object.entries(groups)) {
+    result[group.name] = Array.from(group.values.values());
+  }
+  return result;
+}
+
+// Parse DS product SKU properties (gives us proper names like "Color", "Size")
+function parseDsSkuProperties(skuPropertyDtos) {
+  const groups = {};
+  try {
+    const props = skuPropertyDtos?.ae_sku_property_d_t_o || [];
     props.forEach(prop => {
       const name = prop.sku_property_name;
-      const values = prop.aeop_sku_property_value_dtos?.aeop_sku_property_value_d_t_o || [];
+      const values = prop.sku_property_value_dtos?.ae_sku_property_value_d_t_o || [];
       if (name && values.length) {
         groups[name] = values.map(v => ({
-          value: v.sku_property_value_name || v.property_value_definition_name || '',
+          value: v.property_value_definition_name || v.sku_property_value_name || '',
           image: v.sku_image || null,
           id: v.property_value_id || null
         })).filter(v => v.value);
       }
     });
   } catch(e) {
-    console.error('SKU parse error:', e.message);
+    console.error('SKU property parse error:', e.message);
   }
   return groups;
 }
@@ -97,155 +132,106 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || '{}');
-    const action = body.action;
+    const { action, url } = body;
 
-    // ── GET PRODUCT + SKU VARIANTS ──
     if (action === 'getProduct') {
-      const { url } = body;
-      const productId = extractProductId(url);
-      if (!productId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Could not extract product ID from URL' }) };
-
-      // Call both APIs in parallel
-      const [productResp, skuResp] = await Promise.all([
-        // 1. Standard affiliate product detail
-        (async () => {
-          const params = {
-            app_key: APP_KEY,
-            method: 'aliexpress.affiliate.productdetail.get',
-            sign_method: 'md5',
-            timestamp: getTimestamp(),
-            v: '2.0',
-            fields: 'product_id,product_title,product_main_image_url,product_small_image_urls,target_sale_price,target_original_price,target_sale_price_currency,commission_rate,shop_id,shop_url,product_detail_url,evaluate_rate,lastest_volume',
-            product_ids: productId,
-            tracking_id: TRACKING_ID,
-            target_currency: 'USD',
-            target_language: 'EN',
-          };
-          params.sign = signRequest(params);
-          const r = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
-            body: new URLSearchParams(params).toString()
-          });
-          return r.json();
-        })(),
-
-        // 2. SKU Dimension API — product detail at SKU level
-        (async () => {
-          try {
-            const params = {
-              app_key: APP_KEY,
-              method: 'aliexpress.affiliate.product.smartmatch',
-              sign_method: 'md5',
-              timestamp: getTimestamp(),
-              v: '2.0',
-              product_id: productId,
-              target_currency: 'USD',
-              target_language: 'EN',
-              tracking_id: TRACKING_ID,
-            };
-            // Try SKU detail method
-            // Try SKU Dimension API - aliexpress.solution.sku.attribute.query
-            const skuParams = {
-              app_key: APP_KEY,
-              method: 'aliexpress.solution.sku.attribute.query',
-              sign_method: 'md5',
-              timestamp: getTimestamp(),
-              v: '2.0',
-              product_id: productId,
-              tracking_id: TRACKING_ID,
-            };
-            skuParams.sign = signRequest(skuParams);
-            const r = await fetch(API_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
-              body: new URLSearchParams(skuParams).toString()
-            });
-            const skuData = await r.json();
-            console.log('[SKU API raw]', JSON.stringify(skuData).substring(0, 500));
-            return skuData;
-          } catch(e) {
-            return null;
-          }
-        })()
-      ]);
-
-      // Parse standard product
-      const result = productResp?.aliexpress_affiliate_productdetail_get_response?.resp_result;
-      if (!result || result.resp_code !== 200) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: result?.resp_msg || 'API error', raw: productResp }) };
-      }
-      const products = result.result?.products?.product;
-      if (!products || !products.length) {
-        return { statusCode: 404, headers, body: JSON.stringify({ error: 'Product not found' }) };
-      }
-      const product = products[0];
-
-      // Parse SKU attributes from DS product response
-      let variants = {};
-      let skuList = [];
-      try {
-        // Log full SKU response to see structure
-        console.log('[SKU full resp]', JSON.stringify(skuResp || {}).substring(0, 800));
-        
-        // aliexpress.solution.sku.attribute.query response
-        const skuResult = skuResp?.aliexpress_solution_sku_attribute_query_response?.result;
-        if (skuResult) {
-          const propList = skuResult.sku_property_list?.sku_property || [];
-          propList.forEach(prop => {
-            const name = prop.sku_property_name;
-            const vals = prop.aeop_sku_property_value_dtos?.aeop_sku_property_value_d_t_o || [];
-            if (name && vals.length) {
-              variants[name] = vals.map(v => ({
-                value: v.sku_property_value_name || v.property_value_definition_name || '',
-                image: v.sku_image || null
-              })).filter(v => v.value);
-            }
-          });
-        }
-        console.log('[Variants]', JSON.stringify(variants).substring(0, 400));
-      } catch(e) {
-        console.error('SKU parse error:', e.message);
+      const productId = extractProductId(url || '');
+      if (!productId) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'No se pudo extraer el ID del producto de la URL' }) };
       }
 
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ product, variants, skuList })
-      };
-    }
+      console.log('[DS API] Fetching product:', productId);
 
-    // ── GENERATE AFFILIATE LINK ──
-    if (action === 'getLink') {
-      const { url } = body;
+      // ── Call Dropshipping API: aliexpress.ds.product.get ──
       const params = {
         app_key: APP_KEY,
-        method: 'aliexpress.affiliate.link.generate',
+        method: 'aliexpress.ds.product.get',
         sign_method: 'md5',
         timestamp: getTimestamp(),
         v: '2.0',
-        promotion_link_type: '0',
-        source_values: url,
-        tracking_id: TRACKING_ID,
+        product_id: productId,
+        target_currency: 'USD',
+        target_language: 'EN',
+        ship_to_country: 'DO',   // Dominican Republic
       };
       params.sign = signRequest(params);
+
       const resp = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
         body: new URLSearchParams(params).toString()
       });
+
       const data = await resp.json();
-      const result = data?.aliexpress_affiliate_link_generate_response?.resp_result;
-      if (!result || result.resp_code !== 200) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: result?.resp_msg || 'API error' }) };
+      console.log('[DS API raw]', JSON.stringify(data).substring(0, 600));
+
+      // ── Parse DS response ──
+      const dsResult = data?.aliexpress_ds_product_get_response?.result;
+      if (!dsResult) {
+        // Log full response to help debug
+        console.error('[DS API] Unexpected response:', JSON.stringify(data).substring(0, 800));
+        return {
+          statusCode: 400, headers,
+          body: JSON.stringify({ error: 'API no respondió correctamente', raw: data })
+        };
       }
-      const links = result.result?.promotion_links?.promotion_link;
-      return { statusCode: 200, headers, body: JSON.stringify({ link: links?.[0]?.promotion_link || url }) };
+
+      if (dsResult.rsp_code && dsResult.rsp_code !== 200) {
+        return {
+          statusCode: 400, headers,
+          body: JSON.stringify({ error: dsResult.rsp_msg || 'Error de API', code: dsResult.rsp_code })
+        };
+      }
+
+      const p = dsResult.result || dsResult;
+
+      // Extract main image
+      const mainImage = p.ae_multimedia_info_dto?.image_urls?.split(';')?.[0]?.trim() || null;
+
+      // Extract price
+      const priceInfo = p.ae_item_sku_info_dtos?.ae_item_sku_info_d_t_o?.[0];
+      const salePrice = priceInfo?.offer_sale_price || priceInfo?.sku_price || p.ae_item_base_info_dto?.aeop_freight_calculate_dto_for_buyer_d_t_o_list?.aeop_freight_calculate_dto_for_buyer_d_t_o?.[0]?.freight?.cent_amount;
+      const originalPrice = priceInfo?.offer_bulk_sale_price || null;
+
+      // Extract title
+      const title = p.ae_item_base_info_dto?.subject || '';
+
+      // Extract variants — DS API provides ae_item_sku_info_dtos and ae_sku_property_dtos
+      let variants = {};
+      const skuProperties = p.ae_sku_property_dtos;
+      const skuInfos = p.ae_item_sku_info_dtos;
+
+      if (skuProperties) {
+        // Best source: named properties with images
+        variants = parseDsSkuProperties(skuProperties);
+      }
+      if (!Object.keys(variants).length && skuInfos) {
+        // Fallback: parse from SKU attr strings
+        variants = parseDsVariants(skuInfos);
+      }
+
+      // Build normalized product object (same shape as before so frontend doesn't need to change)
+      const product = {
+        product_title: title,
+        product_main_image_url: mainImage,
+        target_sale_price: salePrice ? parseFloat(salePrice).toFixed(2) : null,
+        target_original_price: originalPrice ? parseFloat(originalPrice).toFixed(2) : null,
+        product_detail_url: `https://www.aliexpress.com/item/${productId}.html`,
+        product_id: productId,
+      };
+
+      console.log('[DS API] Product:', title, '| Price:', salePrice, '| Variants:', Object.keys(variants));
+
+      return {
+        statusCode: 200, headers,
+        body: JSON.stringify({ product, variants })
+      };
     }
 
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Unknown action' }) };
 
   } catch(e) {
+    console.error('[DS API] Error:', e.message);
     return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
   }
 };
