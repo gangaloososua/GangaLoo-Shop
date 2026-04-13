@@ -888,7 +888,7 @@ async function importFromAli() {
       body: JSON.stringify({ action: 'getProduct', url })
     });
     const data = await resp.json();
-    if (data.error) throw new Error(data.error);
+    if (data.error) throw new Error(JSON.stringify(data));  // throw full JSON so we can see ds_response and af_response
     const p = data.product;
     document.getElementById('pName').value = p.product_title || '';
     document.getElementById('pPriceUSD').value = p.target_sale_price || p.target_original_price || '';
@@ -914,12 +914,14 @@ async function importFromAli() {
     toast('✅ Producto encontrado — ajusta el precio RD$');
   } catch(e) {
     result.style.display = 'block';
-    // Show full error detail for debugging
-    const errDetail = e.message.includes('{') ? (() => { try { return JSON.stringify(JSON.parse(e.message), null, 2); } catch(x) { return e.message; } })() : e.message;
-    result.innerHTML = `<div style="color:#dc2626;font-size:.82em;"><b>❌ Error:</b> ${e.message}</div>
-      <details style="margin-top:8px;font-size:.75em;color:#666;">
-        <summary style="cursor:pointer;">Ver detalle técnico</summary>
-        <pre style="background:#f5f5f5;padding:8px;border-radius:6px;overflow:auto;max-height:200px;white-space:pre-wrap;">${errDetail}</pre>
+    // Show full raw error for debugging
+    let errJson = null;
+    try { errJson = JSON.parse(e.message); } catch(x) {}
+    const errDetail = errJson ? JSON.stringify(errJson, null, 2) : e.message;
+    result.innerHTML = `<div style="color:#dc2626;font-size:.82em;"><b>❌ Error:</b> ${errJson?.error || e.message}</div>
+      <details open style="margin-top:8px;font-size:.73em;color:#444;">
+        <summary style="cursor:pointer;font-weight:700;">🔍 Detalle técnico (expandido)</summary>
+        <pre style="background:#f5f5f5;padding:8px;border-radius:6px;overflow:auto;max-height:300px;white-space:pre-wrap;word-break:break-all;">${errDetail}</pre>
       </details>`;
   }
   btn.disabled = false;
