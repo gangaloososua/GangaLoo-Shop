@@ -134,6 +134,26 @@ exports.handler = async (event) => {
     const body = JSON.parse(event.body || '{}');
     const { action, url } = body;
 
+    // ── DEBUG: Always return env var status ──
+    const envStatus = {
+      has_app_key: !!APP_KEY,
+      app_key_preview: APP_KEY ? APP_KEY.substring(0,4) + '...' : 'MISSING',
+      has_app_secret: !!APP_SECRET,
+      app_secret_preview: APP_SECRET ? APP_SECRET.substring(0,4) + '...' : 'MISSING',
+      node_version: process.version,
+    };
+    console.log('[ENV CHECK]', JSON.stringify(envStatus));
+
+    if (!APP_KEY || !APP_SECRET) {
+      return {
+        statusCode: 400, headers,
+        body: JSON.stringify({
+          error: 'Variables de entorno faltantes en Netlify',
+          debug: envStatus
+        })
+      };
+    }
+
     if (action === 'getProduct') {
       const productId = extractProductId(url || '');
       if (!productId) {
