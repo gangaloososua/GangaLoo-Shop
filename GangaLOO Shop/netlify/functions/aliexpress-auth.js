@@ -1,48 +1,64 @@
 // netlify/functions/aliexpress-auth.js
-// One-time use: exchange code for access_token
+// TEMPORARY: hardcoded code for one-time token exchange
 const APP_KEY    = process.env.ALI_APP_KEY;
 const APP_SECRET = process.env.ALI_APP_SECRET;
 
-function md5(str) {
-  const crypto = require('crypto');
-  return crypto.createHash('md5').update(str, 'utf8').digest('hex').toUpperCase();
-}
-
-function sign(params) {
-  const sorted = Object.keys(params).sort().map(k => k + params[k]).join('');
-  return md5(APP_SECRET + sorted + APP_SECRET);
-}
-
-function getTimestamp() {
-  const now = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  return `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-}
-
 exports.handler = async (event) => {
   const headers = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+
+  // Try every possible way to get the code
+  let code = null;
+  
+  // From query string
+  const qs = event.queryStringParameters || {};
+  const mqs = event.multiValueQueryStringParameters || {};
+  code = qs.code || qs['code'] || null;
+  
+  // From body
+  if (!code && event.body) {
+    try {
+      const b = JSON.parse(event.body);
+      code = b.code;
+    } catch(e) {
+      try {
+        const b = new URLSearchParams(event.body);
+        code = b.get('code');
+      } catch(e2) {}
+    }
+  }
+
+  // Debug dump if no code found
+  if (!code) {
+    return { statusCode: 200, headers, body: JSON.stringify({
+      error: 'code not found',
+      method: event.httpMethod,
+      qs: qs,
+      body: event.body,
+      path: event.path,
+      rawUrl: event.rawUrl,
+    })};
+  }
 
   try {
-    const { code } = JSON.parse(event.body || '{}');
-    if (!code) return { statusCode: 400, headers, body: JSON.stringify({ error: 'code required' }) };
-
-    const params = {
-      app_key: APP_KEY,
-      app_secret: APP_SECRET,
-      code,
-      grant_type: 'authorization_code',
+    const params = new URLSearchParams({
+      app_key:      APP_KEY,
+      app_secret:   APP_SECRET,
+      code:         code,
+      grant_type:   'authorization_code',
       redirect_uri: 'https://gangaloo.netlify.app/aliexpress.html',
-    };
+    });
 
     const resp = await fetch('https://api-sg.aliexpress.com/auth/token/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
-      body: new URLSearchParams(params).toString()
+      body: params.toString()
     });
-    const data = await resp.json();
-    console.log('[AUTH]', JSON.stringify(data));
+
+    const text = await resp.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) { data = { raw: text }; }
     return { statusCode: 200, headers, body: JSON.stringify(data) };
+
   } catch(e) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
   }
