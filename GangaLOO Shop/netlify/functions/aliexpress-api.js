@@ -167,19 +167,64 @@ exports.handler = async (event) => {
 
       // ── Parse DS response ──
       const dsResult = data?.aliexpress_ds_product_get_response?.result;
+      
+      // Log raw response to Netlify function logs for debugging
+      console.log('[DS API] Full response keys:', Object.keys(data || {}));
+      console.log('[DS API] Full response:', JSON.stringify(data).substring(0, 1200));
+      
       if (!dsResult) {
-        // Log full response to help debug
-        console.error('[DS API] Unexpected response:', JSON.stringify(data).substring(0, 800));
+        // DS API failed — try affiliate API as fallback
+        console.log('[Fallback] Trying affiliate API...');
+        const afParams = {
+          app_key: APP_KEY,
+          method: 'aliexpress.affiliate.productdetail.get',
+          sign_method: 'md5',
+          timestamp: getTimestamp(),
+          v: '2.0',
+          fields: 'product_id,product_title,product_main_image_url,target_sale_price,target_original_price,commission_rate,product_detail_url',
+          product_ids: productId,
+          tracking_id: 'gangaloo',
+          target_currency: 'USD',
+          target_language: 'EN',
+        };
+        afParams.sign = signRequest(afParams);
+        const afResp = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+          body: new URLSearchParams(afParams).toString()
+        });
+        const afData = await afResp.json();
+        console.log('[Affiliate API]', JSON.stringify(afData).substring(0, 800));
+        
+        const afResult = afData?.aliexpress_affiliate_productdetail_get_response?.resp_result;
+        if (afResult?.resp_code === 200) {
+          const afProduct = afResult.result?.products?.product?.[0];
+          if (afProduct) {
+            return {
+              statusCode: 200, headers,
+              body: JSON.stringify({
+                product: afProduct,
+                variants: {},
+                _source: 'affiliate_fallback'
+              })
+            };
+          }
+        }
+        
         return {
           statusCode: 400, headers,
-          body: JSON.stringify({ error: 'API no respondió correctamente', raw: data })
+          body: JSON.stringify({
+            error: 'API no respondió correctamente. Verifica que el App Key y Secret estén configurados en Netlify.',
+            ds_raw: data,
+            af_raw: afData
+          })
         };
       }
 
       if (dsResult.rsp_code && dsResult.rsp_code !== 200) {
         return {
           statusCode: 400, headers,
-          body: JSON.stringify({ error: dsResult.rsp_msg || 'Error de API', code: dsResult.rsp_code })
+          body: JSON.stringify({ error: dsResult.rsp_msg || 'Error de API DS', code: dsResult.rsp_code, raw: data })
         };
       }
 
