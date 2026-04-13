@@ -1,15 +1,9 @@
 // netlify/functions/aliexpress-api.js
-// AliExpress Dropshipping API (aliexpress.ds.product.get)
 const APP_KEY    = process.env.ALI_APP_KEY;
 const APP_SECRET = process.env.ALI_APP_SECRET;
 
-if (!APP_KEY || !APP_SECRET) {
-  console.error('Missing ALI_APP_KEY or ALI_APP_SECRET environment variables');
-}
-
 const API_URL = 'https://api-sg.aliexpress.com/sync';
 
-// ── MD5 (no external deps) ──
 function md5(str) {
   function safeAdd(x,y){const lsw=(x&0xffff)+(y&0xffff);const msw=(x>>16)+(y>>16)+(lsw>>16);return(msw<<16)|(lsw&0xffff);}
   function bitRotateLeft(num,cnt){return(num<<cnt)|(num>>>(32-cnt));}
@@ -58,65 +52,25 @@ function getTimestamp() {
 }
 
 function extractProductId(url) {
-  const match = url.match(/\/item\/(\d+)\.html/) || url.match(/\/(\d+)\.html/) || url.match(/id=(\d+)/) || url.match(/\/(\d{10,})/) ;
-  return match ? match[1] : null;
+  const m = url.match(/\/item\/(\d+)/) || url.match(/\/(\d{10,})/) || url.match(/id=(\d+)/);
+  return m ? m[1] : null;
 }
 
-// Parse DS product variants into clean groups
-// DS API returns: ae_item_sku_info_dtos → ae_item_sku_info_d_t_o[]
-// Each SKU has: sku_attr (e.g. "14:350853#Black;5:361386#XL"), sku_id, offer_sale_price
-function parseDsVariants(skuInfoDtos) {
+function parseDsSkuProperties(dto) {
   const groups = {};
   try {
-    const skus = skuInfoDtos?.ae_item_sku_info_d_t_o || [];
-    // Collect all unique attribute options across all SKUs
-    skus.forEach(sku => {
-      const attrStr = sku.sku_attr || '';
-      // Format: "propId:valueId#valueName;propId:valueId#valueName"
-      attrStr.split(';').forEach(part => {
-        if (!part.trim()) return;
-        const hashIdx = part.indexOf('#');
-        if (hashIdx === -1) return;
-        const valueName = part.substring(hashIdx + 1).trim();
-        // We need the property name — it comes from ae_skuProperty in product props
-        // For now, group by prop ID
-        const propId = part.split(':')[0];
-        if (!groups[propId]) groups[propId] = { name: propId, values: new Map() };
-        if (!groups[propId].values.has(valueName)) {
-          groups[propId].values.set(valueName, { value: valueName, image: null });
-        }
-      });
-    });
-  } catch(e) {
-    console.error('DS variant parse error:', e.message);
-  }
-  // Convert to simple format
-  const result = {};
-  for (const [, group] of Object.entries(groups)) {
-    result[group.name] = Array.from(group.values.values());
-  }
-  return result;
-}
-
-// Parse DS product SKU properties (gives us proper names like "Color", "Size")
-function parseDsSkuProperties(skuPropertyDtos) {
-  const groups = {};
-  try {
-    const props = skuPropertyDtos?.ae_sku_property_d_t_o || [];
+    const props = dto?.ae_sku_property_d_t_o || [];
     props.forEach(prop => {
       const name = prop.sku_property_name;
-      const values = prop.sku_property_value_dtos?.ae_sku_property_value_d_t_o || [];
-      if (name && values.length) {
-        groups[name] = values.map(v => ({
+      const vals = prop.sku_property_value_dtos?.ae_sku_property_value_d_t_o || [];
+      if (name && vals.length) {
+        groups[name] = vals.map(v => ({
           value: v.property_value_definition_name || v.sku_property_value_name || '',
-          image: v.sku_image || null,
-          id: v.property_value_id || null
+          image: v.sku_image || null
         })).filter(v => v.value);
       }
     });
-  } catch(e) {
-    console.error('SKU property parse error:', e.message);
-  }
+  } catch(e) {}
   return groups;
 }
 
@@ -126,177 +80,139 @@ exports.handler = async (event) => {
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json'
   };
+  if (event.httpMethod === 'OPTIONS') return { statusCode:200, headers, body:'' };
+  if (event.httpMethod !== 'POST') return { statusCode:405, headers, body: JSON.stringify({error:'Method not allowed'}) };
 
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
-  if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
+  // Always return env status so we can debug
+  const envOk = !!APP_KEY && !!APP_SECRET;
+  const envDebug = {
+    has_key: !!APP_KEY,
+    has_secret: !!APP_SECRET,
+    key_preview: APP_KEY ? String(APP_KEY).substring(0,6)+'...' : 'MISSING',
+    secret_preview: APP_SECRET ? String(APP_SECRET).substring(0,6)+'...' : 'MISSING',
+  };
+
+  if (!envOk) {
+    return {
+      statusCode: 400, headers,
+      body: JSON.stringify({
+        error: 'ENV VARS MISSING — add ALI_APP_KEY and ALI_APP_SECRET in Netlify → Site configuration → Environment variables, then redeploy.',
+        env: envDebug
+      })
+    };
+  }
 
   try {
-    const body = JSON.parse(event.body || '{}');
-    const { action, url } = body;
+    const { action, url } = JSON.parse(event.body || '{}');
 
-    // ── DEBUG: Always return env var status ──
-    const envStatus = {
-      has_app_key: !!APP_KEY,
-      app_key_preview: APP_KEY ? APP_KEY.substring(0,4) + '...' : 'MISSING',
-      has_app_secret: !!APP_SECRET,
-      app_secret_preview: APP_SECRET ? APP_SECRET.substring(0,4) + '...' : 'MISSING',
-      node_version: process.version,
+    if (action !== 'getProduct') {
+      return { statusCode:400, headers, body: JSON.stringify({error:'Unknown action'}) };
+    }
+
+    const productId = extractProductId(url || '');
+    if (!productId) {
+      return { statusCode:400, headers, body: JSON.stringify({error:'Cannot extract product ID from URL'}) };
+    }
+
+    // ── Try DS API first ──
+    const dsParams = {
+      app_key: APP_KEY,
+      method: 'aliexpress.ds.product.get',
+      sign_method: 'md5',
+      timestamp: getTimestamp(),
+      v: '2.0',
+      product_id: productId,
+      target_currency: 'USD',
+      target_language: 'EN',
+      ship_to_country: 'DO',
     };
-    console.log('[ENV CHECK]', JSON.stringify(envStatus));
+    dsParams.sign = signRequest(dsParams);
 
-    if (!APP_KEY || !APP_SECRET) {
+    const dsResp = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+      body: new URLSearchParams(dsParams).toString()
+    });
+    const dsData = await dsResp.json();
+    console.log('[DS]', JSON.stringify(dsData).substring(0, 800));
+
+    const dsResult = dsData?.aliexpress_ds_product_get_response?.result;
+
+    if (dsResult && (!dsResult.rsp_code || dsResult.rsp_code === 200)) {
+      const p = dsResult.result || dsResult;
+      const title = p.ae_item_base_info_dto?.subject || '';
+      const imgs = p.ae_multimedia_info_dto?.image_urls || '';
+      const mainImage = imgs.split(';')[0].trim() || null;
+      const skus = p.ae_item_sku_info_dtos?.ae_item_sku_info_d_t_o || [];
+      const cheapestSku = skus.reduce((min, s) => {
+        const price = parseFloat(s.offer_sale_price || s.sku_price || '999999');
+        return price < min.price ? {price, sku: s} : min;
+      }, {price: 999999, sku: null});
+      const salePrice = cheapestSku.sku ? cheapestSku.price.toFixed(2) : null;
+      const variants = parseDsSkuProperties(p.ae_sku_property_dtos);
+
       return {
-        statusCode: 400, headers,
+        statusCode: 200, headers,
         body: JSON.stringify({
-          error: 'Variables de entorno faltantes en Netlify',
-          debug: envStatus
+          product: {
+            product_title: title,
+            product_main_image_url: mainImage,
+            target_sale_price: salePrice,
+            product_detail_url: `https://www.aliexpress.com/item/${productId}.html`,
+            product_id: productId,
+          },
+          variants,
+          _source: 'dropship'
         })
       };
     }
 
-    if (action === 'getProduct') {
-      const productId = extractProductId(url || '');
-      if (!productId) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'No se pudo extraer el ID del producto de la URL' }) };
-      }
+    // ── Fallback: Affiliate API ──
+    const afParams = {
+      app_key: APP_KEY,
+      method: 'aliexpress.affiliate.productdetail.get',
+      sign_method: 'md5',
+      timestamp: getTimestamp(),
+      v: '2.0',
+      fields: 'product_id,product_title,product_main_image_url,target_sale_price,target_original_price,product_detail_url',
+      product_ids: productId,
+      tracking_id: 'gangaloo',
+      target_currency: 'USD',
+      target_language: 'EN',
+    };
+    afParams.sign = signRequest(afParams);
 
-      console.log('[DS API] Fetching product:', productId);
+    const afResp = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+      body: new URLSearchParams(afParams).toString()
+    });
+    const afData = await afResp.json();
+    console.log('[AF]', JSON.stringify(afData).substring(0, 800));
 
-      // ── Call Dropshipping API: aliexpress.ds.product.get ──
-      const params = {
-        app_key: APP_KEY,
-        method: 'aliexpress.ds.product.get',
-        sign_method: 'md5',
-        timestamp: getTimestamp(),
-        v: '2.0',
-        product_id: productId,
-        target_currency: 'USD',
-        target_language: 'EN',
-        ship_to_country: 'DO',   // Dominican Republic
-      };
-      params.sign = signRequest(params);
-
-      const resp = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
-        body: new URLSearchParams(params).toString()
-      });
-
-      const data = await resp.json();
-      console.log('[DS API raw]', JSON.stringify(data).substring(0, 600));
-
-      // ── Parse DS response ──
-      const dsResult = data?.aliexpress_ds_product_get_response?.result;
-      
-      // Log raw response to Netlify function logs for debugging
-      console.log('[DS API] Full response keys:', Object.keys(data || {}));
-      console.log('[DS API] Full response:', JSON.stringify(data).substring(0, 1200));
-      
-      if (!dsResult) {
-        // DS API failed — try affiliate API as fallback
-        console.log('[Fallback] Trying affiliate API...');
-        const afParams = {
-          app_key: APP_KEY,
-          method: 'aliexpress.affiliate.productdetail.get',
-          sign_method: 'md5',
-          timestamp: getTimestamp(),
-          v: '2.0',
-          fields: 'product_id,product_title,product_main_image_url,target_sale_price,target_original_price,commission_rate,product_detail_url',
-          product_ids: productId,
-          tracking_id: 'gangaloo',
-          target_currency: 'USD',
-          target_language: 'EN',
-        };
-        afParams.sign = signRequest(afParams);
-        const afResp = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
-          body: new URLSearchParams(afParams).toString()
-        });
-        const afData = await afResp.json();
-        console.log('[Affiliate API]', JSON.stringify(afData).substring(0, 800));
-        
-        const afResult = afData?.aliexpress_affiliate_productdetail_get_response?.resp_result;
-        if (afResult?.resp_code === 200) {
-          const afProduct = afResult.result?.products?.product?.[0];
-          if (afProduct) {
-            return {
-              statusCode: 200, headers,
-              body: JSON.stringify({
-                product: afProduct,
-                variants: {},
-                _source: 'affiliate_fallback'
-              })
-            };
-          }
-        }
-        
+    const afResult = afData?.aliexpress_affiliate_productdetail_get_response?.resp_result;
+    if (afResult?.resp_code === 200) {
+      const afProduct = afResult.result?.products?.product?.[0];
+      if (afProduct) {
         return {
-          statusCode: 400, headers,
-          body: JSON.stringify({
-            error: 'API no respondió correctamente. Verifica que el App Key y Secret estén configurados en Netlify.',
-            ds_raw: data,
-            af_raw: afData
-          })
+          statusCode: 200, headers,
+          body: JSON.stringify({ product: afProduct, variants: {}, _source: 'affiliate' })
         };
       }
-
-      if (dsResult.rsp_code && dsResult.rsp_code !== 200) {
-        return {
-          statusCode: 400, headers,
-          body: JSON.stringify({ error: dsResult.rsp_msg || 'Error de API DS', code: dsResult.rsp_code, raw: data })
-        };
-      }
-
-      const p = dsResult.result || dsResult;
-
-      // Extract main image
-      const mainImage = p.ae_multimedia_info_dto?.image_urls?.split(';')?.[0]?.trim() || null;
-
-      // Extract price
-      const priceInfo = p.ae_item_sku_info_dtos?.ae_item_sku_info_d_t_o?.[0];
-      const salePrice = priceInfo?.offer_sale_price || priceInfo?.sku_price || p.ae_item_base_info_dto?.aeop_freight_calculate_dto_for_buyer_d_t_o_list?.aeop_freight_calculate_dto_for_buyer_d_t_o?.[0]?.freight?.cent_amount;
-      const originalPrice = priceInfo?.offer_bulk_sale_price || null;
-
-      // Extract title
-      const title = p.ae_item_base_info_dto?.subject || '';
-
-      // Extract variants — DS API provides ae_item_sku_info_dtos and ae_sku_property_dtos
-      let variants = {};
-      const skuProperties = p.ae_sku_property_dtos;
-      const skuInfos = p.ae_item_sku_info_dtos;
-
-      if (skuProperties) {
-        // Best source: named properties with images
-        variants = parseDsSkuProperties(skuProperties);
-      }
-      if (!Object.keys(variants).length && skuInfos) {
-        // Fallback: parse from SKU attr strings
-        variants = parseDsVariants(skuInfos);
-      }
-
-      // Build normalized product object (same shape as before so frontend doesn't need to change)
-      const product = {
-        product_title: title,
-        product_main_image_url: mainImage,
-        target_sale_price: salePrice ? parseFloat(salePrice).toFixed(2) : null,
-        target_original_price: originalPrice ? parseFloat(originalPrice).toFixed(2) : null,
-        product_detail_url: `https://www.aliexpress.com/item/${productId}.html`,
-        product_id: productId,
-      };
-
-      console.log('[DS API] Product:', title, '| Price:', salePrice, '| Variants:', Object.keys(variants));
-
-      return {
-        statusCode: 200, headers,
-        body: JSON.stringify({ product, variants })
-      };
     }
 
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Unknown action' }) };
+    // Both failed — return everything for debugging
+    return {
+      statusCode: 400, headers,
+      body: JSON.stringify({
+        error: 'Ambas APIs fallaron. Ver detalle para diagnóstico.',
+        env: envDebug,
+        ds_response: dsData,
+        af_response: afData,
+      })
+    };
 
   } catch(e) {
-    console.error('[DS API] Error:', e.message);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
+    return { statusCode:500, headers, body: JSON.stringify({error: e.message, stack: e.stack?.substring(0,300)}) };
   }
 };
