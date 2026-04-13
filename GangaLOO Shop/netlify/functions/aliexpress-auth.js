@@ -29,17 +29,13 @@ exports.handler = async (event) => {
 
     const params = {
       app_key: APP_KEY,
-      method: 'aliexpress.system.oauth.token.create',
-      sign_method: 'md5',
-      timestamp: getTimestamp(),
-      v: '2.0',
+      app_secret: APP_SECRET,
       code,
       grant_type: 'authorization_code',
       redirect_uri: 'https://gangaloo.netlify.app/aliexpress.html',
     };
-    params.sign = sign(params);
 
-    const resp = await fetch('https://api-sg.aliexpress.com/sync', {
+    const resp = await fetch('https://api-sg.aliexpress.com/auth/token/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
       body: new URLSearchParams(params).toString()
