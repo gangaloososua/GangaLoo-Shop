@@ -184,6 +184,32 @@ nav{background:var(--brand);color:#fff;padding:0 5vw;display:flex;align-items:ce
 .btn-sm{padding:5px 10px;font-size:.75em;border-radius:7px;border:none;cursor:pointer;font-family:'Jost',sans-serif;font-weight:600;}
 
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:10px;font-size:.85em;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;}
+
+/* VARIANT PICKER MODAL */
+.var-ovl{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:none;align-items:flex-end;justify-content:center;}
+.var-ovl.open{display:flex;}
+@media(min-width:520px){.var-ovl{align-items:center;padding:20px;}}
+.var-box{background:var(--surface);width:100%;max-width:440px;border-radius:20px 20px 0 0;padding:0;overflow:hidden;}
+@media(min-width:520px){.var-box{border-radius:20px;}}
+.var-hdr{background:var(--brand);color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;}
+.var-hdr h3{font-family:'Cormorant Garamond',serif;font-size:1.15em;font-weight:600;}
+.var-hdr button{background:rgba(255,255,255,.2);border:none;color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:.9em;}
+.var-body{padding:18px 20px;}
+.var-product-row{display:flex;gap:12px;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+.var-product-img{width:54px;height:54px;border-radius:10px;object-fit:cover;background:var(--surface2);flex-shrink:0;}
+.var-product-name{font-size:.9em;font-weight:600;line-height:1.3;}
+.var-product-price{font-size:.85em;color:var(--brand);font-weight:700;margin-top:3px;}
+.var-group{margin-bottom:16px;}
+.var-group-label{font-size:.72em;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;}
+.var-options{display:flex;flex-wrap:wrap;gap:7px;}
+.var-opt{padding:7px 14px;border:2px solid var(--border);border-radius:9px;font-size:.82em;font-weight:600;cursor:pointer;transition:all .18s;background:var(--surface2);color:var(--text);}
+.var-opt:hover{border-color:var(--brand);}
+.var-opt.selected{border-color:var(--brand);background:var(--brand);color:#fff;}
+.var-opt.color-swatch{width:32px;height:32px;padding:0;border-radius:50%;overflow:hidden;position:relative;}
+.var-opt.color-swatch img{width:100%;height:100%;object-fit:cover;}
+.var-opt.color-swatch.selected::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,45,98,.5);color:#fff;font-size:.85em;font-weight:800;}
+.var-add-btn{width:100%;padding:13px;background:var(--brand);color:#fff;border:none;border-radius:11px;font-family:'Jost',sans-serif;font-size:.95em;font-weight:700;cursor:pointer;margin-top:4px;transition:background .2s;}
+.var-add-btn:hover{background:var(--red);}
 .toast.show{opacity:1;}
 .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -336,6 +362,27 @@ nav{background:var(--brand);color:#fff;padding:0 5vw;display:flex;align-items:ce
       <div style="margin-top:16px;">
         <button onclick="closeCheckout();clearCart();" style="background:none;border:none;cursor:pointer;font-size:.85em;color:var(--muted);text-decoration:underline;font-family:'Jost',sans-serif;">Cerrar y seguir comprando</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- VARIANT PICKER MODAL -->
+<div class="var-ovl" id="varOvl">
+  <div class="var-box">
+    <div class="var-hdr">
+      <h3>Selecciona opciones</h3>
+      <button onclick="closeVarPicker()">✕</button>
+    </div>
+    <div class="var-body">
+      <div class="var-product-row">
+        <img class="var-product-img" id="varImg" src="" alt="">
+        <div>
+          <div class="var-product-name" id="varName"></div>
+          <div class="var-product-price" id="varPrice"></div>
+        </div>
+      </div>
+      <div id="varGroups"></div>
+      <button class="var-add-btn" onclick="confirmVariants()">🛒 Agregar al carrito</button>
     </div>
   </div>
 </div>
@@ -512,7 +559,7 @@ function renderProducts(products) {
         </div>
         <div style="display:flex;gap:6px;align-items:center;">
           ${p.ali_url ? `<span class="view-btn" onclick="window.open('${p.ali_url}','_blank')">Ver en Ali</span>` : ''}
-          <button class="add-btn" onclick="addToCart(${p.id},'${p.name.replace(/'/g,"\\'")}',${priceDOP},'${p.image_url||''}')">+</button>
+          <button class="add-btn" onclick="handleAddBtn(${p.id})">+</button>
         </div>
       </div>
     </div>`;
@@ -520,12 +567,93 @@ function renderProducts(products) {
 }
 
 // ── CART ──
-function addToCart(id, name, price, img) {
-  const existing = cart.find(i => i.id === id);
+// ── VARIANT PICKER ──
+let varPickerProduct = null;
+let varSelections = {}; // { groupKey: selectedValue }
+
+function handleAddBtn(productId) {
+  const p = allProducts.find(x => x.id === productId);
+  if (!p) return;
+  const variants = p.variants ? (typeof p.variants === 'string' ? JSON.parse(p.variants) : p.variants) : null;
+  const keys = variants ? Object.keys(variants) : [];
+  if (!keys.length) {
+    // No variants — add directly
+    const priceDOP = p.price_dop || Math.round((p.price_usd||0) * liveRate * 1.15);
+    addToCart(p.id, p.name, priceDOP, p.image_url || '', '');
+    return;
+  }
+  // Has variants — open picker
+  varPickerProduct = p;
+  varSelections = {};
+  const priceDOP = p.price_dop || Math.round((p.price_usd||0) * liveRate * 1.15);
+  const img = document.getElementById('varImg');
+  img.src = p.image_url || '';
+  img.style.display = p.image_url ? 'block' : 'none';
+  document.getElementById('varName').textContent = p.name;
+  document.getElementById('varPrice').textContent = 'RD$ ' + priceDOP.toLocaleString('es-DO');
+  // Render variant groups
+  const groups = document.getElementById('varGroups');
+  groups.innerHTML = keys.map(key => {
+    const vals = variants[key];
+    const isColor = key.toLowerCase().includes('color') || key.toLowerCase().includes('colour');
+    return `<div class="var-group">
+      <div class="var-group-label">${key} <span id="varLabel-${key}" style="color:var(--brand);font-weight:800;text-transform:none;letter-spacing:0;"></span></div>
+      <div class="var-options">
+        ${vals.map(v => {
+          if (isColor && v.image) {
+            return `<div class="var-opt color-swatch" onclick="selectVariant('${key}','${v.value.replace(/'/g,"\'")}',this)" title="${v.value}">
+              <img src="${v.image}" alt="${v.value}">
+            </div>`;
+          }
+          return `<div class="var-opt" onclick="selectVariant('${key}','${v.value.replace(/'/g,"\'")}',this)">${v.value}</div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('varOvl').classList.add('open');
+}
+
+function selectVariant(key, value, el) {
+  varSelections[key] = value;
+  // Update label
+  const lbl = document.getElementById('varLabel-' + key);
+  if (lbl) lbl.textContent = value;
+  // Update selected state within this group
+  el.closest('.var-options').querySelectorAll('.var-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function closeVarPicker() {
+  document.getElementById('varOvl').classList.remove('open');
+  varPickerProduct = null;
+  varSelections = {};
+}
+
+function confirmVariants() {
+  if (!varPickerProduct) return;
+  const p = varPickerProduct;
+  const variants = p.variants ? (typeof p.variants === 'string' ? JSON.parse(p.variants) : p.variants) : null;
+  const keys = variants ? Object.keys(variants) : [];
+  // Check all groups are selected
+  const missing = keys.filter(k => !varSelections[k]);
+  if (missing.length) {
+    toast('⚠️ Elige ' + missing.join(', '));
+    return;
+  }
+  const varLabel = keys.map(k => varSelections[k]).join(' / ');
+  const priceDOP = p.price_dop || Math.round((p.price_usd||0) * liveRate * 1.15);
+  addToCart(p.id, p.name, priceDOP, p.image_url || '', varLabel);
+  closeVarPicker();
+}
+
+function addToCart(id, name, price, img, variantLabel) {
+  // Each unique variant of the same product is a separate cart line
+  const key = id + '|' + (variantLabel || '');
+  const existing = cart.find(i => (i.id + '|' + (i.variantLabel||'')) === key);
   if (existing) existing.qty++;
-  else cart.push({ id, name, price, img, qty: 1 });
+  else cart.push({ id, name, price, img, qty: 1, variantLabel: variantLabel || '' });
   saveCart(); updCart();
-  toast('✓ ' + name.substring(0,30));
+  toast('✓ ' + (variantLabel ? variantLabel + ' — ' : '') + name.substring(0,25));
 }
 function rmCart(id) { cart = cart.filter(i => i.id !== id); saveCart(); updCart(); }
 function chQty(id, d) { const i = cart.find(c => c.id===id); if(!i) return; i.qty+=d; if(i.qty<=0) rmCart(id); else { saveCart(); updCart(); } }
@@ -547,6 +675,7 @@ function updCart() {
       ${i.img ? `<img class="citem-img" src="${i.img}" alt="">` : '<div class="citem-img" style="display:flex;align-items:center;justify-content:center;font-size:1.5em;">📦</div>'}
       <div class="citem-info">
         <div class="citem-name">${i.name}</div>
+        ${i.variantLabel ? `<div style="font-size:.72em;color:var(--brand);font-weight:600;margin-top:1px;">${i.variantLabel}</div>` : ''}
         <div class="citem-price">RD$ ${i.price.toLocaleString('es-DO')} c/u</div>
         <div class="citem-ctrl">
           <button class="qty-btn" onclick="chQty(${i.id},-1)">−</button>
@@ -572,7 +701,7 @@ function openCheckout() {
   const summaryEl = document.getElementById('coSummary');
   summaryEl.innerHTML = cart.map(i => `
     <div class="co-summary-row">
-      <span>${i.qty}× ${i.name.substring(0,40)}${i.name.length>40?'…':''}</span>
+      <span>${i.qty}× ${i.name.substring(0,35)}${i.name.length>35?'…':''}${i.variantLabel?' <em style="color:var(--brand);font-style:normal;font-size:.9em;">('+i.variantLabel+')</em>':''}</span>
       <span>RD$ ${(i.price*i.qty).toLocaleString('es-DO')}</span>
     </div>`).join('') +
     `<div class="co-summary-total"><span>Total a pagar</span><span>RD$ ${total.toLocaleString('es-DO')}</span></div>`;
@@ -656,7 +785,7 @@ function sendConfirmWA() {
     `📋 Pedido: *${o.order_number}*`,
     ``,
     `*Productos:*`,
-    ...o.items.map(i => `• ${i.qty}× ${i.name} — RD$ ${(i.price*i.qty).toLocaleString('es-DO')}`),
+    ...o.items.map(i => `• ${i.qty}× ${i.name}${i.variantLabel?' ('+i.variantLabel+')':''} — RD$ ${(i.price*i.qty).toLocaleString('es-DO')}`),
     ``,
     `*Total: RD$ ${o.total_dop.toLocaleString('es-DO')}*`,
     `💳 Pago: ${payLabel}`,
@@ -710,7 +839,7 @@ async function loadAdminOrders() {
       </div>
       <div class="order-meta">👤 ${o.customer_name} · 📱 ${o.customer_phone} · 📍 ${o.customer_city}</div>
       <div class="order-meta">💳 ${o.payment_method==='bank'?'Transferencia':'Efectivo'} · RD$ ${(o.total_dop||0).toLocaleString('es-DO')} · ${dateStr}</div>
-      <div class="order-items-list">${items.map(i=>`${i.qty}× ${i.name}`).join(' · ')}</div>
+      <div class="order-items-list">${items.map(i=>`${i.qty}× ${i.name}${i.variantLabel?' ('+i.variantLabel+')':''}`).join(' · ')}</div>
       ${o.customer_note ? `<div style="font-size:.75em;color:var(--muted);margin-top:4px;">📝 ${o.customer_note}</div>` : ''}
       <div class="order-actions">
         <button class="btn-sm" style="background:#fef9c3;color:#854d0e;" onclick="updateOrderStatus('${o.id}','pending')">⏳</button>
