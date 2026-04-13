@@ -914,7 +914,13 @@ async function importFromAli() {
     toast('✅ Producto encontrado — ajusta el precio RD$');
   } catch(e) {
     result.style.display = 'block';
-    result.innerHTML = `<div style="color:#dc2626;font-size:.85em;">❌ ${e.message}</div>`;
+    // Show full error detail for debugging
+    const errDetail = e.message.includes('{') ? (() => { try { return JSON.stringify(JSON.parse(e.message), null, 2); } catch(x) { return e.message; } })() : e.message;
+    result.innerHTML = `<div style="color:#dc2626;font-size:.82em;"><b>❌ Error:</b> ${e.message}</div>
+      <details style="margin-top:8px;font-size:.75em;color:#666;">
+        <summary style="cursor:pointer;">Ver detalle técnico</summary>
+        <pre style="background:#f5f5f5;padding:8px;border-radius:6px;overflow:auto;max-height:200px;white-space:pre-wrap;">${errDetail}</pre>
+      </details>`;
   }
   btn.disabled = false;
   btn.textContent = '🔍 Buscar producto';
