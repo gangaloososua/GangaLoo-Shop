@@ -3,19 +3,14 @@ const APP_KEY    = process.env.ALI_APP_KEY;
 const APP_SECRET = process.env.ALI_APP_SECRET;
 const crypto     = require('crypto');
 
-function md5(str) {
-  return crypto.createHash('md5').update(str, 'utf8').digest('hex').toUpperCase();
-}
-
-function sign(params) {
+function sha256sign(params) {
   const sorted = Object.keys(params).sort().map(k => k + params[k]).join('');
-  return md5(APP_SECRET + sorted + APP_SECRET);
+  return crypto.createHmac('sha256', APP_SECRET).update(sorted).digest('hex').toUpperCase();
 }
 
-function timestamp() {
-  const now = new Date();
-  const p = n => String(n).padStart(2,'0');
-  return `${now.getFullYear()}-${p(now.getMonth()+1)}-${p(now.getDate())} ${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
+function md5sign(params) {
+  const sorted = Object.keys(params).sort().map(k => k + params[k]).join('');
+  return crypto.createHash('md5').update(APP_SECRET + sorted + APP_SECRET, 'utf8').digest('hex').toUpperCase();
 }
 
 exports.handler = async (event) => {
@@ -24,29 +19,50 @@ exports.handler = async (event) => {
   const code = (event.queryStringParameters || {}).code;
   if (!code) return { statusCode: 400, headers, body: JSON.stringify({ error: 'code required' }) };
 
-  // Use /sync endpoint with aliexpress.system.oauth.token.create method (same as ae_sdk)
-  const params = {
-    app_key:      APP_KEY,
-    method:       'aliexpress.system.oauth.token.create',
-    sign_method:  'md5',
-    timestamp:    timestamp(),
-    v:            '2.0',
-    code,
-    grant_type:   'authorization_code',
-    redirect_uri: 'https://gangaloo.netlify.app/aliexpress.html',
-  };
-  params.sign = sign(params);
+  const results = {};
 
+  // Try 1: method="/auth/token/create" with sha256 (from official Brazilian docs)
   try {
-    const r = await fetch('https://api-sg.aliexpress.com/sync', {
+    const params = {
+      app_key:      APP_KEY,
+      simplify:     'true',
+      format:       'json',
+      timestamp:    String(Date.now()),
+      sign_method:  'sha256',
+      method:       '/auth/token/create',
+      code,
+    };
+    const sorted = Object.keys(params).sort().map(k => k + params[k]).join('');
+    params.sign = crypto.createHmac('sha256', APP_SECRET).update(sorted).digest('hex').toUpperCase();
+
+    const r = await fetch('https://api-sg.aliexpress.com/rest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
       body: new URLSearchParams(params).toString()
     });
-    const text = await r.text();
-    console.log('[TOKEN]', text.substring(0, 500));
-    return { statusCode: 200, headers, body: text };
-  } catch(e) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
-  }
+    results.t1_status = r.status;
+    results.t1 = await r.text();
+  } catch(e) { results.t1_err = e.message; }
+
+  // Try 2: same but POST to /rest/auth/token/create directly
+  try {
+    const params = {
+      app_key:      APP_KEY,
+      timestamp:    String(Date.now()),
+      sign_method:  'sha256',
+      code,
+    };
+    const sorted = Object.keys(params).sort().map(k => k + params[k]).join('');
+    params.sign = crypto.createHmac('sha256', APP_SECRET).update(sorted).digest('hex').toUpperCase();
+
+    const r = await fetch('https://api-sg.aliexpress.com/rest/auth/token/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+      body: new URLSearchParams(params).toString()
+    });
+    results.t2_status = r.status;
+    results.t2 = await r.text();
+  } catch(e) { results.t2_err = e.message; }
+
+  return { statusCode: 200, headers, body: JSON.stringify(results, null, 2) };
 };
