@@ -13603,8 +13603,9 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
                             <div style="text-align:right;flex-shrink:0;">
                                 <div style="font-weight:800;color:${debtColor};">${debt>0?'Debe: ':''} $${Math.abs(debt).toFixed(2)}</div>
                                 <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px;">
-                                    <button onclick="editCustomer(${customer.id})" style="width:26px;height:26px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:12px;">✏️</button>
-                                    <button onclick="deleteCustomer(${customer.id})" style="width:26px;height:26px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:12px;">🗑️</button>
+                                    <button onclick="editCustomer(${customer.id})" title="Editar" style="width:26px;height:26px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:12px;">✏️</button>
+                                    <button onclick="openMergeModal(${customer.id})" title="Fusionar con otro cliente" style="width:26px;height:26px;border:1px solid #2563eb;border-radius:6px;background:white;cursor:pointer;font-size:11px;color:#2563eb;">🔗</button>
+                                    <button onclick="deleteCustomer(${customer.id})" title="Eliminar" style="width:26px;height:26px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:12px;">🗑️</button>
                                 </div>
                             </div>
                         </div>
@@ -13631,8 +13632,9 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
                                 <div style="font-weight:700;font-size:.85em;color:#22c55e;">$${sellerStats.totalCommission.toFixed(2)}</div>
                                 <div style="font-size:.7em;color:#aaa;">${sellerStats.salesCount} ventas</div>
                                 <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px;">
-                                    <button onclick="editCustomer(${seller.id})" style="width:26px;height:26px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:12px;">✏️</button>
-                                    <button onclick="deleteCustomer(${seller.id})" style="width:26px;height:26px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:12px;">🗑️</button>
+                                    <button onclick="editCustomer(${seller.id})" title="Editar" style="width:26px;height:26px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:12px;">✏️</button>
+                                    <button onclick="openMergeModal(${seller.id})" title="Fusionar con otro cliente" style="width:26px;height:26px;border:1px solid #2563eb;border-radius:6px;background:white;cursor:pointer;font-size:11px;color:#2563eb;">🔗</button>
+                                    <button onclick="deleteCustomer(${seller.id})" title="Eliminar" style="width:26px;height:26px;border:none;border-radius:6px;background:#dc2626;color:white;cursor:pointer;font-size:12px;">🗑️</button>
                                 </div>
                             </div>
                         </div>
@@ -13719,6 +13721,136 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
             customers = customers.filter(c => c.id !== id);
             saveData(); renderCustomers(); updateDropdowns();
             showToast('Cliente eliminado', 'success');
+        }
+
+        function openMergeModal(keepId) {
+            const keeper = customers.find(c => c.id === keepId);
+            if (!keeper) return;
+
+            // Build dropdown of all other customers
+            const others = customers.filter(c => c.id !== keepId);
+            const opts = others.map(c =>
+                `<option value="${c.id}">${c.name} (${c.type || 'customer'}${c.email ? ' · ' + c.email : ''})</option>`
+            ).join('');
+
+            // Count what the keeper has
+            const keeperSales = sales.filter(s => String(s.customerId) === String(keepId)).length;
+            const keeperPayments = payments.filter(p => String(p.customerId) === String(keepId)).length;
+            const keeperCommissions = commissionPayouts.filter(p => String(p.sellerId) === String(keepId)).length;
+
+            const overlay = document.createElement('div');
+            overlay.id = 'mergeOverlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+            overlay.innerHTML = `
+                <div style="background:#fff;border-radius:16px;padding:28px;max-width:500px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.25);">
+                    <h3 style="font-family:serif;margin-bottom:6px;">🔗 Fusionar Clientes</h3>
+                    <p style="font-size:.82em;color:#888;margin-bottom:20px;">Todas las ventas, pagos y comisiones del cliente a eliminar serán reasignadas al cliente principal.</p>
+
+                    <div style="background:#f0f7ff;border-radius:10px;padding:14px;margin-bottom:18px;">
+                        <div style="font-size:.78em;color:#666;margin-bottom:4px;">MANTENER (cliente principal)</div>
+                        <div style="font-weight:700;font-size:1em;">${keeper.name}</div>
+                        <div style="font-size:.78em;color:#888;">${keeper.type || 'customer'} · ${keeper.email || 'sin email'}</div>
+                        <div style="font-size:.75em;color:#2563eb;margin-top:4px;">${keeperSales} ventas · ${keeperCommissions} pagos comisión</div>
+                    </div>
+
+                    <div style="margin-bottom:18px;">
+                        <label style="font-size:.82em;font-weight:600;display:block;margin-bottom:6px;">ELIMINAR (reasignar todo a ${keeper.name}):</label>
+                        <select id="mergeSourceId" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:.9em;">
+                            <option value="">— Seleccionar cliente a fusionar —</option>
+                            ${opts}
+                        </select>
+                        <div id="mergeSourceInfo" style="font-size:.75em;color:#666;margin-top:6px;"></div>
+                    </div>
+
+                    <div style="background:#fff8e1;border:1px solid #ffc107;border-radius:8px;padding:10px;margin-bottom:18px;font-size:.78em;color:#856404;">
+                        ⚠️ Esta acción no se puede deshacer. El cliente eliminado desaparecerá del sistema — todos sus datos quedan en el cliente principal.
+                    </div>
+
+                    <div style="display:flex;gap:10px;justify-content:flex-end;">
+                        <button onclick="document.body.removeChild(document.getElementById('mergeOverlay'))" style="padding:10px 20px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;">Cancelar</button>
+                        <button onclick="confirmMerge(${keepId})" style="padding:10px 24px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer;">🔗 Fusionar</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            // Show info about selected source customer
+            document.getElementById('mergeSourceId').addEventListener('change', function() {
+                const srcId = parseInt(this.value);
+                if (!srcId) { document.getElementById('mergeSourceInfo').textContent = ''; return; }
+                const src = customers.find(c => c.id === srcId);
+                if (!src) return;
+                const srcSales = sales.filter(s => String(s.customerId) === String(srcId)).length;
+                const srcCommissions = commissionPayouts.filter(p => String(p.sellerId) === String(srcId)).length;
+                document.getElementById('mergeSourceInfo').innerHTML =
+                    `<span style="color:#dc2626;">Será eliminado: ${src.name} — ${srcSales} ventas, ${srcCommissions} pagos comisión, ${payments.filter(p=>String(p.customerId)===String(srcId)).length} pagos</span>`;
+            });
+        }
+
+        async function confirmMerge(keepId) {
+            const sourceId = parseInt(document.getElementById('mergeSourceId').value);
+            if (!sourceId) { showToast('Selecciona el cliente a fusionar', 'error'); return; }
+
+            const keeper = customers.find(c => c.id === keepId);
+            const source = customers.find(c => c.id === sourceId);
+            if (!keeper || !source) return;
+
+            if (!confirm(`¿Fusionar "${source.name}" → "${keeper.name}"?\n\nTodas las ventas y comisiones de "${source.name}" pasarán a "${keeper.name}". "${source.name}" será eliminado.`)) return;
+
+            let merged = { sales: 0, payments: 0, commissions: 0, transactions: 0 };
+
+            // 1. Reassign all sales
+            sales.forEach(s => {
+                if (String(s.customerId) === String(sourceId)) {
+                    s.customerId = keepId;
+                    merged.sales++;
+                }
+            });
+
+            // 2. Reassign all payments
+            payments.forEach(p => {
+                if (String(p.customerId) === String(sourceId)) {
+                    p.customerId = keepId;
+                    merged.payments++;
+                }
+            });
+
+            // 3. Reassign commission payouts (sellerId)
+            commissionPayouts.forEach(p => {
+                if (String(p.sellerId) === String(sourceId)) {
+                    p.sellerId = keepId;
+                    merged.commissions++;
+                }
+            });
+
+            // 4. Reassign accounting transactions referencing source customer
+            transactions.forEach(t => {
+                if (String(t.customerId) === String(sourceId)) {
+                    t.customerId = keepId;
+                    merged.transactions++;
+                }
+            });
+
+            // 5. If keeper has no email but source does — copy it over
+            if (!keeper.email && source.email) keeper.email = source.email;
+            if (!keeper.phone && source.phone) keeper.phone = source.phone;
+
+            // 6. If source is seller/distributor and keeper is not — upgrade keeper
+            const roleRank = { distributor: 4, seller: 3, club_member: 2, customer: 1 };
+            if ((roleRank[source.type] || 1) > (roleRank[keeper.type] || 1)) {
+                keeper.type = source.type;
+                keeper.warehouseId = source.warehouseId || keeper.warehouseId;
+                keeper.distributorCommission = source.distributorCommission || keeper.distributorCommission;
+            }
+
+            // 7. Delete source customer
+            customers = customers.filter(c => c.id !== sourceId);
+
+            await saveData();
+            document.body.removeChild(document.getElementById('mergeOverlay'));
+            renderCustomers();
+            updateDropdowns();
+            if (typeof renderCommissions === 'function') renderCommissions();
+            showToast(`✅ Fusionado: ${merged.sales} ventas, ${merged.commissions} comisiones → ${keeper.name}`, 'success');
         }
 
         function getCustomerDebt(customerId) {
