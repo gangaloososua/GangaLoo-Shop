@@ -692,6 +692,17 @@
 
   .hero-text { animation: fadeUp 0.8s ease forwards; }
   .hero-cards { animation: fadeUp 0.8s 0.2s ease forwards; opacity: 0; animation-fill-mode: forwards; }
+
+  /* ── CLOSED POPUP ── */
+  .closed-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(6px);}
+  .closed-box{background:#0d1b2e;border:1.5px solid rgba(200,168,75,.45);border-radius:20px;padding:40px 36px;max-width:420px;width:100%;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.5);animation:cbIn .35s ease-out;}
+  @keyframes cbIn{from{opacity:0;transform:scale(.93) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}
+  .closed-icon{font-size:3em;margin-bottom:16px;display:block;}
+  .closed-box h2{font-family:'Bebas Neue',sans-serif;font-size:2em;color:#c8a84b;letter-spacing:.06em;margin-bottom:10px;}
+  .closed-box p{color:rgba(255,255,255,.72);font-size:.95em;line-height:1.7;margin-bottom:24px;}
+  .closed-box .reopen{display:inline-block;background:linear-gradient(135deg,#c8a84b,#e2c97e);color:#0d1b2e;font-weight:700;font-size:.9em;padding:8px 22px;border-radius:50px;margin-bottom:20px;letter-spacing:.04em;}
+  .closed-box button{padding:11px 28px;border-radius:50px;border:1.5px solid rgba(200,168,75,.4);background:transparent;color:rgba(255,255,255,.6);font-size:.85em;cursor:pointer;transition:all .2s;font-family:inherit;}
+  .closed-box button:hover{border-color:#c8a84b;color:#c8a84b;}
 </style>
 </head>
 <body>
@@ -1771,6 +1782,22 @@ function sendWA() {
       .then(() => console.log("Service Worker registered"))
       .catch(err => console.error("Service Worker failed", err));
   }
+</script>
+
+<!-- ═══ CLOSED POPUP ═══ -->
+<div class="closed-overlay" id="closedPopup">
+  <div class="closed-box">
+    <span class="closed-icon">🔒</span>
+    <h2>Estamos Cerradas</h2>
+    <p>En este momento nuestra tienda está temporalmente cerrada. Estamos trabajando para traerte lo mejor.</p>
+    <div class="reopen">📅 Reabrimos el 1 de mayo</div>
+    <br>
+    <button onclick="document.getElementById('closedPopup').style.display='none'">Entendido, solo estoy mirando →</button>
+  </div>
+</div>
+<script>
+  // Show closed popup on every visit (no dismiss memory)
+  document.getElementById('closedPopup').style.display='flex';
 </script>
 </body>
 </html>
