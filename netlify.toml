@@ -1,6 +1,6 @@
 [build]
-  command = "sed -i 's|%%SUPABASE_URL%%|'\"$SUPABASE_URL\"'|g; s|%%SUPABASE_ANON_KEY%%|'\"$SUPABASE_ANON_KEY\"'|g' admin-v2.html"
-  publish = "."
+  command = "sed -i 's|%%SUPABASE_URL%%|'\"$SUPABASE_URL\"'|g; s|%%SUPABASE_ANON_KEY%%|'\"$SUPABASE_ANON_KEY\"'|g' 'GangaLOO Shop/admin-v2.html'"
+  publish = "GangaLOO Shop"
 
 [build.environment]
   # Set SUPABASE_URL and SUPABASE_ANON_KEY in Netlify Dashboard → Site Settings → Environment Variables
