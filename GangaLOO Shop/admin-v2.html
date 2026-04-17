@@ -1303,33 +1303,33 @@ table.erp-table th.text-center, table.erp-table td.text-center { text-align: cen
             <div class="stat-card-value big-num" id="ds-clientes">—</div>
             <div class="stat-card-sub" id="ds-clientes-sub">Cargando...</div>
           </div>
-          <div class="stat-card" onclick="dashDrilldown('compras')" style="cursor:pointer;" onmouseover="this.style.borderColor='var(--violet)'" onmouseout="this.style.borderColor='var(--border)'">
-            <div class="stat-card-accent" style="background:var(--amber)"></div>
-            <div class="stat-card-icon" style="background:rgba(245,158,11,.12)">📦</div>
-            <div class="stat-card-label" style="display:flex;align-items:center;justify-content:space-between;">Compras del Mes <span style="font-size:9px;color:var(--ink-4);font-weight:600;">VER →</span></div>
-            <div class="stat-card-value big-num" id="ds-compras">—</div>
-            <div class="stat-card-sub" id="ds-compras-sub">Cargando...</div>
-          </div>
-          <div class="stat-card" onclick="dashDrilldown('gastos')" style="cursor:pointer;" onmouseover="this.style.borderColor='var(--violet)'" onmouseout="this.style.borderColor='var(--border)'">
-            <div class="stat-card-accent" style="background:var(--rose)"></div>
-            <div class="stat-card-icon" style="background:rgba(244,63,94,.12)">📤</div>
-            <div class="stat-card-label" style="display:flex;align-items:center;justify-content:space-between;">Pagos de Compras <span style="font-size:9px;color:var(--ink-4);font-weight:600;">VER →</span></div>
-            <div class="stat-card-value big-num" id="ds-pagos-compra">—</div>
-            <div class="stat-card-sub" id="ds-pagos-compra-sub">Cargando...</div>
-          </div>
-          <div class="stat-card" onclick="dashDrilldown('gastos')" style="cursor:pointer;" onmouseover="this.style.borderColor='var(--violet)'" onmouseout="this.style.borderColor='var(--border)'">
-            <div class="stat-card-accent" style="background:var(--rose)"></div>
-            <div class="stat-card-icon" style="background:rgba(244,63,94,.12)">💸</div>
-            <div class="stat-card-label" style="display:flex;align-items:center;justify-content:space-between;">Egresos del Mes <span style="font-size:9px;color:var(--ink-4);font-weight:600;">VER →</span></div>
-            <div class="stat-card-value big-num" id="ds-gastos">—</div>
-            <div class="stat-card-sub" id="ds-gastos-sub">Cargando...</div>
-          </div>
           <div class="stat-card" onclick="dashDrilldown('ingresos')" style="cursor:pointer;" onmouseover="this.style.borderColor='var(--violet)'" onmouseout="this.style.borderColor='var(--border)'">
             <div class="stat-card-accent" style="background:var(--emerald)"></div>
             <div class="stat-card-icon" style="background:rgba(16,185,129,.12)">📥</div>
             <div class="stat-card-label" style="display:flex;align-items:center;justify-content:space-between;">Ingresos del Mes <span style="font-size:9px;color:var(--ink-4);font-weight:600;">VER →</span></div>
             <div class="stat-card-value big-num" id="ds-ingresos">—</div>
             <div class="stat-card-sub" id="ds-ingresos-sub">Cargando...</div>
+          </div>
+          <div class="stat-card" onclick="dashDrilldown('ingresos')" style="cursor:pointer;" onmouseover="this.style.borderColor='var(--violet)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div class="stat-card-accent" style="background:var(--violet)"></div>
+            <div class="stat-card-icon" style="background:var(--violet-m)">💵</div>
+            <div class="stat-card-label" style="display:flex;align-items:center;justify-content:space-between;">Cobros de Ventas <span style="font-size:9px;color:var(--ink-4);font-weight:600;">VER →</span></div>
+            <div class="stat-card-value big-num" id="ds-cobros-ventas">—</div>
+            <div class="stat-card-sub" id="ds-cobros-ventas-sub">Cargando...</div>
+          </div>
+          <div class="stat-card" onclick="dashDrilldown('gastos')" style="cursor:pointer;" onmouseover="this.style.borderColor='var(--violet)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div class="stat-card-accent" style="background:var(--rose)"></div>
+            <div class="stat-card-icon" style="background:rgba(244,63,94,.12)">📤</div>
+            <div class="stat-card-label" style="display:flex;align-items:center;justify-content:space-between;">Gastos del Mes <span style="font-size:9px;color:var(--ink-4);font-weight:600;">VER →</span></div>
+            <div class="stat-card-value big-num" id="ds-gastos">—</div>
+            <div class="stat-card-sub" id="ds-gastos-sub">Cargando...</div>
+          </div>
+          <div class="stat-card" onclick="dashDrilldown('compras')" style="cursor:pointer;" onmouseover="this.style.borderColor='var(--violet)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div class="stat-card-accent" style="background:var(--amber)"></div>
+            <div class="stat-card-icon" style="background:rgba(245,158,11,.12)">📦</div>
+            <div class="stat-card-label" style="display:flex;align-items:center;justify-content:space-between;">Pagos de Compras <span style="font-size:9px;color:var(--ink-4);font-weight:600;">VER →</span></div>
+            <div class="stat-card-value big-num" id="ds-pagos-compra">—</div>
+            <div class="stat-card-sub" id="ds-pagos-compra-sub">Cargando...</div>
           </div>
         </div>
 
@@ -1425,13 +1425,12 @@ table.erp-table th.text-center, table.erp-table td.text-center { text-align: cen
 <!-- ═══════════════════════════════════════════════════════════
      JAVASCRIPT — CORE & DATA LAYER
 ═══════════════════════════════════════════════════════════ -->
-<script src="config.js"></script>
 <script>
 'use strict';
 
 /* ─── SUPABASE ─── */
-const SUPABASE_URL = window.__SUPA_URL__;
-const SUPABASE_KEY = window.__SUPA_KEY__;
+const SUPABASE_URL = 'https://xnbkwczolkinurohloxj.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ─── GLOBAL DATA ─── */
@@ -2122,35 +2121,41 @@ function renderDashboard() {
   document.getElementById('ds-productos').textContent     = products.length;
   document.getElementById('ds-productos-sub').textContent = categories.length + ' categorías';
 
-  /* Compras del mes */
-  const monthPurch   = purchases.filter(p => (p.date||'').startsWith(mk));
-  const totalCompras = monthPurch.reduce((s,p) => s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)), 0);
-  const delivCount   = monthPurch.filter(p => p.status==='delivered').length;
-  const pendCount2   = monthPurch.filter(p => p.status==='pending'||p.status==='transit').length;
-  document.getElementById('ds-compras').textContent     = 'RD$ ' + Math.round(totalCompras).toLocaleString('es-DO');
-  document.getElementById('ds-compras-sub').textContent = `${delivCount} entregadas · ${pendCount2} pendientes`;
-
-  /* Gastos del mes — split into purchase payments and expense transactions */
-  const monthExp      = transactions.filter(t => (t.date||'').startsWith(mk) && t.type==='expense');
-  const totalGastos   = monthExp.reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
+  /* ── Financial cards ── */
+  const monthPurch    = purchases.filter(p => (p.date||'').startsWith(mk));
   const monthPurchPay = purchasePayments.filter(p => (p.date||'').startsWith(mk));
-  const totalPurchPay = monthPurchPay.reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
-  const totalSpend    = totalGastos + totalPurchPay;
-  /* Card 1: Pagos de compras */
-  document.getElementById('ds-pagos-compra').textContent     = 'RD$ ' + Math.round(totalPurchPay).toLocaleString('es-DO');
-  document.getElementById('ds-pagos-compra-sub').textContent = `${monthPurchPay.length} pago${monthPurchPay.length!==1?'s':''} a proveedores`;
-  /* Card 2: Egresos (expense transactions) */
+  const monthExp      = transactions.filter(t => (t.date||'').startsWith(mk) && t.type==='expense');
+  const monthIncomeTx = transactions.filter(t => (t.date||'').startsWith(mk) && t.type==='income');
+  const monthSalePay  = payments.filter(p => (p.date||'').startsWith(mk));
+
+  /* Cobros de ventas = payments received against sale invoices this month */
+  const totalSalePay   = monthSalePay.reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+  /* Other income transactions */
+  const totalIncomeTx  = monthIncomeTx.reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
+  /* Total ingresos = cobros + otros ingresos */
+  const totalIngresos  = totalSalePay + totalIncomeTx;
+
+  /* Pagos de compras = cash actually paid to suppliers this month */
+  const totalPurchPay  = monthPurchPay.reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+  /* Expense transactions = other cash outflows (rent, shipping, misc) */
+  const totalGastos    = monthExp.reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
+  /* Total gastos = expense tx only (NOT purchase payments — those are separate card) */
+
+  /* CARD: Ingresos del Mes (total: cobros + otros) */
+  document.getElementById('ds-ingresos').textContent     = 'RD$ ' + Math.round(totalIngresos).toLocaleString('es-DO');
+  document.getElementById('ds-ingresos-sub').textContent = `Cobros: ${formatDOP(totalSalePay)} · Otros: ${formatDOP(totalIncomeTx)}`;
+
+  /* CARD: Cobros de Ventas (payments collected on sale invoices) */
+  document.getElementById('ds-cobros-ventas').textContent     = 'RD$ ' + Math.round(totalSalePay).toLocaleString('es-DO');
+  document.getElementById('ds-cobros-ventas-sub').textContent = `${monthSalePay.length} cobro${monthSalePay.length!==1?'s':''} de facturas`;
+
+  /* CARD: Gastos del Mes (expense transactions only) */
   document.getElementById('ds-gastos').textContent     = 'RD$ ' + Math.round(totalGastos).toLocaleString('es-DO');
   document.getElementById('ds-gastos-sub').textContent = `${monthExp.length} transacción${monthExp.length!==1?'es':''} de egreso`;
 
-  /* Ingresos del mes (payments received + income transactions) */
-  const monthIncomeTx  = transactions.filter(t => (t.date||'').startsWith(mk) && t.type==='income');
-  const totalIncomeTx  = monthIncomeTx.reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
-  const monthSalePay   = payments.filter(p => (p.date||'').startsWith(mk));
-  const totalSalePay   = monthSalePay.reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
-  const totalIngresos  = totalIncomeTx + totalSalePay;
-  document.getElementById('ds-ingresos').textContent     = 'RD$ ' + Math.round(totalIngresos).toLocaleString('es-DO');
-  document.getElementById('ds-ingresos-sub').textContent = `${monthSalePay.length} cobros · ${monthIncomeTx.length} otros ingresos`;
+  /* CARD: Pagos de Compras (cash sent to suppliers) */
+  document.getElementById('ds-pagos-compra').textContent     = 'RD$ ' + Math.round(totalPurchPay).toLocaleString('es-DO');
+  document.getElementById('ds-pagos-compra-sub').textContent = `${monthPurchPay.length} pago${monthPurchPay.length!==1?'s':''} · ${monthPurch.length} órdenes este mes`;
 
   /* Customers — count unique from local customers[] array
      (Supabase profiles are loaded separately in Clientes panel)
@@ -2634,16 +2639,19 @@ window.addEventListener('DOMContentLoaded', () => {
 function renderVentasPanel() {
   const panel = document.getElementById('panel-ventas');
   panel.innerHTML = `
-    <div class="page-header">
+    <div class="page-header" style="flex-shrink:0;">
       <div>
         <h1>Ventas</h1>
-        <p>Facturas, comisiones y cobros</p>
+        <p id="ventasSubtitle">Cargando...</p>
       </div>
       <div class="page-actions">
         <button class="btn btn-secondary btn-sm" onclick="refreshVentasPanel()">🔄 Actualizar</button>
         <button class="btn btn-primary" onclick="openNuevaVenta()">+ Nueva Factura</button>
       </div>
     </div>
+
+    <!-- KPI strip -->
+    <div id="ventasKPI" style="display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;overflow-x:auto;"></div>
 
     <!-- Filter bar -->
     <div style="padding:0 28px;margin-top:20px;">
@@ -2696,6 +2704,7 @@ function renderVentasPanel() {
     </div>
   `;
   populateVentaFilters();
+  renderVentasKPI();
   renderVentasList();
 }
 
@@ -2805,6 +2814,7 @@ function saveEditVenta(saleId) {
   sale.notes         = document.getElementById('ev_notes').value.trim();
 
   debouncedSave();
+  renderVentasKPI();
   renderVentasList();
   closeModal();
   showToast(`Venta ${sale.invoiceNum||sale.invoiceNumber} actualizada ✅`, 'success');
@@ -2977,6 +2987,7 @@ function confirmIntercambio(saleId) {
   sales.push(newSale);
 
   debouncedSave();
+  renderVentasKPI();
   renderVentasList();
   closeModal();
 
@@ -3137,6 +3148,51 @@ function populateVentaFilters() {
   mSel.innerHTML = '<option value="">Todos los meses</option>' +
     months.map(m => `<option value="${m}">${m}</option>`).join('');
 }
+
+function renderVentasKPI() {
+  const el  = document.getElementById('ventasKPI');
+  const sub = document.getElementById('ventasSubtitle');
+  if (!el) return;
+
+  const paidMap = {};
+  payments.forEach(p => { paidMap[p.saleId]=(paidMap[p.saleId]||0)+(parseFloat(p.amount)||0); });
+
+  const activeSales    = sales.filter(s => s.status !== 'cancelled');
+  const totalRev       = activeSales.reduce((s,v)=>s+saleTotal(v),0);
+  const totalCollected = activeSales.reduce((s,v)=>s+(paidMap[v.id]||0),0);
+  const totalDebt      = Math.max(0, totalRev - totalCollected);
+  const totalComm      = activeSales.reduce((s,v)=>s+(parseFloat(v.commissionPaid||v.commissionAmt)||0),0);
+
+  const paidCount    = activeSales.filter(s=>(paidMap[s.id]||0)>=(saleTotal(s)-0.01)).length;
+  const partialCount = activeSales.filter(s=>{const p=paidMap[s.id]||0;return p>0.01&&p<saleTotal(s)-0.01;}).length;
+  const pendCount    = activeSales.filter(s=>(paidMap[s.id]||0)<0.01&&saleTotal(s)>0).length;
+  const cancelCount  = sales.filter(s=>s.status==='cancelled').length;
+
+  /* Current month */
+  const mk = monthKeyDR();
+  const monthSales = activeSales.filter(s=>(s.date||'').startsWith(mk));
+  const monthRev   = monthSales.reduce((s,v)=>s+saleTotal(v),0);
+
+  if (sub) sub.textContent = `${activeSales.length} facturas · ${formatDOP(totalRev)} total facturado`;
+
+  const kpis = [
+    { label:'Total Facturas',      value: activeSales.length,     sub: `${cancelCount} canceladas`,               color:'var(--violet)',  isNum:true },
+    { label:'Total Facturado',     value: formatDOP(totalRev),    sub: `${monthSales.length} facturas este mes`,   color:'var(--violet)'  },
+    { label:'Total Cobrado',       value: formatDOP(totalCollected), sub: `${paidCount} pagadas · ${partialCount} parciales`, color:'var(--emerald)' },
+    { label:'Por Cobrar',          value: formatDOP(totalDebt),   sub: `${pendCount} pendientes`,                 color: totalDebt>0?'var(--rose)':'var(--emerald)' },
+    { label:'Comisiones',          value: formatDOP(totalComm),   sub: 'total acumulado',                         color:'var(--amber)'   },
+    { label:'Ventas Este Mes',     value: formatDOP(monthRev),    sub: `${monthSales.length} facturas`,           color:'var(--sky)'     },
+  ];
+
+  el.innerHTML = kpis.map(k=>`
+    <div style="padding:14px 20px;border-right:1px solid var(--border);flex:1;min-width:130px;">
+      <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin-bottom:4px;">${k.label}</div>
+      <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:${k.isNum?'1.7em':'1.25em'};font-weight:900;color:${k.color};letter-spacing:-.02em;line-height:1.1;">${k.value}</div>
+      <div style="font-size:11px;color:var(--ink-3);margin-top:3px;">${k.sub}</div>
+    </div>
+  `).join('');
+}
+
 
 function renderVentasList() {
   const tbody  = document.getElementById('ventasTbody');
@@ -6043,10 +6099,6 @@ function openNuevoProducto() {
             <input class="field" id="npImage" placeholder="https://...">
           </div>
           <div class="form-group" style="margin-top:10px;">
-            <label class="field-label">Video URL (YouTube)</label>
-            <input class="field" id="npVideo" placeholder="https://youtu.be/...">
-          </div>
-          <div class="form-group" style="margin-top:10px;">
             <label class="field-label">Visible en tienda</label>
             <select class="field" id="npVisible">
               <option value="true">✅ Visible</option>
@@ -6266,7 +6318,6 @@ function saveNuevoProducto() {
     categoryId:        document.getElementById('npCat')?.value || '',
     description:       document.getElementById('npDesc')?.value.trim() || '',
     imageUrl:          document.getElementById('npImage')?.value.trim() || '',
-    videoUrl:          document.getElementById('npVideo')?.value.trim() || '',
     visibleInStore:    document.getElementById('npVisible')?.value !== 'false',
     price,
     /* Calculator fields */
@@ -6649,11 +6700,24 @@ function renderContabTab(tab) {
 /* ─── CUENTAS ─── */
 function renderCuentas(el) {
   const totalDOP = accounts.filter(a=>a.active!==false&&a.currency==='DOP').reduce((s,a)=>s+(parseFloat(a.balance)||0),0);
+  const totalEUR = accounts.filter(a=>a.active!==false&&a.currency==='EUR').reduce((s,a)=>s+(parseFloat(a.balance)||0),0);
+  const totalUSD = accounts.filter(a=>a.active!==false&&a.currency==='USD').reduce((s,a)=>s+(parseFloat(a.balance)||0),0);
+  const hasFX    = totalEUR !== 0 || totalUSD !== 0;
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 16px;">
-      <div>
-        <div class="text-xs text-muted">Total en cuentas DOP</div>
-        <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:2em;font-weight:900;letter-spacing:-.03em;color:var(--violet);">${formatDOP(totalDOP)}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 16px;flex-wrap:wrap;gap:12px;">
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <div class="text-xs text-muted">Total DOP</div>
+          <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:2em;font-weight:900;letter-spacing:-.03em;color:var(--violet);">${formatDOP(totalDOP)}</div>
+        </div>
+        ${totalUSD !== 0 ? `<div>
+          <div class="text-xs text-muted">Total USD</div>
+          <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.5em;font-weight:900;letter-spacing:-.03em;color:var(--amber);">${formatUSD(totalUSD)}</div>
+        </div>` : ''}
+        ${totalEUR !== 0 ? `<div>
+          <div class="text-xs text-muted">Total EUR</div>
+          <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.5em;font-weight:900;letter-spacing:-.03em;color:var(--teal);">${formatEUR(totalEUR)}</div>
+        </div>` : ''}
       </div>
       <button class="btn btn-primary btn-sm" onclick="openNuevaCuenta()">+ Nueva Cuenta</button>
     </div>
