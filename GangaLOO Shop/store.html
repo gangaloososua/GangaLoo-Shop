@@ -410,6 +410,31 @@ button{font-family:'Jost',sans-serif;}
 .pd-wh-pill.low{border-color:var(--gold);background:rgba(201,169,110,.1);color:#8a6400;}
 .pd-wh-pill.out{border-color:#ccc;background:#f5f5f5;color:#aaa;}
 .pd-wh-pill .pd-wh-cnt{font-weight:800;}
+
+/* ── PRODUCT DETAIL MEDIA GALLERY ── */
+.pd-media-wrap{position:relative;width:100%;background:linear-gradient(135deg,var(--warm),var(--warm2));overflow:hidden;}
+.pd-media-main{width:100%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:4.5em;position:relative;overflow:hidden;cursor:zoom-in;}
+.pd-media-main img{width:100%;height:100%;object-fit:cover;transition:transform .4s ease;}
+.pd-media-main:hover img{transform:scale(1.04);}
+.pd-media-main iframe{width:100%;height:100%;border:none;position:absolute;inset:0;}
+.pd-media-badge{position:absolute;top:10px;left:10px;background:rgba(0,0,0,.55);color:white;border-radius:8px;padding:3px 9px;font-size:11px;font-weight:700;letter-spacing:.05em;backdrop-filter:blur(4px);}
+.pd-media-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.9);border:none;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;box-shadow:0 2px 10px rgba(0,0,0,.18);transition:all .2s;z-index:3;}
+.pd-media-nav:hover{background:white;transform:translateY(-50%) scale(1.1);}
+.pd-media-prev{left:10px;}.pd-media-next{right:10px;}
+.pd-thumb-strip{display:flex;gap:6px;padding:8px 12px;overflow-x:auto;background:var(--warm);scrollbar-width:none;}
+.pd-thumb-strip::-webkit-scrollbar{display:none;}
+.pd-thumb{width:52px;height:52px;border-radius:8px;border:2px solid transparent;overflow:hidden;cursor:pointer;flex-shrink:0;background:var(--warm2);display:flex;align-items:center;justify-content:center;font-size:1.4em;transition:border-color .2s;}
+.pd-thumb.active{border-color:var(--gold);}
+.pd-thumb img{width:100%;height:100%;object-fit:cover;}
+.pd-thumb-video{background:rgba(0,0,0,.7);color:white;font-size:1.2em;}
+
+/* image lightbox */
+.pd-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;display:none;align-items:center;justify-content:center;cursor:zoom-out;}
+.pd-lightbox.open{display:flex;}
+.pd-lightbox img{max-width:92vw;max-height:90vh;object-fit:contain;border-radius:8px;}
+.pd-lightbox-close{position:absolute;top:16px;right:18px;background:none;border:none;color:white;font-size:2em;cursor:pointer;opacity:.8;transition:opacity .2s;}
+.pd-lightbox-close:hover{opacity:1;}
+
 .pd-footer{
   position:sticky;bottom:0;left:0;right:0;
   background:var(--white);
@@ -1754,6 +1779,58 @@ function closeMobSearch(e){if(!e||e.target===document.getElementById('mobSearchO
 function syncSearch(val){document.getElementById('searchInput').value=val;searchQuery=val.toLowerCase();renderProducts();}
 
 /* ── PRODUCT DETAIL MODAL ── */
+let _pdMedia=[], _pdMediaIdx=0;
+
+function _pdYtEmbed(url){
+  if(!url) return null;
+  const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([A-Za-z0-9_-]{11})/);
+  return m?`https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0`:null;
+}
+
+function _pdRenderMedia(idx){
+  _pdMediaIdx=idx;
+  const item=_pdMedia[idx];
+  if(!item) return;
+  const main=document.getElementById('pdMediaMain');
+  const badge=document.getElementById('pdMediaBadge');
+  if(!main) return;
+  if(item.type==='video'){
+    const embedUrl=_pdYtEmbed(item.src);
+    main.innerHTML=embedUrl
+      ?`<iframe src="${embedUrl}" allow="autoplay;encrypted-media" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none;"></iframe>`
+      :`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);height:100%;"><div style="font-size:3em">▶️</div><a href="${item.src}" target="_blank" style="color:var(--gd);font-size:13px;font-weight:600;">Ver video →</a></div>`;
+    if(badge){badge.textContent='▶ Video';badge.style.display='block';}
+  } else {
+    main.innerHTML=item.src
+      ?`<img src="${item.src}" alt="producto" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in;" onclick="openPdLightbox('${item.src.replace(/'/g,"\\'")}');" onerror="this.style.display='none'">`
+      :`<span style="font-size:4.5em">${item.icon||'💇'}</span>`;
+    if(badge) badge.style.display='none';
+  }
+  document.querySelectorAll('.pd-thumb').forEach((t,i)=>t.classList.toggle('active',i===idx));
+  const prev=document.getElementById('pdMediaPrev');
+  const next=document.getElementById('pdMediaNext');
+  if(prev) prev.style.display=_pdMedia.length>1&&idx>0?'flex':'none';
+  if(next) next.style.display=_pdMedia.length>1&&idx<_pdMedia.length-1?'flex':'none';
+}
+
+function openPdLightbox(src){
+  let lb=document.getElementById('pdLightbox');
+  if(!lb){
+    lb=document.createElement('div');
+    lb.id='pdLightbox';
+    lb.className='pd-lightbox';
+    lb.innerHTML='<button class="pd-lightbox-close" onclick="closePdLightbox()">×</button><img src="" alt="">';
+    lb.addEventListener('click',e=>{if(e.target===lb)closePdLightbox();});
+    document.body.appendChild(lb);
+  }
+  lb.querySelector('img').src=src;
+  lb.classList.add('open');
+}
+function closePdLightbox(){
+  const lb=document.getElementById('pdLightbox');
+  if(lb) lb.classList.remove('open');
+}
+
 function openPD(id){
   const p=allProducts.find(x=>String(x.id)===String(id));
   if(!p) return;
@@ -1767,6 +1844,14 @@ function openPD(id){
   const guestMarkup=parseFloat(storeConfig?.guest_markup||0);
   const clubDisc=parseFloat(storeConfig?.club_discount||10);
   const displayPrice=getDisplayPrice(basePrice);
+
+  // ── Build media list ──
+  _pdMedia=[];
+  if(p.imageUrl) _pdMedia.push({type:'image',src:p.imageUrl});
+  (p.additionalImages||[]).forEach(u=>{ if(u) _pdMedia.push({type:'image',src:u}); });
+  if(p.videoUrl)  _pdMedia.push({type:'video',src:p.videoUrl});
+  if(!_pdMedia.length) _pdMedia.push({type:'image',src:'',icon:cat?.icon||'💇'});
+  _pdMediaIdx=0;
 
   // Prices table rows
   const baseRow=`<div class="pt-row"><span class="pt-lbl">Precio base</span><span class="pt-val">RD$ ${fmt(origPrice)}</span></div>`;
@@ -1785,19 +1870,36 @@ function openPD(id){
     return`<div class="pd-wh-pill ${cls}">🏢 ${w.name} <span class="pd-wh-cnt">${lbl}</span></div>`;
   }).join('');
 
-  // Total stock across all wh
   const totalStk=allWarehouses.reduce((s,w)=>s+getStock(p.id,w.id),0);
   const isOut=totalStk===0;
 
-  // Main display price & badge
   const showPrice=isClub?clubPrice:(hasDisc?basePrice:(isGuest&&guestMarkup>0?guestPrice||origPrice:origPrice));
   const showOrig=(isClub||hasDisc||(isGuest&&guestMarkup>0))&&origPrice!==showPrice;
 
   const descHtml=p.description?`<p class="pd-desc">${p.description}</p>`:'';
 
+  // Thumbnail strip (shown when >1 media item)
+  const thumbHtml=_pdMedia.length>1?`<div class="pd-thumb-strip">${
+    _pdMedia.map((m,i)=>m.type==='video'
+      ?`<div class="pd-thumb pd-thumb-video${i===0?' active':''}" onclick="_pdRenderMedia(${i})" title="Ver video">▶</div>`
+      :`<div class="pd-thumb${i===0?' active':''}" onclick="_pdRenderMedia(${i})">${m.src?`<img src="${m.src}" onerror="this.innerHTML='🖼'">`:m.icon||'🖼'}</div>`
+    ).join('')
+  }</div>`:'';
+
+  // Video indicator chip on main image card
+  const hasVideo=_pdMedia.some(m=>m.type==='video');
+  const videoChip=hasVideo&&_pdMedia[0].type!=='video'?`<span style="position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,.65);color:white;border-radius:20px;padding:3px 9px;font-size:11px;font-weight:700;backdrop-filter:blur(4px);cursor:pointer;" onclick="_pdRenderMedia(${_pdMedia.findIndex(m=>m.type==='video')})">▶ Ver video</span>`:'';
+
   const innerHtml=`
     <div class="pd-left">
-      <div class="pd-image">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}</div>
+      <div class="pd-media-wrap">
+        <div class="pd-media-main" id="pdMediaMain" style="width:100%;aspect-ratio:1/1;position:relative;background:linear-gradient(135deg,var(--warm),var(--warm2));display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
+        <span class="pd-media-badge" id="pdMediaBadge" style="display:none;position:absolute;top:10px;left:10px;background:rgba(0,0,0,.55);color:white;border-radius:8px;padding:3px 9px;font-size:11px;font-weight:700;backdrop-filter:blur(4px);"></span>
+        ${videoChip}
+        <button class="pd-media-nav pd-media-prev" id="pdMediaPrev" onclick="_pdRenderMedia(_pdMediaIdx-1)" style="display:none;position:absolute;top:50%;left:10px;transform:translateY(-50%);background:rgba(255,255,255,.9);border:none;border-radius:50%;width:34px;height:34px;align-items:center;justify-content:center;cursor:pointer;font-size:18px;box-shadow:0 2px 10px rgba(0,0,0,.18);z-index:3;">‹</button>
+        <button class="pd-media-nav pd-media-next" id="pdMediaNext" onclick="_pdRenderMedia(_pdMediaIdx+1)" style="display:none;position:absolute;top:50%;right:10px;transform:translateY(-50%);background:rgba(255,255,255,.9);border:none;border-radius:50%;width:34px;height:34px;align-items:center;justify-content:center;cursor:pointer;font-size:18px;box-shadow:0 2px 10px rgba(0,0,0,.18);z-index:3;">›</button>
+      </div>
+      ${thumbHtml}
       <button class="pd-close-btn" onclick="closePD()">×</button>
     </div>
     <div class="pd-right-mob">
@@ -1819,6 +1921,7 @@ function openPD(id){
     </div>`;
 
   document.getElementById('pdInner').innerHTML=innerHtml;
+  _pdRenderMedia(0);
 
   // Footer buttons
   const footer=document.getElementById('pdFooter');
@@ -1835,6 +1938,9 @@ function openPD(id){
   document.body.style.overflow='hidden';
 }
 function closePD(){
+  // stop any playing video iframe
+  const main=document.getElementById('pdMediaMain');
+  if(main) main.innerHTML='';
   document.getElementById('pdOverlay').classList.remove('open');
   document.getElementById('pdModal').classList.remove('open');
   document.body.style.overflow='';
