@@ -1723,7 +1723,7 @@ function nextInvoiceNumber() {
 }
 
 function getWarehouseName(id) {
-  return warehouses.find(w => w.id === id)?.name || id || 'Sin almacén';
+  return warehouses.find(w => String(w.id) === String(id))?.name || id || 'Sin almacén';
 }
 
 function getCustomerName(id) {
@@ -4685,11 +4685,11 @@ function invExportPDF(catId, whId) {
   const subIds=categories.filter(c=>String(c.parentId)===String(catId)).map(c=>String(c.id));
   const allIds=[String(catId),...subIds];
   const prods=products.filter(p=>{const ids=(p.categoryIds?.length?p.categoryIds:[p.categoryId]).map(String);return allIds.some(id=>ids.includes(id));});
-  const wh=whId?warehouses.find(w=>w.id===whId):null;
+  const wh=whId?warehouses.find(w=>String(w.id)===String(whId)):null;
   invGeneratePDF(cat.name,prods,wh?.name||null,whId);
 }
 function invExportWarehousePDF(whId) {
-  const wh=warehouses.find(w=>w.id===whId);
+  const wh=warehouses.find(w=>String(w.id)===String(whId));
   const prods=products.filter(p=>getStock(whId,p.id)>0||purchases.some(x=>String(x.productId)===String(p.id)&&String(x.warehouseId)===String(whId)&&x.status==='pending'));
   invGeneratePDF(wh?.name||'Almacén',prods,null,whId);
 }
@@ -4725,14 +4725,14 @@ function invShareWA(catId,whId) {
   const subIds=categories.filter(c=>String(c.parentId)===String(catId)).map(c=>String(c.id));
   const allIds=[String(catId),...subIds];
   const prods=products.filter(p=>{const ids=(p.categoryIds?.length?p.categoryIds:[p.categoryId]).map(String);return allIds.some(id=>ids.includes(id));});
-  const wh=whId?warehouses.find(w=>w.id===whId):null;
+  const wh=whId?warehouses.find(w=>String(w.id)===String(whId)):null;
   const inStock=prods.reduce((s,p)=>s+(whId?getStock(whId,p.id):getTotalStock(p.id)),0);
   const pending=prods.reduce((s,p)=>s+purchases.filter(x=>String(x.productId)===String(p.id)&&x.status==='pending'&&(!whId||String(x.warehouseId)===String(whId))).reduce((a,x)=>a+x.qty,0),0);
   const msg=encodeURIComponent(`📦 *Inventario GangaLoo*\n📂 ${cat.name}${wh?' — '+wh.name:''}\n🟢 En stock: ${inStock}  🟡 En camino: ${pending}\n\n`+prods.map(p=>{const s=whId?getStock(whId,p.id):getTotalStock(p.id);return `${s>0?'🟢':'⭕'} ${p.name}${p.sku?' ('+p.sku+')':''}: *${s}*`;}).join('\n'));
   window.open(`https://wa.me/?text=${msg}`,'_blank');
 }
 function invShareWarehouseWA(whId) {
-  const wh=warehouses.find(w=>w.id===whId);
+  const wh=warehouses.find(w=>String(w.id)===String(whId));
   const prods=products.filter(p=>getStock(whId,p.id)>0);
   const total=prods.reduce((s,p)=>s+getStock(whId,p.id),0);
   const msg=encodeURIComponent(`📦 *Inventario GangaLoo — ${wh?.name||whId}*\n🟢 Total en stock: ${total}\n\n`+prods.map(p=>`🟢 ${p.name}: *${getStock(whId,p.id)}*`).join('\n'));
@@ -6449,7 +6449,7 @@ function renderStoreOrders(orders) {
 function renderStoreOrderCard(o) {
   let items = [];
   try { items = JSON.parse(o.items||'[]'); } catch(e) {}
-  const wh = warehouses.find(w => w.id == o.warehouse_id);
+  const wh = warehouses.find(w => String(w.id) === String(o.warehouse_id));
   return `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:10px;flex-wrap:wrap;">
@@ -8601,7 +8601,7 @@ function renderAlmacenesPanel() {
 }
 
 function editAlmacen(id) {
-  const w = warehouses.find(x=>x.id===id);
+  const w = warehouses.find(x=>String(x.id)===String(id));
   if (!w) return;
   openModal(`
     <div class="modal">
@@ -8621,7 +8621,7 @@ function editAlmacen(id) {
 }
 
 function saveEditAlmacen(id) {
-  const w = warehouses.find(x=>x.id===id);
+  const w = warehouses.find(x=>String(x.id)===String(id));
   if (!w) return;
   w.name    = document.getElementById('ewName').value.trim() || w.name;
   w.city    = document.getElementById('ewCity').value.trim();
