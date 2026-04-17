@@ -1425,12 +1425,13 @@ table.erp-table th.text-center, table.erp-table td.text-center { text-align: cen
 <!-- ═══════════════════════════════════════════════════════════
      JAVASCRIPT — CORE & DATA LAYER
 ═══════════════════════════════════════════════════════════ -->
+<script src="config.js"></script>
 <script>
 'use strict';
 
 /* ─── SUPABASE ─── */
-const SUPABASE_URL = '%%SUPABASE_URL%%';
-const SUPABASE_KEY = '%%SUPABASE_ANON_KEY%%';
+const SUPABASE_URL = window.__SUPA_URL__;
+const SUPABASE_KEY = window.__SUPA_KEY__;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ─── GLOBAL DATA ─── */
