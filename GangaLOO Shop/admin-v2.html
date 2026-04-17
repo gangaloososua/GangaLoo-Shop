@@ -1725,15 +1725,15 @@ function getWarehouseName(id) {
 }
 
 function getCustomerName(id) {
-  return customers.find(c => c.id === id)?.name || id || 'Sin cliente';
+  return customers.find(c => String(c.id) === String(id))?.name || id || 'Sin cliente';
 }
 
 function getAccountName(id) {
-  return accounts.find(a => a.id === id)?.name || id || '—';
+  return accounts.find(a => String(a.id) === String(id))?.name || id || '—';
 }
 
 function getProductName(id) {
-  return products.find(p => p.id === id)?.name || id || '—';
+  return products.find(p => String(p.id) === String(id))?.name || id || '—';
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1881,7 +1881,7 @@ async function payoutCommission(sellerId, monthKey, amount, accountId, categoryI
       return false;
     }
     /* Validate account has enough balance */
-    const account = accounts.find(a => a.id === accountId);
+    const account = accounts.find(a => String(a.id) === String(accountId));
     if (!account) throw new Error('Cuenta no encontrada');
     if (account.balance < amount) {
       showToast('Saldo insuficiente en la cuenta seleccionada', 'error');
@@ -3503,7 +3503,7 @@ function calcNVTotal() {
 
 function onNVCustomerChange() {
   const custId = document.getElementById('nvCustomer')?.value;
-  const customer = customers.find(c => c.id === custId);
+  const customer = customers.find(c => String(c.id) === String(custId));
   const total  = _saleItems.reduce((s,i) => s+i.qty*i.price,0) - (parseFloat(document.getElementById('nvDiscount')?.value)||0);
   const ci = document.getElementById('nvCommissionInfo');
   if (!ci) return;
@@ -3533,7 +3533,7 @@ function saveNuevaVenta(withWA = false) {
 
   const subtotal = _saleItems.reduce((s,i) => s+i.qty*i.price, 0);
   const total    = Math.max(0, subtotal - discount);
-  const customer = customers.find(c => c.id === customerId);
+  const customer = customers.find(c => String(c.id) === String(customerId));
   const comm     = calcCommission(total, customer);
   const saleId   = generateId();
 
@@ -3586,7 +3586,7 @@ function saveNuevaVenta(withWA = false) {
 
 /* ─── REGISTRAR PAGO ─── */
 function openRegistrarPago(saleId) {
-  const sale = sales.find(s => s.id === saleId);
+  const sale = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
   const paidSoFar = payments.filter(p => p.saleId === saleId).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
   const pending   = Math.max(0, (saleTotal(sale)||0) - paidSoFar);
@@ -3642,7 +3642,7 @@ function saveRegistrarPago(saleId) {
   if (!amount || amount <= 0) { showToast('Monto inválido', 'error'); return; }
   if (!acctId)  { showToast('Selecciona una cuenta', 'error'); return; }
 
-  const account = accounts.find(a => a.id === acctId);
+  const account = accounts.find(a => String(a.id) === String(acctId));
   if (account) account.balance = Math.round((account.balance + amount) * 100) / 100;
 
   const payment = { id: generateId(), saleId, amount: Math.round(amount*100)/100, accountId: acctId, date: fecha, reference: ref };
@@ -3663,7 +3663,7 @@ function saveRegistrarPago(saleId) {
 
 /* ─── VENTA DETAIL ─── */
 function openVentaDetail(saleId) {
-  const sale = sales.find(s => s.id === saleId);
+  const sale = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
   const paidMap = {};
   payments.forEach(p => { paidMap[p.saleId] = (paidMap[p.saleId]||0)+(parseFloat(p.amount)||0); });
@@ -3753,7 +3753,7 @@ function openVentaDetail(saleId) {
 }
 
 function sendVentaWA(saleId) {
-  const sale = sales.find(s => s.id === saleId);
+  const sale = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
   const customer = customers.find(c => c.id === sale.customerId);
   const paid = payments.filter(p => p.saleId === saleId).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
@@ -3762,7 +3762,7 @@ function sendVentaWA(saleId) {
 }
 
 function cancelVenta(saleId) {
-  const sale = sales.find(s => s.id === saleId);
+  const sale = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
   openModal(`
     <div class="modal" style="max-width:440px;">
@@ -3794,7 +3794,7 @@ function cancelVenta(saleId) {
 }
 
 function confirmCancelVenta(saleId) {
-  const sale = sales.find(s => s.id === saleId);
+  const sale = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
   const type   = document.getElementById('cancelType').value;
   const reason = document.getElementById('cancelReason').value.trim();
@@ -6753,7 +6753,7 @@ function renderCuentas(el) {
 
 /* ─── ACCOUNT MOVEMENTS (Balance Sheet) ─── */
 function openCuentaMovements(accountId) {
-  const account = accounts.find(a => a.id === accountId);
+  const account = accounts.find(a => String(a.id) === String(accountId));
   if (!account) return;
   const cur = account.currency || 'DOP';
   const fmt = v => cur==='EUR' ? formatEUR(v) : cur==='USD' ? formatUSD(v) : formatDOP(v);
@@ -6975,7 +6975,7 @@ function saveNuevaCuenta() {
 }
 
 function editCuenta(id) {
-  const a = accounts.find(x => x.id === id);
+  const a = accounts.find(x => String(x.id) === String(id));
   if (!a) return;
   openModal(`
     <div class="modal">
@@ -6994,7 +6994,7 @@ function editCuenta(id) {
 }
 
 function saveEditCuenta(id) {
-  const a = accounts.find(x => x.id === id);
+  const a = accounts.find(x => String(x.id) === String(id));
   if (!a) return;
   a.name    = document.getElementById('ecaName').value.trim() || a.name;
   a.balance = parseFloat(document.getElementById('ecaBalance').value) || 0;
@@ -7005,7 +7005,7 @@ function saveEditCuenta(id) {
 }
 
 function toggleCuenta(id, active) {
-  const a = accounts.find(x => x.id === id);
+  const a = accounts.find(x => String(x.id) === String(id));
   if (a) { a.active = active; debouncedSave(); renderContabTab('cuentas'); }
 }
 
@@ -7043,7 +7043,7 @@ function saveAjuste(id, type) {
   const desc   = document.getElementById('ajDesc').value.trim();
   const date   = document.getElementById('ajDate').value;
   if (!amount || amount<=0) { showToast('Monto inválido','error'); return; }
-  const account = accounts.find(a => a.id === id);
+  const account = accounts.find(a => String(a.id) === String(id));
   if (!account) return;
   if (type==='in')  account.balance = Math.round((account.balance+amount)*100)/100;
   if (type==='out') account.balance = Math.round((account.balance-amount)*100)/100;
