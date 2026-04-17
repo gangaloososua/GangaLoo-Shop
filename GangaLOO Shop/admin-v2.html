@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GangaLoo ERP v2</title>
+<link rel="icon" type="image/png" href="icon192.png">
+<link rel="apple-touch-icon" href="icon192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Cabinet+Grotesk:wght@700;800;900&display=swap" rel="stylesheet">
@@ -6845,12 +6847,17 @@ function openCuentaMovements(accountId) {
   const sourceLabels = { cobro:'💵 Cobros', transaction:'📝 Transacciones', comision:'🏷 Comisiones', compra:'📦 Compras', transfer:'↔ Transferencias' };
   const sourceFilters = [...new Set(movements.map(m=>m.source))];
 
+  /* Build year and month options from actual data */
+  const years  = [...new Set(movements.map(m => m.date ? new Date(m.date).getFullYear() : null).filter(Boolean))].sort((a,b)=>b-a);
+  const curYear = new Date().getFullYear();
+  const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
   openModal(`
     <div class="modal modal-xl" style="max-width:900px;">
       <div class="modal-header">
         <div>
           <div class="modal-title">📋 Movimientos — ${account.name}</div>
-          <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">${movements.length} movimientos · Saldo actual: <strong>${fmt(account.balance)}</strong></div>
+          <div style="font-size:12px;color:var(--ink-3);margin-top:2px;" id="cmSubtitle">${movements.length} movimientos · Saldo actual: <strong>${fmt(account.balance)}</strong></div>
         </div>
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
@@ -6864,24 +6871,36 @@ function openCuentaMovements(accountId) {
           </div>
           <div style="padding:14px 20px;border-right:1px solid var(--border);">
             <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin-bottom:4px;">Total Entradas</div>
-            <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.5em;font-weight:900;color:var(--emerald);">+ ${fmt(totalIn)}</div>
-            <div style="font-size:11px;color:var(--ink-3);">${movements.filter(m=>m.type==='in').length} movimientos</div>
+            <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.5em;font-weight:900;color:var(--emerald);" id="cmTotalIn">+ ${fmt(totalIn)}</div>
+            <div style="font-size:11px;color:var(--ink-3);" id="cmCountIn">${movements.filter(m=>m.type==='in').length} movimientos</div>
           </div>
           <div style="padding:14px 20px;">
             <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin-bottom:4px;">Total Salidas</div>
-            <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.5em;font-weight:900;color:var(--rose);">− ${fmt(totalOut)}</div>
-            <div style="font-size:11px;color:var(--ink-3);">${movements.filter(m=>m.type==='out').length} movimientos</div>
+            <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.5em;font-weight:900;color:var(--rose);" id="cmTotalOut">− ${fmt(totalOut)}</div>
+            <div style="font-size:11px;color:var(--ink-3);" id="cmCountOut">${movements.filter(m=>m.type==='out').length} movimientos</div>
           </div>
         </div>
 
-        <!-- Source filter pills -->
-        <div style="display:flex;gap:6px;padding:10px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--surface-2);">
-          <button onclick="filterCuentaMovements('all',this)" style="padding:4px 12px;border-radius:99px;font-size:12px;font-weight:700;border:1.5px solid var(--violet);background:var(--violet);color:white;cursor:pointer;font-family:inherit;" class="cm-pill" data-source="all">Todos (${movements.length})</button>
-          ${sourceFilters.map(s=>`<button onclick="filterCuentaMovements('${s}',this)" style="padding:4px 12px;border-radius:99px;font-size:12px;font-weight:700;border:1.5px solid var(--border);background:var(--surface);color:var(--ink-3);cursor:pointer;font-family:inherit;" class="cm-pill" data-source="${s}">${sourceLabels[s]||s} (${movements.filter(m=>m.source===s).length})</button>`).join('')}
+        <!-- Date + Source filters -->
+        <div style="display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;background:var(--surface-2);">
+          <!-- Year select -->
+          <select id="cmYearSel" onchange="applyCuentaFilters()" style="padding:4px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);font-size:12px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer;">
+            <option value="all">Todos los años</option>
+            ${years.map(y=>`<option value="${y}" ${y===curYear?'selected':''}>${y}</option>`).join('')}
+          </select>
+          <!-- Month select -->
+          <select id="cmMonthSel" onchange="applyCuentaFilters()" style="padding:4px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);font-size:12px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer;">
+            <option value="all">Todos los meses</option>
+            ${monthNames.map((n,i)=>`<option value="${i+1}">${n}</option>`).join('')}
+          </select>
+          <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
+          <!-- Source pills -->
+          <button onclick="setCmSource('all',this)" style="padding:4px 12px;border-radius:99px;font-size:12px;font-weight:700;border:1.5px solid var(--violet);background:var(--violet);color:white;cursor:pointer;font-family:inherit;" class="cm-pill" data-source="all">Todos</button>
+          ${sourceFilters.map(s=>`<button onclick="setCmSource('${s}',this)" style="padding:4px 12px;border-radius:99px;font-size:12px;font-weight:700;border:1.5px solid var(--border);background:var(--surface);color:var(--ink-3);cursor:pointer;font-family:inherit;" class="cm-pill" data-source="${s}">${sourceLabels[s]||s}</button>`).join('')}
         </div>
 
         <!-- Movements table -->
-        <div style="overflow-y:auto;max-height:420px;" id="cmTableWrap">
+        <div style="overflow-y:auto;max-height:400px;" id="cmTableWrap">
           <table class="erp-table" id="cmTable">
             <thead style="position:sticky;top:0;z-index:1;">
               <tr>
@@ -6895,7 +6914,7 @@ function openCuentaMovements(accountId) {
             </thead>
             <tbody id="cmTableBody">
               ${withBalance.map((m,i) => `
-                <tr data-source="${m.source}" style="background:${i%2===0?'var(--surface)':'var(--surface-2)'};">
+                <tr data-source="${m.source}" data-year="${m.date?new Date(m.date).getFullYear():''}" data-month="${m.date?new Date(m.date).getMonth()+1:''}" style="background:${i%2===0?'var(--surface)':'var(--surface-2)'};">
                   <td style="font-size:12.5px;color:var(--ink-3);white-space:nowrap;">${formatDate(m.date)}</td>
                   <td>
                     <div style="font-weight:600;font-size:13px;">${m.label}</div>
@@ -6903,10 +6922,10 @@ function openCuentaMovements(accountId) {
                   </td>
                   <td><span style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:700;
                     background:${m.source==='cobro'?'rgba(108,92,231,.1)':m.source==='transaction'&&m.type==='in'?'rgba(16,185,129,.1)':m.source==='comision'?'rgba(245,158,11,.1)':m.source==='compra'?'rgba(244,63,94,.1)':'rgba(148,163,184,.1)'};
-                    color:${m.source==='cobro'?'var(--violet)':m.source==='transaction'&&m.type==='in'?'var(--emerald)':m.source==='comision'?'var(--amber)':m.source==='compra'?'var(--rose)':'var(--ink-3)'};">
-                    ${sourceLabels[m.source]||m.source}
+                    color:${m.source==='cobro'?'var(--violet)':m.source==='transaction'&&m.type==='in'?'var(--emerald)':m.source==='comision'?'var(--amber)':m.source==='compra'?'var(--rose)':'var(--ink-3)'};
+                    ">${sourceLabels[m.source]||m.source}
                   </span></td>
-                  <td class="text-right" style="font-weight:700;color:var(--emerald);">${m.type==='in' ? fmt(m.amount) : '—'}</td>
+                  <td class="text-right" style="font-weight:700;color:var(--emerald);" data-type="${m.type}" data-amount="${m.amount}">${m.type==='in' ? fmt(m.amount) : '—'}</td>
                   <td class="text-right" style="font-weight:700;color:var(--rose);">${m.type==='out' ? fmt(m.amount) : '—'}</td>
                   <td class="text-right" style="font-weight:800;color:${m.balance>=0?'var(--ink)':'var(--rose)'};">${fmt(m.balance)}</td>
                 </tr>`).join('')}
@@ -6921,6 +6940,78 @@ function openCuentaMovements(accountId) {
       </div>
     </div>
   `);
+
+  /* Auto-apply current year filter on open */
+  if (years.includes(curYear)) applyCuentaFilters();
+}
+
+let _cmSource = 'all';
+
+function setCmSource(source, btn) {
+  _cmSource = source;
+  document.querySelectorAll('.cm-pill').forEach(p => {
+    const active = p.dataset.source === source;
+    p.style.background  = active ? 'var(--violet)' : 'var(--surface)';
+    p.style.color       = active ? 'white'         : 'var(--ink-3)';
+    p.style.borderColor = active ? 'var(--violet)'  : 'var(--border)';
+  });
+  applyCuentaFilters();
+}
+
+function applyCuentaFilters() {
+  const year  = document.getElementById('cmYearSel')?.value  || 'all';
+  const month = document.getElementById('cmMonthSel')?.value || 'all';
+  const source = _cmSource || 'all';
+
+  let visibleIn = 0, visibleOut = 0, visibleCount = 0;
+
+  document.querySelectorAll('#cmTable tbody tr').forEach(row => {
+    const matchSource = source === 'all' || row.dataset.source === source;
+    const matchYear   = year   === 'all' || row.dataset.year  === year;
+    const matchMonth  = month  === 'all' || row.dataset.month === month;
+    const show = matchSource && matchYear && matchMonth;
+    row.style.display = show ? '' : 'none';
+    if (show) {
+      visibleCount++;
+      const inCell = row.querySelector('td[data-type]');
+      if (inCell) {
+        const amt = parseFloat(inCell.dataset.amount) || 0;
+        if (inCell.dataset.type === 'in')  visibleIn  += amt;
+        else                               visibleOut += amt;
+      }
+    }
+  });
+
+  /* Update summary totals to reflect filtered view */
+  const fmtEl = (id, val, prefix) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = prefix + (val % 1 === 0 ? val.toLocaleString('es-DO') + '.00' : val.toLocaleString('es-DO', {minimumFractionDigits:2, maximumFractionDigits:2}));
+  };
+  const el1 = document.getElementById('cmTotalIn');
+  const el2 = document.getElementById('cmTotalOut');
+  const el3 = document.getElementById('cmCountIn');
+  const el4 = document.getElementById('cmCountOut');
+  const el5 = document.getElementById('cmSubtitle');
+  if (el1) el1.textContent = '+ RD$ ' + visibleIn.toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if (el2) el2.textContent = '− RD$ ' + visibleOut.toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if (el3) el3.textContent = document.querySelectorAll('#cmTable tbody tr:not([style*="display: none"]) td[data-type="in"]').length + ' movimientos';
+  if (el4) el4.textContent = document.querySelectorAll('#cmTable tbody tr:not([style*="display: none"]) td[data-type="out"]').length + ' movimientos';
+  if (el5) {
+    const suffix = (year!=='all'||month!=='all') ? ` · Filtro activo` : '';
+    el5.innerHTML = `${visibleCount} movimientos${suffix} · Saldo actual: <strong>${document.getElementById('cmSubtitle')?.innerHTML?.split('Saldo')[1]?.replace('actual: <strong>','')?.split('<')[0] || ''}</strong>`;
+  }
+
+  /* Empty state */
+  const wrap = document.getElementById('cmTableWrap');
+  const existing = wrap?.querySelector('.cm-empty-filtered');
+  if (existing) existing.remove();
+  if (visibleCount === 0 && document.getElementById('cmTable')) {
+    const div = document.createElement('div');
+    div.className = 'empty-state cm-empty-filtered';
+    div.style.padding = '40px';
+    div.innerHTML = '<div class="empty-icon">🔍</div><p>Sin movimientos para este filtro</p>';
+    wrap.appendChild(div);
+  }
 }
 
 function filterCuentaMovements(source, btn) {
