@@ -6762,8 +6762,8 @@ function openCuentaMovements(accountId) {
   const movements = [];
 
   /* 1. Sale payments (cobros) */
-  payments.filter(p => p.accountId === accountId).forEach(p => {
-    const sale = sales.find(s => s.id === p.saleId);
+  payments.filter(p => String(p.accountId) === String(accountId)).forEach(p => {
+    const sale = sales.find(s => String(s.id) === String(p.saleId));
     const inv  = sale ? (sale.invoiceNum||sale.invoiceNumber||'#'+sale.id) : '—';
     movements.push({
       date:    p.date || '',
@@ -6776,8 +6776,8 @@ function openCuentaMovements(accountId) {
   });
 
   /* 2. Expense & income transactions */
-  transactions.filter(t => t.accountId === accountId).forEach(t => {
-    const cat = accountingCategories.find(c => c.id === t.categoryId)?.name || '—';
+  transactions.filter(t => String(t.accountId) === String(accountId)).forEach(t => {
+    const cat = accountingCategories.find(c => String(c.id) === String(t.categoryId))?.name || '—';
     movements.push({
       date:   t.date || '',
       type:   t.type === 'income' ? 'in' : 'out',
@@ -6789,7 +6789,7 @@ function openCuentaMovements(accountId) {
   });
 
   /* 3. Commission payouts */
-  commissionPayouts.filter(p => p.accountId === accountId).forEach(p => {
+  commissionPayouts.filter(p => String(p.accountId) === String(accountId)).forEach(p => {
     movements.push({
       date:   p.date || '',
       type:   'out',
@@ -6801,7 +6801,7 @@ function openCuentaMovements(accountId) {
   });
 
   /* 4. Purchase payments */
-  purchasePayments.filter(p => p.accountId === accountId).forEach(p => {
+  purchasePayments.filter(p => String(p.accountId) === String(accountId)).forEach(p => {
     movements.push({
       date:   p.date || '',
       type:   'out',
@@ -6813,8 +6813,8 @@ function openCuentaMovements(accountId) {
   });
 
   /* 5. Account transfers */
-  accountTransfers.filter(t => t.fromAccountId === accountId || t.toAccountId === accountId).forEach(t => {
-    const isOut = t.fromAccountId === accountId;
+  accountTransfers.filter(t => String(t.fromAccountId) === String(accountId) || String(t.toAccountId) === String(accountId)).forEach(t => {
+    const isOut = String(t.fromAccountId) === String(accountId);
     movements.push({
       date:   t.date || '',
       type:   isOut ? 'out' : 'in',
