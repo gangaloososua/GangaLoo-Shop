@@ -7264,14 +7264,90 @@ function renderCategorias(el) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
       <div>
         <div style="font-weight:800;font-size:.9em;text-transform:uppercase;letter-spacing:.07em;color:var(--emerald);margin-bottom:10px;">📈 INGRESOS (${income.length})</div>
-        ${income.map(c => renderCatCard(c)).join('') || '<p style="color:var(--ink-3);font-size:13px;">Sin categorías</p>'}
+        ${renderCatGroup(income)}
       </div>
       <div>
         <div style="font-weight:800;font-size:.9em;text-transform:uppercase;letter-spacing:.07em;color:var(--rose);margin-bottom:10px;">📉 EGRESOS (${expense.length})</div>
-        ${expense.map(c => renderCatCard(c)).join('') || '<p style="color:var(--ink-3);font-size:13px;">Sin categorías</p>'}
+        ${renderCatGroup(expense)}
       </div>
     </div>
   `;
+}
+
+function renderCatGroup(cats) {
+  if (!cats.length) return '<p style="color:var(--ink-3);font-size:13px;">Sin categorías</p>';
+
+  /* Group categories with same name so Courier×4 shows as one block */
+  const groups = {};
+  cats.forEach(c => {
+    const key = c.name;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(c);
+  });
+
+  return Object.entries(groups).map(([name, items]) => {
+    /* Single category — use existing card */
+    if (items.length === 1) return renderCatCard(items[0]);
+
+    /* Multiple with same name — render as one grouped card */
+    const totalAll = items.reduce((s,c) => {
+      return s + transactions.filter(t=>String(t.categoryId)===String(c.id)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+    }, 0);
+    const countAll = items.reduce((s,c) => s + transactions.filter(t=>String(t.categoryId)===String(c.id)).length, 0);
+    const isIncome = items[0].type === 'income';
+    const color = isIncome ? 'var(--emerald)' : 'var(--rose)';
+
+    const subRows = items.map(c => {
+      const label = c.subname || c.scope || c.description || `ID ${c.id}`;
+      const catTxns = transactions.filter(t => String(t.categoryId) === String(c.id));
+      const catTotal = catTxns.reduce((s,t) => s+(parseFloat(t.amount)||0),0);
+      const uid = 'cat_' + String(c.id).replace(/[^a-z0-9]/gi,'_');
+      const canDel = catTxns.length === 0;
+
+      const txRows = catTxns.length ? [...catTxns].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 14px 5px 28px;border-top:1px solid var(--border);background:var(--surface-2);font-size:12px;">
+          <div style="flex:1;min-width:0;">
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.description||'—'}</div>
+            <div style="color:var(--ink-3);font-size:11px;">${formatDate(t.date)} · ${getAccountName(t.accountId)}</div>
+          </div>
+          <div style="font-weight:700;color:${color};white-space:nowrap;margin-left:10px;">${formatDOP(parseFloat(t.amount)||0)}</div>
+        </div>`).join('')
+        : `<div style="padding:6px 14px 6px 28px;font-size:11px;color:var(--ink-3);border-top:1px solid var(--border);">Sin transacciones</div>`;
+
+      return `
+        <div style="border-top:1px solid var(--border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px 8px 20px;cursor:pointer;background:var(--surface-2);"
+               onclick="toggleCatExpand('${uid}')">
+            <div>
+              <span style="font-weight:600;font-size:.88em;">↳ ${label}</span>
+              <span style="font-size:11px;color:var(--ink-3);margin-left:6px;">${catTxns.length} tx</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:700;font-size:.88em;color:${color};">${catTxns.length>0?formatDOP(catTotal):'—'}</span>
+              <span id="${uid}_arrow" style="color:var(--ink-3);font-size:11px;">▼</span>
+              <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openNuevaTransaccionCat('${c.id}','${c.type}')">+ Tx</button>
+              <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();deleteAccountingCat('${c.id}')" ${canDel?'':'disabled'}>✕</button>
+            </div>
+          </div>
+          <div id="${uid}_txns" style="display:none;">${txRows}</div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-md);margin-bottom:10px;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;">
+          <div>
+            <div style="font-weight:700;font-size:.93em;">${name}</div>
+            <div style="font-size:11px;color:var(--ink-3);">${items.length} subcategorías · ${countAll} transacciones</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <span style="font-weight:800;font-size:.95em;color:${color};">${countAll>0?formatDOP(totalAll):'—'}</span>
+            <button class="btn btn-ghost btn-xs" onclick="openNuevaCategoria('${items[0].type}','${name}')">+ Sub</button>
+          </div>
+        </div>
+        ${subRows}
+      </div>`;
+  }).join('');
 }
 
 function renderCatCard(c) {
@@ -7313,7 +7389,7 @@ function renderCatCard(c) {
       <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;"
            onclick="toggleCatExpand('${uid}')">
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;font-size:.93em;">${c.name}</div>
+          <div style="font-weight:700;font-size:.93em;">${c.name}${c.subname ? `<span style="font-weight:400;color:var(--ink-3);"> — ${c.subname}</span>` : ''}</div>
           <div style="font-size:11px;color:var(--ink-3);margin-top:1px;">${catTxns.length} transacción${catTxns.length!==1?'es':''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
@@ -7419,16 +7495,18 @@ function renderCatRow(c) {
   return renderCatCard(c);
 }
 
-function openNuevaCategoria() {
+function openNuevaCategoria(preType, preName) {
   openModal(`
     <div class="modal" style="max-width:400px;">
       <div class="modal-header"><div class="modal-title">📂 Nueva Categoría</div><button class="modal-close" onclick="closeModal()">✕</button></div>
       <div class="modal-body">
-        <div class="form-group"><label class="field-label field-required">Nombre</label><input class="field" id="newCat" placeholder="Nombre de la categoría..."></div>
+        <div class="form-group"><label class="field-label field-required">Nombre</label><input class="field" id="newCat" placeholder="Nombre de la categoría..." value="${preName||''}"></div>
+        <div class="form-group" style="margin-top:12px;"><label class="field-label">Subcategoría / Detalle</label>
+          <input class="field" id="newCatSub" placeholder="Ej: Sosúa, Cabarete, Personal... (opcional)"></div>
         <div class="form-group" style="margin-top:12px;"><label class="field-label">Tipo</label>
           <select class="field" id="newCatType">
-            <option value="income">Ingreso</option>
-            <option value="expense">Egreso</option>
+            <option value="income" ${preType==='income'?'selected':''}>Ingreso</option>
+            <option value="expense" ${preType==='expense'?'selected':''}>Egreso</option>
           </select></div>
       </div>
       <div class="modal-footer">
@@ -7440,10 +7518,13 @@ function openNuevaCategoria() {
 }
 
 function saveNuevaCategoria() {
-  const name = document.getElementById('newCat').value.trim();
-  const type = document.getElementById('newCatType').value;
+  const name    = document.getElementById('newCat').value.trim();
+  const subname = document.getElementById('newCatSub')?.value.trim() || '';
+  const type    = document.getElementById('newCatType').value;
   if (!name) { showToast('Nombre obligatorio','error'); return; }
-  accountingCategories.push({ id: generateId(), name, type, subcategories: [] });
+  const entry = { id: generateId(), name, type, subcategories: [] };
+  if (subname) entry.subname = subname;
+  accountingCategories.push(entry);
   debouncedSave();
   closeModal();
   renderContabTab('categorias');
