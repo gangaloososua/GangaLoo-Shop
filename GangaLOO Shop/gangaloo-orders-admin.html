@@ -312,8 +312,19 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-he
 </div>
 
 <script>
-// ── CONFIG ──
-let CFG = JSON.parse(localStorage.getItem('gl_cfg') || '{}');
+// ── CONFIG — pre-configured for GangaLoo ──
+const _HARDCODED_CFG = {
+  url:     'https://xnbkwczolkinurohloxj.supabase.co',
+  key:     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes',
+  baseurl: 'https://gangaloo.netlify.app/gangaloo-client-form.html',
+  waphone: '18292867868'
+};
+let CFG = { ..._HARDCODED_CFG, ...JSON.parse(localStorage.getItem('gl_cfg') || '{}') };
+// Always ensure hardcoded values are present
+CFG.url     = CFG.url     || _HARDCODED_CFG.url;
+CFG.key     = CFG.key     || _HARDCODED_CFG.key;
+CFG.baseurl = CFG.baseurl || _HARDCODED_CFG.baseurl;
+CFG.waphone = CFG.waphone || _HARDCODED_CFG.waphone;
 let orders = [];
 let selectedId = null;
 let filterMode = 'all';
@@ -342,11 +353,10 @@ function saveSetup() {
 }
 
 async function initApp() {
-  if (!CFG.url || !CFG.key) { openSetup(); return; }
-  // Ensure table exists (will silently fail if already exists)
-  await ensureTable();
+  // Always use hardcoded credentials — no setup needed
   document.getElementById('setupScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'block';
+  await ensureTable();
   await loadOrders();
   startPolling();
 }
