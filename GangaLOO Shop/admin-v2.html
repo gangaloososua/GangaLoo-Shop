@@ -4329,29 +4329,109 @@ function addNuevaCompraLine() {
   const div = document.createElement('div');
   div.className = 'nc-line';
   div.dataset.idx = idx;
-  div.style.cssText = 'display:grid;grid-template-columns:2fr 70px 110px 100px 80px 28px;gap:6px;align-items:center;margin-bottom:8px;';
-  const prodOpts = `<option value="">— Producto —</option>` + products.map(p=>`<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''}</option>`).join('');
+  div.style.cssText = 'background:var(--surface-2);border-radius:var(--r-sm);padding:10px;margin-bottom:10px;';
+
+  const catOpts = `<option value="">Todas las categorías</option>` +
+    categories.filter(c=>!c.parentId).map(c=>`<option value="${c.id}">${c.icon||''}${c.name}</option>`).join('');
+
   div.innerHTML = `
-    <select class="field" id="nc_prod_${idx}" style="font-size:12px;" onchange="calcNuevaCompra()">${prodOpts}</select>
-    <input class="field" type="number" id="nc_qty_${idx}" placeholder="Cant." min="1" value="1" style="text-align:center;font-size:12px;" oninput="calcNuevaCompra()">
-    <div class="input-group">
-      <span class="input-addon" style="font-size:10px;">USD</span>
-      <input class="field" type="number" id="nc_unit_${idx}" placeholder="0.00" step="0.01" min="0" style="font-size:12px;" oninput="calcNuevaCompra()">
+    <div style="display:grid;grid-template-columns:1fr 1fr 70px 110px 90px 28px;gap:6px;align-items:center;margin-bottom:6px;">
+      <!-- Category filter -->
+      <select class="field" id="nc_cat_${idx}" style="font-size:12px;" onchange="filterNcProducts(${idx})">
+        ${catOpts}
+      </select>
+      <!-- Search + dropdown -->
+      <div style="position:relative;">
+        <input class="field" type="text" id="nc_search_${idx}" placeholder="Buscar producto..." style="font-size:12px;"
+          oninput="filterNcProducts(${idx})" onfocus="filterNcProducts(${idx})" autocomplete="off">
+        <input type="hidden" id="nc_prod_${idx}">
+        <div id="nc_results_${idx}" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1.5px solid var(--violet);border-radius:var(--r-sm);max-height:220px;overflow-y:auto;z-index:999;box-shadow:var(--sh-xl);"></div>
+      </div>
+      <!-- Qty -->
+      <input class="field" type="number" id="nc_qty_${idx}" placeholder="Cant." min="1" value="1"
+        style="text-align:center;font-size:12px;" oninput="calcNuevaCompra()">
+      <!-- Unit price USD -->
+      <div class="input-group">
+        <span class="input-addon" style="font-size:10px;">USD</span>
+        <input class="field" type="number" id="nc_unit_${idx}" placeholder="0.00" step="0.01" min="0"
+          style="font-size:12px;" oninput="calcNuevaCompra()">
+      </div>
+      <!-- Cashback -->
+      <div class="input-group">
+        <span class="input-addon" style="font-size:10px;">CB%</span>
+        <input class="field" type="number" id="nc_cb_${idx}" placeholder="0" step="0.1" min="0" max="100"
+          style="font-size:12px;" oninput="calcNuevaCompra()">
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="this.closest('.nc-line').remove();calcNuevaCompra()">✕</button>
     </div>
-    <div class="input-group">
-      <span class="input-addon" style="font-size:10px;">Cashback%</span>
-      <input class="field" type="number" id="nc_cb_${idx}" placeholder="0" step="0.1" min="0" max="100" style="font-size:12px;" oninput="calcNuevaCompra()">
-    </div>
+    <!-- Unit cost display -->
     <div style="font-size:11px;color:var(--violet);font-weight:700;text-align:right;" id="nc_unitcost_${idx}">—</div>
-    <button class="btn btn-ghost btn-xs" onclick="this.closest('.nc-line').remove();calcNuevaCompra()">✕</button>
   `;
   container.appendChild(div);
-  // Auto-fill price when product selected
-  document.getElementById(`nc_prod_${idx}`).addEventListener('change', function() {
-    const p = products.find(x=>String(x.id)===String(this.value));
-    if (p?.baseCostUSD) document.getElementById(`nc_unit_${idx}`).value = p.baseCostUSD.toFixed(2);
-    calcNuevaCompra();
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function handler(e) {
+    const res = document.getElementById(`nc_results_${idx}`);
+    const inp = document.getElementById(`nc_search_${idx}`);
+    if (res && !res.contains(e.target) && e.target !== inp) res.style.display = 'none';
   });
+}
+
+function filterNcProducts(idx) {
+  const catId  = document.getElementById(`nc_cat_${idx}`)?.value || '';
+  const search = (document.getElementById(`nc_search_${idx}`)?.value || '').toLowerCase().trim();
+  const res    = document.getElementById(`nc_results_${idx}`);
+  if (!res) return;
+
+  // Need at least category or 1 char to show results
+  if (!catId && search.length < 1) { res.style.display = 'none'; return; }
+
+  let filtered = products;
+  if (catId) {
+    // Include products in this category OR its subcategories
+    const subIds = categories.filter(c=>String(c.parentId)===String(catId)).map(c=>String(c.id));
+    const allIds = [String(catId), ...subIds];
+    filtered = filtered.filter(p => {
+      const pCats = (p.categoryIds?.length ? p.categoryIds : [p.categoryId]).map(String);
+      return pCats.some(id => allIds.includes(id));
+    });
+  }
+  if (search) {
+    filtered = filtered.filter(p =>
+      (p.name||'').toLowerCase().includes(search) ||
+      (p.sku||'').toLowerCase().includes(search)
+    );
+  }
+
+  if (!filtered.length) {
+    res.innerHTML = `<div style="padding:10px;color:var(--ink-3);font-size:12px;">Sin resultados</div>`;
+    res.style.display = 'block';
+    return;
+  }
+
+  res.innerHTML = filtered.slice(0, 30).map(p => {
+    const cat = categories.find(c => String(c.id) === String(p.categoryId) ||
+      (p.categoryIds||[]).map(String).includes(String(c.id)));
+    return `<div data-id="${p.id}" data-name="${p.name}" data-cost="${p.baseCostUSD||0}"
+      style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px;"
+      onmouseover="this.style.background='var(--violet-m)'" onmouseout="this.style.background=''"
+      onclick="selectNcProduct(${idx}, this)">
+      <div style="font-weight:600;">${p.name}</div>
+      <div style="font-size:11px;color:var(--ink-3);">${p.sku?'SKU: '+p.sku+' · ':''}${cat?cat.name:''}</div>
+    </div>`;
+  }).join('');
+  res.style.display = 'block';
+}
+
+function selectNcProduct(idx, el) {
+  const id   = el.dataset.id;
+  const name = el.dataset.name;
+  const cost = parseFloat(el.dataset.cost) || 0;
+  document.getElementById(`nc_prod_${idx}`).value   = id;
+  document.getElementById(`nc_search_${idx}`).value = name;
+  document.getElementById(`nc_results_${idx}`).style.display = 'none';
+  if (cost) document.getElementById(`nc_unit_${idx}`).value = cost.toFixed(2);
+  calcNuevaCompra();
 }
 
 function calcNuevaCompra() {
