@@ -4229,12 +4229,24 @@ function setCompraStatus(lotNumber, newStatus) {
 }
 
 /* ─── EDIT COMPRA ─── */
+function getNextLotNumber() {
+  let max = 0;
+  purchases.forEach(p => {
+    const code = p.lotNumber || p.lotNum || '';
+    if (!code) return;
+    const parts = code.split('-');
+    const last = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(last) && last > max) max = last;
+  });
+  return 'LOT-' + String(max + 1).padStart(4, '0');
+}
+
 function openNuevaCompra() {
   const whOpts = warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('');
   const stOpts = Object.entries(COMPRA_STATUSES).map(([val,s])=>`<option value="${val}" ${val==='pending'?'selected':''}>${s.label}</option>`).join('');
   const mk     = monthKeyDR();
   const defRate= monthlyRates[mk]?.USD || '';
-  const lotNum = 'LOT-' + Date.now().toString(36).toUpperCase();
+  const lotNum = getNextLotNumber();
 
   openModal(`
     <div class="modal modal-xl" style="max-width:1000px;">
