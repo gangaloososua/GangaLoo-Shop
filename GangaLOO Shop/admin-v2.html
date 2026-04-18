@@ -7708,7 +7708,7 @@ function toggleCuenta(id, active) {
 
 function openAjusteCuenta(id, type) {
   const a    = accounts.find(x => x.id === id);
-  const catOpts = accountingCategories.filter(c => c.type === (type==='in'?'income':'expense')).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  const catOpts = accountingCategories.filter(c => c.type === (type==='in'?'income':'expense')).map(c => `<option value="${c.id}">${c.name}${c.subname ? ' — ' + c.subname : ''}</option>`).join('');
   openModal(`
     <div class="modal">
       <div class="modal-header">
@@ -8124,7 +8124,10 @@ function updateNtCatOptions() {
   const type = document.getElementById('ntType')?.value;
   const sel  = document.getElementById('ntCat');
   if (!sel) return;
-  sel.innerHTML = accountingCategories.filter(c=>c.type===type).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  sel.innerHTML = accountingCategories
+    .filter(c => c.type === type)
+    .map(c => `<option value="${c.id}">${c.name}${c.subname ? ' — ' + c.subname : ''}</option>`)
+    .join('');
 }
 
 function saveNuevaTransaccion() {
