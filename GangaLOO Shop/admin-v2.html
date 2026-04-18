@@ -4230,54 +4230,88 @@ function setCompraStatus(lotNumber, newStatus) {
 
 /* ─── EDIT COMPRA ─── */
 function openNuevaCompra() {
-  const whOpts   = warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('');
-  const stOpts   = Object.entries(COMPRA_STATUSES).map(([val,s])=>`<option value="${val}" ${val==='pending'?'selected':''}>${s.label}</option>`).join('');
-  const prodOpts = `<option value="">— Seleccionar producto —</option>` + products.map(p=>`<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''}</option>`).join('');
-  const lotNum   = 'LOT-' + Date.now().toString(36).toUpperCase();
+  const whOpts = warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('');
+  const stOpts = Object.entries(COMPRA_STATUSES).map(([val,s])=>`<option value="${val}" ${val==='pending'?'selected':''}>${s.label}</option>`).join('');
+  const mk     = monthKeyDR();
+  const defRate= monthlyRates[mk]?.USD || '';
+  const lotNum = 'LOT-' + Date.now().toString(36).toUpperCase();
 
   openModal(`
-    <div class="modal modal-lg">
+    <div class="modal modal-xl" style="max-width:1000px;">
       <div class="modal-header">
         <div class="modal-title">📦 Nueva Orden de Compra</div>
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
-      <div class="modal-body">
-        <div class="form-grid" style="grid-template-columns:1fr 1fr;">
-          <div class="form-group">
-            <label class="field-label">N° de Lote</label>
-            <input class="field" id="nc_lot" value="${lotNum}">
+      <div class="modal-body" style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start;">
+
+        <!-- LEFT: form -->
+        <div>
+          <!-- Order meta -->
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="form-group"><label class="field-label">N° de Lote</label>
+              <input class="field" id="nc_lot" value="${lotNum}"></div>
+            <div class="form-group"><label class="field-label">Fecha</label>
+              <input class="field" type="date" id="nc_date" value="${todayDR()}"></div>
+            <div class="form-group"><label class="field-label">Proveedor</label>
+              <input class="field" id="nc_supplier" placeholder="Ej: AliExpress, Temu..."></div>
+            <div class="form-group"><label class="field-label">Almacén destino</label>
+              <select class="field" id="nc_warehouse">${whOpts}</select></div>
+            <div class="form-group"><label class="field-label">Estado</label>
+              <select class="field" id="nc_status">${stOpts}</select></div>
+            <div class="form-group"><label class="field-label">Tracking</label>
+              <input class="field" id="nc_tracking" placeholder="N° de seguimiento"></div>
+            <div class="form-group full"><label class="field-label">Notas</label>
+              <textarea class="field" id="nc_notes" rows="2" placeholder="Notas internas..."></textarea></div>
           </div>
-          <div class="form-group">
-            <label class="field-label">Fecha</label>
-            <input class="field" type="date" id="nc_date" value="${todayDR()}">
+
+          <!-- Cost inputs -->
+          <div style="margin-top:16px;padding:14px;background:var(--surface-2);border-radius:var(--r-md);">
+            <div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin-bottom:12px;">💱 Costos y Tipo de Cambio</div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;">
+              <div class="form-group">
+                <label class="field-label">Tasa USD → DOP</label>
+                <input class="field" type="number" id="nc_rate" value="${defRate}" placeholder="58.50" step="0.01" oninput="calcNuevaCompra()">
+              </div>
+              <div class="form-group">
+                <label class="field-label">Envío total (USD)</label>
+                <input class="field" type="number" id="nc_shipping" placeholder="0.00" step="0.01" min="0" oninput="calcNuevaCompra()">
+              </div>
+              <div class="form-group">
+                <label class="field-label">Impuestos (USD)</label>
+                <input class="field" type="number" id="nc_tax" placeholder="0.00" step="0.01" min="0" oninput="calcNuevaCompra()">
+              </div>
+              <div class="form-group">
+                <label class="field-label">Descuento (USD)</label>
+                <input class="field" type="number" id="nc_discount" placeholder="0.00" step="0.01" min="0" oninput="calcNuevaCompra()">
+              </div>
+              <div class="form-group">
+                <label class="field-label">Monto real pagado (DOP)</label>
+                <div class="field-hint" style="margin-bottom:4px;">Lo que cobró el banco. Si lo ingresas, reemplaza el cálculo USD×tasa y la diferencia se registra como cargo bancario.</div>
+                <input class="field" type="number" id="nc_paid" placeholder="Dejar en blanco si no has pagado" step="0.01" min="0" oninput="calcNuevaCompra()">
+              </div>
+              <div class="form-group">
+                <label class="field-label">Transporte DOP</label>
+                <input class="field" type="number" id="nc_transport" placeholder="0.00" step="0.01" min="0" oninput="calcNuevaCompra()">
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="field-label">Proveedor</label>
-            <input class="field" id="nc_supplier" placeholder="Ej: AliExpress, Amazon...">
-          </div>
-          <div class="form-group">
-            <label class="field-label">Almacén destino</label>
-            <select class="field" id="nc_warehouse">${whOpts}</select>
-          </div>
-          <div class="form-group">
-            <label class="field-label">Estado</label>
-            <select class="field" id="nc_status">${stOpts}</select>
-          </div>
-          <div class="form-group">
-            <label class="field-label">Tracking / Referencia</label>
-            <input class="field" id="nc_tracking" placeholder="Número de seguimiento (opcional)">
-          </div>
-          <div class="form-group full">
-            <label class="field-label">Notas</label>
-            <textarea class="field" id="nc_notes" rows="2" placeholder="Notas internas..."></textarea>
+
+          <!-- Products -->
+          <div style="margin-top:16px;">
+            <div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin-bottom:8px;">📋 Productos</div>
+            <div id="nc_lines"></div>
+            <button class="btn btn-ghost btn-sm" onclick="addNuevaCompraLine()" style="margin-top:6px;">+ Agregar producto</button>
           </div>
         </div>
 
-        <div class="divider-label" style="margin:16px 0 10px;">Productos</div>
-        <div id="nc_lines">
-          <!-- Lines added dynamically -->
+        <!-- RIGHT: live breakdown -->
+        <div style="position:sticky;top:0;">
+          <div id="nc_breakdown" style="background:var(--surface-2);border-radius:var(--r-md);padding:16px;font-size:13px;">
+            <div style="font-weight:700;margin-bottom:12px;color:var(--violet);">📊 Resumen de Costos</div>
+            <div style="color:var(--ink-3);font-style:italic;">Ingresa tasa de cambio y productos para ver el cálculo...</div>
+          </div>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="addNuevaCompraLine()" style="margin-top:8px;">+ Agregar producto</button>
+
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -4285,27 +4319,143 @@ function openNuevaCompra() {
       </div>
     </div>
   `);
-  addNuevaCompraLine(); // start with one line
+  addNuevaCompraLine();
 }
 
 function addNuevaCompraLine() {
   const container = document.getElementById('nc_lines');
   if (!container) return;
   const idx = container.children.length;
-  const prodOpts = `<option value="">— Producto —</option>` + products.map(p=>`<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''}</option>`).join('');
   const div = document.createElement('div');
   div.className = 'nc-line';
-  div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 110px 30px;gap:8px;align-items:center;margin-bottom:8px;';
+  div.dataset.idx = idx;
+  div.style.cssText = 'display:grid;grid-template-columns:2fr 70px 110px 100px 80px 28px;gap:6px;align-items:center;margin-bottom:8px;';
+  const prodOpts = `<option value="">— Producto —</option>` + products.map(p=>`<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''}</option>`).join('');
   div.innerHTML = `
-    <select class="field" id="nc_prod_${idx}" style="font-size:13px;">${prodOpts}</select>
-    <input class="field" type="number" id="nc_qty_${idx}" placeholder="Cant." min="1" value="1" style="text-align:center;">
+    <select class="field" id="nc_prod_${idx}" style="font-size:12px;" onchange="calcNuevaCompra()">${prodOpts}</select>
+    <input class="field" type="number" id="nc_qty_${idx}" placeholder="Cant." min="1" value="1" style="text-align:center;font-size:12px;" oninput="calcNuevaCompra()">
     <div class="input-group">
-      <span class="input-addon" style="font-size:11px;">RD$</span>
-      <input class="field" type="number" id="nc_cost_${idx}" placeholder="Costo/u" step="0.01" min="0">
+      <span class="input-addon" style="font-size:10px;">USD</span>
+      <input class="field" type="number" id="nc_unit_${idx}" placeholder="0.00" step="0.01" min="0" style="font-size:12px;" oninput="calcNuevaCompra()">
     </div>
-    <button class="btn btn-ghost btn-xs" onclick="this.parentElement.remove()" title="Eliminar">✕</button>
+    <div class="input-group">
+      <span class="input-addon" style="font-size:10px;">Cashback%</span>
+      <input class="field" type="number" id="nc_cb_${idx}" placeholder="0" step="0.1" min="0" max="100" style="font-size:12px;" oninput="calcNuevaCompra()">
+    </div>
+    <div style="font-size:11px;color:var(--violet);font-weight:700;text-align:right;" id="nc_unitcost_${idx}">—</div>
+    <button class="btn btn-ghost btn-xs" onclick="this.closest('.nc-line').remove();calcNuevaCompra()">✕</button>
   `;
   container.appendChild(div);
+  // Auto-fill price when product selected
+  document.getElementById(`nc_prod_${idx}`).addEventListener('change', function() {
+    const p = products.find(x=>String(x.id)===String(this.value));
+    if (p?.baseCostUSD) document.getElementById(`nc_unit_${idx}`).value = p.baseCostUSD.toFixed(2);
+    calcNuevaCompra();
+  });
+}
+
+function calcNuevaCompra() {
+  const rate      = parseFloat(document.getElementById('nc_rate')?.value)     || 0;
+  const shipping  = parseFloat(document.getElementById('nc_shipping')?.value) || 0;
+  const tax       = parseFloat(document.getElementById('nc_tax')?.value)       || 0;
+  const discount  = parseFloat(document.getElementById('nc_discount')?.value) || 0;
+  const paid      = parseFloat(document.getElementById('nc_paid')?.value)      || 0;
+  const transport = parseFloat(document.getElementById('nc_transport')?.value) || 0;
+  const bd        = document.getElementById('nc_breakdown');
+  if (!bd) return;
+
+  if (!rate) { bd.innerHTML = '<div style="color:var(--ink-3);font-style:italic;">Ingresa la tasa de cambio USD → DOP</div>'; return; }
+
+  // Collect lines
+  const lines = [...document.querySelectorAll('#nc_lines .nc-line')];
+  const items = [];
+  let totalProductCostUSD = 0;
+
+  lines.forEach(line => {
+    const idx     = line.dataset.idx;
+    const prodId  = document.getElementById(`nc_prod_${idx}`)?.value;
+    const qty     = parseFloat(document.getElementById(`nc_qty_${idx}`)?.value)  || 0;
+    const unit    = parseFloat(document.getElementById(`nc_unit_${idx}`)?.value) || 0;
+    const cb      = parseFloat(document.getElementById(`nc_cb_${idx}`)?.value)   || 0;
+    if (!prodId || qty <= 0 || unit <= 0) return;
+    const productCostUSD = unit * qty;
+    totalProductCostUSD += productCostUSD;
+    items.push({ idx, prodId, qty, unit, productCostUSD, cb });
+  });
+
+  if (!items.length) { bd.innerHTML = '<div style="color:var(--ink-3);font-style:italic;">Agrega productos para ver el cálculo</div>'; return; }
+
+  const totalUSD    = totalProductCostUSD + shipping - discount + tax;
+  const calcDOP     = totalUSD * rate;
+  const bankFee     = paid > 0 ? (paid - calcDOP) : 0;
+  const totalDOP    = calcDOP + bankFee + transport;
+
+  // Distribute costs proportionally per item
+  items.forEach(item => {
+    const proportion      = item.productCostUSD / totalProductCostUSD;
+    const shippingShare   = shipping  * proportion;
+    const discountShare   = discount  * proportion;
+    const taxShare        = tax       * proportion;
+    const subtotalUSD     = item.productCostUSD + shippingShare - discountShare + taxShare;
+    const bankShare       = bankFee   * (subtotalUSD / totalUSD);
+    const transportShare  = transport * proportion;
+    const itemTotalDOP    = (subtotalUSD * rate) + bankShare + transportShare;
+    const unitCostDOP     = itemTotalDOP / item.qty;
+    const cashbackAmt     = itemTotalDOP * (item.cb / 100);
+    item.unitCostDOP      = unitCostDOP;
+    item.itemTotalDOP     = itemTotalDOP;
+    item.cashbackAmt      = cashbackAmt;
+    item.subtotalUSD      = subtotalUSD;
+    // Update the per-line unit cost display
+    const el = document.getElementById(`nc_unitcost_${item.idx}`);
+    if (el) el.textContent = 'RD$ ' + unitCostDOP.toFixed(0);
+  });
+
+  const totalCashback = items.reduce((s,i) => s+i.cashbackAmt, 0);
+
+  // Render breakdown
+  const row = (label, val, color='') => `
+    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12.5px;">
+      <span style="color:var(--ink-3);">${label}</span>
+      <span style="font-weight:600;${color?'color:'+color+';':''}">${val}</span>
+    </div>`;
+  const fUSD = v => `$${v.toFixed(2)}`;
+  const fDOP = v => `RD$ ${v.toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+
+  let productRows = items.map(item => {
+    const prod = products.find(p=>String(p.id)===String(item.prodId));
+    return `<div style="background:var(--surface);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:12px;">
+      <div style="font-weight:700;margin-bottom:4px;">${prod?.name||'Producto'} × ${item.qty}</div>
+      <div style="display:flex;justify-content:space-between;color:var(--ink-3);">
+        <span>Subtotal USD: ${fUSD(item.subtotalUSD)}</span>
+        <span style="color:var(--violet);font-weight:700;">Costo/u: ${fDOP(item.unitCostDOP)}</span>
+      </div>
+      ${item.cb>0?`<div style="color:var(--amber);font-size:11px;">Cashback ${item.cb}%: −${fDOP(item.cashbackAmt)}</div>`:''}
+    </div>`;
+  }).join('');
+
+  bd.innerHTML = `
+    <div style="font-weight:700;margin-bottom:10px;color:var(--violet);">📊 Resumen de Costos</div>
+    ${productRows}
+    <div style="margin-top:10px;">
+      ${row('Total productos (USD)', fUSD(totalProductCostUSD))}
+      ${shipping  ? row('+ Envío (USD)',     fUSD(shipping))  : ''}
+      ${discount  ? row('− Descuento (USD)', fUSD(discount), 'var(--emerald)') : ''}
+      ${tax       ? row('+ Impuestos (USD)', fUSD(tax))       : ''}
+      ${row('= Total USD', fUSD(totalUSD), 'var(--violet)')}
+      ${row('× Tasa ' + rate, fDOP(calcDOP), 'var(--ink-3)')}
+      ${paid > 0
+        ? row('✅ Monto real pagado DOP', fDOP(paid), 'var(--violet)')
+          + row(`Cargo bancario (${bankFee>=0?'+':''}${fDOP(bankFee)})`, bankFee>=0?'cargo extra':'descuento', bankFee>=0?'var(--rose)':'var(--emerald)')
+        : `<div style="padding:5px 0;font-size:12px;color:var(--ink-3);font-style:italic;">Monto pagado: pendiente — usando cálculo USD×tasa</div>`}
+      ${transport ? row('+ Transporte DOP', fDOP(transport)) : ''}
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:800;font-size:14px;border-top:2px solid var(--border);margin-top:4px;">
+        <span>COSTO TOTAL ${paid>0||transport>0?'FINAL':'BASE'} DOP</span>
+        <span style="color:var(--violet);">${fDOP(totalDOP)}</span>
+      </div>
+      ${totalCashback>0 ? `<div style="color:var(--amber);font-size:12px;margin-top:4px;">💰 Cashback total: ${fDOP(totalCashback)}</div>` : ''}
+    </div>
+  `;
 }
 
 function saveNuevaCompra() {
@@ -4316,47 +4466,85 @@ function saveNuevaCompra() {
   const status      = document.getElementById('nc_status').value;
   const tracking    = document.getElementById('nc_tracking').value.trim();
   const notes       = document.getElementById('nc_notes').value.trim();
+  const rate        = parseFloat(document.getElementById('nc_rate')?.value)     || 1;
+  const shipping    = parseFloat(document.getElementById('nc_shipping')?.value) || 0;
+  const tax         = parseFloat(document.getElementById('nc_tax')?.value)       || 0;
+  const discount    = parseFloat(document.getElementById('nc_discount')?.value) || 0;
+  const paid        = parseFloat(document.getElementById('nc_paid')?.value)      || 0;
+  const transport   = parseFloat(document.getElementById('nc_transport')?.value) || 0;
 
   if (!lotNumber || !date || !warehouseId) {
     showToast('Lote, fecha y almacén son obligatorios', 'error'); return;
   }
 
-  const lines = document.querySelectorAll('#nc_lines .nc-line');
+  const lines = [...document.querySelectorAll('#nc_lines .nc-line')];
   if (!lines.length) { showToast('Agrega al menos un producto', 'error'); return; }
 
-  let added = 0;
-  lines.forEach((line, idx) => {
-    const productId = document.getElementById(`nc_prod_${idx}`)?.value;
-    const qty       = parseFloat(document.getElementById(`nc_qty_${idx}`)?.value) || 0;
-    const costDOP   = parseFloat(document.getElementById(`nc_cost_${idx}`)?.value) || 0;
-    if (!productId || qty <= 0) return;
+  // Gather valid items
+  const items = [];
+  let totalProductCostUSD = 0;
+  lines.forEach(line => {
+    const idx    = line.dataset.idx;
+    const prodId = document.getElementById(`nc_prod_${idx}`)?.value;
+    const qty    = parseFloat(document.getElementById(`nc_qty_${idx}`)?.value)  || 0;
+    const unit   = parseFloat(document.getElementById(`nc_unit_${idx}`)?.value) || 0;
+    const cb     = parseFloat(document.getElementById(`nc_cb_${idx}`)?.value)   || 0;
+    if (!prodId || qty <= 0) return;
+    const productCostUSD = unit * qty;
+    totalProductCostUSD += productCostUSD;
+    items.push({ prodId, qty, unit, productCostUSD, cb });
+  });
+
+  if (!items.length) { showToast('Ningún producto válido', 'error'); return; }
+
+  const totalUSD = totalProductCostUSD + shipping - discount + tax;
+  const calcDOP  = totalUSD * rate;
+  const bankFee  = paid > 0 ? (paid - calcDOP) : 0;
+
+  // Calculate per-item costs and save
+  items.forEach(item => {
+    const proportion     = totalProductCostUSD > 0 ? item.productCostUSD / totalProductCostUSD : 1 / items.length;
+    const shippingShare  = shipping  * proportion;
+    const discountShare  = discount  * proportion;
+    const taxShare       = tax       * proportion;
+    const subtotalUSD    = item.productCostUSD + shippingShare - discountShare + taxShare;
+    const bankShare      = totalUSD > 0 ? bankFee * (subtotalUSD / totalUSD) : 0;
+    const transportShare = transport * proportion;
+    const itemTotalDOP   = (subtotalUSD * rate) + bankShare + transportShare;
+    const unitCostDOP    = item.qty > 0 ? itemTotalDOP / item.qty : 0;
+    const cashbackAmt    = itemTotalDOP * (item.cb / 100);
+
     purchases.push({
-      id:           generateId(),
+      id:              generateId(),
       lotNumber,
-      productId,
+      productId:       item.prodId,
       warehouseId,
-      qty,
-      remainingQty: status === 'delivered' ? qty : 0,
-      costDOP,
-      totalCostDOP: costDOP * qty,
-      costUSD:      0,
-      exchangeRate: 1,
+      qty:             item.qty,
+      remainingQty:    status === 'delivered' ? item.qty : 0,
+      costDOP:         unitCostDOP,
+      totalCostDOP:    itemTotalDOP,
+      costUSD:         item.unit,
+      exchangeRate:    rate,
+      shippingShare,
+      discountShare,
+      taxShare,
+      bankFeeShare:    bankShare,
+      transportShare,
+      cashbackPercent: item.cb,
+      cashbackAmount:  cashbackAmt,
       supplier,
       date,
       status,
-      trackingNumber: tracking,
+      trackingNumber:  tracking,
       notes,
     });
-    added++;
   });
-
-  if (!added) { showToast('Ningún producto válido agregado', 'error'); return; }
 
   debouncedSave();
   renderComprasKPI();
   renderComprasList();
   closeModal();
-  showToast(`Orden ${lotNumber} creada con ${added} producto${added!==1?'s':''} ✅`, 'success');
+  showToast(`Orden ${lotNumber} creada con ${items.length} producto${items.length!==1?'s':''} ✅`, 'success');
 }
 
 function openEditCompra(lotNumber) {
