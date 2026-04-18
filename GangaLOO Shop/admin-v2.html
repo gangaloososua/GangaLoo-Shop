@@ -1112,13 +1112,18 @@ table.erp-table th.text-center, table.erp-table td.text-center { text-align: cen
       <div class="login-logo-name">Ganga<span>Loo</span> ERP</div>
     </div>
     <h2>Bienvenido</h2>
-    <p>Ingresa la contraseña para acceder al sistema</p>
+    <p>Ingresa tus credenciales de administrador</p>
     <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="admin@gangaloo.com"
+             onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+    </div>
+    <div class="login-field" style="margin-top:12px;">
       <label>Contraseña</label>
       <input type="password" id="loginPass" placeholder="••••••••••••"
              onkeydown="if(event.key==='Enter')doLogin()">
     </div>
-    <button class="login-btn" onclick="doLogin()">Entrar al Sistema →</button>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Entrar al Sistema →</button>
     <div class="login-error" id="loginErr"></div>
     <div class="login-version">GangaLoo ERP v2 — Versión 2.0 · 2026</div>
   </div>
@@ -1476,24 +1481,56 @@ const PANEL_META = {
 };
 
 /* ─── LOGIN ─── */
-function doLogin() {
-  const pass = document.getElementById('loginPass').value.trim();
-  const err  = document.getElementById('loginErr');
-  if (pass === 'gangaloo2026') {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('app').classList.add('visible');
-    loadAllData();
-  } else {
-    err.textContent = 'Contraseña incorrecta. Inténtalo de nuevo.';
-    document.getElementById('loginPass').focus();
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  const err   = document.getElementById('loginErr');
+  const btn   = document.getElementById('loginBtn');
+  err.textContent = '';
+  if (!email || !pass) { err.textContent = 'Ingresa email y contraseña.'; return; }
+  btn.textContent = 'Entrando...'; btn.disabled = true;
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) { err.textContent = error.message; btn.textContent = 'Entrar al Sistema →'; btn.disabled = false; return; }
+    const { data: profile } = await sb.from('profiles').select('role').eq('id', data.user.id).single();
+    const role = profile?.role;
+    if (role === 'admin') {
+      currentUser = data.user;
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('app').classList.add('visible');
+      loadAllData();
+    } else {
+      await sb.auth.signOut();
+      err.textContent = 'Acceso denegado. Solo administradores pueden entrar aquí.';
+    }
+  } catch(e) {
+    err.textContent = 'Error: ' + e.message;
   }
+  btn.textContent = 'Entrar al Sistema →'; btn.disabled = false;
 }
 
-function doLogout() {
+async function checkExistingSession() {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;
+    const { data: profile } = await sb.from('profiles').select('role').eq('id', session.user.id).single();
+    if (profile?.role === 'admin') {
+      currentUser = session.user;
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('app').classList.add('visible');
+      loadAllData();
+    }
+  } catch(e) { /* no session */ }
+}
+
+async function doLogout() {
   if (!confirm('¿Cerrar sesión?')) return;
+  await sb.auth.signOut();
+  currentUser = null;
   document.getElementById('app').classList.remove('visible');
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('loginPass').value = '';
+  document.getElementById('loginEmail').value = '';
 }
 
 /* ─── SIDEBAR TOGGLE ─── */
@@ -2637,8 +2674,10 @@ function panelLoading(name) {
 
 /* ─── INIT ─── */
 window.addEventListener('DOMContentLoaded', () => {
-  /* Auto-focus password field */
-  document.getElementById('loginPass').focus();
+  /* Check if already logged in (persisted session) */
+  checkExistingSession();
+  /* Auto-focus email field */
+  document.getElementById('loginEmail').focus();
 });
 /* ═══════════════════════════════════════════════════════════════
    PART 2: VENTAS PANEL — Full invoice creation & management
