@@ -1545,6 +1545,11 @@ async function loadAllData() {
       accountTransfers     = JSON.parse(row.account_transfers    || '[]');
       purchasePayments     = JSON.parse(row.purchase_payments    || '[]');
       monthlyRates         = JSON.parse(row.monthly_rates        || '{}');
+      try { storeConfig    = JSON.parse(row.store_config         || '{}'); } catch(e) { storeConfig = {}; }
+      /* Normalize old snake_case keys from old admin to camelCase */
+      if (storeConfig.guest_markup   !== undefined && storeConfig.guestMarkup  === undefined) storeConfig.guestMarkup  = storeConfig.guest_markup;
+      if (storeConfig.club_discount  !== undefined && storeConfig.clubDiscount === undefined) storeConfig.clubDiscount = storeConfig.club_discount;
+      if (storeConfig.loyalty_rate   !== undefined && storeConfig.loyaltyRate  === undefined) storeConfig.loyaltyRate  = storeConfig.loyalty_rate;
     }
     // Seed defaults if missing
     seedDefaults();
@@ -1578,6 +1583,7 @@ async function saveData() {
     account_transfers:    JSON.stringify(accountTransfers),
     purchase_payments:    JSON.stringify(purchasePayments),
     monthly_rates:        JSON.stringify(monthlyRates),
+    store_config:         JSON.stringify(storeConfig),
     updated_at:           new Date().toISOString()
   };
   /* We need a row identifier — use a fixed constant row approach */
