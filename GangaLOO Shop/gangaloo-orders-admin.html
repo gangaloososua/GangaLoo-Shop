@@ -519,7 +519,7 @@ function renderOrders() {
   let list = orders.filter(o => {
     if (filterMode !== 'all') {
       if (filterMode === 'pending' && !['pending','notified'].includes(o.status)) return false;
-      if (filterMode === 'form_filled' && o.status !== 'form_filled') return false;
+      if (filterMode === 'form_filled' && !['form_filled','scheduled','pickup','done'].includes(o.status) && !o.clientChoice) return false;
       if (filterMode === 'scheduled' && o.status !== 'scheduled') return false;
       if (filterMode === 'pickup' && o.status !== 'pickup') return false;
       if (filterMode === 'done' && o.status !== 'done') return false;
