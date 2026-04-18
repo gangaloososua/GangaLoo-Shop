@@ -4229,6 +4229,136 @@ function setCompraStatus(lotNumber, newStatus) {
 }
 
 /* ─── EDIT COMPRA ─── */
+function openNuevaCompra() {
+  const whOpts   = warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('');
+  const stOpts   = Object.entries(COMPRA_STATUSES).map(([val,s])=>`<option value="${val}" ${val==='pending'?'selected':''}>${s.label}</option>`).join('');
+  const prodOpts = `<option value="">— Seleccionar producto —</option>` + products.map(p=>`<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''}</option>`).join('');
+  const lotNum   = 'LOT-' + Date.now().toString(36).toUpperCase();
+
+  openModal(`
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div class="modal-title">📦 Nueva Orden de Compra</div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="form-group">
+            <label class="field-label">N° de Lote</label>
+            <input class="field" id="nc_lot" value="${lotNum}">
+          </div>
+          <div class="form-group">
+            <label class="field-label">Fecha</label>
+            <input class="field" type="date" id="nc_date" value="${todayDR()}">
+          </div>
+          <div class="form-group">
+            <label class="field-label">Proveedor</label>
+            <input class="field" id="nc_supplier" placeholder="Ej: AliExpress, Amazon...">
+          </div>
+          <div class="form-group">
+            <label class="field-label">Almacén destino</label>
+            <select class="field" id="nc_warehouse">${whOpts}</select>
+          </div>
+          <div class="form-group">
+            <label class="field-label">Estado</label>
+            <select class="field" id="nc_status">${stOpts}</select>
+          </div>
+          <div class="form-group">
+            <label class="field-label">Tracking / Referencia</label>
+            <input class="field" id="nc_tracking" placeholder="Número de seguimiento (opcional)">
+          </div>
+          <div class="form-group full">
+            <label class="field-label">Notas</label>
+            <textarea class="field" id="nc_notes" rows="2" placeholder="Notas internas..."></textarea>
+          </div>
+        </div>
+
+        <div class="divider-label" style="margin:16px 0 10px;">Productos</div>
+        <div id="nc_lines">
+          <!-- Lines added dynamically -->
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="addNuevaCompraLine()" style="margin-top:8px;">+ Agregar producto</button>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveNuevaCompra()">💾 Crear Orden</button>
+      </div>
+    </div>
+  `);
+  addNuevaCompraLine(); // start with one line
+}
+
+function addNuevaCompraLine() {
+  const container = document.getElementById('nc_lines');
+  if (!container) return;
+  const idx = container.children.length;
+  const prodOpts = `<option value="">— Producto —</option>` + products.map(p=>`<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''}</option>`).join('');
+  const div = document.createElement('div');
+  div.className = 'nc-line';
+  div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 110px 30px;gap:8px;align-items:center;margin-bottom:8px;';
+  div.innerHTML = `
+    <select class="field" id="nc_prod_${idx}" style="font-size:13px;">${prodOpts}</select>
+    <input class="field" type="number" id="nc_qty_${idx}" placeholder="Cant." min="1" value="1" style="text-align:center;">
+    <div class="input-group">
+      <span class="input-addon" style="font-size:11px;">RD$</span>
+      <input class="field" type="number" id="nc_cost_${idx}" placeholder="Costo/u" step="0.01" min="0">
+    </div>
+    <button class="btn btn-ghost btn-xs" onclick="this.parentElement.remove()" title="Eliminar">✕</button>
+  `;
+  container.appendChild(div);
+}
+
+function saveNuevaCompra() {
+  const lotNumber   = document.getElementById('nc_lot').value.trim();
+  const date        = document.getElementById('nc_date').value;
+  const supplier    = document.getElementById('nc_supplier').value.trim();
+  const warehouseId = document.getElementById('nc_warehouse').value;
+  const status      = document.getElementById('nc_status').value;
+  const tracking    = document.getElementById('nc_tracking').value.trim();
+  const notes       = document.getElementById('nc_notes').value.trim();
+
+  if (!lotNumber || !date || !warehouseId) {
+    showToast('Lote, fecha y almacén son obligatorios', 'error'); return;
+  }
+
+  const lines = document.querySelectorAll('#nc_lines .nc-line');
+  if (!lines.length) { showToast('Agrega al menos un producto', 'error'); return; }
+
+  let added = 0;
+  lines.forEach((line, idx) => {
+    const productId = document.getElementById(`nc_prod_${idx}`)?.value;
+    const qty       = parseFloat(document.getElementById(`nc_qty_${idx}`)?.value) || 0;
+    const costDOP   = parseFloat(document.getElementById(`nc_cost_${idx}`)?.value) || 0;
+    if (!productId || qty <= 0) return;
+    purchases.push({
+      id:           generateId(),
+      lotNumber,
+      productId,
+      warehouseId,
+      qty,
+      remainingQty: status === 'delivered' ? qty : 0,
+      costDOP,
+      totalCostDOP: costDOP * qty,
+      costUSD:      0,
+      exchangeRate: 1,
+      supplier,
+      date,
+      status,
+      trackingNumber: tracking,
+      notes,
+    });
+    added++;
+  });
+
+  if (!added) { showToast('Ningún producto válido agregado', 'error'); return; }
+
+  debouncedSave();
+  renderComprasKPI();
+  renderComprasList();
+  closeModal();
+  showToast(`Orden ${lotNumber} creada con ${added} producto${added!==1?'s':''} ✅`, 'success');
+}
+
 function openEditCompra(lotNumber) {
   const lots = purchases.filter(p=>(p.lotNumber||p.lotNum||String(p.id))===lotNumber);
   if (!lots.length) return;
