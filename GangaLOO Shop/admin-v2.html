@@ -4967,7 +4967,7 @@ function renderClientesList() {
 
   /* Add manual customers */
   for (const c of customers) {
-    const key = (c.email || c.id).toLowerCase();
+    const key = (c.email || String(c.id)).toLowerCase();
     if (!map[key]) map[key] = { ...c, sources: ['manual'] };
     else {
       if ((roleRank[c.type]||0) > (roleRank[map[key].type]||0)) map[key].type = c.type;
@@ -4977,13 +4977,14 @@ function renderClientesList() {
 
   /* Merge online profiles */
   for (const p of _onlineProfiles) {
-    const key = (p.email || p.id).toLowerCase();
+    const key = (p.email || String(p.id)).toLowerCase();
     if (!map[key]) {
       map[key] = { id: p.id, name: p.full_name||p.email, email: p.email, phone: p.phone||'', type: p.role||'customer', isClubMember: p.is_club_member, sources: ['online'] };
     } else {
       if ((roleRank[p.role]||0) > (roleRank[map[key].type]||0)) map[key].type = p.role;
       if (!map[key].sources.includes('online')) map[key].sources.push('online');
       if (!map[key].email) map[key].email = p.email;
+      if (!map[key].name && p.full_name) map[key].name = p.full_name;
     }
   }
 
@@ -5002,7 +5003,7 @@ function renderClientesList() {
 
   /* Build debt map */
   const paidMap = {};
-  payments.forEach(p => { paidMap[p.saleId] = (paidMap[p.saleId]||0) + (parseFloat(p.amount)||0); });
+  payments.forEach(p => { paidMap[String(p.saleId)] = (paidMap[String(p.saleId)]||0) + (parseFloat(p.amount)||0); });
 
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">👥</div><h3>Sin clientes</h3><p>Agrega clientes o sincroniza con la tienda online</p></div></td></tr>`;
@@ -5010,9 +5011,9 @@ function renderClientesList() {
   }
 
   tbody.innerHTML = list.map(c => {
-    const cSales  = sales.filter(s => s.customerId === c.id && s.status !== 'cancelled');
+    const cSales  = sales.filter(s => String(s.customerId) === String(c.id) && s.status !== 'cancelled');
     const cTotal  = cSales.reduce((s,v) => s + saleTotal(v), 0);
-    const cPaid   = cSales.reduce((s,v) => s + (paidMap[v.id]||0), 0);
+    const cPaid   = cSales.reduce((s,v) => s + (paidMap[String(v.id)]||0), 0);
     const cDebt   = Math.max(0, Math.round((cTotal - cPaid)*100)/100);
 
     const typeBadge = {
@@ -5115,7 +5116,7 @@ function saveNuevoCliente() {
 }
 
 function editCliente(id) {
-  const c = customers.find(x => x.id === id);
+  const c = customers.find(x => String(x.id) === String(id));
   if (!c) return;
   const whOpts = warehouses.map(w=>`<option value="${w.id}" ${w.id===c.warehouseId?'selected':''}>${w.name}</option>`).join('');
   openModal(`
@@ -5153,7 +5154,7 @@ function editCliente(id) {
 }
 
 function saveEditCliente(id) {
-  const c = customers.find(x => x.id === id);
+  const c = customers.find(x => String(x.id) === String(id));
   if (!c) return;
   c.name  = document.getElementById('ecName').value.trim() || c.name;
   c.email = document.getElementById('ecEmail').value.trim();
@@ -5175,13 +5176,13 @@ function deleteCliente(id) {
 }
 
 function openClienteDetail(id) {
-  const c = customers.find(x => x.id === id);
+  const c = customers.find(x => String(x.id) === String(id));
   if (!c) return;
-  const cSales = sales.filter(s => s.customerId === id && s.status !== 'cancelled');
+  const cSales = sales.filter(s => String(s.customerId) === String(id) && s.status !== 'cancelled');
   const paidMap = {};
-  payments.forEach(p => { paidMap[p.saleId]=(paidMap[p.saleId]||0)+(parseFloat(p.amount)||0); });
+  payments.forEach(p => { paidMap[String(p.saleId)]=(paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0); });
   const totalVentas = cSales.reduce((s,v) => s+saleTotal(v),0);
-  const totalPagado = cSales.reduce((s,v) => s+(paidMap[v.id]||0),0);
+  const totalPagado = cSales.reduce((s,v) => s+(paidMap[String(v.id)]||0),0);
   const totalDebt   = Math.max(0, totalVentas - totalPagado);
 
   const salesHtml = cSales.length ? cSales.slice(0,10).map(s => `
@@ -5189,8 +5190,8 @@ function openClienteDetail(id) {
       <div><strong>${s.invoiceNum||'—'}</strong> · ${formatDate(s.date)}</div>
       <div style="display:flex;gap:10px;">
         <span>${formatDOP(saleTotal(s))}</span>
-        <span style="color:${(paidMap[s.id]||0)>=(saleTotal(s)-0.01)?'var(--emerald)':'var(--rose)'}">
-          ${(paidMap[s.id]||0)>=(saleTotal(s)-0.01)?'✓ Pagada':'Pendiente'}
+        <span style="color:${(paidMap[String(s.id)]||0)>=(saleTotal(s)-0.01)?'var(--emerald)':'var(--rose)'}">
+          ${(paidMap[String(s.id)]||0)>=(saleTotal(s)-0.01)?'✓ Pagada':'Pendiente'}
         </span>
       </div>
     </div>`).join('') : '<p style="color:var(--ink-3);font-size:13px;">Sin ventas</p>';
@@ -6748,13 +6749,38 @@ async function doLoadBalance(memberId) {
              Transferencias · Reportes
 ═══════════════════════════════════════════════════════════════ */
 
-let _contabTab = 'cuentas';
+let _contabTab   = 'cuentas';
+let _contabYear  = new Date().getFullYear();
+let _contabMonth = 0; // 0 = all months
 
 function renderContabilidadPanel() {
   const panel = document.getElementById('panel-contabilidad');
+  const years = [...new Set([
+    ...transactions.map(t=>t.date?new Date(t.date).getFullYear():null),
+    ...payments.map(p=>p.date?new Date(p.date).getFullYear():null),
+    ...purchasePayments.map(p=>p.date?new Date(p.date).getFullYear():null),
+    ...accountTransfers.map(t=>t.date?new Date(t.date).getFullYear():null),
+  ].filter(Boolean))].sort((a,b)=>b-a);
+  if (!years.includes(new Date().getFullYear())) years.unshift(new Date().getFullYear());
+
+  const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
   panel.innerHTML = `
     <div class="page-header" style="flex-direction:column;align-items:flex-start;gap:14px;">
-      <div><h1>Contabilidad</h1><p>Cuentas, transacciones, pagos y comisiones</p></div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;width:100%;flex-wrap:wrap;gap:10px;">
+        <div><h1>Contabilidad</h1><p>Cuentas, transacciones, pagos y comisiones</p></div>
+        <!-- Date filter -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="contabYearSel" style="padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);font-size:13px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer;" onchange="_contabYear=parseInt(this.value);renderContabTab(_contabTab)">
+            ${years.map(y=>`<option value="${y}" ${y===_contabYear?'selected':''}>${y}</option>`).join('')}
+          </select>
+          <select id="contabMonthSel" style="padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);font-size:13px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer;" onchange="_contabMonth=parseInt(this.value);renderContabTab(_contabTab)">
+            <option value="0" ${_contabMonth===0?'selected':''}>Todos los meses</option>
+            ${monthNames.map((n,i)=>`<option value="${i+1}" ${_contabMonth===i+1?'selected':''}>${n}</option>`).join('')}
+          </select>
+          <button class="btn btn-ghost btn-xs" onclick="_contabYear=new Date().getFullYear();_contabMonth=0;document.getElementById('contabYearSel').value=_contabYear;document.getElementById('contabMonthSel').value=0;renderContabTab(_contabTab)">✕ Limpiar</button>
+        </div>
+      </div>
       <div class="inner-tabs" id="contabTabs">
         <button class="inner-tab active"  onclick="switchContabTab('cuentas',this)">💳 Cuentas</button>
         <button class="inner-tab" onclick="switchContabTab('categorias',this)">📂 Categorías</button>
@@ -6782,6 +6808,14 @@ function switchContabTab(tab, el) {
     if (tabs[idx]) tabs[idx].classList.add('active');
   }
   renderContabTab(tab);
+}
+
+function contabDateFilter(item) {
+  if (!item.date) return true;
+  const d = new Date(item.date);
+  if (_contabYear && d.getFullYear() !== _contabYear) return false;
+  if (_contabMonth && d.getMonth() + 1 !== _contabMonth) return false;
+  return true;
 }
 
 function renderContabTab(tab) {
@@ -7250,8 +7284,8 @@ function renderCategorias(el) {
   const income  = accountingCategories.filter(c => c.type==='income');
   const expense = accountingCategories.filter(c => c.type==='expense');
 
-  const totalIn  = transactions.filter(t=>t.type==='income').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-  const totalOut = transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+  const totalIn  = transactions.filter(t=>t.type==='income'&&contabDateFilter(t)).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+  const totalOut = transactions.filter(t=>t.type==='expense'&&contabDateFilter(t)).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 16px;flex-wrap:wrap;gap:10px;">
@@ -7291,15 +7325,15 @@ function renderCatGroup(cats) {
 
     /* Multiple with same name — render as one grouped card */
     const totalAll = items.reduce((s,c) => {
-      return s + transactions.filter(t=>String(t.categoryId)===String(c.id)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+      return s + transactions.filter(t=>String(t.categoryId)===String(c.id)&&contabDateFilter(t)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
     }, 0);
-    const countAll = items.reduce((s,c) => s + transactions.filter(t=>String(t.categoryId)===String(c.id)).length, 0);
+    const countAll = items.reduce((s,c) => s + transactions.filter(t=>String(t.categoryId)===String(c.id)&&contabDateFilter(t)).length, 0);
     const isIncome = items[0].type === 'income';
     const color = isIncome ? 'var(--emerald)' : 'var(--rose)';
 
     const subRows = items.map(c => {
       const label = c.subname || c.scope || c.description || `ID ${c.id}`;
-      const catTxns = transactions.filter(t => String(t.categoryId) === String(c.id));
+      const catTxns = transactions.filter(t => String(t.categoryId) === String(c.id) && contabDateFilter(t));
       const catTotal = catTxns.reduce((s,t) => s+(parseFloat(t.amount)||0),0);
       const uid = 'cat_' + String(c.id).replace(/[^a-z0-9]/gi,'_');
       const canDel = catTxns.length === 0;
@@ -7351,7 +7385,7 @@ function renderCatGroup(cats) {
 }
 
 function renderCatCard(c) {
-  const catTxns  = transactions.filter(t => String(t.categoryId) === String(c.id));
+  const catTxns  = transactions.filter(t => String(t.categoryId) === String(c.id) && contabDateFilter(t));
   const total    = catTxns.reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
   const isIncome = c.type === 'income';
   const color    = isIncome ? 'var(--emerald)' : 'var(--rose)';
@@ -7540,7 +7574,7 @@ function deleteAccountingCat(id) {
 
 /* ─── TRANSACCIONES ─── */
 function renderTransacciones(el) {
-  const sorted = [...transactions].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const sorted = [...transactions].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
   el.innerHTML = `
     <div style="display:flex;justify-content:flex-end;gap:10px;margin:20px 0 16px;flex-wrap:wrap;">
       <button class="btn btn-primary btn-sm" onclick="openNuevaTransaccion()">+ Nueva Transacción</button>
@@ -7644,7 +7678,7 @@ function saveNuevaTransaccion() {
 
 /* ─── PAGOS (sale payments) ─── */
 function renderPagosContab(el) {
-  const sorted = [...payments].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const sorted = [...payments].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const total  = sorted.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   el.innerHTML = `
     <div style="margin:20px 0 16px;">
@@ -7681,7 +7715,7 @@ function renderCobrar(el) {
   payments.forEach(p => { paidMap[p.saleId]=(paidMap[p.saleId]||0)+(parseFloat(p.amount)||0); });
 
   const pending = sales
-    .filter(s => s.status !== 'cancelled')
+    .filter(s => s.status !== 'cancelled' && contabDateFilter(s))
     .map(s => ({ ...s, paid: paidMap[s.id]||0, debt: Math.max(0,Math.round((saleTotal(s)-(paidMap[s.id]||0))*100)/100) }))
     .filter(s => s.debt > 0.01)
     .sort((a,b) => new Date(a.date)-new Date(b.date));
@@ -7727,7 +7761,7 @@ function renderCobrar(el) {
 
 /* ─── PAGOS COMPRAS ─── */
 function renderPagosCompra(el) {
-  const sorted = [...purchasePayments].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const sorted = [...purchasePayments].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const total  = sorted.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   el.innerHTML = `
     <div style="margin:20px 0 16px;">
@@ -8050,7 +8084,7 @@ function viewPayoutsHistory() {
 
 /* ─── TRANSFERENCIAS ENTRE CUENTAS ─── */
 function renderTransferencias(el) {
-  const sorted = [...accountTransfers].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const sorted = [...accountTransfers].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const acctOpts = accounts.filter(a=>a.active!==false).map(a=>`<option value="${a.id}">${a.name} (${a.currency})</option>`).join('');
 
   el.innerHTML = `
@@ -9495,89 +9529,236 @@ async function updateUserRole(userId, role) {
 function renderConfigPanel() {
   const panel = document.getElementById('panel-config');
   const mk    = monthKeyDR();
-  const currentRateDOP = monthlyRates[mk]?.USD || '';
-  const currentRateEUR = monthlyRates[mk]?.EUR || '';
+  const sc    = storeConfig || {};
 
-  /* Last 6 months */
+  /* Last 6 months for exchange rates */
   const last6 = [...Array(6)].map((_,i) => {
     const d = new Date();
     d.setMonth(d.getMonth()-i);
     return d.toLocaleString('en-CA',{timeZone:'America/Santo_Domingo',year:'numeric',month:'2-digit'}).slice(0,7);
   });
 
+  /* Active deals */
+  const activeDeals = products.filter(p => p.dealType && p.dealType !== 'none');
+  const now = new Date();
+
   panel.innerHTML = `
     <div class="page-header">
-      <div><h1>Configuración</h1><p>Tasas de cambio, márgenes y ajustes del sistema</p></div>
+      <div><h1>Configuración</h1><p>Tasas de cambio, tienda online, lealtad, mayoreo y más</p></div>
     </div>
-    <div style="padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div style="padding:24px 28px;display:flex;flex-direction:column;gap:20px;">
 
-      <!-- Tasas de cambio mensuales -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">💱 Tasas de Cambio Mensuales</div>
-        </div>
-        <p class="field-hint" style="margin-bottom:14px;">Estas tasas se usan en compras y conversiones. Una vez registradas, las compras del mes las bloquean.</p>
+      <!-- Row 1: Exchange rates + Deals dashboard -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
 
-        ${last6.map(m=>`
-          <div style="margin-bottom:12px;">
-            <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:var(--ink-3);">${m}</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-              <div class="input-group">
-                <span class="input-addon" style="font-size:11px;">USD→DOP</span>
-                <input class="field" type="number" id="rate-usd-${m}" value="${monthlyRates[m]?.USD||''}" placeholder="58.50" step="0.01">
+        <!-- Tasas de cambio -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">💱 Tasas de Cambio Mensuales</div></div>
+          <p class="field-hint" style="margin-bottom:14px;">Usadas en compras y conversiones. Se bloquean al registrar compras del mes.</p>
+          ${last6.map(m=>`
+            <div style="margin-bottom:12px;">
+              <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:var(--ink-3);">${m}</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="input-group"><span class="input-addon" style="font-size:11px;">USD→DOP</span>
+                  <input class="field" type="number" id="rate-usd-${m}" value="${monthlyRates[m]?.USD||''}" placeholder="58.50" step="0.01"></div>
+                <div class="input-group"><span class="input-addon" style="font-size:11px;">EUR→DOP</span>
+                  <input class="field" type="number" id="rate-eur-${m}" value="${monthlyRates[m]?.EUR||''}" placeholder="68.00" step="0.01"></div>
               </div>
-              <div class="input-group">
-                <span class="input-addon" style="font-size:11px;">EUR→DOP</span>
-                <input class="field" type="number" id="rate-eur-${m}" value="${monthlyRates[m]?.EUR||''}" placeholder="68.00" step="0.01">
+            </div>`).join('')}
+          <button class="btn btn-primary btn-sm" onclick="saveMonthlyRates(${JSON.stringify(last6)})">💾 Guardar Tasas</button>
+        </div>
+
+        <!-- Ofertas activas dashboard -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">🔥 Ofertas Activas (${activeDeals.length})</div></div>
+          ${!activeDeals.length
+            ? '<div class="empty-state" style="padding:20px;"><div class="empty-icon">🏷️</div><p>Sin ofertas activas</p></div>'
+            : activeDeals.map(p => {
+                const end     = p.dealEnd ? new Date(p.dealEnd) : null;
+                const expired = end && end < now;
+                const label   = p.dealType === 'daily' ? '🔥 Oferta Día' : '⭐ Oferta Semana';
+                const endStr  = end ? (expired
+                  ? '<span style="color:var(--rose);font-size:11px;"> ⛔ Expirada</span>'
+                  : `<span style="font-size:11px;color:var(--ink-3);"> · Hasta ${end.toLocaleString('es-DO',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>`)
+                  : '';
+                return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);">
+                  <div>
+                    <div style="font-weight:600;font-size:13px;">${p.name}</div>
+                    <div style="margin-top:2px;"><span class="badge ${expired?'badge-gray':'badge-rose'}" style="font-size:10px;">${label}</span>${endStr}</div>
+                  </div>
+                  <div style="font-weight:700;color:var(--rose);">${p.dealDiscount>0?p.dealDiscount+'% OFF':''}</div>
+                </div>`;
+              }).join('')}
+          <div style="margin-top:14px;">
+            <button class="btn btn-ghost btn-sm" onclick="showPanel('productos',document.querySelector('[data-panel=productos]'))">→ Gestionar en Productos</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Shipping + Payment fees -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+        <!-- Envío -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">🚚 Zonas de Envío</div></div>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="form-group"><label class="field-label">Zona 1 — Nombre</label>
+              <input class="field" id="cfg_shippingZone" value="${sc.shippingZone||''}" placeholder="Ej: Santo Domingo"></div>
+            <div class="form-group"><label class="field-label">Zona 1 — Costo (RD$)</label>
+              <input class="field" type="number" id="cfg_shippingCost" value="${sc.shippingCost||''}" placeholder="0.00" step="0.01"></div>
+            <div class="form-group"><label class="field-label">Zona 2 — Nombre</label>
+              <input class="field" id="cfg_shippingZone2" value="${sc.shippingZone2||''}" placeholder="Ej: Interior del País"></div>
+            <div class="form-group"><label class="field-label">Zona 2 — Costo (RD$)</label>
+              <input class="field" type="number" id="cfg_shippingCost2" value="${sc.shippingCost2||''}" placeholder="0.00" step="0.01"></div>
+          </div>
+          <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="saveFullStoreConfig()">💾 Guardar</button>
+        </div>
+
+        <!-- Cargos por método de pago -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">💳 Cargos por Método de Pago</div></div>
+          <p class="field-hint" style="margin-bottom:12px;">Cargo extra o descuento según cómo paga el cliente.</p>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px;">
+              <div style="font-weight:700;font-size:12px;margin-bottom:8px;">💵 Efectivo</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="form-group"><label class="field-label">Descuento (%)</label>
+                  <input class="field" type="number" id="cfg_cash_discount" value="${sc.cash_discount??''}" placeholder="0" step="0.1" min="0"></div>
+                <div class="form-group"><label class="field-label">Cargo fijo (RD$)</label>
+                  <input class="field" type="number" id="cfg_cash_fee" value="${sc.cash_fee??''}" placeholder="0" step="0.01" min="0"></div>
+              </div>
+            </div>
+            <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px;">
+              <div style="font-weight:700;font-size:12px;margin-bottom:8px;">🏦 Transferencia</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="form-group"><label class="field-label">Descuento (%)</label>
+                  <input class="field" type="number" id="cfg_transfer_discount" value="${sc.transfer_discount??''}" placeholder="0" step="0.1" min="0"></div>
+                <div class="form-group"><label class="field-label">Cargo fijo (RD$)</label>
+                  <input class="field" type="number" id="cfg_transfer_fee" value="${sc.transfer_fee??''}" placeholder="0" step="0.01" min="0"></div>
+              </div>
+            </div>
+            <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px;">
+              <div style="font-weight:700;font-size:12px;margin-bottom:8px;">📱 Método adicional (PayPal, Zelle…)</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="form-group" style="grid-column:1/-1;"><label class="field-label">Nombre</label>
+                  <input class="field" id="cfg_extra_pay_name" value="${sc.extra_pay_name||''}" placeholder="Ej: PayPal"></div>
+                <div class="form-group"><label class="field-label">Cargo (%)</label>
+                  <input class="field" type="number" id="cfg_extra_pay_fee_pct" value="${sc.extra_pay_fee_pct??''}" placeholder="0" step="0.1"></div>
+                <div class="form-group"><label class="field-label">Cargo fijo (RD$)</label>
+                  <input class="field" type="number" id="cfg_extra_pay_fee_fixed" value="${sc.extra_pay_fee_fixed??''}" placeholder="0" step="0.01"></div>
+                <div class="form-group"><label class="field-label">Descuento (%)</label>
+                  <input class="field" type="number" id="cfg_extra_pay_discount" value="${sc.extra_pay_discount??''}" placeholder="0" step="0.1"></div>
               </div>
             </div>
           </div>
-        `).join('')}
-        <button class="btn btn-primary btn-sm" onclick="saveMonthlyRates(${JSON.stringify(last6)})">💾 Guardar Tasas</button>
+          <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="saveFullStoreConfig()">💾 Guardar</button>
+        </div>
       </div>
 
-      <!-- Márgenes de la tienda -->
-      <div style="display:flex;flex-direction:column;gap:16px;">
+      <!-- Row 3: Loyalty + Wholesale -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+        <!-- Lealtad -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">⭐ Programa de Lealtad</div></div>
+          <div class="form-group">
+            <label class="field-label">Puntos por cada RD$100 gastado</label>
+            <input class="field" type="number" id="cfg_ptsPerHundred" value="${sc.ptsPerHundred??1}" placeholder="1" min="0">
+          </div>
+          <div style="margin-top:14px;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead><tr style="background:var(--surface-2);">
+                <th style="padding:8px 10px;text-align:left;">Nivel</th>
+                <th style="padding:8px 10px;text-align:center;">Puntos mín.</th>
+                <th style="padding:8px 10px;text-align:center;">Descuento %</th>
+              </tr></thead>
+              <tbody>
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 10px;font-weight:700;">🥉 Bronce</td>
+                  <td style="padding:8px 10px;text-align:center;color:var(--ink-3);">0 (inicio)</td>
+                  <td style="padding:8px 10px;text-align:center;"><input class="field" type="number" id="cfg_disc_bronze" value="${sc.disc_bronze??5}" style="width:60px;text-align:center;"></td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 10px;font-weight:700;">🥈 Plata</td>
+                  <td style="padding:8px 10px;text-align:center;"><input class="field" type="number" id="cfg_pts_silver" value="${sc.pts_silver??500}" style="width:70px;text-align:center;"></td>
+                  <td style="padding:8px 10px;text-align:center;"><input class="field" type="number" id="cfg_disc_silver" value="${sc.disc_silver??10}" style="width:60px;text-align:center;"></td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 10px;font-weight:700;">🥇 Oro</td>
+                  <td style="padding:8px 10px;text-align:center;"><input class="field" type="number" id="cfg_pts_gold" value="${sc.pts_gold??1500}" style="width:70px;text-align:center;"></td>
+                  <td style="padding:8px 10px;text-align:center;"><input class="field" type="number" id="cfg_disc_gold" value="${sc.disc_gold??15}" style="width:60px;text-align:center;"></td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 10px;font-weight:700;">💎 Diamante</td>
+                  <td style="padding:8px 10px;text-align:center;"><input class="field" type="number" id="cfg_pts_diamond" value="${sc.pts_diamond??4000}" style="width:70px;text-align:center;"></td>
+                  <td style="padding:8px 10px;text-align:center;"><input class="field" type="number" id="cfg_disc_diamond" value="${sc.disc_diamond??20}" style="width:60px;text-align:center;"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <button class="btn btn-primary btn-sm" style="margin-top:14px;" onclick="saveFullStoreConfig()">💾 Guardar</button>
+        </div>
+
+        <!-- Mayoreo / Wholesale tiers -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">🏭 Descuentos por Volumen (Mayoreo)</div></div>
+          <p class="field-hint" style="margin-bottom:12px;">Define niveles de descuento automático según cantidad comprada.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="background:var(--surface-2);">
+              <th style="padding:8px 10px;text-align:left;">Etiqueta</th>
+              <th style="padding:8px 10px;text-align:center;">Cant. mín.</th>
+              <th style="padding:8px 10px;text-align:center;">Descuento %</th>
+            </tr></thead>
+            <tbody>
+              ${[1,2,3,4].map(n=>`
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:6px 8px;"><input class="field" id="cfg_bulk_label${n}" value="${sc['bulk_label'+n]||''}" placeholder="Ej: Paquete ${n}" style="font-size:12px;"></td>
+                  <td style="padding:6px 8px;text-align:center;"><input class="field" type="number" id="cfg_bulk_qty${n}" value="${sc['bulk_qty'+n]??''}" placeholder="10" style="width:65px;text-align:center;font-size:12px;"></td>
+                  <td style="padding:6px 8px;text-align:center;"><input class="field" type="number" id="cfg_bulk_disc${n}" value="${sc['bulk_disc'+n]??''}" placeholder="5" style="width:60px;text-align:center;font-size:12px;"></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+          <button class="btn btn-primary btn-sm" style="margin-top:14px;" onclick="saveFullStoreConfig()">💾 Guardar</button>
+        </div>
+      </div>
+
+      <!-- Row 4: Prices + Bank + System -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+        <!-- Márgenes tienda -->
         <div class="card">
           <div class="card-header"><div class="card-title">🏷 Márgenes de Precios</div></div>
           <div class="form-group">
-            <label class="field-label">Markup Invitado (%)</label>
-            <div class="input-group">
-              <input class="field" type="number" id="cfgGuestMarkup" value="${storeConfig.guestMarkup||5}" min="0" max="100">
-              <span class="input-addon-right">%</span>
-            </div>
-            <div class="field-hint">Precio que ve un visitante de la tienda sin cuenta</div>
+            <label class="field-label">Markup Visitante sin cuenta (%)</label>
+            <div class="input-group"><input class="field" type="number" id="cfgGuestMarkup" value="${sc.guestMarkup||5}" min="0" max="100"><span class="input-addon-right">%</span></div>
+            <div class="field-hint">Visitantes sin cuenta ven este % de cargo extra</div>
           </div>
           <div class="form-group" style="margin-top:12px;">
             <label class="field-label">Descuento Club GangaLoo (%)</label>
-            <div class="input-group">
-              <input class="field" type="number" id="cfgClubDiscount" value="${storeConfig.clubDiscount||10}" min="0" max="50">
-              <span class="input-addon-right">%</span>
+            <div class="input-group"><input class="field" type="number" id="cfgClubDiscount" value="${sc.clubDiscount||10}" min="0" max="50"><span class="input-addon-right">%</span></div>
+          </div>
+          <button class="btn btn-primary btn-sm" style="margin-top:14px;" onclick="saveFullStoreConfig()">💾 Guardar</button>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <!-- Banco -->
+          <div class="card">
+            <div class="card-header"><div class="card-title">🏦 Información Bancaria</div></div>
+            <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:14px;font-size:13.5px;line-height:1.8;">
+              <div><strong>Banco:</strong> Banreservas</div>
+              <div><strong>Cuenta:</strong> 9601-3060170-7</div>
+              <div><strong>Titular:</strong> Bernhard Perkins</div>
+              <div><strong>WhatsApp:</strong> +1 829 286 7868</div>
             </div>
+            <button class="btn btn-teal btn-sm" style="margin-top:12px;" onclick="openWhatsApp('18292867868','')">💬 Abrir WhatsApp</button>
           </div>
-          <div class="form-group" style="margin-top:12px;">
-            <label class="field-label">Tasa de Loyalty (puntos por RD$100)</label>
-            <input class="field" type="number" id="cfgLoyalty" value="${storeConfig.loyaltyRate||10}" min="0">
-          </div>
-          <button class="btn btn-primary btn-sm" style="margin-top:14px;" onclick="saveStoreConfig()">💾 Guardar Configuración</button>
-        </div>
-
-        <div class="card">
-          <div class="card-header"><div class="card-title">🏦 Información Bancaria</div></div>
-          <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:14px;font-size:13.5px;line-height:1.8;">
-            <div><strong>Banco:</strong> Banreservas</div>
-            <div><strong>Cuenta:</strong> 9601-3060170-7</div>
-            <div><strong>Titular:</strong> Bernhard Perkins</div>
-            <div><strong>WhatsApp:</strong> +1 829 286 7868</div>
-          </div>
-          <button class="btn btn-teal btn-sm" style="margin-top:12px;" onclick="openWhatsApp('18292867868','')">💬 Abrir WhatsApp</button>
-        </div>
-
-        <div class="card">
-          <div class="card-header"><div class="card-title">⚠️ Acciones del Sistema</div></div>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <button class="btn btn-secondary btn-sm" onclick="loadAllData()">🔄 Recargar todos los datos</button>
-            <button class="btn btn-secondary btn-sm" onclick="window.location.href='/admin.html'">← Ir al sistema v1 (backup)</button>
+          <!-- Sistema -->
+          <div class="card">
+            <div class="card-header"><div class="card-title">⚙️ Sistema</div></div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <button class="btn btn-secondary btn-sm" onclick="loadAllData()">🔄 Recargar todos los datos</button>
+              <button class="btn btn-secondary btn-sm" onclick="window.location.href='/admin.html'">← Ir al sistema v1 (backup)</button>
+            </div>
           </div>
         </div>
       </div>
@@ -9586,24 +9767,53 @@ function renderConfigPanel() {
   `;
 }
 
-function saveMonthlyRates(months) {
-  for (const m of months) {
-    const usd = parseFloat(document.getElementById('rate-usd-'+m)?.value);
-    const eur = parseFloat(document.getElementById('rate-eur-'+m)?.value);
-    if (!monthlyRates[m]) monthlyRates[m] = {};
-    if (usd) monthlyRates[m].USD = usd;
-    if (eur) monthlyRates[m].EUR = eur;
-  }
-  debouncedSave();
-  showToast('Tasas de cambio guardadas ✅','success');
-}
+function saveFullStoreConfig() {
+  const g = id => document.getElementById(id);
+  const v = (id, def=0) => parseFloat(g(id)?.value) || def;
+  const s = (id, def='') => g(id)?.value?.trim() || def;
 
-function saveStoreConfig() {
-  storeConfig.guestMarkup  = parseFloat(document.getElementById('cfgGuestMarkup').value)  || 5;
-  storeConfig.clubDiscount = parseFloat(document.getElementById('cfgClubDiscount').value) || 10;
-  storeConfig.loyaltyRate  = parseFloat(document.getElementById('cfgLoyalty').value)       || 10;
+  storeConfig.guestMarkup     = v('cfgGuestMarkup', 5);
+  storeConfig.clubDiscount    = v('cfgClubDiscount', 10);
+  /* Shipping */
+  storeConfig.shippingZone    = s('cfg_shippingZone');
+  storeConfig.shippingCost    = v('cfg_shippingCost');
+  storeConfig.shippingZone2   = s('cfg_shippingZone2');
+  storeConfig.shippingCost2   = v('cfg_shippingCost2');
+  /* Payment fees */
+  storeConfig.cash_discount       = v('cfg_cash_discount');
+  storeConfig.cash_fee            = v('cfg_cash_fee');
+  storeConfig.transfer_discount   = v('cfg_transfer_discount');
+  storeConfig.transfer_fee        = v('cfg_transfer_fee');
+  storeConfig.extra_pay_name      = s('cfg_extra_pay_name');
+  storeConfig.extra_pay_fee_pct   = v('cfg_extra_pay_fee_pct');
+  storeConfig.extra_pay_fee_fixed = v('cfg_extra_pay_fee_fixed');
+  storeConfig.extra_pay_discount  = v('cfg_extra_pay_discount');
+  /* Loyalty */
+  storeConfig.ptsPerHundred = v('cfg_ptsPerHundred', 1);
+  storeConfig.disc_bronze   = v('cfg_disc_bronze', 5);
+  storeConfig.pts_silver    = v('cfg_pts_silver', 500);
+  storeConfig.disc_silver   = v('cfg_disc_silver', 10);
+  storeConfig.pts_gold      = v('cfg_pts_gold', 1500);
+  storeConfig.disc_gold     = v('cfg_disc_gold', 15);
+  storeConfig.pts_diamond   = v('cfg_pts_diamond', 4000);
+  storeConfig.disc_diamond  = v('cfg_disc_diamond', 20);
+  /* Wholesale */
+  [1,2,3,4].forEach(n => {
+    const qty  = parseFloat(g('cfg_bulk_qty'+n)?.value);
+    const disc = parseFloat(g('cfg_bulk_disc'+n)?.value);
+    const lbl  = s('cfg_bulk_label'+n);
+    if (qty && disc) {
+      storeConfig['bulk_qty'+n]   = qty;
+      storeConfig['bulk_disc'+n]  = disc;
+      storeConfig['bulk_label'+n] = lbl;
+    } else {
+      delete storeConfig['bulk_qty'+n];
+      delete storeConfig['bulk_disc'+n];
+      delete storeConfig['bulk_label'+n];
+    }
+  });
   debouncedSave();
-  showToast('Configuración guardada ✅','success');
+  showToast('Configuración guardada ✅', 'success');
 }
 
 </script>
