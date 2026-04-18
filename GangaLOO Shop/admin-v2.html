@@ -1973,7 +1973,7 @@ function deleteTransaction(txnId) {
     commissionPayouts = commissionPayouts.filter(p => p.id !== payoutId);
   }
   /* Restore account balance */
-  const account = accounts.find(a => a.id === txn.accountId);
+  const account = accounts.find(a => String(a.id) === String(txn.accountId));
   if (account && txn.amount) {
     if (txn.type === 'expense') account.balance = Math.round((account.balance + txn.amount) * 100) / 100;
     if (txn.type === 'income')  account.balance = Math.round((account.balance - txn.amount) * 100) / 100;
@@ -1990,7 +1990,7 @@ function deletePayoutById(payoutId) {
   const pairedTxn = transactions.find(t => t.reference === `commission-payout-${payoutId}`);
   /* Only restore balance if paired transaction STILL EXISTS */
   if (pairedTxn) {
-    const account = accounts.find(a => a.id === payout.accountId);
+    const account = accounts.find(a => String(a.id) === String(payout.accountId));
     if (account) account.balance = Math.round((account.balance + payout.amount) * 100) / 100;
     transactions = transactions.filter(t => t.id !== pairedTxn.id);
   }
@@ -8139,7 +8139,7 @@ function saveNuevaTransaccion() {
   const date   = document.getElementById('ntDate').value;
   if (!amount||amount<=0) { showToast('Monto inválido','error'); return; }
   if (!desc)   { showToast('Ingresa una descripción','error'); return; }
-  const account = accounts.find(a=>a.id===acctId);
+  const account = accounts.find(a=>String(a.id)===String(acctId));
   if (account) {
     if (type==='income')  account.balance = Math.round((account.balance+amount)*100)/100;
     if (type==='expense') account.balance = Math.round((account.balance-amount)*100)/100;
@@ -8633,8 +8633,8 @@ function saveTransferenciaCuentas() {
   const date    = document.getElementById('tcDate').value;
   if (fromId === toId)       { showToast('Cuentas deben ser distintas','error'); return; }
   if (!fromAmt||fromAmt<=0) { showToast('Monto inválido','error'); return; }
-  const from = accounts.find(a=>a.id===fromId);
-  const to   = accounts.find(a=>a.id===toId);
+  const from = accounts.find(a=>String(a.id)===String(fromId));
+  const to   = accounts.find(a=>String(a.id)===String(toId));
   if (!from||!to) { showToast('Cuenta no encontrada','error'); return; }
   if (from.balance < fromAmt) { showToast('Saldo insuficiente en cuenta origen','error'); return; }
   from.balance = Math.round((from.balance - fromAmt)*100)/100;
