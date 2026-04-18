@@ -2051,6 +2051,7 @@ function closeModal() {
 function confirmDialog(msg, onConfirm, opts = {}) {
   const color = opts.danger ? 'btn-danger' : 'btn-primary';
   const label = opts.confirmLabel || 'Confirmar';
+  window._confirmCallback = onConfirm;
   openModal(`
     <div class="modal" style="max-width:400px;">
       <div class="modal-header">
@@ -2062,14 +2063,13 @@ function confirmDialog(msg, onConfirm, opts = {}) {
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-        <button class="btn ${color}" onclick="closeModal();(${onConfirm.toString()})()">
+        <button class="btn ${color}" onclick="closeModal();window._confirmCallback&&window._confirmCallback();window._confirmCallback=null;">
           ${label}
         </button>
       </div>
     </div>
   `);
 }
-
 /* ─── PANEL LAZY RENDERING ─── */
 const _renderedPanels = new Set(['dashboard']);
 
