@@ -636,18 +636,21 @@ function renderSidebar() {
       <div class="tl-time">${new Date(t.ts).toLocaleString('es-DO')}</div>
     </div>`).join('') || '<div class="tl-item old"><div style="color:var(--muted)">No activity</div></div>';
 
-  // Delivery info
+  // Delivery info — show for any status once client has responded
   let deliveryInfo = '';
-  if (o.status === 'scheduled' && o.clientDeliveryDate) {
+  if (o.clientChoice) {
     const mapEmbed = o.clientLat && o.clientLng
       ? `<div class="map-preview"><iframe src="https://maps.google.com/maps?q=${o.clientLat},${o.clientLng}&z=15&output=embed" allowfullscreen></iframe></div>`
       : '';
     deliveryInfo = `
     <div class="detail-section">
-      <h3>Delivery Details</h3>
-      <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${o.clientDeliveryDate}</span></div>
-      <div class="detail-row"><span class="detail-label">Address</span><span class="detail-value">${o.clientAddress}</span></div>
-      ${mapEmbed}
+      <h3>📋 Client Response</h3>
+      <div class="detail-row"><span class="detail-label">Choice</span><span class="detail-value">${o.clientChoice === 'delivery' ? '🚚 Delivery' : '🏪 Pickup'}</span></div>
+      ${o.clientChoice === 'delivery' ? `
+      <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${o.clientDeliveryDate || '—'}</span></div>
+      <div class="detail-row"><span class="detail-label">Address</span><span class="detail-value">${o.clientAddress || '—'}</span></div>
+      ${o.clientNote ? `<div class="detail-row"><span class="detail-label">Note</span><span class="detail-value">${o.clientNote}</span></div>` : ''}
+      ${mapEmbed}` : ''}
     </div>`;
   }
 
