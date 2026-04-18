@@ -6191,7 +6191,12 @@ function openProductDetail(id) {
   const p = products.find(x => String(x.id) === String(id));
   if (!p) return;
 
-  const catOpts     = categories.map(c => `<option value="${c.id}" ${String(c.id)===String(p.categoryId)?'selected':''}>${c.icon||''} ${c.name}</option>`).join('');
+  const pCatIds = ((p.categoryIds&&p.categoryIds.length) ? p.categoryIds : (p.categoryId?[p.categoryId]:[])).map(String);
+  const pdCatList = categories.map(c=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;cursor:pointer;font-size:13px;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+      <input type="checkbox" value="${c.id}" name="pdCatCheck" ${pCatIds.includes(String(c.id))?'checked':''} style="width:14px;height:14px;accent-color:var(--violet);">
+      <span>${c.icon||'📁'} ${c.name}${c.parentId?` <span style="color:var(--ink-3);font-size:11px;">(sub)</span>`:''}</span>
+    </label>`).join('');
   const mk          = monthKeyDR();
   const defaultRate = p.exchangeRate || getMonthlyRate('USD', mk);
 
@@ -6232,8 +6237,11 @@ function openProductDetail(id) {
             <input class="field" id="pdSku" value="${p.sku||''}">
           </div>
           <div class="form-group">
-            <label class="field-label">Categoría</label>
-            <select class="field" id="pdCat">${catOpts}</select>
+            <label class="field-label">Categorías</label>
+            <div id="pdCatList" style="max-height:140px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:8px;background:var(--surface);font-size:12px;">
+              ${pdCatList}
+              ${!categories.length?'<div style="color:var(--ink-3);font-size:12px;padding:4px;">No hay categorías</div>':''}
+            </div>
           </div>
           <div class="form-group">
             <label class="field-label">Descripción</label>
@@ -6565,7 +6573,9 @@ function saveProductDetail(id) {
 
   p.name           = document.getElementById('pdName')?.value.trim() || p.name;
   p.sku            = document.getElementById('pdSku')?.value.trim();
-  p.categoryId     = document.getElementById('pdCat')?.value;
+  const pdChecked  = [...document.querySelectorAll('input[name="pdCatCheck"]:checked')].map(cb=>cb.value);
+  p.categoryIds    = pdChecked;
+  p.categoryId     = pdChecked[0] || '';
   p.description    = document.getElementById('pdDesc')?.value.trim();
   p.videoUrl       = document.getElementById('pdVideo')?.value.trim();
   p.imageUrl       = document.getElementById('pdImageUrl')?.value.trim();
@@ -6640,12 +6650,16 @@ function openNuevoProducto() {
               </label>
               <input class="field" id="npSku" placeholder="Se genera automáticamente..." oninput="this._manual=!!this.value">
             </div>
-            <div class="form-group">
-              <label class="field-label">Categoría</label>
-              <select class="field" id="npCat">
-                <option value="">Sin categoría</option>
-                ${catOpts}
-              </select>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label class="field-label">Categorías</label>
+              <div id="npCatList" style="max-height:140px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:8px;background:var(--surface);">
+                ${categories.map(c=>`
+                  <label style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;cursor:pointer;font-size:13px;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+                    <input type="checkbox" value="${c.id}" name="npCatCheck" style="width:14px;height:14px;accent-color:var(--violet);">
+                    <span>${c.icon||'📁'} ${c.name}${c.parentId?` <span style="color:var(--ink-3);font-size:11px;">(sub)</span>`:''}</span>
+                  </label>`).join('')}
+                ${!categories.length?'<div style="color:var(--ink-3);font-size:12px;padding:4px;">No hay categorías — créalas primero</div>':''}
+              </div>
             </div>
           </div>
           <div class="form-group" style="margin-top:10px;">
@@ -6869,11 +6883,14 @@ function saveNuevoProducto() {
 
   if (!price) { showToast('Ingresa el costo o un precio directo para continuar', 'error'); return; }
 
+  const checkedCats = [...document.querySelectorAll('input[name="npCatCheck"]:checked')].map(cb=>cb.value);
+
   const prod = {
     id: generateId(),
     name,
     sku:               document.getElementById('npSku')?.value.trim() || '',
-    categoryId:        document.getElementById('npCat')?.value || '',
+    categoryId:        checkedCats[0] || '',
+    categoryIds:       checkedCats,
     description:       document.getElementById('npDesc')?.value.trim() || '',
     imageUrl:          document.getElementById('npImage')?.value.trim() || '',
     visibleInStore:    document.getElementById('npVisible')?.value !== 'false',
