@@ -8717,6 +8717,7 @@ function renderReportesPanel() {
           ['contabilidad','💰 Contabilidad'],
           ['inventario',  '📋 Inventario'],
           ['mensual',     '📅 Por Mes'],
+          ['metas',       '🎯 Metas'],
         ].map(([id,label]) => `<button onclick="switchRptTab('${id}',this)" data-rpt="${id}"
           style="padding:12px 20px;border:none;border-bottom:2px solid ${id===_rptTab?'var(--violet)':'transparent'};
           background:none;font-family:inherit;font-size:13px;font-weight:${id===_rptTab?'800':'600'};
@@ -8811,6 +8812,7 @@ function renderRptContent() {
     case 'contabilidad': rptContabilidad(el); break;
     case 'inventario':   rptInventario(el);   break;
     case 'mensual':      rptMensual(el);      break;
+    case 'metas':        rptMetas(el);        break;
   }
 }
 
@@ -10299,6 +10301,150 @@ function saveFullStoreConfig() {
   showToast('Configuración guardada ✅', 'success');
 }
 
-</script>
-</body>
-</html>
+/* ─── METAS / GOALS ─── */
+if (!storeConfig.goals) storeConfig.goals = {};
+
+function rptMetas(el) {
+  const mk = _rptPeriod === 'month' ? _rptMonth : monthKeyDR();
+  const yr = _rptPeriod === 'year'  ? _rptYear  : new Date().getFullYear().toString();
+  const period = _rptPeriod === 'year' ? yr : mk;
+  const label  = _rptPeriod === 'year'
+    ? yr
+    : new Date(mk+'-01').toLocaleString('es-DO',{month:'long',year:'numeric'});
+
+  const goals = storeConfig.goals[period] || {};
+
+  /* Calculate actuals for the period */
+  function inPeriod(date) {
+    if (!date) return false;
+    if (_rptPeriod === 'month') return date.startsWith(mk);
+    if (_rptPeriod === 'year')  return date.startsWith(yr);
+    return true;
+  }
+
+  const periodSales    = sales.filter(s => s.status !== 'cancelled' && inPeriod(s.date));
+  const actualVentas   = periodSales.reduce((s,v) => s + saleTotal(v), 0);
+  const actualCompras  = purchases.filter(p => inPeriod(p.date)).reduce((s,p) => s + (p.totalCostDOP || (p.costDOP||0)*(p.qty||0)), 0);
+  const actualGastos   = transactions.filter(t => t.type==='expense' && inPeriod(t.date)).reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
+  const paidMap        = {};
+  payments.forEach(p => { paidMap[String(p.saleId)] = (paidMap[String(p.saleId)]||0) + (parseFloat(p.amount)||0); });
+  const actualGanancia = periodSales.reduce((s,v) => {
+    const cost = purchases.filter(p => String(p.productId)===String(v.productId||'')).reduce((a,p)=>a+(p.costDOP||0),0);
+    return s + saleTotal(v) - (cost || saleTotal(v)*0.6);
+  }, 0);
+
+  function goalCard(key, label, icon, actual, color) {
+    const goal = parseFloat(goals[key]) || 0;
+    const pct  = goal > 0 ? Math.min(100, (actual/goal)*100) : 0;
+    const achieved = goal > 0 && actual >= goal;
+    const missing  = goal > 0 ? Math.max(0, goal - actual) : 0;
+    const barColor = achieved ? 'var(--emerald)' : pct > 70 ? 'var(--amber)' : 'var(--rose)';
+
+    return `
+      <div class="card" style="padding:20px;border-left:4px solid ${achieved?'var(--emerald)':color};">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:1.6em;">${icon}</span>
+            <div>
+              <div style="font-weight:800;font-size:.95em;">${label}</div>
+              <div style="font-size:11px;color:var(--ink-3);">${label} — ${label}</div>
+            </div>
+          </div>
+          ${achieved
+            ? `<span style="background:rgba(16,185,129,.15);color:var(--emerald);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:800;">✅ Lograda</span>`
+            : goal > 0
+              ? `<span style="background:rgba(244,63,94,.1);color:var(--rose);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;">Faltan ${formatDOP(missing)}</span>`
+              : `<span style="color:var(--ink-3);font-size:12px;">Sin meta</span>`}
+        </div>
+
+        <!-- Progress bar -->
+        <div style="background:var(--surface-2);border-radius:99px;height:10px;margin-bottom:12px;overflow:hidden;">
+          <div style="height:100%;border-radius:99px;background:${barColor};width:${pct}%;transition:width .5s var(--ease);"></div>
+        </div>
+
+        <!-- Numbers -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);">Actual</div>
+            <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.25em;font-weight:900;color:${color};">${formatDOP(actual)}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);">Meta</div>
+            <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.25em;font-weight:900;">${goal>0?formatDOP(goal):'—'}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);">Progreso</div>
+            <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.25em;font-weight:900;color:${barColor};">${goal>0?Math.round(pct)+'%':'—'}</div>
+          </div>
+        </div>
+
+        <!-- Goal input -->
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="input-group" style="flex:1;">
+            <span class="input-addon" style="font-size:11px;">RD$</span>
+            <input class="field" type="number" placeholder="Establecer meta..." value="${goal||''}" step="100" min="0"
+              style="font-size:13px;"
+              onchange="setGoal('${period}','${key}',this.value);rptMetas(document.getElementById('rptContent'))">
+          </div>
+          ${goal>0?`<button class="btn btn-ghost btn-xs" onclick="setGoal('${period}','${key}',0);rptMetas(document.getElementById('rptContent'))">✕</button>`:''}
+        </div>
+      </div>`;
+  }
+
+  el.innerHTML = `
+    <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.4em;font-weight:900;">🎯 Metas — ${label}</div>
+        <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Define tus objetivos y monitorea el progreso en tiempo real</div>
+      </div>
+      <div style="font-size:12px;color:var(--ink-3);background:var(--surface-2);padding:6px 12px;border-radius:var(--r-sm);">
+        Edita las metas directamente en cada tarjeta
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+      ${goalCard('ventas',   'Ventas',         '🧾', actualVentas,   'var(--violet)')}
+      ${goalCard('compras',  'Compras',         '📦', actualCompras,  'var(--amber)')}
+      ${goalCard('gastos',   'Gastos',          '💸', actualGastos,   'var(--rose)')}
+      ${goalCard('ganancia', 'Ganancia Bruta',  '💰', actualGanancia, 'var(--emerald)')}
+    </div>
+
+    <!-- Quick copy goals to other months -->
+    <div style="margin-top:24px;padding:16px;background:var(--surface-2);border-radius:var(--r-md);">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px;">📋 Copiar metas a otro período</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <select class="field" style="width:200px;" id="goalCopyTarget">
+          ${Array.from({length:6},(_,i)=>{
+            const d=new Date(); d.setMonth(d.getMonth()+i+1);
+            const mk2=d.toLocaleString('en-CA',{timeZone:'America/Santo_Domingo',year:'numeric',month:'2-digit'}).slice(0,7);
+            const lbl=new Date(mk2+'-01').toLocaleString('es-DO',{month:'long',year:'numeric'});
+            return `<option value="${mk2}">${lbl}</option>`;
+          }).join('')}
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="copyGoals('${period}',document.getElementById('goalCopyTarget').value);rptMetas(document.getElementById('rptContent'))">
+          Copiar metas →
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function setGoal(period, key, value) {
+  if (!storeConfig.goals) storeConfig.goals = {};
+  if (!storeConfig.goals[period]) storeConfig.goals[period] = {};
+  const v = parseFloat(value) || 0;
+  if (v <= 0) delete storeConfig.goals[period][key];
+  else storeConfig.goals[period][key] = v;
+  debouncedSave();
+}
+
+function copyGoals(fromPeriod, toPeriod) {
+  if (!storeConfig.goals) storeConfig.goals = {};
+  const src = storeConfig.goals[fromPeriod];
+  if (!src || !Object.keys(src).length) { showToast('No hay metas en el período actual para copiar','error'); return; }
+  storeConfig.goals[toPeriod] = { ...src };
+  debouncedSave();
+  showToast(`Metas copiadas a ${new Date(toPeriod+'-01').toLocaleString('es-DO',{month:'long',year:'numeric'})} ✅`,'success');
+}
+
+
