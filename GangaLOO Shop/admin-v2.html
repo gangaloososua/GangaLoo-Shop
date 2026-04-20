@@ -8279,9 +8279,11 @@ function renderTransacciones(el) {
                   <td class="text-right" style="color:var(--emerald);font-weight:700;">${t.type==='income'?formatDOP(t.amount):'—'}</td>
                   <td class="text-right" style="color:var(--rose);font-weight:700;">${t.type==='expense'?formatDOP(t.amount):'—'}</td>
                   <td>
-                    <button class="btn btn-danger btn-xs" onclick="deleteTransaction('${t.id}');renderContabTab('transacciones')" 
+                    <div style="display:flex;gap:4px;">
+                      <button class="btn btn-ghost btn-xs" onclick="editTransaccion('${t.id}')">✏️</button>
+                      <button class="btn btn-danger btn-xs" onclick="deleteTransaction('${t.id}');renderContabTab('transacciones')" 
                       title="${isCommPayout?'También eliminará el pago de comisión':''}">✕</button>
-                  </td>
+                    </div>
                 </tr>`;
               }).join('')}
           </tbody>
@@ -8368,18 +8370,22 @@ function renderPagosContab(el) {
     <div class="table-container">
       <div class="scroll-table">
         <table class="erp-table">
-          <thead><tr><th>Fecha</th><th>Factura</th><th>Cuenta</th><th>Referencia</th><th class="text-right">Monto</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Factura</th><th>Cuenta</th><th>Referencia</th><th class="text-right">Monto</th><th></th></tr></thead>
           <tbody>
             ${!sorted.length
-              ? '<tr><td colspan="5"><div class="empty-state" style="padding:40px;"><div class="empty-icon">💵</div><p>Sin pagos</p></div></td></tr>'
+              ? '<tr><td colspan="6"><div class="empty-state" style="padding:40px;"><div class="empty-icon">💵</div><p>Sin pagos</p></div></td></tr>'
               : sorted.map(p => {
-                  const sale = sales.find(s=>s.id===p.saleId);
+                  const sale = sales.find(s=>String(s.id)===String(p.saleId));
                   return `<tr>
                     <td style="font-size:12.5px;color:var(--ink-3);">${formatDate(p.date)}</td>
-                    <td><strong style="color:var(--violet);">${sale?.invoiceNum||p.saleId||'—'}</strong></td>
+                    <td><strong style="color:var(--violet);">${sale?.invoiceNum||sale?.invoiceNumber||p.saleId||'—'}</strong></td>
                     <td style="font-size:12.5px;">${getAccountName(p.accountId)}</td>
                     <td style="font-size:12.5px;color:var(--ink-3);">${p.reference||'—'}</td>
                     <td class="text-right" style="font-weight:800;color:var(--emerald);">${formatDOP(p.amount)}</td>
+                    <td><div style="display:flex;gap:4px;">
+                      <button class="btn btn-ghost btn-xs" onclick="editPago('${p.id}')">✏️</button>
+                      <button class="btn btn-danger btn-xs" onclick="deletePago('${p.id}')">✕</button>
+                    </div></td>
                   </tr>`;
                 }).join('')}
           </tbody>
@@ -8451,12 +8457,11 @@ function renderPagosCompra(el) {
     <div class="table-container">
       <div class="scroll-table">
         <table class="erp-table">
-          <thead><tr><th>Fecha</th><th>Lote</th><th>Proveedor</th><th>Cuenta</th><th class="text-right">Monto</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Lote</th><th>Proveedor</th><th>Cuenta</th><th class="text-right">Monto</th><th></th></tr></thead>
           <tbody>
             ${!sorted.length
-              ? '<tr><td colspan="5"><div class="empty-state" style="padding:40px;"><div class="empty-icon">📦</div><p>Sin pagos de compras</p></div></td></tr>'
+              ? '<tr><td colspan="6"><div class="empty-state" style="padding:40px;"><div class="empty-icon">📦</div><p>Sin pagos de compras</p></div></td></tr>'
               : sorted.map(p => {
-                  /* Support both old (purchaseId) and new (lotNumber) format */
                   const lotNum = p.lotNumber || p.purchaseId || '—';
                   const sample = purchases.find(x => (x.lotNumber||x.lotNum||String(x.id)) === lotNum);
                   return `<tr>
@@ -8465,6 +8470,10 @@ function renderPagosCompra(el) {
                     <td style="font-size:12.5px;">${sample?.supplier||'—'}</td>
                     <td style="font-size:12.5px;">${getAccountName(p.accountId)}</td>
                     <td class="text-right" style="font-weight:800;color:var(--rose);">${formatDOP(p.amount)}</td>
+                    <td><div style="display:flex;gap:4px;">
+                      <button class="btn btn-ghost btn-xs" onclick="editPagoCompra('${p.id}')">✏️</button>
+                      <button class="btn btn-danger btn-xs" onclick="deletePagoCompra('${p.id}')">✕</button>
+                    </div></td>
                   </tr>`;
                 }).join('')}
           </tbody>
@@ -8774,17 +8783,21 @@ function renderTransferencias(el) {
     <div class="table-container">
       <div class="scroll-table">
         <table class="erp-table">
-          <thead><tr><th>Fecha</th><th>De</th><th>Hacia</th><th class="text-right">Monto Origen</th><th class="text-right">Monto Destino</th><th>Tasa FX</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>De</th><th>Hacia</th><th class="text-right">Monto Origen</th><th class="text-right">Monto Destino</th><th>Tasa FX</th><th></th></tr></thead>
           <tbody>
             ${!sorted.length
-              ? '<tr><td colspan="6"><div class="empty-state" style="padding:40px;"><div class="empty-icon">↔</div><p>Sin transferencias</p></div></td></tr>'
+              ? '<tr><td colspan="7"><div class="empty-state" style="padding:40px;"><div class="empty-icon">↔</div><p>Sin transferencias</p></div></td></tr>'
               : sorted.map(t=>`<tr>
                   <td style="font-size:12.5px;color:var(--ink-3);">${formatDate(t.date)}</td>
                   <td style="font-weight:600;">${getAccountName(t.fromAccountId)}</td>
                   <td style="font-weight:600;">${getAccountName(t.toAccountId)}</td>
                   <td class="text-right" style="color:var(--rose);font-weight:700;">${formatDOP(t.fromAmount)}</td>
                   <td class="text-right" style="color:var(--emerald);font-weight:700;">${formatDOP(t.toAmount)}</td>
-                  <td style="font-size:12px;color:var(--ink-3);">${t.fxRate?`1:${t.fxRate}`:'—'}</td>
+                  <td style="font-size:12px;color:var(--ink-3);">${t.fxRate?'1:'+t.fxRate:'—'}</td>
+                  <td><div style="display:flex;gap:4px;">
+                    <button class="btn btn-ghost btn-xs" onclick="editTransferencia('${t.id}')">✏️</button>
+                    <button class="btn btn-danger btn-xs" onclick="deleteTransferencia('${t.id}')">✕</button>
+                  </div></td>
                 </tr>`).join('')}
           </tbody>
         </table>
@@ -10643,6 +10656,189 @@ function copyGoals(fromPeriod, toPeriod) {
   debouncedSave();
   showToast(`Metas copiadas a ${new Date(toPeriod+'-01').toLocaleString('es-DO',{month:'long',year:'numeric'})} ✅`,'success');
 }
+
+/* ─── CONTABILIDAD EDIT / DELETE HELPERS ─── */
+
+function editPago(id) {
+  const p = payments.find(x => String(x.id) === String(id));
+  if (!p) return;
+  const acctOpts = accounts.filter(a=>a.active!==false).map(a=>`<option value="${a.id}" ${String(a.id)===String(p.accountId)?'selected':''}>${a.name}</option>`).join('');
+  openModal(`
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header"><div class="modal-title">✏️ Editar Pago</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-body">
+        <div class="form-group"><label class="field-label">Fecha</label><input class="field" type="date" id="ep_date" value="${p.date||''}"></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">Monto (RD$)</label>
+          <div class="input-group"><span class="input-addon">RD$</span><input class="field" type="number" id="ep_amount" value="${p.amount||0}" step="0.01"></div></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">Cuenta</label><select class="field" id="ep_acct">${acctOpts}</select></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">Referencia</label><input class="field" id="ep_ref" value="${p.reference||''}"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveEditPago('${id}')">Guardar</button>
+      </div>
+    </div>`);
+}
+function saveEditPago(id) {
+  const p = payments.find(x => String(x.id) === String(id));
+  if (!p) return;
+  const oldAmt = parseFloat(p.amount)||0;
+  const newAmt = parseFloat(document.getElementById('ep_amount').value)||0;
+  const diff   = newAmt - oldAmt;
+  /* Adjust account balance for amount change */
+  if (diff !== 0) {
+    const acct = accounts.find(a => String(a.id) === String(p.accountId));
+    if (acct) acct.balance = Math.round((acct.balance + diff)*100)/100;
+  }
+  p.date      = document.getElementById('ep_date').value;
+  p.amount    = newAmt;
+  p.accountId = document.getElementById('ep_acct').value;
+  p.reference = document.getElementById('ep_ref').value.trim();
+  debouncedSave(); closeModal(); renderContabTab('pagos');
+  showToast('Pago actualizado ✅','success');
+}
+function deletePago(id) {
+  confirmDialog('¿Eliminar este pago? El saldo de la cuenta se ajustará.',
+    () => {
+      const p = payments.find(x => String(x.id) === String(id));
+      if (p) {
+        const acct = accounts.find(a => String(a.id) === String(p.accountId));
+        if (acct) acct.balance = Math.round((acct.balance - (parseFloat(p.amount)||0))*100)/100;
+      }
+      payments = payments.filter(x => String(x.id) !== String(id));
+      debouncedSave(); renderContabTab('pagos');
+      showToast('Pago eliminado','warning');
+    }, { danger:true, confirmLabel:'Eliminar', title:'Eliminar Pago' });
+}
+
+function editPagoCompra(id) {
+  const p = purchasePayments.find(x => String(x.id) === String(id));
+  if (!p) return;
+  const acctOpts = accounts.filter(a=>a.active!==false).map(a=>`<option value="${a.id}" ${String(a.id)===String(p.accountId)?'selected':''}>${a.name}</option>`).join('');
+  openModal(`
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header"><div class="modal-title">✏️ Editar Pago Compra</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-body">
+        <div class="form-group"><label class="field-label">Fecha</label><input class="field" type="date" id="epc_date" value="${p.date||''}"></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">Monto (RD$)</label>
+          <div class="input-group"><span class="input-addon">RD$</span><input class="field" type="number" id="epc_amount" value="${p.amount||0}" step="0.01"></div></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">Cuenta</label><select class="field" id="epc_acct">${acctOpts}</select></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveEditPagoCompra('${id}')">Guardar</button>
+      </div>
+    </div>`);
+}
+function saveEditPagoCompra(id) {
+  const p = purchasePayments.find(x => String(x.id) === String(id));
+  if (!p) return;
+  const diff = (parseFloat(document.getElementById('epc_amount').value)||0) - (parseFloat(p.amount)||0);
+  if (diff !== 0) {
+    const acct = accounts.find(a => String(a.id) === String(p.accountId));
+    if (acct) acct.balance = Math.round((acct.balance - diff)*100)/100; // purchase payment debits account
+  }
+  p.date      = document.getElementById('epc_date').value;
+  p.amount    = parseFloat(document.getElementById('epc_amount').value)||0;
+  p.accountId = document.getElementById('epc_acct').value;
+  debouncedSave(); closeModal(); renderContabTab('pagoscompra');
+  showToast('Pago de compra actualizado ✅','success');
+}
+function deletePagoCompra(id) {
+  confirmDialog('¿Eliminar este pago de compra?',
+    () => {
+      const p = purchasePayments.find(x => String(x.id) === String(id));
+      if (p) {
+        const acct = accounts.find(a => String(a.id) === String(p.accountId));
+        if (acct) acct.balance = Math.round((acct.balance + (parseFloat(p.amount)||0))*100)/100;
+      }
+      purchasePayments = purchasePayments.filter(x => String(x.id) !== String(id));
+      debouncedSave(); renderContabTab('pagoscompra');
+      showToast('Pago eliminado','warning');
+    }, { danger:true, confirmLabel:'Eliminar', title:'Eliminar Pago' });
+}
+
+function editTransaccion(id) {
+  const t = transactions.find(x => String(x.id) === String(id));
+  if (!t) return;
+  const acctOpts = accounts.filter(a=>a.active!==false).map(a=>`<option value="${a.id}" ${String(a.id)===String(t.accountId)?'selected':''}>${a.name}</option>`).join('');
+  const catOpts  = accountingCategories.filter(c=>c.type===t.type).map(c=>`<option value="${c.id}" ${String(c.id)===String(t.categoryId)?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
+  openModal(`
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header"><div class="modal-title">✏️ Editar Transacción</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-body">
+        <div class="form-group"><label class="field-label">Fecha</label><input class="field" type="date" id="et_date" value="${t.date||''}"></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">Descripción</label><input class="field" id="et_desc" value="${t.description||''}"></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">Monto (RD$)</label>
+          <div class="input-group"><span class="input-addon">RD$</span><input class="field" type="number" id="et_amount" value="${t.amount||0}" step="0.01"></div></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">Cuenta</label><select class="field" id="et_acct">${acctOpts}</select></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">Categoría</label><select class="field" id="et_cat">${catOpts}</select></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveEditTransaccion('${id}')">Guardar</button>
+      </div>
+    </div>`);
+}
+function saveEditTransaccion(id) {
+  const t = transactions.find(x => String(x.id) === String(id));
+  if (!t) return;
+  const oldAmt = parseFloat(t.amount)||0;
+  const newAmt = parseFloat(document.getElementById('et_amount').value)||0;
+  const diff   = newAmt - oldAmt;
+  if (diff !== 0) {
+    const acct = accounts.find(a => String(a.id) === String(t.accountId));
+    if (acct) acct.balance = Math.round((acct.balance + (t.type==='income'?diff:-diff))*100)/100;
+  }
+  t.date        = document.getElementById('et_date').value;
+  t.description = document.getElementById('et_desc').value.trim();
+  t.amount      = newAmt;
+  t.accountId   = document.getElementById('et_acct').value;
+  t.categoryId  = document.getElementById('et_cat').value;
+  debouncedSave(); closeModal(); renderContabTab('transacciones');
+  showToast('Transacción actualizada ✅','success');
+}
+
+function editTransferencia(id) {
+  const t = accountTransfers.find(x => String(x.id) === String(id));
+  if (!t) return;
+  openModal(`
+    <div class="modal" style="max-width:380px;">
+      <div class="modal-header"><div class="modal-title">✏️ Editar Transferencia</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-body">
+        <div class="form-group"><label class="field-label">Fecha</label><input class="field" type="date" id="etr_date" value="${t.date||''}"></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">Notas</label><input class="field" id="etr_notes" value="${t.notes||''}"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveEditTransferencia('${id}')">Guardar</button>
+      </div>
+    </div>`);
+}
+function saveEditTransferencia(id) {
+  const t = accountTransfers.find(x => String(x.id) === String(id));
+  if (!t) return;
+  t.date  = document.getElementById('etr_date').value;
+  t.notes = document.getElementById('etr_notes').value.trim();
+  debouncedSave(); closeModal(); renderContabTab('transferencias');
+  showToast('Transferencia actualizada ✅','success');
+}
+function deleteTransferencia(id) {
+  confirmDialog('¿Eliminar esta transferencia? Los saldos de las cuentas se ajustarán.',
+    () => {
+      const t = accountTransfers.find(x => String(x.id) === String(id));
+      if (t) {
+        const from = accounts.find(a => String(a.id) === String(t.fromAccountId));
+        const to   = accounts.find(a => String(a.id) === String(t.toAccountId));
+        if (from) from.balance = Math.round((from.balance + (t.fromAmount||0))*100)/100;
+        if (to)   to.balance   = Math.round((to.balance   - (t.toAmount  ||0))*100)/100;
+      }
+      accountTransfers = accountTransfers.filter(x => String(x.id) !== String(id));
+      debouncedSave(); renderContabTab('transferencias');
+      showToast('Transferencia eliminada','warning');
+    }, { danger:true, confirmLabel:'Eliminar', title:'Eliminar Transferencia' });
+}
+
 
 </script>
 </body>
