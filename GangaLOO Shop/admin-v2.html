@@ -3874,6 +3874,7 @@ const COMPRA_STATUSES = {
 
 let _compraStatusFilter = 'all';
 let _compraSearch = '';
+let _compraProdFilter = '';
 let _compraWhFilter = '';
 let _selectedOrder = null; /* lotNumber of selected order for detail pane */
 
@@ -3923,6 +3924,11 @@ function renderComprasPanel() {
                 onchange="_compraWhFilter=this.value;renderComprasList()">
                 <option value="">Todos los almacenes</option>
                 ${warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('')}
+              </select>
+              <select style="flex:1;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r-xs);font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--surface);"
+                onchange="_compraProdFilter=this.value;renderComprasList()">
+                <option value="">Todos los productos</option>
+                ${[...products].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(p=>`<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''}</option>`).join('')}
               </select>
               <div style="display:flex;align-items:center;padding:0 10px;font-size:12px;color:var(--ink-3);background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--r-xs);white-space:nowrap;" id="compraCount">—</div>
             </div>
@@ -4029,7 +4035,8 @@ function renderComprasList() {
 
   let orders = getCompraOrders();
   if (_compraStatusFilter !== 'all') orders = orders.filter(o => o.status === _compraStatusFilter);
-  if (_compraWhFilter)               orders = orders.filter(o => o.warehouseId === _compraWhFilter);
+  if (_compraWhFilter)               orders = orders.filter(o => String(o.warehouseId) === String(_compraWhFilter));
+  if (_compraProdFilter)             orders = orders.filter(o => o.lots.some(p => String(p.productId) === String(_compraProdFilter)));
   if (search)                        orders = orders.filter(o =>
     o.lotNumber.toLowerCase().includes(search) ||
     o.supplier.toLowerCase().includes(search) ||
