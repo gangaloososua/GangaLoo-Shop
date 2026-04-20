@@ -7645,12 +7645,13 @@ function openCuentaMovements(accountId) {
 
   /* 2. Expense & income transactions */
   transactions.filter(t => String(t.accountId) === String(accountId)).forEach(t => {
-    const cat = accountingCategories.find(c => String(c.id) === String(t.categoryId))?.name || '—';
+    const cat    = accountingCategories.find(c => String(c.id) === String(t.categoryId));
+    const catLabel = cat ? (cat.name + (cat.subname ? ' — ' + cat.subname : '')) : '—';
     movements.push({
       date:   t.date || '',
       type:   t.type === 'income' ? 'in' : 'out',
-      label:  t.description || cat,
-      ref:    cat,
+      label:  t.description || catLabel,
+      ref:    catLabel,
       amount: parseFloat(t.amount) || 0,
       source: 'transaction',
     });
