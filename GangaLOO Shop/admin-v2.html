@@ -10975,6 +10975,49 @@ function saveRegistrarPagoLot(presetLot) {
   if (!amount || amount <= 0) { showToast('Monto inválido', 'error'); return; }
   if (!acctId) { showToast('Selecciona una cuenta', 'error'); return; }
 
+  /* Get all purchase lots for this order */
+  const lots = purchases.filter(p => (p.lotNumber||p.lotNum||String(p.id)) === lotNumber);
+
+  /* Recalculate costs if actual paid differs from calculated
+     Logic (same as old admin):
+     - calculatedDOP = sum of (costUSD * qty * exchangeRate) per lot
+     - bankFee = paidAmount - calculatedDOP  (positive = bank charged extra, negative = discount)
+     - redistribute bankFee proportionally across lots
+     - update costDOP and totalCostDOP on each lot */
+  if (lots.length > 0) {
+    const totalPreviouslyPaid = purchasePayments
+      .filter(p => p.lotNumber===lotNumber||p.purchaseId===lotNumber)
+      .reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+
+    const calculatedDOP = lots.reduce((s,p) => s + ((p.costUSD||0)*(p.qty||0)*(p.exchangeRate||1)), 0);
+    const allPaid       = totalPreviouslyPaid + amount;
+
+    /* Only recalculate if we have USD costs to base it on */
+    if (calculatedDOP > 0) {
+      const bankFee    = allPaid - calculatedDOP;
+      const transport  = lots.reduce((s,p) => s + ((p.bulkOrderData?.transportShare||p.transportShare||0)), 0);
+      const totalFinal = allPaid + transport; // transport stays the same
+
+      lots.forEach(p => {
+        const proportion     = ((p.costUSD||0)*(p.qty||0)*(p.exchangeRate||1)) / calculatedDOP;
+        const bankShare      = bankFee * proportion;
+        const transportShare = p.bulkOrderData?.transportShare || p.transportShare || 0;
+        const itemTotalDOP   = ((p.costUSD||0)*(p.qty||0)*(p.exchangeRate||1)) + bankShare + transportShare;
+        const unitCostDOP    = p.qty > 0 ? itemTotalDOP / p.qty : 0;
+
+        p.costDOP      = unitCostDOP;
+        p.totalCostDOP = itemTotalDOP;
+        if (p.bulkOrderData) p.bulkOrderData.bankFeeShare = bankShare;
+        p.bankFeeShare = bankShare;
+      });
+
+      const diff = Math.abs(amount - (calculatedDOP - totalPreviouslyPaid));
+      if (diff > 0.01) {
+        showToast(`Costos actualizados con diferencia bancaria de ${formatDOP(bankFee)} ✅`, 'success');
+      }
+    }
+  }
+
   /* Debit account */
   const acct = accounts.find(a => String(a.id) === String(acctId));
   if (acct) acct.balance = Math.round((acct.balance - amount)*100)/100;
@@ -10990,7 +11033,6 @@ function saveRegistrarPagoLot(presetLot) {
   });
 
   debouncedSave();
-  /* Refresh wherever we are */
   renderContabTab('pagoscompra');
   if (_activePanel === 'compras') { renderComprasKPI(); renderComprasList(); if (_selectedOrder===lotNumber) renderCompraDetail(lotNumber); }
   closeModal();
