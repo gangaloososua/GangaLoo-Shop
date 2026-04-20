@@ -8484,9 +8484,12 @@ function renderPagosCompra(el) {
   const sorted = [...purchasePayments].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const total  = sorted.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   el.innerHTML = `
-    <div style="margin:20px 0 16px;">
-      <div class="text-xs text-muted">Total pagado en compras</div>
-      <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:2em;font-weight:900;color:var(--rose);">${formatDOP(total)}</div>
+    <div style="margin:20px 0 16px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div class="text-xs text-muted">Total pagado en compras</div>
+        <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:2em;font-weight:900;color:var(--rose);">${formatDOP(total)}</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openRegistrarPagoLot()">+ Nuevo Pago Compra</button>
     </div>
     <div class="table-container">
       <div class="scroll-table">
@@ -10871,6 +10874,127 @@ function deleteTransferencia(id) {
       debouncedSave(); renderContabTab('transferencias');
       showToast('Transferencia eliminada','warning');
     }, { danger:true, confirmLabel:'Eliminar', title:'Eliminar Transferencia' });
+}
+
+
+/* ─── REGISTRAR PAGO DE COMPRA ─── */
+function openRegistrarPagoLot(lotNumber) {
+  const acctOpts = accounts.filter(a=>a.active!==false)
+    .map(a=>`<option value="${a.id}">${a.name} (${formatDOP(a.balance)})</option>`).join('');
+
+  /* If lotNumber provided (from compra detail), pre-fill and show lot info */
+  const order = lotNumber ? getCompraOrders().find(o=>o.lotNumber===lotNumber) : null;
+  const alreadyPaid = lotNumber
+    ? purchasePayments.filter(p=>p.lotNumber===lotNumber||p.purchaseId===lotNumber).reduce((s,p)=>s+(parseFloat(p.amount)||0),0)
+    : 0;
+  const orderTotal = order ? order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0) : 0;
+  const pending    = Math.max(0, orderTotal - alreadyPaid);
+
+  /* Lot selector (when opened from Pagos Compras tab without a specific lot) */
+  const orders = getCompraOrders().filter(o=>o.status!=='cancelled');
+  const lotOpts = `<option value="">— Seleccionar orden —</option>` +
+    orders.map(o => {
+      const paid = purchasePayments.filter(p=>p.lotNumber===o.lotNumber||p.purchaseId===o.lotNumber).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+      const tot  = o.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
+      const pend = Math.max(0, tot-paid);
+      return `<option value="${o.lotNumber}" ${o.lotNumber===lotNumber?'selected':''}>${o.lotNumber} · ${o.supplier||'Sin proveedor'} · Pendiente: ${formatDOP(pend)}</option>`;
+    }).join('');
+
+  openModal(`
+    <div class="modal" style="max-width:500px;">
+      <div class="modal-header">
+        <div class="modal-title">📦 Registrar Pago de Compra</div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        ${order ? `
+          <div style="background:var(--violet-l);border-radius:var(--r-sm);padding:12px 16px;margin-bottom:16px;display:flex;gap:20px;flex-wrap:wrap;">
+            <div><div class="text-xs text-muted">Orden</div><div style="font-weight:800;">${order.lotNumber}</div></div>
+            <div><div class="text-xs text-muted">Total</div><div style="font-weight:800;">${formatDOP(orderTotal)}</div></div>
+            <div><div class="text-xs text-muted">Ya pagado</div><div style="font-weight:800;color:var(--emerald);">${formatDOP(alreadyPaid)}</div></div>
+            <div><div class="text-xs text-muted">Pendiente</div><div style="font-weight:800;color:var(--rose);">${formatDOP(pending)}</div></div>
+          </div>
+          <input type="hidden" id="plLotNumber" value="${lotNumber}">
+        ` : `
+          <div class="form-group" style="margin-bottom:14px;">
+            <label class="field-label field-required">Orden de compra</label>
+            <select class="field" id="plLotSelect" onchange="updatePagoLotInfo(this.value)">${lotOpts}</select>
+            <div id="plLotInfo" style="margin-top:8px;font-size:12px;color:var(--ink-3);"></div>
+          </div>
+        `}
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="form-group">
+            <label class="field-label field-required">Monto pagado (RD$)</label>
+            <div class="input-group"><span class="input-addon">RD$</span>
+              <input class="field" type="number" id="plAmount" value="${pending>0?pending.toFixed(2):''}" placeholder="0.00" step="0.01" min="0.01">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="field-label field-required">Cuenta origen</label>
+            <select class="field" id="plAccount">${acctOpts}</select>
+          </div>
+          <div class="form-group">
+            <label class="field-label">Fecha</label>
+            <input class="field" type="date" id="plDate" value="${todayDR()}">
+          </div>
+          <div class="form-group">
+            <label class="field-label">Referencia</label>
+            <input class="field" id="plRef" placeholder="Transferencia, efectivo...">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveRegistrarPagoLot(${lotNumber?`'${lotNumber}'`:'null'})">💾 Registrar Pago</button>
+      </div>
+    </div>
+  `);
+}
+
+function updatePagoLotInfo(lotNumber) {
+  const el = document.getElementById('plLotInfo');
+  if (!el || !lotNumber) return;
+  const order = getCompraOrders().find(o=>o.lotNumber===lotNumber);
+  if (!order) return;
+  const paid  = purchasePayments.filter(p=>p.lotNumber===lotNumber||p.purchaseId===lotNumber).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const total = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
+  const pend  = Math.max(0, total-paid);
+  el.innerHTML = `Total: <strong>${formatDOP(total)}</strong> · Pagado: <strong style="color:var(--emerald)">${formatDOP(paid)}</strong> · Pendiente: <strong style="color:var(--rose)">${formatDOP(pend)}</strong>`;
+  const amtEl = document.getElementById('plAmount');
+  if (amtEl && pend > 0) amtEl.value = pend.toFixed(2);
+}
+
+function saveRegistrarPagoLot(presetLot) {
+  const lotNumber = presetLot || document.getElementById('plLotSelect')?.value;
+  if (!lotNumber) { showToast('Selecciona una orden de compra', 'error'); return; }
+  const amount  = parseFloat(document.getElementById('plAmount')?.value) || 0;
+  const acctId  = document.getElementById('plAccount')?.value;
+  const date    = document.getElementById('plDate')?.value || todayDR();
+  const ref     = document.getElementById('plRef')?.value.trim() || '';
+
+  if (!amount || amount <= 0) { showToast('Monto inválido', 'error'); return; }
+  if (!acctId) { showToast('Selecciona una cuenta', 'error'); return; }
+
+  /* Debit account */
+  const acct = accounts.find(a => String(a.id) === String(acctId));
+  if (acct) acct.balance = Math.round((acct.balance - amount)*100)/100;
+
+  /* Save purchase payment */
+  purchasePayments.push({
+    id: generateId(),
+    lotNumber,
+    amount: Math.round(amount*100)/100,
+    accountId: acctId,
+    date,
+    reference: ref || lotNumber,
+  });
+
+  debouncedSave();
+  /* Refresh wherever we are */
+  renderContabTab('pagoscompra');
+  if (_activePanel === 'compras') { renderComprasKPI(); renderComprasList(); if (_selectedOrder===lotNumber) renderCompraDetail(lotNumber); }
+  closeModal();
+  showToast(`Pago de ${formatDOP(amount)} registrado para ${lotNumber} ✅`, 'success');
 }
 
 
