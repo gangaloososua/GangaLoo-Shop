@@ -7673,12 +7673,17 @@ function openCuentaMovements(accountId) {
   /* 5. Account transfers */
   accountTransfers.filter(t => String(t.fromAccountId) === String(accountId) || String(t.toAccountId) === String(accountId)).forEach(t => {
     const isOut = String(t.fromAccountId) === String(accountId);
+    const amount = isOut
+      ? (parseFloat(t.fromAmount) || parseFloat(t.amount) || 0)
+      : (parseFloat(t.toAmount)   || parseFloat(t.amount) || 0);
     movements.push({
       date:   t.date || '',
       type:   isOut ? 'out' : 'in',
-      label:  isOut ? `Transferencia a ${getAccountName(t.toAccountId)}` : `Transferencia de ${getAccountName(t.fromAccountId)}`,
+      label:  isOut
+        ? `Transferencia a ${getAccountName(t.toAccountId)}`
+        : `Transferencia de ${getAccountName(t.fromAccountId)}`,
       ref:    'transferencia',
-      amount: parseFloat(isOut ? t.amount : (t.receivedAmount || t.amount)) || 0,
+      amount,
       source: 'transfer',
     });
   });
@@ -7742,7 +7747,7 @@ function openCuentaMovements(accountId) {
           <!-- Year select -->
           <select id="cmYearSel" onchange="applyCuentaFilters()" style="padding:4px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);font-size:12px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer;">
             <option value="all">Todos los años</option>
-            ${years.map(y=>`<option value="${y}" ${y===curYear?'selected':''}>${y}</option>`).join('')}
+            ${years.map(y=>`<option value="${y}">${y}</option>`).join('')}
           </select>
           <!-- Month select -->
           <select id="cmMonthSel" onchange="applyCuentaFilters()" style="padding:4px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);font-size:12px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer;">
@@ -7797,8 +7802,8 @@ function openCuentaMovements(accountId) {
     </div>
   `);
 
-  /* Auto-apply current year filter on open */
-  if (years.includes(curYear)) applyCuentaFilters();
+  /* Reset source filter on open */
+  _cmSource = 'all';
 }
 
 let _cmSource = 'all';
@@ -8296,46 +8301,95 @@ function deleteAccountingCat(id) {
 
 /* ─── TRANSACCIONES ─── */
 function renderTransacciones(el) {
-  const sorted = [...transactions].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const allTx = [...transactions].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  /* Build filter options */
+  const catOpts = `<option value="">Todas las categorías</option>` +
+    accountingCategories.map(c=>`<option value="${c.id}">${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
+  const acctOpts = `<option value="">Todas las cuentas</option>` +
+    accounts.filter(a=>a.active!==false).map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+
   el.innerHTML = `
-    <div style="display:flex;justify-content:flex-end;gap:10px;margin:20px 0 16px;flex-wrap:wrap;">
-      <button class="btn btn-primary btn-sm" onclick="openNuevaTransaccion()">+ Nueva Transacción</button>
+    <div style="display:flex;gap:8px;align-items:center;margin:16px 0;flex-wrap:wrap;">
+      <!-- Search -->
+      <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:7px 12px;flex:1;min-width:180px;">
+        <span style="color:var(--ink-3);">🔍</span>
+        <input type="text" id="txSearch" placeholder="Buscar descripción..." oninput="filterTransacciones()"
+          style="border:none;background:none;font-family:inherit;font-size:13px;color:var(--ink);outline:none;width:100%;">
+      </div>
+      <!-- Category filter -->
+      <select class="field" id="txCatFilter" style="width:200px;" onchange="filterTransacciones()">${catOpts}</select>
+      <!-- Account filter -->
+      <select class="field" id="txAcctFilter" style="width:180px;" onchange="filterTransacciones()">${acctOpts}</select>
+      <!-- Type filter -->
+      <select class="field" id="txTypeFilter" style="width:130px;" onchange="filterTransacciones()">
+        <option value="">Todos</option>
+        <option value="income">Solo ingresos</option>
+        <option value="expense">Solo egresos</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="openNuevaTransaccion()">+ Nueva</button>
     </div>
     <div class="table-container">
       <div class="scroll-table">
-        <table class="erp-table">
+        <table class="erp-table" id="txTable">
           <thead><tr>
             <th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Cuenta</th>
-            <th class="text-right">Ingreso</th><th class="text-right">Egreso</th><th>Acciones</th>
+            <th class="text-right">Ingreso</th><th class="text-right">Egreso</th><th></th>
           </tr></thead>
-          <tbody>
-            ${!sorted.length ? '<tr><td colspan="7"><div class="empty-state" style="padding:40px;"><div class="empty-icon">📋</div><p>Sin transacciones</p></div></td></tr>' :
-              sorted.map(t => {
-                const cat = accountingCategories.find(c=>c.id===t.categoryId);
-                const isCommPayout = (t.reference||'').startsWith('commission-payout-');
-                return `<tr>
-                  <td style="font-size:12.5px;color:var(--ink-3);">${formatDate(t.date)}</td>
-                  <td>
-                    <div style="font-weight:600;">${t.description||'—'}</div>
-                    ${isCommPayout?'<div style="font-size:10px;color:var(--violet);">🏷 Comisión vendedor</div>':''}
-                  </td>
-                  <td><span class="badge ${cat?.type==='income'?'badge-emerald':'badge-rose'}" style="font-size:10px;">${cat?.name||'—'}</span></td>
-                  <td style="font-size:12.5px;">${getAccountName(t.accountId)}</td>
-                  <td class="text-right" style="color:var(--emerald);font-weight:700;">${t.type==='income'?formatDOP(t.amount):'—'}</td>
-                  <td class="text-right" style="color:var(--rose);font-weight:700;">${t.type==='expense'?formatDOP(t.amount):'—'}</td>
-                  <td>
-                    <div style="display:flex;gap:4px;">
-                      <button class="btn btn-ghost btn-xs" onclick="editTransaccion('${t.id}')">✏️</button>
-                      <button class="btn btn-danger btn-xs" onclick="deleteTransaction('${t.id}');renderContabTab('transacciones')" 
-                      title="${isCommPayout?'También eliminará el pago de comisión':''}">✕</button>
-                    </div>
-                </tr>`;
-              }).join('')}
+          <tbody id="txTableBody">
+            ${renderTxRows(allTx)}
           </tbody>
         </table>
       </div>
     </div>
   `;
+}
+
+function renderTxRows(rows) {
+  if (!rows.length) return '<tr><td colspan="7"><div class="empty-state" style="padding:40px;"><div class="empty-icon">📋</div><p>Sin transacciones</p></div></td></tr>';
+  return rows.map(t => {
+    const cat = accountingCategories.find(c => String(c.id) === String(t.categoryId));
+    const catLabel = cat ? (cat.name + (cat.subname ? ' — ' + cat.subname : '')) : '—';
+    const isCommPayout = (t.reference||'').startsWith('commission-payout-');
+    return `<tr>
+      <td style="font-size:12.5px;color:var(--ink-3);white-space:nowrap;">${formatDate(t.date)}</td>
+      <td>
+        <div style="font-weight:600;">${t.description||'—'}</div>
+        ${isCommPayout?'<div style="font-size:10px;color:var(--violet);">🏷 Comisión vendedor</div>':''}
+      </td>
+      <td><span class="badge ${cat?.type==='income'?'badge-emerald':'badge-rose'}" style="font-size:10px;">${catLabel}</span></td>
+      <td style="font-size:12.5px;">${getAccountName(t.accountId)}</td>
+      <td class="text-right" style="color:var(--emerald);font-weight:700;">${t.type==='income'?formatDOP(t.amount):'—'}</td>
+      <td class="text-right" style="color:var(--rose);font-weight:700;">${t.type==='expense'?formatDOP(t.amount):'—'}</td>
+      <td>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-ghost btn-xs" onclick="editTransaccion('${t.id}')">✏️</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteTransaction('${t.id}');renderContabTab('transacciones')"
+            title="${isCommPayout?'También eliminará el pago de comisión':''}">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTransacciones() {
+  const search  = (document.getElementById('txSearch')?.value || '').toLowerCase();
+  const catId   = document.getElementById('txCatFilter')?.value  || '';
+  const acctId  = document.getElementById('txAcctFilter')?.value || '';
+  const type    = document.getElementById('txTypeFilter')?.value  || '';
+  const body    = document.getElementById('txTableBody');
+  if (!body) return;
+
+  let rows = [...transactions].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if (search) rows = rows.filter(t =>
+    (t.description||'').toLowerCase().includes(search) ||
+    getAccountName(t.accountId).toLowerCase().includes(search)
+  );
+  if (catId)  rows = rows.filter(t => String(t.categoryId) === String(catId));
+  if (acctId) rows = rows.filter(t => String(t.accountId)  === String(acctId));
+  if (type)   rows = rows.filter(t => t.type === type);
+
+  body.innerHTML = renderTxRows(rows);
 }
 
 function openNuevaTransaccion() {
