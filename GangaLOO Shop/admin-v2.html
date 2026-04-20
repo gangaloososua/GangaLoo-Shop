@@ -7965,49 +7965,84 @@ function toggleCuenta(id, active) {
 function openSetSaldoInicial(accountId) {
   const a = accounts.find(x => String(x.id) === String(accountId));
   if (!a) return;
-  const fmt = v => a.currency==='USD' ? formatUSD(v) : a.currency==='EUR' ? formatEUR(v) : formatDOP(v);
   const cur = a.currency || 'DOP';
+  const fmt = v => a.currency==='USD' ? formatUSD(v) : a.currency==='EUR' ? formatEUR(v) : formatDOP(v);
+  const curSaldoInicial = a.saldoInicial || 0;
 
   openModal(`
-    <div class="modal" style="max-width:400px;">
+    <div class="modal" style="max-width:420px;">
       <div class="modal-header">
         <div class="modal-title">⚖️ Saldo Inicial — ${a.name}</div>
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
       <div class="modal-body">
         <p style="color:var(--ink-3);font-size:13px;margin-bottom:16px;">
-          Establece el saldo de apertura de la cuenta. Esto sobreescribe directamente el saldo actual sin crear un movimiento.
+          El saldo inicial es el balance de apertura de la cuenta antes de cualquier movimiento registrado aquí. Se suma al total de tus transacciones.
         </p>
-        <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px 16px;margin-bottom:16px;">
-          <div style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;">Saldo actual</div>
-          <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.4em;font-weight:900;color:${a.balance<0?'var(--rose)':'var(--violet)'};">${fmt(a.balance)}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+          <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px;">
+            <div style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Saldo inicial actual</div>
+            <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.2em;font-weight:900;">${fmt(curSaldoInicial)}</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px;">
+            <div style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Saldo actual total</div>
+            <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.2em;font-weight:900;color:${a.balance<0?'var(--rose)':'var(--violet)'};">${fmt(a.balance)}</div>
+          </div>
         </div>
         <div class="form-group">
           <label class="field-label field-required">Nuevo saldo inicial (${cur})</label>
           <div class="input-group">
             <span class="input-addon">${cur==='USD'?'$':cur==='EUR'?'€':'RD$'}</span>
-            <input class="field" type="number" id="siMonto" value="${a.balance}" step="0.01" placeholder="0.00">
+            <input class="field" type="number" id="siMonto" value="${curSaldoInicial}" step="0.01" placeholder="0.00" oninput="updateSiPreview('${accountId}')">
           </div>
+        </div>
+        <div id="siPreview" style="margin-top:12px;padding:10px 14px;background:var(--violet-l);border-radius:var(--r-sm);font-size:13px;display:none;">
+          <div style="color:var(--ink-3);">Nuevo saldo total:</div>
+          <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.3em;font-weight:900;color:var(--violet);" id="siNewTotal">—</div>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:2px;" id="siDiffNote"></div>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-        <button class="btn btn-primary" onclick="saveSetSaldoInicial('${accountId}')">Guardar Saldo</button>
+        <button class="btn btn-primary" onclick="saveSetSaldoInicial('${accountId}')">Guardar</button>
       </div>
     </div>
   `);
+  updateSiPreview(accountId);
+}
+
+function updateSiPreview(accountId) {
+  const a = accounts.find(x => String(x.id) === String(accountId));
+  if (!a) return;
+  const fmt = v => a.currency==='USD' ? formatUSD(v) : a.currency==='EUR' ? formatEUR(v) : formatDOP(v);
+  const newInicial = parseFloat(document.getElementById('siMonto')?.value) || 0;
+  const oldInicial = a.saldoInicial || 0;
+  const diff       = newInicial - oldInicial;
+  const newTotal   = Math.round((a.balance + diff)*100)/100;
+  const preview    = document.getElementById('siPreview');
+  const totalEl    = document.getElementById('siNewTotal');
+  const noteEl     = document.getElementById('siDiffNote');
+  if (preview) preview.style.display = 'block';
+  if (totalEl) totalEl.textContent = fmt(newTotal);
+  if (noteEl)  noteEl.textContent  = diff === 0
+    ? 'Sin cambio'
+    : `${diff>0?'+':''}${fmt(diff)} al saldo actual`;
 }
 
 function saveSetSaldoInicial(accountId) {
   const a = accounts.find(x => String(x.id) === String(accountId));
   if (!a) return;
-  const newBal = parseFloat(document.getElementById('siMonto')?.value);
-  if (isNaN(newBal)) { showToast('Monto inválido', 'error'); return; }
-  a.balance = Math.round(newBal * 100) / 100;
+  const newInicial = parseFloat(document.getElementById('siMonto')?.value);
+  if (isNaN(newInicial)) { showToast('Monto inválido', 'error'); return; }
+  const oldInicial  = a.saldoInicial || 0;
+  const diff        = Math.round((newInicial - oldInicial)*100)/100;
+  a.saldoInicial    = Math.round(newInicial*100)/100;
+  a.balance         = Math.round((a.balance + diff)*100)/100;
   debouncedSave();
   closeModal();
   renderContabTab('cuentas');
-  showToast(`Saldo de "${a.name}" ajustado a ${newBal.toLocaleString('es-DO', {minimumFractionDigits:2})} ✅`, 'success');
+  const fmt = v => a.currency==='USD' ? formatUSD(v) : a.currency==='EUR' ? formatEUR(v) : formatDOP(v);
+  showToast(`Saldo inicial de "${a.name}" ajustado. Nuevo saldo: ${fmt(a.balance)} ✅`, 'success');
 }
 
 function openAjusteCuenta(id, type) {
