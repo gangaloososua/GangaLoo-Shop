@@ -645,6 +645,12 @@ select.field { cursor: pointer; }
   box-shadow: 0 2px 8px rgba(0,201,167,.3);
 }
 .btn-teal:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,201,167,.4); }
+.btn-amber {
+  background: linear-gradient(135deg, var(--amber), #d97706);
+  color: white;
+  box-shadow: 0 2px 8px rgba(245,158,11,.3);
+}
+.btn-amber:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(245,158,11,.4); }
 
 .btn-secondary {
   background: var(--surface);
@@ -4415,7 +4421,11 @@ function renderCompraDetail(lotNumber) {
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;margin-bottom:20px;">
         <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between;">
           <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);">Pagos</div>
-          ${pend>0.01 ? `<button class="btn btn-primary btn-sm" onclick="openRegistrarPagoLot('${lotNumber}')">+ Registrar Pago</button>` : '<span style="font-size:12px;font-weight:700;color:var(--emerald);">✓ Completamente pagada</span>'}
+          ${pend>0.01
+            ? `<button class="btn btn-primary btn-sm" onclick="openRegistrarPagoLot('${lotNumber}')">+ Registrar Pago</button>`
+            : pend > 0
+              ? `<button class="btn btn-amber btn-sm" onclick="ajustarCostoAlPago('${lotNumber}')">⚖️ Ajustar al pago real</button>`
+              : '<span style="font-size:12px;font-weight:700;color:var(--emerald);">✓ Completamente pagada</span>'}
         </div>
         <div style="padding:14px 16px;">
           <!-- Progress bar -->
@@ -10694,7 +10704,38 @@ function copyGoals(fromPeriod, toPeriod) {
   showToast(`Metas copiadas a ${new Date(toPeriod+'-01').toLocaleString('es-DO',{month:'long',year:'numeric'})} ✅`,'success');
 }
 
-/* ─── CONTABILIDAD EDIT / DELETE HELPERS ─── */
+function ajustarCostoAlPago(lotNumber) {
+  const lots = purchases.filter(p => (p.lotNumber||p.lotNum||String(p.id)) === lotNumber);
+  const totalPaid = purchasePayments
+    .filter(pp => pp.lotNumber===lotNumber||pp.purchaseId===lotNumber)
+    .reduce((s,pp) => s+(parseFloat(pp.amount)||0), 0);
+
+  if (!totalPaid || !lots.length) { showToast('Sin datos para ajustar','error'); return; }
+
+  const currentTotal = lots.reduce((s,p) => s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
+  const diff = currentTotal - totalPaid;
+
+  confirmDialog(
+    `Ajustar el costo total de ${formatDOP(currentTotal)} al monto realmente pagado de ${formatDOP(totalPaid)} (diferencia: ${formatDOP(Math.abs(diff))})?`,
+    () => {
+      /* Distribute the difference proportionally across all lots */
+      lots.forEach(p => {
+        const proportion   = currentTotal > 0 ? ((p.totalCostDOP||(p.costDOP||0)*(p.qty||0)) / currentTotal) : 1/lots.length;
+        const newTotal     = (p.totalCostDOP||(p.costDOP||0)*(p.qty||0)) - (diff * proportion);
+        p.totalCostDOP     = Math.round(newTotal*100)/100;
+        p.costDOP          = p.qty > 0 ? Math.round((newTotal/p.qty)*100)/100 : p.costDOP;
+        if (p.bulkOrderData) p.bulkOrderData.bankFeeShare = (p.bulkOrderData.bankFeeShare||0) - (diff*proportion);
+      });
+      debouncedSave();
+      renderCompraDetail(lotNumber);
+      renderComprasList();
+      showToast(`Costo ajustado a ${formatDOP(totalPaid)} ✅`, 'success');
+    },
+    { confirmLabel: 'Ajustar', title: 'Ajustar al Pago Real' }
+  );
+}
+
+
 
 function editPago(id) {
   const p = payments.find(x => String(x.id) === String(id));
