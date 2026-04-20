@@ -7650,8 +7650,8 @@ function openCuentaMovements(accountId) {
     movements.push({
       date:   t.date || '',
       type:   t.type === 'income' ? 'in' : 'out',
-      label:  t.description || catLabel,
-      ref:    catLabel,
+      label:  catLabel,
+      ref:    t.description || '',
       amount: parseFloat(t.amount) || 0,
       source: 'transaction',
     });
@@ -8316,7 +8316,7 @@ function openNuevaTransaccionCat(catId, type) {
           <div class="form-group"><label class="field-label">Monto (RD$)</label>
             <div class="input-group"><span class="input-addon">RD$</span>
               <input class="field" type="number" id="ntMonto" min="0.01" step="0.01"></div></div>
-          <div class="form-group full"><label class="field-label field-required">Descripción</label>
+          <div class="form-group full"><label class="field-label">Descripción <span style="color:var(--ink-3);font-weight:400;font-size:11px;">(opcional)</span></label>
             <input class="field" id="ntDesc" placeholder="Descripción..."></div>
           <div class="form-group full"><label class="field-label">Cuenta</label>
             <select class="field" id="ntAccount">${acctOpts}</select></div>
@@ -8500,8 +8500,8 @@ function openNuevaTransaccion() {
             </select></div>
           <div class="form-group"><label class="field-label">Fecha</label>
             <input class="field" type="date" id="ntDate" value="${todayDR()}"></div>
-          <div class="form-group full"><label class="field-label field-required">Descripción</label>
-            <input class="field" id="ntDesc" placeholder="Descripción del movimiento..."></div>
+          <div class="form-group full"><label class="field-label">Descripción <span style="color:var(--ink-3);font-weight:400;font-size:11px;">(opcional)</span></label>
+            <input class="field" id="ntDesc" placeholder="Nota adicional..."></div>
           <div class="form-group"><label class="field-label">Monto (RD$)</label>
             <div class="input-group"><span class="input-addon">RD$</span>
               <input class="field" type="number" id="ntMonto" min="0.01" step="0.01"></div></div>
@@ -8538,7 +8538,6 @@ function saveNuevaTransaccion() {
   const catId  = document.getElementById('ntCat').value;
   const date   = document.getElementById('ntDate').value;
   if (!amount||amount<=0) { showToast('Monto inválido','error'); return; }
-  if (!desc)   { showToast('Ingresa una descripción','error'); return; }
   const account = accounts.find(a=>String(a.id)===String(acctId));
   if (account) {
     if (type==='income')  account.balance = Math.round((account.balance+amount)*100)/100;
