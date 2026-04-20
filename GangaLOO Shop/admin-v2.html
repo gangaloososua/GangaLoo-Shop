@@ -3282,9 +3282,9 @@ function renderVentasList() {
 
   /* Filters */
   if (search) list = list.filter(s =>
-    s._invoiceNum.toLowerCase().includes(search) ||
-    (s._customer||'').toLowerCase().includes(search) ||
-    (s._seller||'').toLowerCase().includes(search) ||
+    (s._invoiceNum||'').toLowerCase().includes(search) ||
+    (s._customer||'').toString().toLowerCase().includes(search) ||
+    (s._seller||'').toString().toLowerCase().includes(search) ||
     getCustomerName(s.customerId).toLowerCase().includes(search) ||
     s._items.some(i => getProductName(i.productId).toLowerCase().includes(search))
   );
