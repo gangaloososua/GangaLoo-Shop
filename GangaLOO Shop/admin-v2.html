@@ -3795,19 +3795,53 @@ function saveRecibirPago() {
     showToast('El total aplicado supera el monto recibido', 'error'); return;
   }
 
-  /* Add full received amount to account once */
+  /* Add TOTAL received amount to account ONCE */
   const account = accounts.find(a => String(a.id) === String(acctId));
   if (account) account.balance = Math.round((account.balance + total)*100)/100;
 
-  /* Register individual payments per invoice */
+  /* Build invoice reference string */
+  const invoiceNums = toApply.map(x => {
+    const sale = sales.find(s => String(s.id) === String(x.saleId));
+    return sale?.invoiceNum || sale?.invoiceNumber || '#'+x.saleId;
+  }).join(', ');
+  const receiptRef = ref ? `${ref} · ${invoiceNums}` : invoiceNums;
+
+  /* Register individual payment records per invoice (for x Cobrar tracking)
+     BUT mark them with a shared receiptId so Movimientos can group them */
+  const receiptId = generateId();
+  const receiptRef2 = `Recibo ${receiptId.slice(-6).toUpperCase()} · ${invoiceNums}`;
+
   toApply.forEach(x => {
     const sale = sales.find(s => String(s.id) === String(x.saleId));
-    payments.push({ id: generateId(), saleId: x.saleId, amount: Math.round(x.amount*100)/100, accountId: acctId, date: fecha, reference: ref });
-    /* Mark as paid if fully covered */
+    payments.push({
+      id: generateId(),
+      saleId: x.saleId,
+      amount: Math.round(x.amount*100)/100,
+      accountId: acctId,
+      date: fecha,
+      reference: receiptRef2,
+      receiptId,          /* links all payments from this receipt */
+      skipBalance: true,  /* account already credited once above */
+    });
     if (sale) {
       const paidNow = payments.filter(p => String(p.saleId)===String(x.saleId)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
       if (Math.round((saleTotal(sale)-paidNow)*100)/100 <= 0.01) sale.status = 'paid';
     }
+  });
+
+  /* Also add a single transaction entry so Movimientos shows ONE line */
+  const incomeCat = accountingCategories.find(c=>c.type==='income') || accountingCategories[0];
+  transactions.push({
+    id: generateId(),
+    type: 'income',
+    description: `Pago recibido · ${invoiceNums}${ref?' ('+ref+')':''}`,
+    amount: total,
+    accountId: acctId,
+    categoryId: incomeCat?.id || '',
+    date: fecha,
+    reference: receiptRef,
+    receiptId,
+    isReceiptEntry: true,  /* marks this as the summary transaction */
   });
 
   const saldo = Math.round((total - applied)*100)/100;
@@ -3819,7 +3853,7 @@ function saveRecibirPago() {
   closeModal();
 
   const saldoMsg = saldo > 0.01 ? ` · Saldo libre: ${formatDOP(saldo)}` : '';
-  showToast(`${toApply.length} pago${toApply.length!==1?'s':''} registrado${toApply.length!==1?'s':''} · ${formatDOP(applied)} aplicado${saldoMsg} ✅`, 'success');
+  showToast(`${toApply.length} pago${toApply.length!==1?'s':''} registrado${toApply.length!==1?'s':''} · ${formatDOP(total)} recibido${saldoMsg} ✅`, 'success');
 }
 
 function openRegistrarPago(saleId) {
@@ -7575,7 +7609,7 @@ function openCuentaMovements(accountId) {
   const movements = [];
 
   /* 1. Sale payments (cobros) */
-  payments.filter(p => String(p.accountId) === String(accountId)).forEach(p => {
+  payments.filter(p => String(p.accountId) === String(accountId) && !p.skipBalance).forEach(p => {
     const sale = sales.find(s => String(s.id) === String(p.saleId));
     const inv  = sale ? (sale.invoiceNum||sale.invoiceNumber||'#'+sale.id) : '—';
     movements.push({
