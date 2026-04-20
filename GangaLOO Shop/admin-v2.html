@@ -3738,11 +3738,14 @@ function loadRpInvoices() {
             <div style="font-size:11px;color:var(--ink-3);">Total: ${formatDOP(saleTotal(s))} · Pagado: ${formatDOP(s.paid)}</div>
           </div>
           <div style="font-weight:800;color:var(--rose);white-space:nowrap;">${formatDOP(s.debt)}</div>
-          <div class="input-group" style="width:140px;">
-            <span class="input-addon" style="font-size:10px;">RD$</span>
-            <input class="field" type="number" id="rp_inv_${s.id}" placeholder="0.00"
-              value="${s.debt.toFixed(2)}" min="0" max="${s.debt}" step="0.01"
-              style="font-size:12px;" oninput="updateRpBalance()">
+          <div style="display:flex;gap:6px;align-items:center;">
+            <div class="input-group" style="width:130px;">
+              <span class="input-addon" style="font-size:10px;">RD$</span>
+              <input class="field" type="number" id="rp_inv_${s.id}" placeholder="${s.debt.toFixed(2)}"
+                value="0" min="0" max="${s.debt}" step="0.01"
+                style="font-size:12px;" oninput="updateRpBalance()">
+            </div>
+            <button class="btn btn-ghost btn-xs" onclick="document.getElementById('rp_inv_${s.id}').value='${s.debt.toFixed(2)}';updateRpBalance()">Todo</button>
           </div>
         </div>`).join('')}
     </div>`;
