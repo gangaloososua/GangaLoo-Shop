@@ -1733,7 +1733,13 @@ function formatEUR(n) {
 
 function formatDate(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo', day:'2-digit', month:'short', year:'numeric' });
+  /* Parse YYYY-MM-DD directly to avoid UTC midnight → previous day in DR (UTC-4) */
+  const s = String(d).slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, day] = s.split('-').map(Number);
+    return new Date(y, m - 1, day).toLocaleString('es-DO', { day:'2-digit', month:'short', year:'numeric' });
+  }
+  return new Date(d).toLocaleString('es-DO', { timeZone:'America/Santo_Domingo', day:'2-digit', month:'short', year:'numeric' });
 }
 
 function formatDateTime(d) {
@@ -1816,7 +1822,7 @@ function getActiveLots(warehouseId, productId) {
       String(p.productId)   === String(productId) &&
       String(p.warehouseId) === String(warehouseId)
     )
-    .sort((a, b) => new Date(a.date) - new Date(b.date)); // FIFO = oldest first
+    .sort((a, b) => (a.date||'')<(b.date||'') ? -1 : 1); // FIFO = oldest first
 }
 
 /* Stock in a specific warehouse */
@@ -2359,7 +2365,7 @@ function dashDrilldown(type) {
     payments.forEach(p => { paidMap[p.saleId]=(paidMap[p.saleId]||0)+(parseFloat(p.amount)||0); });
     const monthSales = [...sales]
       .filter(s => (s.date||'').startsWith(mk) && s.status !== 'cancelled')
-      .sort((a,b) => new Date(b.date)-new Date(a.date));
+      .sort((a,b) => (b.date||'')<(a.date||'') ? -1 : 1);
     const total = monthSales.reduce((s,v)=>s+saleTotal(v),0);
     const collected = monthSales.reduce((s,v)=>s+(paidMap[v.id]||0),0);
     openModal(`
@@ -2423,7 +2429,7 @@ function dashDrilldown(type) {
       .filter(s => s.status!=='cancelled')
       .map(s => ({ ...s, paid: paidMap[s.id]||0, debt: Math.max(0,Math.round((saleTotal(s)-(paidMap[s.id]||0))*100)/100) }))
       .filter(s => s.debt > 0.01)
-      .sort((a,b) => new Date(a.date)-new Date(b.date));
+      .sort((a,b) => (a.date||'')<(b.date||'') ? -1 : 1);
     const totalDebt = pending.reduce((s,v)=>s+v.debt,0);
     openModal(`
       <div class="modal modal-xl">
@@ -2470,7 +2476,7 @@ function dashDrilldown(type) {
   } else if (type === 'compras') {
     const monthPurch = purchases
       .filter(p => (p.date||'').startsWith(mk))
-      .sort((a,b) => new Date(b.date)-new Date(a.date));
+      .sort((a,b) => (b.date||'')<(a.date||'') ? -1 : 1);
     /* Group by lotNumber */
     const orders = {};
     monthPurch.forEach(p => {
@@ -2479,7 +2485,7 @@ function dashDrilldown(type) {
       orders[k].lots.push(p);
       orders[k].total += p.totalCostDOP||(p.costDOP||0)*(p.qty||0);
     });
-    const orderList = Object.values(orders).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const orderList = Object.values(orders).sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1);
     const grandTotal = orderList.reduce((s,o)=>s+o.total,0);
     openModal(`
       <div class="modal modal-xl">
@@ -2524,10 +2530,10 @@ function dashDrilldown(type) {
   } else if (type === 'gastos') {
     const monthTx = transactions
       .filter(t => (t.date||'').startsWith(mk) && t.type==='expense')
-      .sort((a,b) => new Date(b.date)-new Date(a.date));
+      .sort((a,b) => (b.date||'')<(a.date||'') ? -1 : 1);
     const monthPP = purchasePayments
       .filter(p => (p.date||'').startsWith(mk))
-      .sort((a,b) => new Date(b.date)-new Date(a.date));
+      .sort((a,b) => (b.date||'')<(a.date||'') ? -1 : 1);
     const totalTx = monthTx.reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
     const totalPP = monthPP.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
     const grand   = totalTx + totalPP;
@@ -2594,10 +2600,10 @@ function dashDrilldown(type) {
   } else if (type === 'ingresos') {
     const monthPay = payments
       .filter(p => (p.date||'').startsWith(mk))
-      .sort((a,b) => new Date(b.date)-new Date(a.date));
+      .sort((a,b) => (b.date||'')<(a.date||'') ? -1 : 1);
     const monthTx  = transactions
       .filter(t => (t.date||'').startsWith(mk) && t.type==='income')
-      .sort((a,b) => new Date(b.date)-new Date(a.date));
+      .sort((a,b) => (b.date||'')<(a.date||'') ? -1 : 1);
     const totalPay = monthPay.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
     const totalTx  = monthTx.reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
     const grand    = totalPay + totalTx;
@@ -3284,7 +3290,7 @@ function renderVentasList() {
     invoiceMap[key]._commAll  += s._commPaid;
   }
 
-  let list = Object.values(invoiceMap).sort((a,b) => new Date(b.date) - new Date(a.date));
+  let list = Object.values(invoiceMap).sort((a,b) => (b.date||'')<(a.date||'') ? -1 : 1);
 
   /* Filters */
   if (search) list = list.filter(s =>
@@ -3721,7 +3727,7 @@ function loadRpInvoices() {
     .filter(s => s.status !== 'cancelled' && (!custId || String(s.customerId) === String(custId)))
     .map(s => ({ ...s, paid: paidMap[String(s.id)]||0, debt: Math.max(0, Math.round((saleTotal(s)-(paidMap[String(s.id)]||0))*100)/100) }))
     .filter(s => s.debt > 0.01)
-    .sort((a,b) => new Date(a.date)-new Date(b.date));
+    .sort((a,b) => (a.date||'')<(b.date||'') ? -1 : 1);
 
   if (!pending.length) {
     el.innerHTML = `<div style="color:var(--ink-3);font-size:13px;padding:12px 0;">✅ ${custId ? 'Este cliente no tiene facturas pendientes.' : 'No hay facturas pendientes.'}</div>`;
@@ -5507,7 +5513,7 @@ function applyTransferHistFilter() {
     const prod    = products.find(p => String(p.id) === String(t.productId));
     const fromWH  = warehouses.find(w => String(w.id) === String(t.fromWarehouse||t.fromWarehouseId));
     const toWH    = warehouses.find(w => String(w.id) === String(t.toWarehouse||t.toWarehouseId));
-    const dateStr = t.date ? new Date(t.date).toLocaleDateString('es-DO', {day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const dateStr = t.date ? formatDate(t.date) : '—';
     const qty     = t.qty || t.quantity || 0;
 
     return `
@@ -7693,7 +7699,7 @@ function openCuentaMovements(accountId) {
   });
 
   /* Sort by date desc */
-  movements.sort((a,b) => new Date(b.date) - new Date(a.date));
+  movements.sort((a,b) => (b.date||'')<(a.date||'') ? -1 : 1);
 
   /* Running balance (walk backwards from current balance) */
   let runningBal = parseFloat(account.balance) || 0;
@@ -7713,7 +7719,7 @@ function openCuentaMovements(accountId) {
   const sourceFilters = [...new Set(movements.map(m=>m.source))];
 
   /* Build year and month options from actual data */
-  const years  = [...new Set(movements.map(m => m.date ? new Date(m.date).getFullYear() : null).filter(Boolean))].sort((a,b)=>b-a);
+  const years  = [...new Set(movements.map(m => m.date ? parseInt(m.date.slice(0,4)) : null).filter(Boolean))].sort((a,b)=>b-a);
   const curYear = new Date().getFullYear();
   const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -8152,7 +8158,7 @@ function renderCatGroup(cats) {
       const uid = 'cat_' + String(c.id).replace(/[^a-z0-9]/gi,'_');
       const canDel = catTxns.length === 0;
 
-      const txRows = catTxns.length ? [...catTxns].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t => `
+      const txRows = catTxns.length ? [...catTxns].sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1).map(t => `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 14px 5px 28px;border-top:1px solid var(--border);background:var(--surface-2);font-size:12px;">
           <div style="flex:1;min-width:0;">
             <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.description||'—'}</div>
@@ -8222,7 +8228,7 @@ function renderCatCard(c) {
   }).join('');
 
   /* Transaction rows (collapsed by default) */
-  const txRows = catTxns.length ? [...catTxns].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t => `
+  const txRows = catTxns.length ? [...catTxns].sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1).map(t => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px;border-top:1px solid var(--border);background:var(--surface-2);font-size:12px;">
       <div style="flex:1;min-width:0;">
         <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.description||'—'}</div>
@@ -8388,7 +8394,7 @@ function deleteAccountingCat(id) {
 
 /* ─── TRANSACCIONES ─── */
 function renderTransacciones(el) {
-  const allTx = [...transactions].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const allTx = [...transactions].filter(contabDateFilter).sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1);
 
   /* Build filter options */
   const catOpts = `<option value="">Todas las categorías</option>` +
@@ -8467,7 +8473,7 @@ function filterTransacciones() {
   const body    = document.getElementById('txTableBody');
   if (!body) return;
 
-  let rows = [...transactions].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  let rows = [...transactions].filter(contabDateFilter).sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1);
   if (search) rows = rows.filter(t =>
     (t.description||'').toLowerCase().includes(search) ||
     getAccountName(t.accountId).toLowerCase().includes(search)
@@ -8546,7 +8552,7 @@ function saveNuevaTransaccion() {
 
 /* ─── PAGOS (sale payments) ─── */
 function renderPagosContab(el) {
-  const sorted = [...payments].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const sorted = [...payments].filter(contabDateFilter).sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1);
   const total  = sorted.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   el.innerHTML = `
     <div style="margin:20px 0 16px;">
@@ -8590,7 +8596,7 @@ function renderCobrar(el) {
     .filter(s => s.status !== 'cancelled' && contabDateFilter(s))
     .map(s => ({ ...s, paid: paidMap[s.id]||0, debt: Math.max(0,Math.round((saleTotal(s)-(paidMap[s.id]||0))*100)/100) }))
     .filter(s => s.debt > 0.01)
-    .sort((a,b) => new Date(a.date)-new Date(b.date));
+    .sort((a,b) => (a.date||'')<(b.date||'') ? -1 : 1);
 
   const totalDebt = pending.reduce((s,v)=>s+v.debt,0);
 
@@ -8633,7 +8639,7 @@ function renderCobrar(el) {
 
 /* ─── PAGOS COMPRAS ─── */
 function renderPagosCompra(el) {
-  const sorted = [...purchasePayments].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const sorted = [...purchasePayments].filter(contabDateFilter).sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1);
   const total  = sorted.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   el.innerHTML = `
     <div style="margin:20px 0 16px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -8933,7 +8939,7 @@ async function doPayout(sellerId, monthKey, amount) {
 }
 
 function viewPayoutsHistory() {
-  const sorted = [...commissionPayouts].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const sorted = [...commissionPayouts].sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1);
   openModal(`
     <div class="modal modal-lg">
       <div class="modal-header"><div class="modal-title">📋 Historial de Pagos de Comisiones</div><button class="modal-close" onclick="closeModal()">✕</button></div>
@@ -8962,7 +8968,7 @@ function viewPayoutsHistory() {
 
 /* ─── TRANSFERENCIAS ENTRE CUENTAS ─── */
 function renderTransferencias(el) {
-  const sorted = [...accountTransfers].filter(contabDateFilter).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const sorted = [...accountTransfers].filter(contabDateFilter).sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1);
   const acctOpts = accounts.filter(a=>a.active!==false).map(a=>`<option value="${a.id}">${a.name} (${a.currency})</option>`).join('');
 
   el.innerHTML = `
@@ -9308,7 +9314,7 @@ function rptVentas(el) {
   });
 
   /* Invoice table */
-  const invoiceRows = [...filtSales].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((s,i) => {
+  const invoiceRows = [...filtSales].sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1).map((s,i) => {
     const paid  = paidMap[s.id]||0;
     const pend  = Math.max(0,saleTotal(s)-paid);
     const sc    = pend<=0.01?'var(--emerald)':paid>0.01?'var(--amber)':'var(--rose)';
@@ -9509,7 +9515,7 @@ function rptComisiones(el) {
     })(), true)}
 
     ${rptSection('📋 Historial de Pagos', (() => {
-      const sorted = [...commissionPayouts].filter(p=>rptInPeriod(p.date)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+      const sorted = [...commissionPayouts].filter(p=>rptInPeriod(p.date)).sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1);
       if (!sorted.length) return '<p style="color:var(--ink-3);">Sin pagos en este período.</p>';
       return rptTable(
         [{label:'Fecha'},{label:'Vendedor'},{label:'Mes'},{label:'Cuenta'},{label:'Monto',right:true}],
