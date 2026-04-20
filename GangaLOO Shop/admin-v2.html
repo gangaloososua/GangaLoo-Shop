@@ -2693,6 +2693,7 @@ function renderVentasPanel() {
       </div>
       <div class="page-actions">
         <button class="btn btn-secondary btn-sm" onclick="refreshVentasPanel()">🔄 Actualizar</button>
+        <button class="btn btn-teal btn-sm" onclick="openRecibirPago()">💵 Recibir Pago</button>
         <button class="btn btn-primary" onclick="openNuevaVenta()">+ Nueva Factura</button>
       </div>
     </div>
@@ -3632,6 +3633,192 @@ function saveNuevaVenta(withWA = false) {
 }
 
 /* ─── REGISTRAR PAGO ─── */
+/* ─── RECIBIR PAGO (bulk payment across multiple invoices) ─── */
+function openRecibirPago() {
+  const acctOpts = accounts.filter(a=>a.active!==false).map(a=>`<option value="${a.id}">${a.name} (${formatDOP(a.balance)})</option>`).join('');
+  const custOpts = `<option value="">— Seleccionar cliente/vendedor —</option>` +
+    customers.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+
+  openModal(`
+    <div class="modal modal-xl" style="max-width:800px;">
+      <div class="modal-header">
+        <div class="modal-title">💵 Recibir Pago</div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Top: amount + account + customer -->
+        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+          <div class="form-group">
+            <label class="field-label field-required">Monto recibido (RD$)</label>
+            <div class="input-group">
+              <span class="input-addon">RD$</span>
+              <input class="field" type="number" id="rpTotal" placeholder="0.00" min="0.01" oninput="updateRpBalance()">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="field-label field-required">Cuenta destino</label>
+            <select class="field" id="rpCuenta">${acctOpts}</select>
+          </div>
+          <div class="form-group">
+            <label class="field-label">Fecha</label>
+            <input class="field" type="date" id="rpFecha" value="${todayDR()}">
+          </div>
+          <div class="form-group">
+            <label class="field-label">Referencia</label>
+            <input class="field" id="rpRef" placeholder="Transferencia, efectivo...">
+          </div>
+        </div>
+
+        <!-- Balance indicator -->
+        <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px 16px;margin-bottom:16px;display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+          <div><span style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;">Recibido</span>
+            <div style="font-weight:800;font-size:1.1em;color:var(--violet);" id="rpRecibido">RD$ 0.00</div></div>
+          <div><span style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;">Aplicado</span>
+            <div style="font-weight:800;font-size:1.1em;color:var(--emerald);" id="rpAplicado">RD$ 0.00</div></div>
+          <div><span style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;">Saldo libre</span>
+            <div style="font-weight:800;font-size:1.1em;" id="rpSaldo" style="color:var(--ink);">RD$ 0.00</div></div>
+          <div style="flex:1;text-align:right;font-size:12px;color:var(--ink-3);" id="rpSaldoNote"></div>
+        </div>
+
+        <!-- Customer filter -->
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+          <select class="field" style="width:260px;" id="rpCliente" onchange="loadRpInvoices()">
+            ${custOpts}
+          </select>
+          <span style="font-size:12px;color:var(--ink-3);">← Filtra las facturas pendientes del cliente</span>
+        </div>
+
+        <!-- Pending invoices -->
+        <div id="rpInvoices">
+          <div style="color:var(--ink-3);font-size:13px;font-style:italic;padding:12px 0;">Selecciona un cliente para ver sus facturas pendientes.</div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveRecibirPago()">💾 Registrar Pagos</button>
+      </div>
+    </div>
+  `);
+}
+
+function loadRpInvoices() {
+  const custId = document.getElementById('rpCliente')?.value;
+  const el     = document.getElementById('rpInvoices');
+  if (!el) return;
+
+  const paidMap = {};
+  payments.forEach(p => { paidMap[String(p.saleId)] = (paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0); });
+
+  let pending = sales
+    .filter(s => s.status !== 'cancelled' && (!custId || String(s.customerId) === String(custId)))
+    .map(s => ({ ...s, paid: paidMap[String(s.id)]||0, debt: Math.max(0, Math.round((saleTotal(s)-(paidMap[String(s.id)]||0))*100)/100) }))
+    .filter(s => s.debt > 0.01)
+    .sort((a,b) => new Date(a.date)-new Date(b.date));
+
+  if (!pending.length) {
+    el.innerHTML = `<div style="color:var(--ink-3);font-size:13px;padding:12px 0;">✅ ${custId ? 'Este cliente no tiene facturas pendientes.' : 'No hay facturas pendientes.'}</div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin-bottom:8px;">
+      Facturas pendientes (${pending.length}) — ingresa el monto a aplicar por factura
+    </div>
+    <div style="display:grid;gap:6px;">
+      ${pending.map(s => `
+        <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:10px 14px;">
+          <div>
+            <div style="font-weight:800;color:var(--violet);font-size:.9em;">${s.invoiceNum||'#'+s.id}</div>
+            <div style="font-size:11px;color:var(--ink-3);">${formatDate(s.date)}</div>
+          </div>
+          <div>
+            <div style="font-size:12.5px;font-weight:600;">${getCustomerName(s.customerId)}</div>
+            <div style="font-size:11px;color:var(--ink-3);">Total: ${formatDOP(saleTotal(s))} · Pagado: ${formatDOP(s.paid)}</div>
+          </div>
+          <div style="font-weight:800;color:var(--rose);white-space:nowrap;">${formatDOP(s.debt)}</div>
+          <div class="input-group" style="width:140px;">
+            <span class="input-addon" style="font-size:10px;">RD$</span>
+            <input class="field" type="number" id="rp_inv_${s.id}" placeholder="0.00"
+              value="${s.debt.toFixed(2)}" min="0" max="${s.debt}" step="0.01"
+              style="font-size:12px;" oninput="updateRpBalance()">
+          </div>
+        </div>`).join('')}
+    </div>`;
+  updateRpBalance();
+}
+
+function updateRpBalance() {
+  const total   = parseFloat(document.getElementById('rpTotal')?.value) || 0;
+  const applied = [...document.querySelectorAll('[id^="rp_inv_"]')]
+    .reduce((s,inp) => s + (parseFloat(inp.value)||0), 0);
+  const saldo   = Math.round((total - applied)*100)/100;
+
+  const fmtEl = id => document.getElementById(id);
+  if (fmtEl('rpRecibido')) fmtEl('rpRecibido').textContent = formatDOP(total);
+  if (fmtEl('rpAplicado')) fmtEl('rpAplicado').textContent = formatDOP(applied);
+  if (fmtEl('rpSaldo')) {
+    fmtEl('rpSaldo').textContent = formatDOP(Math.abs(saldo));
+    fmtEl('rpSaldo').style.color = saldo < -0.01 ? 'var(--rose)' : saldo > 0.01 ? 'var(--amber)' : 'var(--emerald)';
+  }
+  if (fmtEl('rpSaldoNote')) {
+    fmtEl('rpSaldoNote').textContent = saldo < -0.01
+      ? '⚠️ Aplicado supera el monto recibido'
+      : saldo > 0.01
+        ? `RD$ ${formatDOP(saldo).replace('RD$ ','')} quedarán sin aplicar`
+        : '✅ Todo el monto aplicado';
+  }
+}
+
+function saveRecibirPago() {
+  const total  = parseFloat(document.getElementById('rpTotal')?.value) || 0;
+  const acctId = document.getElementById('rpCuenta')?.value;
+  const fecha  = document.getElementById('rpFecha')?.value || todayDR();
+  const ref    = document.getElementById('rpRef')?.value.trim() || '';
+
+  if (!total || total <= 0) { showToast('Ingresa el monto recibido', 'error'); return; }
+  if (!acctId) { showToast('Selecciona una cuenta', 'error'); return; }
+
+  const invInputs = [...document.querySelectorAll('[id^="rp_inv_"]')];
+  const toApply   = invInputs
+    .map(inp => ({ saleId: inp.id.replace('rp_inv_',''), amount: parseFloat(inp.value)||0 }))
+    .filter(x => x.amount > 0.01);
+
+  if (!toApply.length) { showToast('Ingresa al menos un monto a aplicar', 'error'); return; }
+
+  const applied = toApply.reduce((s,x) => s+x.amount, 0);
+  if (Math.round(applied*100)/100 > Math.round(total*100)/100 + 0.01) {
+    showToast('El total aplicado supera el monto recibido', 'error'); return;
+  }
+
+  /* Add full received amount to account once */
+  const account = accounts.find(a => String(a.id) === String(acctId));
+  if (account) account.balance = Math.round((account.balance + total)*100)/100;
+
+  /* Register individual payments per invoice */
+  toApply.forEach(x => {
+    const sale = sales.find(s => String(s.id) === String(x.saleId));
+    payments.push({ id: generateId(), saleId: x.saleId, amount: Math.round(x.amount*100)/100, accountId: acctId, date: fecha, reference: ref });
+    /* Mark as paid if fully covered */
+    if (sale) {
+      const paidNow = payments.filter(p => String(p.saleId)===String(x.saleId)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+      if (Math.round((saleTotal(sale)-paidNow)*100)/100 <= 0.01) sale.status = 'paid';
+    }
+  });
+
+  const saldo = Math.round((total - applied)*100)/100;
+
+  debouncedSave();
+  refreshPanel('ventas');
+  renderVentasList();
+  renderDashboard();
+  closeModal();
+
+  const saldoMsg = saldo > 0.01 ? ` · Saldo libre: ${formatDOP(saldo)}` : '';
+  showToast(`${toApply.length} pago${toApply.length!==1?'s':''} registrado${toApply.length!==1?'s':''} · ${formatDOP(applied)} aplicado${saldoMsg} ✅`, 'success');
+}
+
 function openRegistrarPago(saleId) {
   const sale = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
