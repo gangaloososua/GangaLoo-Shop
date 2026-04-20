@@ -7602,6 +7602,7 @@ function renderCuentas(el) {
             <button class="btn btn-primary btn-xs" onclick="openAjusteCuenta('${a.id}','in')">+ Ingreso</button>
             <button class="btn btn-danger btn-xs" onclick="openAjusteCuenta('${a.id}','out')">− Gasto</button>
             <button class="btn btn-secondary btn-xs" onclick="openCuentaMovements('${a.id}')">📋 Movimientos</button>
+            <button class="btn btn-ghost btn-xs" onclick="openSetSaldoInicial('${a.id}')" title="Ajustar saldo inicial">⚖️ Saldo Inicial</button>
           </div>
         </div>
       `).join('')}
@@ -7959,6 +7960,54 @@ function saveEditCuenta(id) {
 function toggleCuenta(id, active) {
   const a = accounts.find(x => String(x.id) === String(id));
   if (a) { a.active = active; debouncedSave(); renderContabTab('cuentas'); }
+}
+
+function openSetSaldoInicial(accountId) {
+  const a = accounts.find(x => String(x.id) === String(accountId));
+  if (!a) return;
+  const fmt = v => a.currency==='USD' ? formatUSD(v) : a.currency==='EUR' ? formatEUR(v) : formatDOP(v);
+  const cur = a.currency || 'DOP';
+
+  openModal(`
+    <div class="modal" style="max-width:400px;">
+      <div class="modal-header">
+        <div class="modal-title">⚖️ Saldo Inicial — ${a.name}</div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--ink-3);font-size:13px;margin-bottom:16px;">
+          Establece el saldo de apertura de la cuenta. Esto sobreescribe directamente el saldo actual sin crear un movimiento.
+        </p>
+        <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px 16px;margin-bottom:16px;">
+          <div style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;">Saldo actual</div>
+          <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.4em;font-weight:900;color:${a.balance<0?'var(--rose)':'var(--violet)'};">${fmt(a.balance)}</div>
+        </div>
+        <div class="form-group">
+          <label class="field-label field-required">Nuevo saldo inicial (${cur})</label>
+          <div class="input-group">
+            <span class="input-addon">${cur==='USD'?'$':cur==='EUR'?'€':'RD$'}</span>
+            <input class="field" type="number" id="siMonto" value="${a.balance}" step="0.01" placeholder="0.00">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveSetSaldoInicial('${accountId}')">Guardar Saldo</button>
+      </div>
+    </div>
+  `);
+}
+
+function saveSetSaldoInicial(accountId) {
+  const a = accounts.find(x => String(x.id) === String(accountId));
+  if (!a) return;
+  const newBal = parseFloat(document.getElementById('siMonto')?.value);
+  if (isNaN(newBal)) { showToast('Monto inválido', 'error'); return; }
+  a.balance = Math.round(newBal * 100) / 100;
+  debouncedSave();
+  closeModal();
+  renderContabTab('cuentas');
+  showToast(`Saldo de "${a.name}" ajustado a ${newBal.toLocaleString('es-DO', {minimumFractionDigits:2})} ✅`, 'success');
 }
 
 function openAjusteCuenta(id, type) {
