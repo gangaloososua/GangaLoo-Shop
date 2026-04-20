@@ -7478,10 +7478,10 @@ let _contabMonth = 0; // 0 = all months
 function renderContabilidadPanel() {
   const panel = document.getElementById('panel-contabilidad');
   const years = [...new Set([
-    ...transactions.map(t=>t.date?new Date(t.date).getFullYear():null),
-    ...payments.map(p=>p.date?new Date(p.date).getFullYear():null),
-    ...purchasePayments.map(p=>p.date?new Date(p.date).getFullYear():null),
-    ...accountTransfers.map(t=>t.date?new Date(t.date).getFullYear():null),
+    ...transactions.map(t=>t.date?parseInt(t.date.slice(0,4)):null),
+    ...payments.map(p=>p.date?parseInt(p.date.slice(0,4)):null),
+    ...purchasePayments.map(p=>p.date?parseInt(p.date.slice(0,4)):null),
+    ...accountTransfers.map(t=>t.date?parseInt(t.date.slice(0,4)):null),
   ].filter(Boolean))].sort((a,b)=>b-a);
   if (!years.includes(new Date().getFullYear())) years.unshift(new Date().getFullYear());
 
@@ -7534,9 +7534,12 @@ function switchContabTab(tab, el) {
 
 function contabDateFilter(item) {
   if (!item.date) return true;
-  const d = new Date(item.date);
-  if (_contabYear && d.getFullYear() !== _contabYear) return false;
-  if (_contabMonth && d.getMonth() + 1 !== _contabMonth) return false;
+  /* Parse YYYY-MM-DD directly to avoid UTC midnight → previous day in DR timezone */
+  const parts = String(item.date).slice(0, 10).split('-');
+  const year  = parseInt(parts[0]);
+  const month = parseInt(parts[1]);
+  if (_contabYear  && year  !== _contabYear)  return false;
+  if (_contabMonth && month !== _contabMonth) return false;
   return true;
 }
 
@@ -7776,7 +7779,7 @@ function openCuentaMovements(accountId) {
             </thead>
             <tbody id="cmTableBody">
               ${withBalance.map((m,i) => `
-                <tr data-source="${m.source}" data-year="${m.date?new Date(m.date).getFullYear():''}" data-month="${m.date?new Date(m.date).getMonth()+1:''}" style="background:${i%2===0?'var(--surface)':'var(--surface-2)'};">
+                <tr data-source="${m.source}" data-year="${m.date?m.date.slice(0,4):''}" data-month="${m.date?parseInt(m.date.slice(5,7)):''}" style="background:${i%2===0?'var(--surface)':'var(--surface-2)'};">
                   <td style="font-size:12.5px;color:var(--ink-3);white-space:nowrap;">${formatDate(m.date)}</td>
                   <td>
                     <div style="font-weight:600;font-size:13px;">${m.label}</div>
