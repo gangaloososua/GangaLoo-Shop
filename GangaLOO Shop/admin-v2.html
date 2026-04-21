@@ -1977,21 +1977,30 @@ async function payoutCommission(sellerId, monthKey, amount, accountId, categoryI
 
 /* ─── DELETE TRANSACTION (removes paired commission payout) ─── */
 function deleteTransaction(txnId) {
-  const txn = transactions.find(t => t.id === txnId);
+  const txn = transactions.find(t => String(t.id) === String(txnId));
   if (!txn) return;
   /* Remove paired commission payout entry if exists */
   if (txn.reference && txn.reference.startsWith('commission-payout-')) {
     const payoutId = txn.reference.replace('commission-payout-', '');
     commissionPayouts = commissionPayouts.filter(p => p.id !== payoutId);
   }
-  /* Restore account balance */
-  const account = accounts.find(a => String(a.id) === String(txn.accountId));
-  if (account && txn.amount) {
-    if (txn.type === 'expense') account.balance = Math.round((account.balance + txn.amount) * 100) / 100;
-    if (txn.type === 'income')  account.balance = Math.round((account.balance - txn.amount) * 100) / 100;
+  /* Restore account balance (only if not a skipBalance receipt entry) */
+  if (!txn.skipBalance) {
+    const account = accounts.find(a => String(a.id) === String(txn.accountId));
+    if (account && txn.amount) {
+      if (txn.type === 'expense') account.balance = Math.round((account.balance + parseFloat(txn.amount)) * 100) / 100;
+      if (txn.type === 'income')  account.balance = Math.round((account.balance - parseFloat(txn.amount)) * 100) / 100;
+    }
   }
-  transactions = transactions.filter(t => t.id !== txnId);
+  transactions = transactions.filter(t => String(t.id) !== String(txnId));
   debouncedSave();
+  /* Re-render: if filters are active keep them, otherwise full refresh */
+  const hasFilter = document.getElementById('txSearch')?.value ||
+                    document.getElementById('txCatFilter')?.value ||
+                    document.getElementById('txAcctFilter')?.value ||
+                    document.getElementById('txTypeFilter')?.value;
+  if (hasFilter) filterTransacciones();
+  else renderContabTab('transacciones');
 }
 
 /* ─── DELETE PAYOUT (only restores balance if paired txn still exists) ─── */
@@ -8815,7 +8824,7 @@ function renderTxRows(rows) {
       <td>
         <div style="display:flex;gap:4px;">
           <button class="btn btn-ghost btn-xs" onclick="editTransaccion('${t.id}')">✏️</button>
-          <button class="btn btn-danger btn-xs" onclick="deleteTransaction('${t.id}');renderContabTab('transacciones')"
+          <button class="btn btn-danger btn-xs" onclick="deleteTransaction('${t.id}')"
             title="${isCommPayout?'También eliminará el pago de comisión':''}">✕</button>
         </div>
       </td>
