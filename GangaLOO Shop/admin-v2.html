@@ -2165,10 +2165,10 @@ function renderDashboard() {
 
   /* Accounts receivable */
   const paidMap   = {};
-  payments.forEach(p => { paidMap[p.saleId] = (paidMap[p.saleId] || 0) + (parseFloat(p.amount) || 0); });
+  payments.forEach(p => { paidMap[String(p.saleId)] = (paidMap[String(p.saleId)] || 0) + (parseFloat(p.amount) || 0); });
   let totalCobrar = 0;
   sales.filter(s => s.status !== 'cancelled').forEach(s => {
-    const due = Math.round((saleTotal(s) - (paidMap[s.id] || 0)) * 100) / 100;
+    const due = Math.round((saleTotal(s) - (paidMap[String(s.id)] || 0)) * 100) / 100;
     if (due > 0.01) totalCobrar += due;
   });
   document.getElementById('ds-cobrar').textContent     = 'RD$ ' + Math.round(totalCobrar).toLocaleString('es-DO');
@@ -2362,12 +2362,12 @@ function dashDrilldown(type) {
 
   if (type === 'ventas') {
     const paidMap = {};
-    payments.forEach(p => { paidMap[p.saleId]=(paidMap[p.saleId]||0)+(parseFloat(p.amount)||0); });
+    payments.forEach(p => { paidMap[String(p.saleId)]=(paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0); });
     const monthSales = [...sales]
       .filter(s => (s.date||'').startsWith(mk) && s.status !== 'cancelled')
       .sort((a,b) => (b.date||'')<(a.date||'') ? -1 : 1);
     const total = monthSales.reduce((s,v)=>s+saleTotal(v),0);
-    const collected = monthSales.reduce((s,v)=>s+(paidMap[v.id]||0),0);
+    const collected = monthSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
     openModal(`
       <div class="modal modal-xl">
         <div class="modal-header">
@@ -2388,7 +2388,7 @@ function dashDrilldown(type) {
                 ${monthSales.length ? monthSales.map((s,i)=>{
                   const inv  = s.invoiceNum||s.invoiceNumber||'#'+s.id;
                   const tot  = saleTotal(s);
-                  const paid = paidMap[s.id]||0;
+                  const paid = paidMap[String(s.id)]||0;
                   const pend = Math.max(0,tot-paid);
                   const sc   = pend<=0.01?'var(--emerald)':paid>0.01?'var(--amber)':'var(--rose)';
                   const sl   = pend<=0.01?'✓ Pagada':paid>0.01?'Parcial':'Pendiente';
@@ -2424,10 +2424,10 @@ function dashDrilldown(type) {
 
   } else if (type === 'cobrar') {
     const paidMap = {};
-    payments.forEach(p => { paidMap[p.saleId]=(paidMap[p.saleId]||0)+(parseFloat(p.amount)||0); });
+    payments.forEach(p => { paidMap[String(p.saleId)]=(paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0); });
     const pending = sales
       .filter(s => s.status!=='cancelled')
-      .map(s => ({ ...s, paid: paidMap[s.id]||0, debt: Math.max(0,Math.round((saleTotal(s)-(paidMap[s.id]||0))*100)/100) }))
+      .map(s => ({ ...s, paid: paidMap[String(s.id)]||0, debt: Math.max(0,Math.round((saleTotal(s)-(paidMap[String(s.id)]||0))*100)/100) }))
       .filter(s => s.debt > 0.01)
       .sort((a,b) => (a.date||'')<(b.date||'') ? -1 : 1);
     const totalDebt = pending.reduce((s,v)=>s+v.debt,0);
@@ -3215,17 +3215,17 @@ function renderVentasKPI() {
   if (!el) return;
 
   const paidMap = {};
-  payments.forEach(p => { paidMap[p.saleId]=(paidMap[p.saleId]||0)+(parseFloat(p.amount)||0); });
+  payments.forEach(p => { paidMap[String(p.saleId)]=(paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0); });
 
   const activeSales    = sales.filter(s => s.status !== 'cancelled');
   const totalRev       = activeSales.reduce((s,v)=>s+saleTotal(v),0);
-  const totalCollected = activeSales.reduce((s,v)=>s+(paidMap[v.id]||0),0);
+  const totalCollected = activeSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
   const totalDebt      = Math.max(0, totalRev - totalCollected);
   const totalComm      = activeSales.reduce((s,v)=>s+(parseFloat(v.commissionPaid||v.commissionAmt)||0),0);
 
-  const paidCount    = activeSales.filter(s=>(paidMap[s.id]||0)>=(saleTotal(s)-0.01)).length;
-  const partialCount = activeSales.filter(s=>{const p=paidMap[s.id]||0;return p>0.01&&p<saleTotal(s)-0.01;}).length;
-  const pendCount    = activeSales.filter(s=>(paidMap[s.id]||0)<0.01&&saleTotal(s)>0).length;
+  const paidCount    = activeSales.filter(s=>(paidMap[String(s.id)]||0)>=(saleTotal(s)-0.01)).length;
+  const partialCount = activeSales.filter(s=>{const p=paidMap[String(s.id)]||0;return p>0.01&&p<saleTotal(s)-0.01;}).length;
+  const pendCount    = activeSales.filter(s=>(paidMap[String(s.id)]||0)<0.01&&saleTotal(s)>0).length;
   const cancelCount  = sales.filter(s=>s.status==='cancelled').length;
 
   /* Current month */
@@ -3264,7 +3264,7 @@ function renderVentasList() {
 
   /* Build paid map */
   const paidMap = {};
-  payments.forEach(p => { paidMap[p.saleId] = (paidMap[p.saleId]||0) + (parseFloat(p.amount)||0); });
+  payments.forEach(p => { paidMap[String(p.saleId)] = (paidMap[String(p.saleId)]||0) + (parseFloat(p.amount)||0); });
 
   /* Normalize each sale — handle both old and new field names */
   function normalizeSale(s) {
@@ -3305,7 +3305,7 @@ function renderVentasList() {
   if (status) {
     list = list.filter(s => {
       if (s.status === 'cancelled') return status === 'cancelled';
-      const paid = paidMap[s.id] || 0;
+      const paid = paidMap[String(s.id)] || 0;
       const diff = Math.round((s._totalAll - paid) * 100) / 100;
       if (status === 'paid')    return diff <= 0.01;
       if (status === 'partial') return paid > 0.01 && diff > 0.01;
@@ -3322,7 +3322,7 @@ function renderVentasList() {
   }
 
   tbody.innerHTML = list.map(s => {
-    const paid      = paidMap[s.id] || 0;
+    const paid      = paidMap[String(s.id)] || 0;
     const total     = s._totalAll;
     const pend      = Math.round((total - paid) * 100) / 100;
     const cancelled = s.status === 'cancelled';
@@ -3949,7 +3949,7 @@ function openVentaDetail(saleId) {
   const sale = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
   const paidMap = {};
-  payments.forEach(p => { paidMap[p.saleId] = (paidMap[p.saleId]||0)+(parseFloat(p.amount)||0); });
+  payments.forEach(p => { paidMap[String(p.saleId)] = (paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0); });
   const paid    = paidMap[saleId] || 0;
   const pending = Math.max(0, (saleTotal(sale)||0) - paid);
   const customer = customers.find(c => c.id === sale.customerId);
@@ -4241,7 +4241,7 @@ function renderComprasKPI() {
   const totalStock = purchases.filter(p=>p.status==='delivered'&&(p.remainingQty||0)>0).reduce((s,p)=>s+(p.remainingQty||0),0);
   const pendPay = orders.reduce((s,o) => {
     const total = o.lots.reduce((ss,p)=>ss+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
-    const paid  = purchasePayments.filter(pp=>pp.lotNumber===o.lotNumber||pp.purchaseId===o.lotNumber).reduce((ss,pp)=>ss+(parseFloat(pp.amount)||0),0);
+    const paid  = purchasePayments.filter(pp=>String(pp.lotNumber)===String(o.lotNumber)||String(pp.purchaseId)===String(o.lotNumber)).reduce((ss,pp)=>ss+(parseFloat(pp.amount)||0),0);
     return s + Math.max(0, total-paid);
   }, 0);
 
@@ -4296,7 +4296,7 @@ function renderComprasList() {
     const stock   = order.lots.reduce((s,p)=>s+(p.remainingQty||0),0);
     const qty     = order.lots.reduce((s,p)=>s+(p.qty||0),0);
     const paid    = purchasePayments
-      .filter(pp=>pp.lotNumber===order.lotNumber||pp.purchaseId===order.lotNumber)
+      .filter(pp=>String(pp.lotNumber)===String(order.lotNumber)||String(pp.purchaseId)===String(order.lotNumber))
       .reduce((s,pp)=>s+(parseFloat(pp.amount)||0),0);
     const isSelected = _selectedOrder === order.lotNumber;
 
@@ -4353,7 +4353,7 @@ function renderCompraDetail(lotNumber) {
   const st    = COMPRA_STATUSES[order.status] || COMPRA_STATUSES.pending;
   const total = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
   const paid  = purchasePayments
-    .filter(pp=>pp.lotNumber===lotNumber||pp.purchaseId===lotNumber)
+    .filter(pp=>String(pp.lotNumber)===String(lotNumber)||String(pp.purchaseId)===String(lotNumber))
     .reduce((s,pp)=>s+(parseFloat(pp.amount)||0),0);
   const pend  = Math.max(0, total-paid);
   const paidPct = total > 0 ? Math.min(100, paid/total*100) : 0;
@@ -4460,7 +4460,7 @@ function renderCompraDetail(lotNumber) {
 
           <!-- Payment history -->
           ${(() => {
-            const pymnts = purchasePayments.filter(pp=>pp.lotNumber===lotNumber||pp.purchaseId===lotNumber);
+            const pymnts = purchasePayments.filter(pp=>String(pp.lotNumber)===String(lotNumber)||String(pp.purchaseId)===String(lotNumber));
             if (!pymnts.length) return '<p style="font-size:12.5px;color:var(--ink-3);">Sin pagos registrados aún.</p>';
             return pymnts.map(pp=>`
               <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:13px;">
@@ -5049,7 +5049,7 @@ function deleteCompra(lotNumber) {
       : `¿Eliminar la orden <strong>${lotNumber}</strong>?`,
     () => {
       purchases        = purchases.filter(p=>(p.lotNumber||p.lotNum||String(p.id))!==lotNumber);
-      purchasePayments = purchasePayments.filter(pp=>pp.lotNumber!==lotNumber&&pp.purchaseId!==lotNumber);
+      purchasePayments = purchasePayments.filter(pp=>String(pp.lotNumber)!==String(lotNumber)&&String(pp.purchaseId)!==String(lotNumber));
       if (_selectedOrder===lotNumber) {
         _selectedOrder = null;
         const pane = document.getElementById('comprasDetailPane');
@@ -8590,11 +8590,11 @@ function renderPagosContab(el) {
 /* ─── CUENTAS POR COBRAR ─── */
 function renderCobrar(el) {
   const paidMap = {};
-  payments.forEach(p => { paidMap[p.saleId]=(paidMap[p.saleId]||0)+(parseFloat(p.amount)||0); });
+  payments.forEach(p => { paidMap[String(p.saleId)]=(paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0); });
 
   const pending = sales
     .filter(s => s.status !== 'cancelled' && contabDateFilter(s))
-    .map(s => ({ ...s, paid: paidMap[s.id]||0, debt: Math.max(0,Math.round((saleTotal(s)-(paidMap[s.id]||0))*100)/100) }))
+    .map(s => ({ ...s, paid: paidMap[String(s.id)]||0, debt: Math.max(0,Math.round((saleTotal(s)-(paidMap[String(s.id)]||0))*100)/100) }))
     .filter(s => s.debt > 0.01)
     .sort((a,b) => (a.date||'')<(b.date||'') ? -1 : 1);
 
@@ -9179,10 +9179,10 @@ function renderRptKPI() {
   if (!el) return;
 
   const filtSales = sales.filter(s => rptInPeriod(s.date) && s.status !== 'cancelled');
-  const paidMap   = {}; payments.forEach(p => { paidMap[p.saleId]=(paidMap[p.saleId]||0)+(parseFloat(p.amount)||0); });
+  const paidMap   = {}; payments.forEach(p => { paidMap[String(p.saleId)]=(paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0); });
 
   const totalRev   = filtSales.reduce((s,v)=>s+saleTotal(v),0);
-  const totalPaid  = filtSales.reduce((s,v)=>s+(paidMap[v.id]||0),0);
+  const totalPaid  = filtSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
   const totalDebt  = Math.max(0, totalRev - totalPaid);
   const totalComm  = commissionPayouts.filter(p=>rptInPeriod(p.date)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const filtPurch  = purchases.filter(p=>rptInPeriod(p.date));
@@ -9255,14 +9255,14 @@ function rptSection(title, html, openDefault=false) {
 /* ═══ TAB 1: VENTAS ═══ */
 function rptVentas(el) {
   const filtSales = sales.filter(s => rptInPeriod(s.date) && s.status !== 'cancelled');
-  const paidMap   = {}; payments.forEach(p => { paidMap[p.saleId]=(paidMap[p.saleId]||0)+(parseFloat(p.amount)||0); });
+  const paidMap   = {}; payments.forEach(p => { paidMap[String(p.saleId)]=(paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0); });
 
   const totalRev   = filtSales.reduce((s,v)=>s+saleTotal(v),0);
-  const totalPaid  = filtSales.reduce((s,v)=>s+(paidMap[v.id]||0),0);
+  const totalPaid  = filtSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
   const totalDebt  = Math.max(0,totalRev-totalPaid);
   const totalComm  = filtSales.reduce((s,v)=>s+(parseFloat(v.commissionAmt)||0),0);
-  const paidCount  = filtSales.filter(s=>(paidMap[s.id]||0)>=(saleTotal(s)-0.01)).length;
-  const pendCount  = filtSales.filter(s=>(paidMap[s.id]||0)<0.01).length;
+  const paidCount  = filtSales.filter(s=>(paidMap[String(s.id)]||0)>=(saleTotal(s)-0.01)).length;
+  const pendCount  = filtSales.filter(s=>(paidMap[String(s.id)]||0)<0.01).length;
   const partCount  = filtSales.length - paidCount - pendCount;
 
   /* Payment status progress bar */
@@ -9315,7 +9315,7 @@ function rptVentas(el) {
 
   /* Invoice table */
   const invoiceRows = [...filtSales].sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1).map((s,i) => {
-    const paid  = paidMap[s.id]||0;
+    const paid  = paidMap[String(s.id)]||0;
     const pend  = Math.max(0,saleTotal(s)-paid);
     const sc    = pend<=0.01?'var(--emerald)':paid>0.01?'var(--amber)':'var(--rose)';
     const sl    = pend<=0.01?'Pagada':paid>0.01?'Parcial':'Pendiente';
@@ -9534,10 +9534,10 @@ function rptComisiones(el) {
 /* ═══ TAB 4: P&L (Profit & Loss) ═══ */
 function rptPyL(el) {
   const filtSales = sales.filter(s=>rptInPeriod(s.date)&&s.status!=='cancelled');
-  const paidMap   = {}; payments.forEach(p=>{paidMap[p.saleId]=(paidMap[p.saleId]||0)+(parseFloat(p.amount)||0);});
+  const paidMap   = {}; payments.forEach(p=>{paidMap[String(p.saleId)]=(paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0);});
 
   const revenue   = filtSales.reduce((s,v)=>s+saleTotal(v),0);
-  const collected = filtSales.reduce((s,v)=>s+(paidMap[v.id]||0),0);
+  const collected = filtSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
   const cogs      = purchases.filter(p=>rptInPeriod(p.date)&&p.status==='delivered').reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
   const grossProfit = revenue - cogs;
   const commPaid  = commissionPayouts.filter(p=>rptInPeriod(p.date)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
@@ -9743,13 +9743,13 @@ function rptMensual(el) {
     ...purchases.map(p=>(p.date||'').slice(0,7)),
   ].filter(Boolean))].sort().reverse().slice(0,18);
 
-  const paidMap = {}; payments.forEach(p=>{paidMap[p.saleId]=(paidMap[p.saleId]||0)+(parseFloat(p.amount)||0);});
+  const paidMap = {}; payments.forEach(p=>{paidMap[String(p.saleId)]=(paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0);});
 
   const data = months.map(mk => {
     const mSales  = sales.filter(s=>(s.date||'').startsWith(mk)&&s.status!=='cancelled');
     const mPurch  = purchases.filter(p=>(p.date||'').startsWith(mk));
     const rev     = mSales.reduce((s,v)=>s+saleTotal(v),0);
-    const coll    = mSales.reduce((s,v)=>s+(paidMap[v.id]||0),0);
+    const coll    = mSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
     const cogs    = mPurch.filter(p=>p.status==='delivered').reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
     const comm    = commissionPayouts.filter(p=>p.monthKey===mk).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
     const gross   = rev - cogs;
@@ -10855,7 +10855,7 @@ function copyGoals(fromPeriod, toPeriod) {
 function ajustarCostoAlPago(lotNumber) {
   const lots = purchases.filter(p => (p.lotNumber||p.lotNum||String(p.id)) === lotNumber);
   const totalPaid = purchasePayments
-    .filter(pp => pp.lotNumber===lotNumber||pp.purchaseId===lotNumber)
+    .filter(pp => String(pp.lotNumber)===String(lotNumber)||String(pp.purchaseId)===String(lotNumber))
     .reduce((s,pp) => s+(parseFloat(pp.amount)||0), 0);
 
   if (!totalPaid || !lots.length) { showToast('Sin datos para ajustar','error'); return; }
@@ -11074,7 +11074,7 @@ function openRegistrarPagoLot(lotNumber) {
   /* If lotNumber provided (from compra detail), pre-fill and show lot info */
   const order = lotNumber ? getCompraOrders().find(o=>o.lotNumber===lotNumber) : null;
   const alreadyPaid = lotNumber
-    ? purchasePayments.filter(p=>p.lotNumber===lotNumber||p.purchaseId===lotNumber).reduce((s,p)=>s+(parseFloat(p.amount)||0),0)
+    ? purchasePayments.filter(p=>String(p.lotNumber)===String(lotNumber)||String(p.purchaseId)===String(lotNumber)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0)
     : 0;
   const orderTotal = order ? order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0) : 0;
   const pending    = Math.max(0, orderTotal - alreadyPaid);
@@ -11083,7 +11083,7 @@ function openRegistrarPagoLot(lotNumber) {
   const orders = getCompraOrders().filter(o=>o.status!=='cancelled');
   const lotOpts = `<option value="">— Seleccionar orden —</option>` +
     orders.map(o => {
-      const paid = purchasePayments.filter(p=>p.lotNumber===o.lotNumber||p.purchaseId===o.lotNumber).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+      const paid = purchasePayments.filter(p=>String(p.lotNumber)===String(o.lotNumber)||String(p.purchaseId)===String(o.lotNumber)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
       const tot  = o.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
       const pend = Math.max(0, tot-paid);
       return `<option value="${o.lotNumber}" ${o.lotNumber===lotNumber?'selected':''}>${o.lotNumber} · ${o.supplier||'Sin proveedor'} · Pendiente: ${formatDOP(pend)}</option>`;
@@ -11145,7 +11145,7 @@ function updatePagoLotInfo(lotNumber) {
   if (!el || !lotNumber) return;
   const order = getCompraOrders().find(o=>o.lotNumber===lotNumber);
   if (!order) return;
-  const paid  = purchasePayments.filter(p=>p.lotNumber===lotNumber||p.purchaseId===lotNumber).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const paid  = purchasePayments.filter(p=>String(p.lotNumber)===String(lotNumber)||String(p.purchaseId)===String(lotNumber)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const total = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
   const pend  = Math.max(0, total-paid);
   el.innerHTML = `Total: <strong>${formatDOP(total)}</strong> · Pagado: <strong style="color:var(--emerald)">${formatDOP(paid)}</strong> · Pendiente: <strong style="color:var(--rose)">${formatDOP(pend)}</strong>`;
@@ -11175,7 +11175,7 @@ function saveRegistrarPagoLot(presetLot) {
      - update costDOP and totalCostDOP on each lot */
   if (lots.length > 0) {
     const totalPreviouslyPaid = purchasePayments
-      .filter(p => p.lotNumber===lotNumber||p.purchaseId===lotNumber)
+      .filter(p => String(p.lotNumber)===String(lotNumber)||String(p.purchaseId)===String(lotNumber))
       .reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
 
     const calculatedDOP = lots.reduce((s,p) => s + ((p.costUSD||0)*(p.qty||0)*(p.exchangeRate||1)), 0);
