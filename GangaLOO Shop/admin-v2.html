@@ -5134,7 +5134,7 @@ function saveEditCompra(lotNumber) {
       p.exchangeRate = rate;
       p.costDOP      = Math.round(unitCostDOP*100)/100;
       p.totalCostDOP = Math.round(itemTotalDOP*100)/100;
-      p.shippingShare  = shippingShare = shipping * proportion;
+      p.shippingShare  = shipping * proportion;
       p.discountShare  = discount * proportion;
       p.taxShare       = tax * proportion;
       p.bankFeeShare   = bankShare;
