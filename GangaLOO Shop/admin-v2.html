@@ -4204,6 +4204,23 @@ function setCompraFilter(status, el) {
 }
 
 /* Build grouped purchase orders */
+function getOrderPaid(lotNumber) {
+  /* Formal purchase payments */
+  const fromPayments = purchasePayments
+    .filter(pp => String(pp.lotNumber)===String(lotNumber) || String(pp.purchaseId)===String(lotNumber))
+    .reduce((s,pp) => s+(parseFloat(pp.amount)||0), 0);
+
+  /* Also count expense transactions that mention this lot (e.g. old courier costs) */
+  const fromTransactions = transactions
+    .filter(t => t.type==='expense' && (
+      (t.description||'').includes(lotNumber) ||
+      (t.reference||'').includes(lotNumber)
+    ))
+    .reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
+
+  return Math.round((fromPayments + fromTransactions)*100)/100;
+}
+
 function getCompraOrders() {
   const grouped = {};
   for (const p of purchases) {
@@ -4241,7 +4258,7 @@ function renderComprasKPI() {
   const totalStock = purchases.filter(p=>p.status==='delivered'&&(p.remainingQty||0)>0).reduce((s,p)=>s+(p.remainingQty||0),0);
   const pendPay = orders.reduce((s,o) => {
     const total = o.lots.reduce((ss,p)=>ss+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
-    const paid  = purchasePayments.filter(pp=>String(pp.lotNumber)===String(o.lotNumber)||String(pp.purchaseId)===String(o.lotNumber)).reduce((ss,pp)=>ss+(parseFloat(pp.amount)||0),0);
+    const paid  = getOrderPaid(o.lotNumber);
     return s + Math.max(0, total-paid);
   }, 0);
 
@@ -4352,9 +4369,7 @@ function renderCompraDetail(lotNumber) {
 
   const st    = COMPRA_STATUSES[order.status] || COMPRA_STATUSES.pending;
   const total = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
-  const paid  = purchasePayments
-    .filter(pp=>String(pp.lotNumber)===String(lotNumber)||String(pp.purchaseId)===String(lotNumber))
-    .reduce((s,pp)=>s+(parseFloat(pp.amount)||0),0);
+  const paid  = getOrderPaid(lotNumber);
   const pend  = Math.max(0, total-paid);
   const paidPct = total > 0 ? Math.min(100, paid/total*100) : 0;
 
@@ -11295,9 +11310,7 @@ function openRegistrarPagoLot(lotNumber) {
 
   /* If lotNumber provided (from compra detail), pre-fill and show lot info */
   const order = lotNumber ? getCompraOrders().find(o=>o.lotNumber===lotNumber) : null;
-  const alreadyPaid = lotNumber
-    ? purchasePayments.filter(p=>String(p.lotNumber)===String(lotNumber)||String(p.purchaseId)===String(lotNumber)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0)
-    : 0;
+  const alreadyPaid = lotNumber ? getOrderPaid(lotNumber) : 0;
   const orderTotal = order ? order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0) : 0;
   const pending    = Math.max(0, orderTotal - alreadyPaid);
 
@@ -11305,7 +11318,7 @@ function openRegistrarPagoLot(lotNumber) {
   const orders = getCompraOrders().filter(o=>o.status!=='cancelled');
   const lotOpts = `<option value="">— Seleccionar orden —</option>` +
     orders.map(o => {
-      const paid = purchasePayments.filter(p=>String(p.lotNumber)===String(o.lotNumber)||String(p.purchaseId)===String(o.lotNumber)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+      const paid = getOrderPaid(o.lotNumber);
       const tot  = o.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
       const pend = Math.max(0, tot-paid);
       return `<option value="${o.lotNumber}" ${o.lotNumber===lotNumber?'selected':''}>${o.lotNumber} · ${o.supplier||'Sin proveedor'} · Pendiente: ${formatDOP(pend)}</option>`;
@@ -11367,7 +11380,7 @@ function updatePagoLotInfo(lotNumber) {
   if (!el || !lotNumber) return;
   const order = getCompraOrders().find(o=>o.lotNumber===lotNumber);
   if (!order) return;
-  const paid  = purchasePayments.filter(p=>String(p.lotNumber)===String(lotNumber)||String(p.purchaseId)===String(lotNumber)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const paid  = getOrderPaid(lotNumber);
   const total = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
   const pend  = Math.max(0, total-paid);
   el.innerHTML = `Total: <strong>${formatDOP(total)}</strong> · Pagado: <strong style="color:var(--emerald)">${formatDOP(paid)}</strong> · Pendiente: <strong style="color:var(--rose)">${formatDOP(pend)}</strong>`;
@@ -11390,9 +11403,7 @@ function saveRegistrarPagoLot(presetLot) {
   const lots = purchases.filter(p => (p.lotNumber||p.lotNum||String(p.id)) === lotNumber);
 
   if (lots.length > 0) {
-    const totalPreviouslyPaid = purchasePayments
-      .filter(p => String(p.lotNumber)===String(lotNumber)||String(p.purchaseId)===String(lotNumber))
-      .reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+    const totalPreviouslyPaid = getOrderPaid(lotNumber);
     const allPaid = totalPreviouslyPaid + amount;
 
     /* Use current totalCostDOP as the base — distribute the difference (bank fee) proportionally */
