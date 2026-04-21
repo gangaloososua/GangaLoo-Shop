@@ -4206,14 +4206,16 @@ function setCompraFilter(status, el) {
 
 /* Build grouped purchase orders */
 function getOrderPaid(lotNumber) {
-  /* Formal purchase payments */
+  /* Only count formal purchase payments */
   const fromPayments = purchasePayments
     .filter(pp => String(pp.lotNumber)===String(lotNumber) || String(pp.purchaseId)===String(lotNumber))
     .reduce((s,pp) => s+(parseFloat(pp.amount)||0), 0);
 
-  /* Also count expense transactions that mention this lot (e.g. old courier costs) */
+  /* Also count expense transactions created by our transport tools
+     (they have receiptId and reference the lot) — but NOT arbitrary old transactions
+     to avoid double-counting full order costs entered as expenses */
   const fromTransactions = transactions
-    .filter(t => t.type==='expense' && (
+    .filter(t => t.type==='expense' && t.receiptId && (
       (t.description||'').includes(lotNumber) ||
       (t.reference||'').includes(lotNumber)
     ))
