@@ -4425,12 +4425,13 @@ function renderCompraDetail(lotNumber) {
 
       <!-- Payment section -->
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;margin-bottom:20px;">
-        <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between;">
+        <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
           <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);">Pagos</div>
           ${pend>0
             ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button class="btn btn-primary btn-sm" onclick="openRegistrarPagoLot('${lotNumber}')">+ Registrar Pago</button>
                 <button class="btn btn-amber btn-sm" onclick="ajustarCostoAlPago('${lotNumber}')" title="Ajusta el costo de la orden al monto ya pagado">⚖️ Ajustar al pago real</button>
+                <button class="btn btn-ghost btn-sm" onclick="openRegistrarTransportGasto('${lotNumber}',${pend.toFixed(2)})" title="Registrar el pendiente como gasto de courier/transporte">📝 Registrar como Gasto</button>
               </div>`
             : '<span style="font-size:12px;font-weight:700;color:var(--emerald);">✓ Completamente pagada</span>'}
         </div>
@@ -10995,11 +10996,89 @@ function copyGoals(fromPeriod, toPeriod) {
   showToast(`Metas copiadas a ${new Date(toPeriod+'-01').toLocaleString('es-DO',{month:'long',year:'numeric'})} ✅`,'success');
 }
 
+function openRegistrarTransportGasto(lotNumber, pendingAmount) {
+  const acctOpts = accounts.filter(a=>a.active!==false)
+    .map(a=>`<option value="${a.id}">${a.name} (${formatDOP(a.balance)})</option>`).join('');
+
+  /* Pre-select courier category if exists */
+  const courierCats = accountingCategories.filter(c=>c.type==='expense'&&(c.name||'').toLowerCase().includes('courier'));
+  const catOpts = [...accountingCategories]
+    .filter(c=>c.type==='expense')
+    .sort((a,b)=>{const n=(a.name||'').localeCompare(b.name||'','es');return n!==0?n:(a.subname||'').localeCompare(b.subname||'','es');})
+    .map(c=>`<option value="${c.id}" ${courierCats.length&&String(c.id)===String(courierCats[0].id)?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
+
+  openModal(`
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-header">
+        <div class="modal-title">📝 Registrar Transporte como Gasto — ${lotNumber}</div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--ink-3);">
+          El pendiente de la orden (costo de transporte) se registrará como un gasto y la orden quedará marcada como completamente pagada.
+        </div>
+        <div class="form-group">
+          <label class="field-label field-required">Monto (RD$)</label>
+          <div class="input-group"><span class="input-addon">RD$</span>
+            <input class="field" type="number" id="rtg_amount" value="${pendingAmount}" step="0.01" min="0.01">
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="field-label field-required">Categoría de gasto</label>
+          <select class="field" id="rtg_cat">${catOpts}</select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="field-label field-required">Cuenta</label>
+          <select class="field" id="rtg_acct">${acctOpts}</select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="field-label">Fecha</label>
+          <input class="field" type="date" id="rtg_date" value="${todayDR()}">
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="field-label">Descripción <span style="color:var(--ink-3);font-weight:400;font-size:11px;">(opcional)</span></label>
+          <input class="field" id="rtg_desc" placeholder="Transporte ${lotNumber}..." value="Transporte ${lotNumber}">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveRegistrarTransportGasto('${lotNumber}')">💾 Registrar Gasto</button>
+      </div>
+    </div>
+  `);
+}
+
+function saveRegistrarTransportGasto(lotNumber) {
+  const amount  = parseFloat(document.getElementById('rtg_amount')?.value) || 0;
+  const catId   = document.getElementById('rtg_cat')?.value;
+  const acctId  = document.getElementById('rtg_acct')?.value;
+  const date    = document.getElementById('rtg_date')?.value || todayDR();
+  const desc    = document.getElementById('rtg_desc')?.value.trim() || `Transporte ${lotNumber}`;
+
+  if (!amount||amount<=0) { showToast('Monto inválido','error'); return; }
+  if (!acctId) { showToast('Selecciona una cuenta','error'); return; }
+
+  /* Debit account */
+  const acct = accounts.find(a=>String(a.id)===String(acctId));
+  if (acct) acct.balance = Math.round((acct.balance - amount)*100)/100;
+
+  /* Create expense transaction */
+  transactions.push({ id: generateId(), type:'expense', description: desc, amount, accountId: acctId, categoryId: catId, date });
+
+  /* Also register as purchase payment so order shows as paid */
+  purchasePayments.push({ id: generateId(), lotNumber, amount: Math.round(amount*100)/100, accountId: acctId, date, reference: desc });
+
+  debouncedSave();
+  renderContabTab('transacciones');
+  if (_activePanel==='compras') { renderComprasKPI(); renderComprasList(); if (_selectedOrder===lotNumber) renderCompraDetail(lotNumber); }
+  closeModal();
+  showToast(`Transporte de ${formatDOP(amount)} registrado como gasto ✅`,'success');
+}
+
 function ajustarCostoAlPago(lotNumber) {
   const lots = purchases.filter(p => (p.lotNumber||p.lotNum||String(p.id)) === lotNumber);
   const totalPaid = purchasePayments
     .filter(pp => String(pp.lotNumber)===String(lotNumber)||String(pp.purchaseId)===String(lotNumber))
-    .reduce((s,pp) => s+(parseFloat(pp.amount)||0), 0);
 
   if (!totalPaid || !lots.length) { showToast('Sin datos para ajustar','error'); return; }
 
