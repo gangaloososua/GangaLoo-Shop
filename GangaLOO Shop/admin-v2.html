@@ -4314,9 +4314,7 @@ function renderComprasList() {
     const total   = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
     const stock   = order.lots.reduce((s,p)=>s+(p.remainingQty||0),0);
     const qty     = order.lots.reduce((s,p)=>s+(p.qty||0),0);
-    const paid    = purchasePayments
-      .filter(pp=>String(pp.lotNumber)===String(order.lotNumber)||String(pp.purchaseId)===String(order.lotNumber))
-      .reduce((s,pp)=>s+(parseFloat(pp.amount)||0),0);
+    const paid    = getOrderPaid(order.lotNumber);
     const isSelected = _selectedOrder === order.lotNumber;
 
     return `<div onclick="selectCompraOrder('${order.lotNumber}')" style="
