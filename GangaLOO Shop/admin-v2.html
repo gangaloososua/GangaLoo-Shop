@@ -4215,11 +4215,10 @@ function setCompraFilter(status, el) {
 
 /* Build grouped purchase orders */
 function getOrderPaid(lotNumber) {
-  /* Count all purchase payments for this lot — both with and without skipBalance
-     since skipBalance ones represent the actual per-lot portion of bulk payments */
+  /* Use dopAmount when available (foreign currency payments), else fall back to amount */
   const fromPayments = purchasePayments
     .filter(pp => String(pp.lotNumber)===String(lotNumber) || String(pp.purchaseId)===String(lotNumber))
-    .reduce((s,pp) => s+(parseFloat(pp.amount)||0), 0);
+    .reduce((s,pp) => s + (parseFloat(pp.dopAmount || pp.amount)||0), 0);
 
   return Math.round(fromPayments*100)/100;
 }
@@ -4481,12 +4480,18 @@ function renderCompraDetail(lotNumber) {
           ${(() => {
             /* Show all purchase payments — group skipBalance ones as transport */
             const pymnts = purchasePayments.filter(pp=>String(pp.lotNumber)===String(lotNumber)||String(pp.purchaseId)===String(lotNumber));
-            const allEntries = pymnts.map(pp=>({
-              date:pp.date,
-              label: pp.skipBalance ? '🚚 '+getAccountName(pp.accountId) : getAccountName(pp.accountId),
-              amount:pp.amount,
-              ref:pp.reference||''
-            })).sort((a,b)=>(a.date||'')<(b.date||'')?-1:1);
+            const allEntries = pymnts.map(pp=>{
+              const acct = accounts.find(a=>String(a.id)===String(pp.accountId));
+              const cur  = acct?.currency || 'DOP';
+              const fmt  = v => cur==='USD' ? formatUSD(v) : cur==='EUR' ? formatEUR(v) : formatDOP(v);
+              return {
+                date:   pp.date,
+                label:  pp.skipBalance ? '🚚 '+getAccountName(pp.accountId) : getAccountName(pp.accountId),
+                amount: pp.amount,
+                fmt,
+                ref:    pp.reference||''
+              };
+            }).sort((a,b)=>(a.date||'')<(b.date||'')?-1:1);
             if (!allEntries.length) return '<p style="font-size:12.5px;color:var(--ink-3);">Sin pagos registrados aún.</p>';
             return allEntries.map(e=>`
               <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:13px;">
@@ -4495,7 +4500,7 @@ function renderCompraDetail(lotNumber) {
                   <span style="color:var(--ink-3);margin-left:8px;">${formatDate(e.date)}</span>
                   ${e.ref?`<div style="font-size:11px;color:var(--ink-3);">${e.ref}</div>`:''}
                 </div>
-                <strong style="color:var(--emerald);">${formatDOP(e.amount)}</strong>
+                <strong style="color:var(--emerald);">${e.fmt(e.amount)}</strong>
               </div>`).join('');
           })()}
         </div>
@@ -11515,15 +11520,13 @@ function deleteTransferencia(id) {
 /* ─── REGISTRAR PAGO DE COMPRA ─── */
 function openRegistrarPagoLot(lotNumber) {
   const acctOpts = accounts.filter(a=>a.active!==false)
-    .map(a=>`<option value="${a.id}">${a.name} (${formatDOP(a.balance)})</option>`).join('');
+    .map(a=>`<option value="${a.id}">${a.name} (${a.currency||'DOP'}) — ${a.currency==='USD'?formatUSD(a.balance):a.currency==='EUR'?formatEUR(a.balance):formatDOP(a.balance)}</option>`).join('');
 
-  /* If lotNumber provided (from compra detail), pre-fill and show lot info */
   const order = lotNumber ? getCompraOrders().find(o=>o.lotNumber===lotNumber) : null;
   const alreadyPaid = lotNumber ? getOrderPaid(lotNumber) : 0;
   const orderTotal = order ? order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0) : 0;
   const pending    = Math.max(0, orderTotal - alreadyPaid);
 
-  /* Lot selector (when opened from Pagos Compras tab without a specific lot) */
   const orders = getCompraOrders().filter(o=>o.status!=='cancelled');
   const lotOpts = `<option value="">— Seleccionar orden —</option>` +
     orders.map(o => {
@@ -11534,7 +11537,7 @@ function openRegistrarPagoLot(lotNumber) {
     }).join('');
 
   openModal(`
-    <div class="modal" style="max-width:500px;">
+    <div class="modal" style="max-width:520px;">
       <div class="modal-header">
         <div class="modal-title">📦 Registrar Pago de Compra</div>
         <button class="modal-close" onclick="closeModal()">✕</button>
@@ -11543,7 +11546,7 @@ function openRegistrarPagoLot(lotNumber) {
         ${order ? `
           <div style="background:var(--violet-l);border-radius:var(--r-sm);padding:12px 16px;margin-bottom:16px;display:flex;gap:20px;flex-wrap:wrap;">
             <div><div class="text-xs text-muted">Orden</div><div style="font-weight:800;">${order.lotNumber}</div></div>
-            <div><div class="text-xs text-muted">Total</div><div style="font-weight:800;">${formatDOP(orderTotal)}</div></div>
+            <div><div class="text-xs text-muted">Total DOP</div><div style="font-weight:800;">${formatDOP(orderTotal)}</div></div>
             <div><div class="text-xs text-muted">Ya pagado</div><div style="font-weight:800;color:var(--emerald);">${formatDOP(alreadyPaid)}</div></div>
             <div><div class="text-xs text-muted">Pendiente</div><div style="font-weight:800;color:var(--rose);">${formatDOP(pending)}</div></div>
           </div>
@@ -11557,22 +11560,34 @@ function openRegistrarPagoLot(lotNumber) {
         `}
         <div class="form-grid" style="grid-template-columns:1fr 1fr;">
           <div class="form-group">
-            <label class="field-label field-required">Monto pagado (RD$)</label>
-            <div class="input-group"><span class="input-addon">RD$</span>
-              <input class="field" type="number" id="plAmount" value="${pending>0?pending.toFixed(2):''}" placeholder="0.00" step="0.01" min="0.01">
-            </div>
-          </div>
-          <div class="form-group">
             <label class="field-label field-required">Cuenta origen</label>
-            <select class="field" id="plAccount">${acctOpts}</select>
+            <select class="field" id="plAccount" onchange="updatePlCurrencyFields()">${acctOpts}</select>
           </div>
           <div class="form-group">
             <label class="field-label">Fecha</label>
             <input class="field" type="date" id="plDate" value="${todayDR()}">
           </div>
-          <div class="form-group">
+          <div class="form-group" id="plAmountGroup">
+            <label class="field-label field-required" id="plAmountLabel">Monto pagado</label>
+            <div class="input-group">
+              <span class="input-addon" id="plAmountSymbol">RD$</span>
+              <input class="field" type="number" id="plAmount" value="${pending>0?pending.toFixed(2):''}" placeholder="0.00" step="0.01" min="0.01" oninput="updatePlCurrencyFields()">
+            </div>
+          </div>
+          <div class="form-group" id="plDopGroup" style="display:none;">
+            <label class="field-label field-required">Equivalente en RD$ (DOP)</label>
+            <div class="input-group">
+              <span class="input-addon">RD$</span>
+              <input class="field" type="number" id="plDopAmount" placeholder="${pending>0?pending.toFixed(2):'0.00'}" step="0.01" min="0.01" oninput="updatePlRate()">
+            </div>
+          </div>
+          <div class="form-group" id="plRateGroup" style="display:none;">
+            <label class="field-label">Tasa implícita</label>
+            <div class="field" style="background:var(--surface-2);padding:8px 12px;font-size:13px;border-radius:var(--r-sm);" id="plRateDisplay">—</div>
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
             <label class="field-label">Referencia</label>
-            <input class="field" id="plRef" placeholder="Transferencia, efectivo...">
+            <input class="field" id="plRef" placeholder="Transferencia, PayPal, efectivo...">
           </div>
         </div>
       </div>
@@ -11582,6 +11597,42 @@ function openRegistrarPagoLot(lotNumber) {
       </div>
     </div>
   `);
+  updatePlCurrencyFields();
+}
+
+function updatePlCurrencyFields() {
+  const acctId  = document.getElementById('plAccount')?.value;
+  const acct    = accounts.find(a=>String(a.id)===String(acctId));
+  const cur     = acct?.currency || 'DOP';
+  const isDOP   = cur === 'DOP';
+  const sym     = cur==='USD'?'$':cur==='EUR'?'€':'RD$';
+  const label   = isDOP ? 'Monto pagado (RD$)' : `Monto pagado (${cur})`;
+
+  if (document.getElementById('plAmountLabel')) document.getElementById('plAmountLabel').textContent = label;
+  if (document.getElementById('plAmountSymbol')) document.getElementById('plAmountSymbol').textContent = sym;
+  const dopGroup  = document.getElementById('plDopGroup');
+  const rateGroup = document.getElementById('plRateGroup');
+  if (dopGroup)  dopGroup.style.display  = isDOP ? 'none' : 'block';
+  if (rateGroup) rateGroup.style.display = isDOP ? 'none' : 'block';
+  updatePlRate();
+}
+
+function updatePlRate() {
+  const acctId  = document.getElementById('plAccount')?.value;
+  const acct    = accounts.find(a=>String(a.id)===String(acctId));
+  const cur     = acct?.currency || 'DOP';
+  if (cur === 'DOP') return;
+  const amount    = parseFloat(document.getElementById('plAmount')?.value) || 0;
+  const dopAmount = parseFloat(document.getElementById('plDopAmount')?.value) || 0;
+  const rateEl    = document.getElementById('plRateDisplay');
+  if (rateEl && amount > 0 && dopAmount > 0) {
+    const rate = dopAmount / amount;
+    rateEl.textContent = `1 ${cur} = RD$ ${rate.toFixed(4)}`;
+    rateEl.style.color = 'var(--violet)';
+  } else if (rateEl) {
+    rateEl.textContent = 'Ingresa ambos montos';
+    rateEl.style.color = 'var(--ink-3)';
+  }
 }
 
 function updatePagoLotInfo(lotNumber) {
@@ -11608,12 +11659,27 @@ function saveRegistrarPagoLot(presetLot) {
   if (!amount || amount <= 0) { showToast('Monto inválido', 'error'); return; }
   if (!acctId) { showToast('Selecciona una cuenta', 'error'); return; }
 
+  const acct  = accounts.find(a=>String(a.id)===String(acctId));
+  const isDOP = !acct || (acct.currency||'DOP') === 'DOP';
+
+  /* For foreign currency, require DOP equivalent */
+  let dopAmount = amount; // default: treat as DOP
+  if (!isDOP) {
+    const dopRaw = parseFloat(document.getElementById('plDopAmount')?.value) || 0;
+    if (!dopRaw || dopRaw <= 0) {
+      showToast(`Ingresa el equivalente en RD$ para el pago en ${acct?.currency}`, 'error');
+      return;
+    }
+    dopAmount = dopRaw;
+  }
+  const impliedRate = isDOP ? null : (dopAmount / amount);
+
   /* Get all purchase lots for this order */
   const lots = purchases.filter(p => (p.lotNumber||p.lotNum||String(p.id)) === lotNumber);
 
   if (lots.length > 0) {
     const totalPreviouslyPaid = getOrderPaid(lotNumber);
-    const allPaid = totalPreviouslyPaid + amount;
+    const allPaid = totalPreviouslyPaid + dopAmount; // always in DOP
 
     /* Use current totalCostDOP as the base — distribute the difference (bank fee) proportionally */
     const currentTotal = lots.reduce((s,p) => s + (p.totalCostDOP||(p.costDOP||0)*(p.qty||0)), 0);
@@ -11634,14 +11700,16 @@ function saveRegistrarPagoLot(presetLot) {
   }
 
   /* Debit account */
-  const acct = accounts.find(a => String(a.id) === String(acctId));
   if (acct) acct.balance = Math.round((acct.balance - amount)*100)/100;
 
   /* Save purchase payment */
   purchasePayments.push({
     id: generateId(),
     lotNumber,
-    amount: Math.round(amount*100)/100,
+    amount:    Math.round(amount*100)/100,
+    dopAmount: Math.round(dopAmount*100)/100,
+    currency:  acct?.currency || 'DOP',
+    impliedRate,
     accountId: acctId,
     date,
     reference: ref || lotNumber,
