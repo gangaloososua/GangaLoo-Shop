@@ -4126,6 +4126,7 @@ function renderComprasPanel() {
           <p id="comprasSubtitle">Cargando...</p>
         </div>
         <div class="page-actions">
+          <button class="btn btn-teal btn-sm" onclick="openPagarTransporte()">🚚 Pagar Transporte</button>
           <button class="btn btn-primary" onclick="openNuevaCompra()">+ Nueva Orden</button>
         </div>
       </div>
@@ -4532,6 +4533,204 @@ function setCompraStatus(lotNumber, newStatus) {
 }
 
 /* ─── EDIT COMPRA ─── */
+/* ─── PAGAR TRANSPORTE (bulk courier payment across multiple orders) ─── */
+function openPagarTransporte() {
+  const acctOpts = accounts.filter(a=>a.active!==false)
+    .map(a=>`<option value="${a.id}">${a.name} (${formatDOP(a.balance)})</option>`).join('');
+
+  /* Pre-select courier category */
+  const courierCats = [...accountingCategories]
+    .filter(c=>c.type==='expense')
+    .sort((a,b)=>{const n=(a.name||'').localeCompare(b.name||'','es');return n!==0?n:(a.subname||'').localeCompare(b.subname||'','es');});
+  const defaultCourier = courierCats.find(c=>(c.name||'').toLowerCase().includes('courier')) || courierCats[0];
+  const catOpts = courierCats.map(c=>`<option value="${c.id}" ${defaultCourier&&String(c.id)===String(defaultCourier.id)?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
+
+  /* Find orders with pending transport (total > paid) */
+  const pendingOrders = getCompraOrders()
+    .filter(o => o.status !== 'cancelled')
+    .map(o => {
+      const total = o.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
+      const paid  = getOrderPaid(o.lotNumber);
+      const pend  = Math.max(0, Math.round((total-paid)*100)/100);
+      return { ...o, total, paid, pend };
+    })
+    .filter(o => o.pend > 0.01)
+    .sort((a,b) => (b.date||'')<(a.date||'') ? -1 : 1);
+
+  openModal(`
+    <div class="modal modal-xl" style="max-width:820px;">
+      <div class="modal-header">
+        <div class="modal-title">🚚 Pagar Transporte / Courier</div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Top inputs -->
+        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+          <div class="form-group">
+            <label class="field-label field-required">Total pagado al courier (RD$)</label>
+            <div class="input-group"><span class="input-addon">RD$</span>
+              <input class="field" type="number" id="pt_total" placeholder="0.00" min="0.01" oninput="updatePtBalance()">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="field-label field-required">Cuenta origen</label>
+            <select class="field" id="pt_acct">${acctOpts}</select>
+          </div>
+          <div class="form-group">
+            <label class="field-label field-required">Categoría gasto</label>
+            <select class="field" id="pt_cat">${catOpts}</select>
+          </div>
+          <div class="form-group">
+            <label class="field-label">Fecha</label>
+            <input class="field" type="date" id="pt_date" value="${todayDR()}">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="field-label">Referencia</label>
+          <input class="field" id="pt_ref" placeholder="N° transferencia, efectivo...">
+        </div>
+
+        <!-- Balance strip -->
+        <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px 16px;margin-bottom:16px;display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+          <div><span style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;">Total pagado</span>
+            <div style="font-weight:800;font-size:1.1em;color:var(--violet);" id="pt_lblTotal">RD$ 0.00</div></div>
+          <div><span style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;">Aplicado</span>
+            <div style="font-weight:800;font-size:1.1em;color:var(--emerald);" id="pt_lblApplied">RD$ 0.00</div></div>
+          <div><span style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;">Saldo libre</span>
+            <div style="font-weight:800;font-size:1.1em;" id="pt_lblBalance">RD$ 0.00</div></div>
+          <div style="flex:1;text-align:right;font-size:12px;color:var(--ink-3);" id="pt_lblNote"></div>
+        </div>
+
+        <!-- Pending orders -->
+        ${pendingOrders.length === 0
+          ? '<div style="color:var(--ink-3);font-style:italic;padding:12px 0;">✅ No hay órdenes con transporte pendiente.</div>'
+          : `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin-bottom:8px;">
+              Órdenes con transporte pendiente (${pendingOrders.length}) — ingresa el monto de transporte por orden
+            </div>
+            <div style="display:grid;gap:6px;">
+              ${pendingOrders.map(o => `
+                <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:10px 14px;">
+                  <div>
+                    <div style="font-weight:800;color:var(--violet);font-size:.9em;">${o.lotNumber}</div>
+                    <div style="font-size:11px;color:var(--ink-3);">${formatDate(o.date)}${o.supplier?' · '+o.supplier:''}</div>
+                  </div>
+                  <div>
+                    <div style="font-size:12px;">${o.lots.map(p=>getProductName(p.productId)).join(', ')}</div>
+                    <div style="font-size:11px;color:var(--ink-3);">Total: ${formatDOP(o.total)} · Pagado: ${formatDOP(o.paid)}</div>
+                  </div>
+                  <div style="font-weight:800;color:var(--rose);white-space:nowrap;">${formatDOP(o.pend)}</div>
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <div class="input-group" style="width:130px;">
+                      <span class="input-addon" style="font-size:10px;">RD$</span>
+                      <input class="field" type="number" id="pt_lot_${o.lotNumber}" placeholder="${o.pend.toFixed(2)}"
+                        value="0" min="0" step="0.01" style="font-size:12px;" oninput="updatePtBalance()">
+                    </div>
+                    <button class="btn btn-ghost btn-xs" onclick="document.getElementById('pt_lot_${o.lotNumber}').value='${o.pend.toFixed(2)}';updatePtBalance()">Todo</button>
+                  </div>
+                </div>`).join('')}
+            </div>`}
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="savePagarTransporte()">💾 Registrar Pago Courier</button>
+      </div>
+    </div>
+  `);
+}
+
+function updatePtBalance() {
+  const total   = parseFloat(document.getElementById('pt_total')?.value) || 0;
+  const applied = [...document.querySelectorAll('[id^="pt_lot_"]')]
+    .reduce((s,inp) => s + (parseFloat(inp.value)||0), 0);
+  const saldo   = Math.round((total - applied)*100)/100;
+
+  const f = id => document.getElementById(id);
+  if (f('pt_lblTotal'))   f('pt_lblTotal').textContent   = formatDOP(total);
+  if (f('pt_lblApplied')) f('pt_lblApplied').textContent = formatDOP(applied);
+  if (f('pt_lblBalance')) {
+    f('pt_lblBalance').textContent = formatDOP(Math.abs(saldo));
+    f('pt_lblBalance').style.color = saldo < -0.01 ? 'var(--rose)' : saldo > 0.01 ? 'var(--amber)' : 'var(--emerald)';
+  }
+  if (f('pt_lblNote')) {
+    f('pt_lblNote').textContent = saldo < -0.01
+      ? '⚠️ Aplicado supera el total pagado'
+      : saldo > 0.01
+        ? `RD$ ${formatDOP(saldo).replace('RD$ ','')} quedarán sin aplicar`
+        : '✅ Todo el monto aplicado';
+  }
+}
+
+function savePagarTransporte() {
+  const total  = parseFloat(document.getElementById('pt_total')?.value) || 0;
+  const acctId = document.getElementById('pt_acct')?.value;
+  const catId  = document.getElementById('pt_cat')?.value;
+  const date   = document.getElementById('pt_date')?.value || todayDR();
+  const ref    = document.getElementById('pt_ref')?.value.trim() || '';
+
+  if (!total || total <= 0) { showToast('Ingresa el total pagado al courier', 'error'); return; }
+  if (!acctId) { showToast('Selecciona una cuenta', 'error'); return; }
+
+  const inputs = [...document.querySelectorAll('[id^="pt_lot_"]')];
+  const toApply = inputs
+    .map(inp => ({ lotNumber: inp.id.replace('pt_lot_',''), amount: parseFloat(inp.value)||0 }))
+    .filter(x => x.amount > 0.01);
+
+  if (!toApply.length) { showToast('Ingresa al menos un monto a aplicar', 'error'); return; }
+
+  const applied = toApply.reduce((s,x) => s+x.amount, 0);
+  if (Math.round(applied*100)/100 > Math.round(total*100)/100 + 0.01) {
+    showToast('El total aplicado supera el monto pagado', 'error'); return;
+  }
+
+  /* Debit account ONCE for the full amount */
+  const acct = accounts.find(a => String(a.id) === String(acctId));
+  if (acct) acct.balance = Math.round((acct.balance - total)*100)/100;
+
+  /* Build lot reference string */
+  const lotRefs = toApply.map(x => x.lotNumber).join(', ');
+  const txDesc  = `Courier${ref?' '+ref:''} · ${lotRefs}`;
+  const receiptId = generateId();
+
+  /* Single expense transaction for the bank statement */
+  transactions.push({
+    id: generateId(),
+    type: 'expense',
+    description: txDesc,
+    amount: total,
+    accountId: acctId,
+    categoryId: catId,
+    date,
+    reference: ref || lotRefs,
+    receiptId,
+    isReceiptEntry: true,
+  });
+
+  /* Individual purchase payment per order (skipBalance = true since account already debited) */
+  toApply.forEach(x => {
+    purchasePayments.push({
+      id: generateId(),
+      lotNumber: x.lotNumber,
+      amount: Math.round(x.amount*100)/100,
+      accountId: acctId,
+      date,
+      reference: txDesc,
+      receiptId,
+      skipBalance: true,
+    });
+  });
+
+  const saldo = Math.round((total - applied)*100)/100;
+  debouncedSave();
+  renderComprasKPI();
+  renderComprasList();
+  closeModal();
+
+  const saldoMsg = saldo > 0.01 ? ` · Saldo libre: ${formatDOP(saldo)}` : '';
+  showToast(`Courier ${formatDOP(total)} pagado · ${toApply.length} orden${toApply.length!==1?'es':''} cubiertas${saldoMsg} ✅`, 'success');
+}
+
 function getNextLotNumber() {
   let max = 0;
   purchases.forEach(p => {
