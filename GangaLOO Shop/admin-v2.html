@@ -4947,6 +4947,9 @@ function openEditCompra(lotNumber) {
   const tax       = lots.reduce((s,p)=>s+(p.taxShare||p.bulkOrderData?.taxShare||0),0) || '';
   const discount  = lots.reduce((s,p)=>s+(p.discountShare||p.bulkOrderData?.discountShare||0),0) || '';
   const transport = lots.reduce((s,p)=>s+(p.transportShare||p.bulkOrderData?.transportShare||0),0) || '';
+  const alreadyPaid = purchasePayments
+    .filter(p=>String(p.lotNumber)===String(lotNumber)||String(p.purchaseId)===String(lotNumber))
+    .reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
 
   openModal(`
     <div class="modal modal-xl" style="max-width:1000px;">
@@ -4987,8 +4990,8 @@ function openEditCompra(lotNumber) {
               <div class="form-group"><label class="field-label">Descuento (USD)</label>
                 <input class="field" type="number" id="ec_discount" value="${discount}" placeholder="0.00" step="0.01" min="0" oninput="calcEditCompra('${lotNumber}')"></div>
               <div class="form-group"><label class="field-label">Monto real pagado (DOP)</label>
-                <div class="field-hint" style="margin-bottom:4px;font-size:10px;">Deja en blanco si no aplica</div>
-                <input class="field" type="number" id="ec_paid" placeholder="0.00" step="0.01" min="0" oninput="calcEditCompra('${lotNumber}')"></div>
+                <div class="field-hint" style="margin-bottom:4px;font-size:10px;">Total cobrado por el banco. Diferencia = cargo bancario distribuido en productos.</div>
+                <input class="field" type="number" id="ec_paid" value="${alreadyPaid>0?alreadyPaid.toFixed(2):''}" placeholder="0.00" step="0.01" min="0" oninput="calcEditCompra('${lotNumber}')"></div>
               <div class="form-group"><label class="field-label">Transporte DOP</label>
                 <input class="field" type="number" id="ec_transport" value="${transport}" placeholder="0.00" step="0.01" min="0" oninput="calcEditCompra('${lotNumber}')"></div>
             </div>
@@ -11313,39 +11316,21 @@ function saveRegistrarPagoLot(presetLot) {
       .reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
     const allPaid = totalPreviouslyPaid + amount;
 
-    /* Try USD-based recalculation first */
-    const calculatedDOP = lots.reduce((s,p) => s + ((p.costUSD||0)*(p.qty||0)*(p.exchangeRate||1)), 0);
+    /* Use current totalCostDOP as the base — distribute the difference (bank fee) proportionally */
+    const currentTotal = lots.reduce((s,p) => s + (p.totalCostDOP||(p.costDOP||0)*(p.qty||0)), 0);
 
-    if (calculatedDOP > 0) {
-      /* We have USD costs — use full recalculation */
-      const bankFee = allPaid - calculatedDOP;
+    if (currentTotal > 0 && Math.abs(allPaid - currentTotal) > 0.01) {
+      const diff = allPaid - currentTotal; /* positive = bank charged extra, negative = discount */
       lots.forEach(p => {
-        const proportion     = ((p.costUSD||0)*(p.qty||0)*(p.exchangeRate||1)) / calculatedDOP;
-        const bankShare      = bankFee * proportion;
-        const transportShare = p.bulkOrderData?.transportShare || p.transportShare || 0;
-        const itemTotalDOP   = ((p.costUSD||0)*(p.qty||0)*(p.exchangeRate||1)) + bankShare + transportShare;
-        p.costDOP      = p.qty > 0 ? Math.round(itemTotalDOP/p.qty*100)/100 : p.costDOP;
-        p.totalCostDOP = Math.round(itemTotalDOP*100)/100;
-        if (p.bulkOrderData) p.bulkOrderData.bankFeeShare = bankShare;
-        p.bankFeeShare = bankShare;
+        const base       = p.totalCostDOP||(p.costDOP||0)*(p.qty||0);
+        const proportion = base / currentTotal;
+        const newTotal   = Math.round((base + diff * proportion) * 100) / 100;
+        p.totalCostDOP   = newTotal;
+        p.costDOP        = p.qty > 0 ? Math.round(newTotal/p.qty*100)/100 : p.costDOP;
+        p.bankFeeShare   = (p.bankFeeShare||0) + diff * proportion;
+        if (p.bulkOrderData) p.bulkOrderData.bankFeeShare = p.bankFeeShare;
       });
-    } else {
-      /* No USD costs — distribute paid amount proportionally by existing DOP costs */
-      const currentTotal = lots.reduce((s,p) => s + (p.totalCostDOP||(p.costDOP||0)*(p.qty||0)), 0);
-      if (currentTotal > 0 && Math.abs(allPaid - currentTotal) > 0.01) {
-        lots.forEach(p => {
-          const proportion   = (p.totalCostDOP||(p.costDOP||0)*(p.qty||0)) / currentTotal;
-          const newItemTotal = Math.round(allPaid * proportion * 100) / 100;
-          p.totalCostDOP     = newItemTotal;
-          p.costDOP          = p.qty > 0 ? Math.round(newItemTotal/p.qty*100)/100 : p.costDOP;
-        });
-      }
-    }
-
-    const currentTotal = lots.reduce((s,p) => s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
-    const diff = Math.abs(allPaid - currentTotal);
-    if (diff > 0.01) {
-      showToast(`Costos de ${lotNumber} actualizados al monto pagado ✅`, 'success');
+      showToast(`Costos de ${lotNumber} ajustados (cargo bancario: ${diff>0?'+':''}${formatDOP(diff)}) ✅`, 'success');
     }
   }
 
