@@ -4938,64 +4938,106 @@ function openEditCompra(lotNumber) {
   const lots = purchases.filter(p=>(p.lotNumber||p.lotNum||String(p.id))===lotNumber);
   if (!lots.length) return;
   const first = lots[0];
-  const whOpts = warehouses.map(w=>`<option value="${w.id}" ${w.id===first.warehouseId?'selected':''}>${w.name}</option>`).join('');
+  const whOpts = warehouses.map(w=>`<option value="${w.id}" ${String(w.id)===String(first.warehouseId)?'selected':''}>${w.name}</option>`).join('');
   const stOpts = Object.entries(COMPRA_STATUSES).map(([val,s])=>`<option value="${val}" ${val===first.status?'selected':''}>${s.label}</option>`).join('');
 
+  /* Pre-fill cost fields from stored data */
+  const rate      = first.exchangeRate || '';
+  const shipping  = lots.reduce((s,p)=>s+(p.shippingShare||p.bulkOrderData?.shippingShare||0),0) || '';
+  const tax       = lots.reduce((s,p)=>s+(p.taxShare||p.bulkOrderData?.taxShare||0),0) || '';
+  const discount  = lots.reduce((s,p)=>s+(p.discountShare||p.bulkOrderData?.discountShare||0),0) || '';
+  const transport = lots.reduce((s,p)=>s+(p.transportShare||p.bulkOrderData?.transportShare||0),0) || '';
+
   openModal(`
-    <div class="modal modal-lg">
+    <div class="modal modal-xl" style="max-width:1000px;">
       <div class="modal-header">
         <div class="modal-title">✏️ Editar Orden — ${lotNumber}</div>
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
-      <div class="modal-body">
-        <!-- Order meta -->
-        <div class="form-grid" style="grid-template-columns:1fr 1fr;">
-          <div class="form-group">
-            <label class="field-label">Proveedor</label>
-            <input class="field" id="ec_supplier" value="${first.supplier||''}">
+      <div class="modal-body" style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;">
+
+        <!-- LEFT -->
+        <div>
+          <!-- Order meta -->
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="form-group"><label class="field-label">Proveedor</label>
+              <input class="field" id="ec_supplier" value="${first.supplier||''}"></div>
+            <div class="form-group"><label class="field-label">Fecha</label>
+              <input class="field" type="date" id="ec_date" value="${first.date||''}"></div>
+            <div class="form-group"><label class="field-label">Almacén</label>
+              <select class="field" id="ec_warehouse">${whOpts}</select></div>
+            <div class="form-group"><label class="field-label">Estado</label>
+              <select class="field" id="ec_status">${stOpts}</select></div>
+            <div class="form-group"><label class="field-label">Tracking</label>
+              <input class="field" id="ec_tracking" value="${first.trackingNumber||''}"></div>
+            <div class="form-group"><label class="field-label">Notas</label>
+              <textarea class="field" id="ec_notes" rows="1">${first.notes||''}</textarea></div>
           </div>
-          <div class="form-group">
-            <label class="field-label">Fecha</label>
-            <input class="field" type="date" id="ec_date" value="${first.date||''}">
+
+          <!-- Cost fields -->
+          <div style="margin-top:14px;padding:14px;background:var(--surface-2);border-radius:var(--r-md);">
+            <div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin-bottom:12px;">💱 Costos y Tipo de Cambio</div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;">
+              <div class="form-group"><label class="field-label">Tasa USD → DOP</label>
+                <input class="field" type="number" id="ec_rate" value="${rate}" placeholder="58.50" step="0.01" oninput="calcEditCompra('${lotNumber}')"></div>
+              <div class="form-group"><label class="field-label">Envío total (USD)</label>
+                <input class="field" type="number" id="ec_shipping" value="${shipping}" placeholder="0.00" step="0.01" min="0" oninput="calcEditCompra('${lotNumber}')"></div>
+              <div class="form-group"><label class="field-label">Impuestos (USD)</label>
+                <input class="field" type="number" id="ec_tax" value="${tax}" placeholder="0.00" step="0.01" min="0" oninput="calcEditCompra('${lotNumber}')"></div>
+              <div class="form-group"><label class="field-label">Descuento (USD)</label>
+                <input class="field" type="number" id="ec_discount" value="${discount}" placeholder="0.00" step="0.01" min="0" oninput="calcEditCompra('${lotNumber}')"></div>
+              <div class="form-group"><label class="field-label">Monto real pagado (DOP)</label>
+                <div class="field-hint" style="margin-bottom:4px;font-size:10px;">Deja en blanco si no aplica</div>
+                <input class="field" type="number" id="ec_paid" placeholder="0.00" step="0.01" min="0" oninput="calcEditCompra('${lotNumber}')"></div>
+              <div class="form-group"><label class="field-label">Transporte DOP</label>
+                <input class="field" type="number" id="ec_transport" value="${transport}" placeholder="0.00" step="0.01" min="0" oninput="calcEditCompra('${lotNumber}')"></div>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="field-label">Almacén</label>
-            <select class="field" id="ec_warehouse">${whOpts}</select>
-          </div>
-          <div class="form-group">
-            <label class="field-label">Estado</label>
-            <select class="field" id="ec_status">${stOpts}</select>
-          </div>
-          <div class="form-group full">
-            <label class="field-label">Notas</label>
-            <textarea class="field" id="ec_notes" rows="2">${first.notes||''}</textarea>
+
+          <!-- Product lines -->
+          <div class="divider-label" style="margin:16px 0 10px;">Líneas de productos</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="background:var(--surface-2);">
+              <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);">Producto</th>
+              <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);">Comprado</th>
+              <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);">Stock actual</th>
+              <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);">Precio unit (USD)</th>
+              <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);">Costo/u DOP</th>
+            </tr></thead>
+            <tbody>
+              ${lots.map(p=>`<tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 10px;font-weight:600;">${getProductName(p.productId)}</td>
+                <td style="padding:8px 10px;text-align:center;">
+                  <input class="field" type="number" id="ec_qty_${p.id}" value="${p.qty||0}" min="0" style="width:70px;padding:5px 8px;text-align:center;" oninput="syncRemainingQty('${p.id}');calcEditCompra('${lotNumber}')">
+                </td>
+                <td style="padding:8px 10px;text-align:center;">
+                  <input class="field" type="number" id="ec_rqty_${p.id}" value="${p.remainingQty||0}" min="0" style="width:70px;padding:5px 8px;text-align:center;" oninput="this._userEdited=true">
+                </td>
+                <td style="padding:8px 10px;text-align:center;">
+                  <input class="field" type="number" id="ec_usd_${p.id}" value="${p.costUSD||''}" step="0.01" min="0" placeholder="0.00" style="width:90px;padding:5px 8px;text-align:right;" oninput="calcEditCompra('${lotNumber}')">
+                </td>
+                <td style="padding:8px 10px;text-align:right;">
+                  <div style="font-size:12px;font-weight:700;color:var(--violet);" id="ec_unitcost_${p.id}">${formatDOP(p.costDOP||0)}</div>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- RIGHT: breakdown -->
+        <div style="position:sticky;top:0;">
+          <div id="ec_breakdown" style="background:var(--surface-2);border-radius:var(--r-md);padding:16px;font-size:13px;">
+            <div style="font-weight:700;margin-bottom:8px;color:var(--violet);">📊 Costos actuales</div>
+            ${lots.map(p=>`<div style="background:var(--surface);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:12px;">
+              <div style="font-weight:700;">${getProductName(p.productId)} × ${p.qty||0}</div>
+              <div style="color:var(--violet);font-weight:700;">Costo/u: ${formatDOP(p.costDOP||0)}</div>
+            </div>`).join('')}
+            <div style="border-top:2px solid var(--border);padding-top:8px;margin-top:4px;font-weight:800;">
+              Total: ${formatDOP(lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0))}
+            </div>
           </div>
         </div>
 
-        <!-- Product lines -->
-        <div class="divider-label" style="margin:16px 0 10px;">Líneas de productos</div>
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead><tr style="background:var(--surface-2);">
-            <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);">Producto</th>
-            <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);">Comprado</th>
-            <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);">Stock actual</th>
-            <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);">Costo/u DOP</th>
-          </tr></thead>
-          <tbody>
-            ${lots.map(p=>`<tr style="border-bottom:1px solid var(--border);">
-              <td style="padding:8px 10px;font-weight:600;">${getProductName(p.productId)}</td>
-              <td style="padding:8px 10px;text-align:center;">
-                <input class="field" type="number" id="ec_qty_${p.id}" value="${p.qty||0}" min="0" style="width:70px;padding:5px 8px;text-align:center;" oninput="syncRemainingQty('${p.id}')">
-              </td>
-              <td style="padding:8px 10px;text-align:center;">
-                <input class="field" type="number" id="ec_rqty_${p.id}" value="${p.remainingQty||0}" min="0" style="width:70px;padding:5px 8px;text-align:center;" oninput="this._userEdited=true">
-              </td>
-              <td style="padding:8px 10px;text-align:right;">
-                <input class="field" type="number" id="ec_cost_${p.id}" value="${p.costDOP||0}" step="0.01" min="0" style="width:100px;padding:5px 8px;text-align:right;">
-              </td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -5005,6 +5047,43 @@ function openEditCompra(lotNumber) {
   `);
 }
 
+function calcEditCompra(lotNumber) {
+  const lots     = purchases.filter(p=>(p.lotNumber||p.lotNum||String(p.id))===lotNumber);
+  const rate     = parseFloat(document.getElementById('ec_rate')?.value)     || 0;
+  const shipping = parseFloat(document.getElementById('ec_shipping')?.value) || 0;
+  const tax      = parseFloat(document.getElementById('ec_tax')?.value)       || 0;
+  const discount = parseFloat(document.getElementById('ec_discount')?.value) || 0;
+  const paid     = parseFloat(document.getElementById('ec_paid')?.value)      || 0;
+  const transport= parseFloat(document.getElementById('ec_transport')?.value) || 0;
+  if (!rate || !lots.length) return;
+
+  let totalProductCostUSD = 0;
+  const items = lots.map(p => {
+    const qty  = parseFloat(document.getElementById(`ec_qty_${p.id}`)?.value) || p.qty || 0;
+    const unit = parseFloat(document.getElementById(`ec_usd_${p.id}`)?.value) || p.costUSD || 0;
+    const productCostUSD = unit * qty;
+    totalProductCostUSD += productCostUSD;
+    return { p, qty, unit, productCostUSD };
+  });
+
+  if (!totalProductCostUSD) return;
+
+  const totalUSD = totalProductCostUSD + shipping - discount + tax;
+  const calcDOP  = totalUSD * rate;
+  const bankFee  = paid > 0 ? (paid - calcDOP) : 0;
+
+  items.forEach(({ p, qty, productCostUSD }) => {
+    const proportion    = productCostUSD / totalProductCostUSD;
+    const subtotalUSD   = productCostUSD + shipping*proportion - discount*proportion + tax*proportion;
+    const bankShare     = totalUSD > 0 ? bankFee * (subtotalUSD/totalUSD) : 0;
+    const transportShare= transport * proportion;
+    const itemTotalDOP  = (subtotalUSD * rate) + bankShare + transportShare;
+    const unitCostDOP   = qty > 0 ? itemTotalDOP / qty : 0;
+    const el = document.getElementById(`ec_unitcost_${p.id}`);
+    if (el) el.textContent = formatDOP(unitCostDOP);
+  });
+}
+
 function syncRemainingQty(lotId) {
   const q = document.getElementById('ec_qty_'+lotId);
   const r = document.getElementById('ec_rqty_'+lotId);
@@ -5012,25 +5091,83 @@ function syncRemainingQty(lotId) {
 }
 
 function saveEditCompra(lotNumber) {
-  const lots = purchases.filter(p=>(p.lotNumber||p.lotNum||String(p.id))===lotNumber);
-  const supplier    = document.getElementById('ec_supplier')?.value.trim();
-  const date        = document.getElementById('ec_date')?.value;
+  const lots      = purchases.filter(p=>(p.lotNumber||p.lotNum||String(p.id))===lotNumber);
+  const supplier  = document.getElementById('ec_supplier')?.value.trim();
+  const date      = document.getElementById('ec_date')?.value;
   const warehouseId = document.getElementById('ec_warehouse')?.value;
-  const status      = document.getElementById('ec_status')?.value;
-  const notes       = document.getElementById('ec_notes')?.value.trim();
-  lots.forEach(p => {
-    if (supplier!==undefined) p.supplier    = supplier;
-    if (date)                 p.date        = date;
-    if (warehouseId)          p.warehouseId = warehouseId;
-    if (status)               p.status      = status;
-    if (notes!==undefined)    p.notes       = notes;
-    const qty  = parseFloat(document.getElementById('ec_qty_' +p.id)?.value);
-    const rqty = parseFloat(document.getElementById('ec_rqty_'+p.id)?.value);
-    const cost = parseFloat(document.getElementById('ec_cost_'+p.id)?.value);
-    if (!isNaN(qty))  { p.qty=qty; }
-    if (!isNaN(rqty)) { p.remainingQty=rqty; }
-    if (!isNaN(cost)) { p.costDOP=cost; p.totalCostDOP=cost*(p.qty||0); }
+  const status    = document.getElementById('ec_status')?.value;
+  const notes     = document.getElementById('ec_notes')?.value.trim();
+  const tracking  = document.getElementById('ec_tracking')?.value.trim();
+  const rate      = parseFloat(document.getElementById('ec_rate')?.value)     || 0;
+  const shipping  = parseFloat(document.getElementById('ec_shipping')?.value) || 0;
+  const tax       = parseFloat(document.getElementById('ec_tax')?.value)       || 0;
+  const discount  = parseFloat(document.getElementById('ec_discount')?.value) || 0;
+  const paid      = parseFloat(document.getElementById('ec_paid')?.value)      || 0;
+  const transport = parseFloat(document.getElementById('ec_transport')?.value) || 0;
+
+  /* Recalculate costs if rate and USD prices available */
+  let totalProductCostUSD = 0;
+  const items = lots.map(p => {
+    const qty  = parseFloat(document.getElementById(`ec_qty_${p.id}`)?.value);
+    const unit = parseFloat(document.getElementById(`ec_usd_${p.id}`)?.value) || p.costUSD || 0;
+    const q    = isNaN(qty) ? (p.qty||0) : qty;
+    totalProductCostUSD += unit * q;
+    return { p, qty: q, unit, productCostUSD: unit * q };
   });
+
+  if (rate && totalProductCostUSD > 0) {
+    const totalUSD = totalProductCostUSD + shipping - discount + tax;
+    const calcDOP  = totalUSD * rate;
+    const bankFee  = paid > 0 ? (paid - calcDOP) : 0;
+
+    items.forEach(({ p, qty, unit, productCostUSD }) => {
+      const proportion     = productCostUSD / totalProductCostUSD;
+      const subtotalUSD    = productCostUSD + shipping*proportion - discount*proportion + tax*proportion;
+      const bankShare      = totalUSD > 0 ? bankFee * (subtotalUSD/totalUSD) : 0;
+      const transportShare = transport * proportion;
+      const itemTotalDOP   = (subtotalUSD * rate) + bankShare + transportShare;
+      const unitCostDOP    = qty > 0 ? itemTotalDOP / qty : 0;
+      p.costUSD      = unit;
+      p.exchangeRate = rate;
+      p.costDOP      = Math.round(unitCostDOP*100)/100;
+      p.totalCostDOP = Math.round(itemTotalDOP*100)/100;
+      p.shippingShare  = shippingShare = shipping * proportion;
+      p.discountShare  = discount * proportion;
+      p.taxShare       = tax * proportion;
+      p.bankFeeShare   = bankShare;
+      p.transportShare = transportShare;
+      if (p.bulkOrderData) {
+        p.bulkOrderData.shippingShare  = shipping * proportion;
+        p.bulkOrderData.discountShare  = discount * proportion;
+        p.bulkOrderData.taxShare       = tax * proportion;
+        p.bulkOrderData.bankFeeShare   = bankShare;
+        p.bulkOrderData.transportShare = transportShare;
+      }
+    });
+  } else {
+    /* No rate — just update qty/stock/direct cost */
+    lots.forEach(p => {
+      const qty  = parseFloat(document.getElementById(`ec_qty_${p.id}`)?.value);
+      const rqty = parseFloat(document.getElementById(`ec_rqty_${p.id}`)?.value);
+      if (!isNaN(qty))  { p.qty = qty; }
+      if (!isNaN(rqty)) { p.remainingQty = rqty; }
+    });
+  }
+
+  /* Always update qty/stock */
+  lots.forEach(p => {
+    const qty  = parseFloat(document.getElementById(`ec_qty_${p.id}`)?.value);
+    const rqty = parseFloat(document.getElementById(`ec_rqty_${p.id}`)?.value);
+    if (!isNaN(qty))  p.qty = qty;
+    if (!isNaN(rqty)) p.remainingQty = rqty;
+    if (supplier  !== undefined) p.supplier       = supplier;
+    if (date)                    p.date           = date;
+    if (warehouseId)             p.warehouseId    = warehouseId;
+    if (status)                  p.status         = status;
+    if (notes     !== undefined) p.notes          = notes;
+    if (tracking  !== undefined) p.trackingNumber = tracking;
+  });
+
   debouncedSave();
   renderComprasKPI();
   renderComprasList();
@@ -8399,7 +8536,7 @@ function renderTransacciones(el) {
 
   /* Build filter options */
   const catOpts = `<option value="">Todas las categorías</option>` +
-    accountingCategories.map(c=>`<option value="${c.id}">${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
+    [...accountingCategories].sort((a,b)=>{const n=(a.name||'').localeCompare(b.name||'','es');return n!==0?n:(a.subname||'').localeCompare(b.subname||'','es');}).map(c=>`<option value="${c.id}">${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
   const acctOpts = `<option value="">Todas las cuentas</option>` +
     accounts.filter(a=>a.active!==false).map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
 
@@ -8520,12 +8657,15 @@ function openNuevaTransaccion() {
   updateNtCatOptions();
 }
 
+const sortCats = cats => [...cats].sort((a,b) => { const n = (a.name||'').localeCompare(b.name||'','es'); return n !== 0 ? n : (a.subname||'').localeCompare(b.subname||'','es'); });
+
 function updateNtCatOptions() {
   const type = document.getElementById('ntType')?.value;
   const sel  = document.getElementById('ntCat');
   if (!sel) return;
   sel.innerHTML = accountingCategories
     .filter(c => c.type === type)
+    .sort((a,b) => { const n=(a.name||'').localeCompare(b.name||'','es'); return n!==0?n:(a.subname||'').localeCompare(b.subname||'','es'); })
     .map(c => `<option value="${c.id}">${c.name}${c.subname ? ' — ' + c.subname : ''}</option>`)
     .join('');
 }
@@ -10988,7 +11128,7 @@ function editTransaccion(id) {
   const t = transactions.find(x => String(x.id) === String(id));
   if (!t) return;
   const acctOpts = accounts.filter(a=>a.active!==false).map(a=>`<option value="${a.id}" ${String(a.id)===String(t.accountId)?'selected':''}>${a.name}</option>`).join('');
-  const catOpts  = accountingCategories.filter(c=>c.type===t.type).map(c=>`<option value="${c.id}" ${String(c.id)===String(t.categoryId)?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
+  const catOpts  = [...accountingCategories].filter(c=>c.type===t.type).sort((a,b)=>{const n=(a.name||'').localeCompare(b.name||'','es');return n!==0?n:(a.subname||'').localeCompare(b.subname||'','es');}).map(c=>`<option value="${c.id}" ${String(c.id)===String(t.categoryId)?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
   openModal(`
     <div class="modal" style="max-width:420px;">
       <div class="modal-header"><div class="modal-title">✏️ Editar Transacción</div><button class="modal-close" onclick="closeModal()">✕</button></div>
