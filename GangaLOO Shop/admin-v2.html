@@ -4215,14 +4215,14 @@ function setCompraFilter(status, el) {
 
 /* Build grouped purchase orders */
 function getOrderPaid(lotNumber) {
-  /* Only count formal purchase payments */
+  /* Count purchase payments - but NOT skipBalance ones (those are already
+     counted via their paired expense transaction to avoid double-counting) */
   const fromPayments = purchasePayments
-    .filter(pp => String(pp.lotNumber)===String(lotNumber) || String(pp.purchaseId)===String(lotNumber))
+    .filter(pp => (String(pp.lotNumber)===String(lotNumber) || String(pp.purchaseId)===String(lotNumber)) && !pp.skipBalance)
     .reduce((s,pp) => s+(parseFloat(pp.amount)||0), 0);
 
-  /* Also count expense transactions created by our transport tools
-     (they have receiptId and reference the lot) — but NOT arbitrary old transactions
-     to avoid double-counting full order costs entered as expenses */
+  /* Count expense transactions from our transport tools (have receiptId + lot reference)
+     These represent the skipBalance purchasePayments' paired transactions */
   const fromTransactions = transactions
     .filter(t => t.type==='expense' && t.receiptId && (
       (t.description||'').includes(lotNumber) ||
@@ -4488,15 +4488,21 @@ function renderCompraDetail(lotNumber) {
 
           <!-- Payment history -->
           ${(() => {
-            const pymnts = purchasePayments.filter(pp=>String(pp.lotNumber)===String(lotNumber)||String(pp.purchaseId)===String(lotNumber));
-            if (!pymnts.length) return '<p style="font-size:12.5px;color:var(--ink-3);">Sin pagos registrados aún.</p>';
-            return pymnts.map(pp=>`
+            const pymnts = purchasePayments.filter(pp=>(String(pp.lotNumber)===String(lotNumber)||String(pp.purchaseId)===String(lotNumber))&&!pp.skipBalance);
+            const transportTxns = transactions.filter(t=>t.type==='expense'&&t.receiptId&&((t.description||'').includes(lotNumber)||(t.reference||'').includes(lotNumber)));
+            const allEntries = [
+              ...pymnts.map(pp=>({date:pp.date,label:getAccountName(pp.accountId),amount:pp.amount,ref:pp.reference||''})),
+              ...transportTxns.map(t=>({date:t.date,label:'🚚 '+getAccountName(t.accountId),amount:t.amount,ref:t.description||''})),
+            ].sort((a,b)=>(a.date||'')<(b.date||'')?-1:1);
+            if (!allEntries.length) return '<p style="font-size:12.5px;color:var(--ink-3);">Sin pagos registrados aún.</p>';
+            return allEntries.map(e=>`
               <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:13px;">
                 <div>
-                  <span style="font-weight:600;">${getAccountName(pp.accountId)}</span>
-                  <span style="color:var(--ink-3);margin-left:8px;">${formatDate(pp.date)}</span>
+                  <span style="font-weight:600;">${e.label}</span>
+                  <span style="color:var(--ink-3);margin-left:8px;">${formatDate(e.date)}</span>
+                  ${e.ref?`<div style="font-size:11px;color:var(--ink-3);">${e.ref}</div>`:''}
                 </div>
-                <strong style="color:var(--emerald);">${formatDOP(pp.amount)}</strong>
+                <strong style="color:var(--emerald);">${formatDOP(e.amount)}</strong>
               </div>`).join('');
           })()}
         </div>
