@@ -1984,6 +1984,10 @@ function deleteTransaction(txnId) {
     const payoutId = txn.reference.replace('commission-payout-', '');
     commissionPayouts = commissionPayouts.filter(p => p.id !== payoutId);
   }
+  /* Remove paired purchasePayments (from Pagar Transporte / Registrar como Gasto) */
+  if (txn.receiptId) {
+    purchasePayments = purchasePayments.filter(pp => pp.receiptId !== txn.receiptId);
+  }
   /* Restore account balance (only if not a skipBalance receipt entry) */
   if (!txn.skipBalance) {
     const account = accounts.find(a => String(a.id) === String(txn.accountId));
@@ -2001,6 +2005,8 @@ function deleteTransaction(txnId) {
                     document.getElementById('txTypeFilter')?.value;
   if (hasFilter) filterTransacciones();
   else renderContabTab('transacciones');
+  /* Also refresh compras if open */
+  if (_activePanel === 'compras') { renderComprasKPI(); renderComprasList(); if (_selectedOrder) renderCompraDetail(_selectedOrder); }
 }
 
 /* ─── DELETE PAYOUT (only restores balance if paired txn still exists) ─── */
