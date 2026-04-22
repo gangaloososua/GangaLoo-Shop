@@ -5987,6 +5987,15 @@ function renderClientesPanel() {
         <span class="pill" onclick="filterClientes('seller',this)">🏷 Vendedores</span>
         <span class="pill" onclick="filterClientes('club_member',this)">💎 Club</span>
         <span class="pill" onclick="filterClientes('distributor',this)">🏭 Distribuidores</span>
+        <span class="pill" onclick="filterClientes('debt',this)">🔴 Con Deuda</span>
+      </div>
+
+      <!-- Debt summary -->
+      <div id="clienteDebtSummary" style="display:none;background:var(--rose-l,rgba(244,63,94,.08));border:1.5px solid var(--rose);border-radius:var(--r-sm);padding:12px 16px;margin-bottom:14px;display:flex;gap:24px;flex-wrap:wrap;">
+        <div><div style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;">Total por cobrar</div>
+          <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.4em;font-weight:900;color:var(--rose);" id="clienteTotalDebt">—</div></div>
+        <div><div style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;">Clientes con deuda</div>
+          <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.4em;font-weight:900;" id="clienteDebtCount">—</div></div>
       </div>
 
       <div class="table-container">
@@ -6076,7 +6085,16 @@ function renderClientesList() {
   let list = Object.values(map);
 
   /* Filters */
-  if (_clienteTypeFilter !== 'all') list = list.filter(c => c.type === _clienteTypeFilter);
+  if (_clienteTypeFilter === 'debt') {
+    list = list.filter(c => {
+      const cSales = sales.filter(s => (String(s.customerId)===String(c.id)||String(s.sellerId)===String(c.id)) && s.status!=='cancelled');
+      const cTotal = cSales.reduce((s,v)=>s+saleTotal(v),0);
+      const cPaid  = cSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
+      return Math.max(0, cTotal-cPaid) > 0.01;
+    });
+  } else if (_clienteTypeFilter !== 'all') {
+    list = list.filter(c => c.type === _clienteTypeFilter);
+  }
   if (search) list = list.filter(c =>
     (c.name||'').toLowerCase().includes(search) ||
     (c.email||'').toLowerCase().includes(search) ||
@@ -6085,6 +6103,28 @@ function renderClientesList() {
 
   list.sort((a,b) => (a.name||'').localeCompare(b.name||''));
   document.getElementById('clienteCount').textContent = list.length + ' cliente' + (list.length!==1?'s':'');
+
+  /* Update debt summary strip */
+  const allDebtors = Object.values(map).filter(c => {
+    const cSales = sales.filter(s => (String(s.customerId)===String(c.id)||String(s.sellerId)===String(c.id)) && s.status!=='cancelled');
+    const cTotal = cSales.reduce((s,v)=>s+saleTotal(v),0);
+    const cPaid  = cSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
+    return Math.max(0,cTotal-cPaid) > 0.01;
+  });
+  const totalDebt = allDebtors.reduce((s,c) => {
+    const cSales = sales.filter(ss => (String(ss.customerId)===String(c.id)||String(ss.sellerId)===String(c.id)) && ss.status!=='cancelled');
+    const cTotal = cSales.reduce((ss,v)=>ss+saleTotal(v),0);
+    const cPaid  = cSales.reduce((ss,v)=>ss+(paidMap[String(v.id)]||0),0);
+    return s + Math.max(0,cTotal-cPaid);
+  }, 0);
+  const summEl = document.getElementById('clienteDebtSummary');
+  if (summEl) {
+    summEl.style.display = totalDebt > 0.01 ? 'flex' : 'none';
+    const td = document.getElementById('clienteTotalDebt');
+    const dc = document.getElementById('clienteDebtCount');
+    if (td) td.textContent = formatDOP(totalDebt);
+    if (dc) dc.textContent = allDebtors.length + ' persona' + (allDebtors.length!==1?'s':'');
+  }
 
   /* Build debt map */
   const paidMap = {};
@@ -6096,17 +6136,29 @@ function renderClientesList() {
   }
 
   tbody.innerHTML = list.map(c => {
-    const cSales  = sales.filter(s => String(s.customerId) === String(c.id) && s.status !== 'cancelled');
+    /* Find ALL roles this person has across manual customers and online profiles */
+    const allRoles = new Set();
+    customers.filter(x => {
+      const key = (x.email||String(x.id)).toLowerCase();
+      const cKey = (c.email||String(c.id)).toLowerCase();
+      return key === cKey;
+    }).forEach(x => allRoles.add(x.type));
+    _onlineProfiles.filter(p => (p.email||'').toLowerCase() === (c.email||'').toLowerCase())
+      .forEach(p => { if (p.role) allRoles.add(p.role); });
+
+    /* Sales as customer + as seller */
+    const cSales  = sales.filter(s => (String(s.customerId)===String(c.id) || String(s.sellerId)===String(c.id)) && s.status !== 'cancelled');
     const cTotal  = cSales.reduce((s,v) => s + saleTotal(v), 0);
     const cPaid   = cSales.reduce((s,v) => s + (paidMap[String(v.id)]||0), 0);
     const cDebt   = Math.max(0, Math.round((cTotal - cPaid)*100)/100);
 
-    const typeBadge = {
+    const badgeMap = {
       customer:    '<span class="badge badge-gray">👤 Cliente</span>',
       seller:      '<span class="badge badge-violet">🏷 Vendedor</span>',
       club_member: '<span class="badge badge-teal">💎 Club</span>',
       distributor: '<span class="badge badge-sky">🏭 Distribuidor</span>',
-    }[c.type] || '<span class="badge badge-gray">—</span>';
+    };
+    const typeBadge = [...allRoles].map(r => badgeMap[r] || '').join(' ') || badgeMap[c.type] || '<span class="badge badge-gray">—</span>';
 
     const srcBadges = (c.sources||[]).map(s => s==='online'
       ? '<span class="badge badge-emerald" style="font-size:9px;">Online</span>'
