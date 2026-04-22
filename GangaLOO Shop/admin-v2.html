@@ -3430,7 +3430,9 @@ function renderVentasList() {
             <button class="btn btn-warning btn-xs" onclick="openBaja('${s.id}')" title="Baja / Dañado / Liquidación" style="background:rgba(245,158,11,.1);color:var(--amber);border:1.5px solid rgba(245,158,11,.3);">⚠️</button>
             <button class="btn btn-ghost btn-xs" onclick="sendVentaWA('${s.id}')" title="WhatsApp">💬</button>
             <button class="btn btn-danger btn-xs" onclick="cancelVenta('${s.id}')" title="Cancelar">✕</button>
-          ` : ''}
+          ` : `
+            <button class="btn btn-danger btn-xs" onclick="deleteCancelledVenta('${s.id}')" title="Eliminar permanentemente">🗑️</button>
+          `}
         </div>
       </td>
     </tr>`;
@@ -4090,6 +4092,19 @@ function sendVentaWA(saleId) {
   const paid = payments.filter(p => p.saleId === saleId).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
   const msg = `🧾 *GangaLoo — ${sale.invoiceNum||sale.invoiceNumber||'#'+sale.id}*\nFecha: ${formatDate(sale.date)}\nTotal: ${formatDOP(saleTotal(sale))}\nPagado: ${formatDOP(paid)}\nPendiente: ${formatDOP(Math.max(0,saleTotal(sale)-paid))}\n\n_Banreservas 9601-3060170-7 — Bernhard Perkins_`;
   openWhatsApp(customer?.phone, msg);
+}
+
+function deleteCancelledVenta(saleId) {
+  confirmDialog('¿Eliminar permanentemente esta factura cancelada? Esta acción no se puede deshacer.',
+    () => {
+      sales = sales.filter(s => String(s.id) !== String(saleId));
+      debouncedSave();
+      renderVentasKPI();
+      renderVentasList();
+      showToast('Factura eliminada', 'warning');
+    },
+    { danger: true, confirmLabel: 'Eliminar', title: 'Eliminar Factura Cancelada' }
+  );
 }
 
 function cancelVenta(saleId) {
@@ -8328,7 +8343,20 @@ async function deductStockForOrder(orderId) {
 }
 
 async function reCreateOrderSales(orderId) {
-  confirmDialog('¿Crear la factura para esta orden aprobada? El stock NO será modificado (ya fue descontado al aprobar).', async () => {
+  const orderRef  = (orderId||'').slice(-8).toUpperCase();
+  const invoiceNum = `ONL-${orderRef}`;
+
+  /* Check if active invoice already exists */
+  const existing = sales.find(s =>
+    s.status !== 'cancelled' &&
+    (s.onlineOrderId===orderId || (s.invoiceNum||s.invoiceNumber||'')===invoiceNum)
+  );
+  if (existing) {
+    showToast(`La factura ${invoiceNum} ya existe. Cancélala primero desde Ventas.`, 'error');
+    return;
+  }
+
+  confirmDialog(`¿Crear la factura ${invoiceNum} para esta orden? El stock NO será modificado.`, async () => {
     const { data: order, error } = await sb.from('online_orders').select('*').eq('id', orderId).single();
     if (error || !order) { showToast('Error al obtener la orden', 'error'); return; }
 
@@ -8336,9 +8364,7 @@ async function reCreateOrderSales(orderId) {
     try { items = JSON.parse(order.items || '[]'); } catch(e) {}
     if (!items.length) { showToast('La orden no tiene artículos', 'error'); return; }
 
-    const orderRef     = (orderId||'').slice(-8).toUpperCase();
-    const orderDate    = order.created_at ? order.created_at.slice(0,10) : todayDR();
-    const invoiceNum   = `ONL-${orderRef}`;
+    const orderDate     = order.created_at ? order.created_at.slice(0,10) : todayDR();
     const orderCustomer = customers.find(c =>
       (c.email && order.customer_email && c.email.toLowerCase()===order.customer_email.toLowerCase()) ||
       (c.name  && order.customer_name  && c.name.toLowerCase() ===order.customer_name.toLowerCase())
@@ -8350,11 +8376,6 @@ async function reCreateOrderSales(orderId) {
       )
     );
 
-    const itemsRawTotal    = items.reduce((s,i) => s+(parseFloat(i.price)||0)*(parseInt(i.qty)||1), 0);
-    const orderActualTotal = parseFloat(order.total) || itemsRawTotal;
-    /* Use items prices directly — don't apply discount ratio which can distort prices */
-    const discount = Math.max(0, Math.round((itemsRawTotal - orderActualTotal)*100)/100);
-
     const saleItems = items.map(item => ({
       productId: parseInt(item.product_id),
       qty:       parseInt(item.qty) || 1,
@@ -8362,7 +8383,8 @@ async function reCreateOrderSales(orderId) {
     }));
 
     const subtotal = saleItems.reduce((s,i)=>s+i.qty*i.price, 0);
-    const total    = Math.max(0, subtotal - discount) || orderActualTotal;
+    const total    = parseFloat(order.total) || subtotal;
+    const discount = Math.max(0, Math.round((subtotal - total)*100)/100);
     const comm     = calcCommission(total, orderCustomer || customerAsSeller);
     const whId     = order.warehouse_id ? parseInt(order.warehouse_id) : null;
     const distObj  = customers.find(cx => cx.type==='distributor' && cx.distributorWarehouseId===whId);
@@ -8381,17 +8403,16 @@ async function reCreateOrderSales(orderId) {
       subtotal,
       discount,
       total,
-      totalSale:       total,
-      status:          'active',
-      notes:           order.notes || '',
-      lotsUsed:        [],
+      totalSale:         total,
+      status:            'active',
+      notes:             order.notes || '',
+      lotsUsed:          [],
       commissionPct:     comm ? 15 : 0,
       commissionPercent: comm ? 15 : 0,
       commissionAmt:     comm ? comm.sellerAmt : 0,
       commissionPaid:    comm ? comm.sellerAmt : 0,
       distribAmt:        comm ? comm.distribAmt : 0,
       productName:       saleItems.map(i=>getProductName(i.productId)).filter(Boolean).join(', '),
-      invoiceNumber:     invoiceNum,
       distributorId:     distObj?.id || null,
       distributorName:   distObj?.name || null,
       onlineOrderId:     orderId,
@@ -8401,7 +8422,7 @@ async function reCreateOrderSales(orderId) {
     await saveData();
     loadPedidosOnline();
     renderVentasKPI(); renderVentasList();
-    showToast(`Factura ${invoiceNum} creada (${items.length} productos) ✅`, 'success');
+    showToast(`Factura ${invoiceNum} creada — ${items.length} productos, ${formatDOP(total)} ✅`, 'success');
   }, { confirmLabel: 'Crear Factura', title: 'Recrear Factura' });
 }
 
