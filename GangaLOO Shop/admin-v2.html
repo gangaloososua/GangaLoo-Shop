@@ -6935,6 +6935,9 @@ function openProductDetail(id) {
   const p = products.find(x => String(x.id) === String(id));
   if (!p) return;
 
+  /* Escape for use inside HTML attribute values */
+  const esc = s => (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
   const pCatIds = ((p.categoryIds&&p.categoryIds.length) ? p.categoryIds : (p.categoryId?[p.categoryId]:[])).map(String);
   const pdCatList = categories.map(c=>`
     <label style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;cursor:pointer;font-size:13px;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
@@ -6949,7 +6952,7 @@ function openProductDetail(id) {
     <div style="padding:0;">
       <!-- Header -->
       <div style="padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);position:sticky;top:0;z-index:10;">
-        <div style="font-family:'Cabinet Grotesk',sans-serif;font-weight:800;font-size:1.1em;">✏️ ${p.name}</div>
+        <div style="font-family:'Cabinet Grotesk',sans-serif;font-weight:800;font-size:1.1em;">✏️ ${esc(p.name)}</div>
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('productDetailPanel').style.display='none'">✕ Cerrar</button>
       </div>
 
@@ -6961,7 +6964,7 @@ function openProductDetail(id) {
             ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:100%;height:100%;object-fit:cover;">` : '🏷️'}
           </div>
           <div style="display:flex;gap:6px;">
-            <input type="url" id="pdImageUrl" value="${p.imageUrl||''}" class="field" placeholder="URL de imagen (https://...)" style="flex:1;font-size:12px;"
+            <input type="url" id="pdImageUrl" value="${esc(p.imageUrl)}" class="field" placeholder="URL de imagen (https://...)" style="flex:1;font-size:12px;"
               oninput="document.getElementById('pdImgPreview').innerHTML=this.value?'<img src=\\''+this.value+'\\' style=\\'width:100%;height:100%;object-fit:cover;\\'>':'🏷️'">
             <button class="btn btn-secondary btn-xs" onclick="updateProdField('${id}','imageUrl',document.getElementById('pdImageUrl').value);showToast('Imagen guardada','success')">💾</button>
           </div>
@@ -6971,14 +6974,14 @@ function openProductDetail(id) {
         <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:12px;">
           <div class="form-group full">
             <label class="field-label field-required">Nombre</label>
-            <input class="field" id="pdName" value="${p.name||''}">
+            <input class="field" id="pdName" value="${esc(p.name)}">
           </div>
           <div class="form-group">
             <label class="field-label" style="display:flex;align-items:center;justify-content:space-between;">
               SKU
               <button type="button" class="btn btn-ghost btn-xs" onclick="document.getElementById('pdSku').value=generateSKU(document.getElementById('pdName').value)" style="font-size:10px;">🔄 Auto</button>
             </label>
-            <input class="field" id="pdSku" value="${p.sku||''}">
+            <input class="field" id="pdSku" value="${esc(p.sku)}">
           </div>
           <div class="form-group">
             <label class="field-label">Categorías</label>
