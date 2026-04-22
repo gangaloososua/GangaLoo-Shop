@@ -2199,9 +2199,18 @@ function renderDashboard() {
   const month = now.toLocaleString('es-DO', { timeZone: 'America/Santo_Domingo', month: 'long', year: 'numeric' });
   document.getElementById('dashGreeting').textContent = `${month} — Sistema activo`;
 
-  /* Month sales */
+  /* Month sales — deduplicated by invoiceNum */
   const mk = monthKeyDR();
-  const monthSales = sales.filter(s => (s.date || '').startsWith(mk) && s.status !== 'cancelled');
+  const seenMk = new Set();
+  const monthSales = sales.filter(s => {
+    if ((s.date||'').startsWith(mk) && s.status !== 'cancelled') {
+      const inv = s.invoiceNum||s.invoiceNumber||String(s.id);
+      if (seenMk.has(inv)) return false;
+      seenMk.add(inv);
+      return true;
+    }
+    return false;
+  });
   const totalSales = monthSales.reduce((s, v) => s + saleTotal(v), 0);
   document.getElementById('ds-ventas').textContent     = 'RD$ ' + Math.round(totalSales).toLocaleString('es-DO');
   document.getElementById('ds-ventas-sub').textContent = `${monthSales.length} factura${monthSales.length !== 1 ? 's' : ''} este mes`;
@@ -2271,9 +2280,16 @@ function renderDashboard() {
   const paidMap2 = {};
   payments.forEach(p => { paidMap2[p.saleId] = (paidMap2[p.saleId]||0) + (parseFloat(p.amount)||0); });
 
+  const seenInv = new Set();
   const recentSales = [...sales]
     .filter(s => s.status !== 'cancelled')
     .sort((a,b) => new Date(b.date||b.createdAt||0) - new Date(a.date||a.createdAt||0))
+    .filter(s => {
+      const inv = s.invoiceNum||s.invoiceNumber||String(s.id);
+      if (seenInv.has(inv)) return false;
+      seenInv.add(inv);
+      return true;
+    })
     .slice(0, 7);
   const rsEl = document.getElementById('dashRecentSales');
   if (!recentSales.length) {
@@ -8384,8 +8400,9 @@ async function reCreateOrderSales(orderId) {
     }));
 
     const subtotal = saleItems.reduce((s,i)=>s+i.qty*i.price, 0);
-    const total    = parseFloat(order.total) || subtotal;
-    const discount = Math.max(0, Math.round((subtotal - total)*100)/100);
+    /* Use subtotal from items (already in DOP) — order.total may be in USD */
+    const total    = subtotal;
+    const discount = 0;
     const comm     = calcCommission(total, orderCustomer || customerAsSeller);
     const whId     = order.warehouse_id ? parseInt(order.warehouse_id) : null;
     const distObj  = customers.find(cx => cx.type==='distributor' && cx.distributorWarehouseId===whId);
