@@ -7225,6 +7225,48 @@ function openProductDetail(id) {
           El saldo final debe coincidir con el stock actual. Si no coincide, hay ventas sin registrar o ajustes pendientes.
         </div>
 
+        <!-- Stock adjustment per lot -->
+        ${(() => {
+          const lots = purchases.filter(lot => String(lot.productId)===String(p.id) && lot.status==='delivered');
+          if (!lots.length) return '';
+          return `<div style="margin-top:12px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:6px;">Ajustar Stock por Lote</div>
+            <div style="border:1.5px solid var(--border);border-radius:var(--r-sm);overflow:hidden;">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                <thead style="background:var(--surface-2);">
+                  <tr>
+                    <th style="padding:6px 10px;text-align:left;">Lote</th>
+                    <th style="padding:6px 10px;text-align:center;">Almacén</th>
+                    <th style="padding:6px 10px;text-align:center;">Comprado</th>
+                    <th style="padding:6px 10px;text-align:center;">En stock real</th>
+                    <th style="padding:6px 10px;text-align:center;">Nuevo valor</th>
+                    <th style="padding:6px 10px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${lots.map(lot => {
+                    const wh = warehouses.find(w=>String(w.id)===String(lot.warehouseId));
+                    return `<tr style="border-bottom:1px solid var(--border);">
+                      <td style="padding:6px 10px;font-weight:700;color:var(--violet);">${lot.lotNumber||lot.lotNum||'LOT-?'}</td>
+                      <td style="padding:6px 10px;text-align:center;font-size:11px;color:var(--ink-3);">${wh?.name||lot.warehouseId}</td>
+                      <td style="padding:6px 10px;text-align:center;">${lot.qty||0}</td>
+                      <td style="padding:6px 10px;text-align:center;font-weight:800;color:${(lot.remainingQty||0)>0?'var(--emerald)':'var(--ink-3)'};">${lot.remainingQty||0}</td>
+                      <td style="padding:6px 10px;text-align:center;">
+                        <input type="number" min="0" value="${lot.remainingQty||0}"
+                          id="adjQty_${lot.id}"
+                          style="width:60px;text-align:center;border:1.5px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;font-weight:700;">
+                      </td>
+                      <td style="padding:6px 10px;">
+                        <button class="btn btn-primary btn-xs" onclick="adjustLotStock('${lot.id}','${id}')">✓ Guardar</button>
+                      </td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>`;
+        })()}
+
         <!-- ── DISCOUNTS ── -->
         <div class="divider-label" style="margin:16px 0 12px;">🏷 Descuento en Tienda</div>
         <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px;">
@@ -7401,6 +7443,24 @@ function updateDealPreview2() {
   const label   = type === 'daily' ? '🔥 OFERTA DEL DÍA' : '⭐ OFERTA DE LA SEMANA';
   const endStr  = end ? ' · Termina: ' + new Date(end).toLocaleString('es-DO', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
   el.textContent = `${label} — ${disc > 0 ? disc + '% OFF' : 'sin % aún'}${endStr}`;
+}
+
+function adjustLotStock(lotId, productId) {
+  const lot = purchases.find(p => String(p.id) === String(lotId));
+  if (!lot) { showToast('Lote no encontrado', 'error'); return; }
+  const newQty = parseInt(document.getElementById('adjQty_'+lotId)?.value) ?? 0;
+  const oldQty = lot.remainingQty || 0;
+  if (newQty === oldQty) { showToast('Sin cambios', 'info'); return; }
+  confirmDialog(
+    `Cambiar stock de ${lot.lotNumber||lot.lotNum||'LOT-?'} de ${oldQty} → ${newQty} unidades?`,
+    () => {
+      lot.remainingQty = newQty;
+      debouncedSave();
+      openProductDetail(productId);
+      showToast(`Stock ajustado a ${newQty} ✅`, 'success');
+    },
+    { confirmLabel: 'Ajustar', title: 'Ajustar Stock' }
+  );
 }
 
 function updateProdField(id, field, value) {
@@ -7886,6 +7946,7 @@ function renderStoreOrderCard(o) {
       </div>`:''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${o.customer_phone?`<button class="btn btn-teal btn-xs" onclick="openWhatsApp('${o.customer_phone}','')">💬 WhatsApp</button>`:''}
+        <button class="btn btn-ghost btn-xs" onclick="openEditOnlineOrder('${o.id}')">✏️ Editar</button>
         ${o.status==='pending'||o.status==='pending_payment'?`
           <button class="btn btn-success btn-xs" onclick="updateOrderStatus('${o.id}','approved')">✅ Aprobar</button>
           <button class="btn btn-danger btn-xs"  onclick="updateOrderStatus('${o.id}','rejected')">❌ Rechazar</button>
@@ -7896,14 +7957,188 @@ function renderStoreOrderCard(o) {
           return hasSales
             ? `<button class="btn btn-ghost btn-xs" onclick="navigateTo('ventas')">📄 Ver facturas</button>
                <button class="btn btn-ghost btn-xs" onclick="deductStockForOrder('${o.id}')">📦 Descontar stock</button>`
-            : `<div style="display:flex;gap:4px;flex-wrap:wrap;">
-                <button class="btn btn-amber btn-xs" onclick="reCreateOrderSales('${o.id}')">⚠️ Re-crear factura</button>
-                <button class="btn btn-ghost btn-xs" onclick="deductStockForOrder('${o.id}')">📦 Descontar stock</button>
-               </div>`;
+            : `<button class="btn btn-amber btn-xs" onclick="reCreateOrderSales('${o.id}')">⚠️ Re-crear factura</button>
+               <button class="btn btn-ghost btn-xs" onclick="deductStockForOrder('${o.id}')">📦 Descontar stock</button>`;
         })():''}
       </div>
     </div>
   `;
+}
+
+async function openEditOnlineOrder(orderId) {
+  const { data: order, error } = await sb.from('online_orders').select('*').eq('id', orderId).single();
+  if (error || !order) { showToast('Error al cargar orden', 'error'); return; }
+
+  let items = [];
+  try { items = JSON.parse(order.items||'[]'); } catch(e) {}
+
+  const isApproved = order.status === 'approved';
+  const ref = orderId.slice(-8).toUpperCase();
+  const linkedSale = sales.find(s => s.onlineOrderId===orderId || (s.invoiceNum||s.invoiceNumber||'').includes(ref));
+
+  const renderItems = (its) => its.map((it,i) => `
+    <tr id="oeRow_${i}" style="border-bottom:1px solid var(--border);">
+      <td style="padding:8px 10px;font-size:13px;">${it.name||it.product_name||getProductName(it.product_id)||it.product_id}</td>
+      <td style="padding:8px 10px;text-align:center;">
+        <input type="number" min="0" value="${it.qty||1}" id="oeQty_${i}"
+          style="width:55px;text-align:center;border:1.5px solid var(--border);border-radius:6px;padding:4px;font-size:13px;font-weight:700;"
+          oninput="updateOETotal()">
+      </td>
+      <td style="padding:8px 10px;text-align:right;font-weight:600;color:var(--violet);" id="oeItemTotal_${i}">${formatDOP((parseFloat(it.price)||0)*(parseInt(it.qty)||1))}</td>
+      <td style="padding:8px 4px;text-align:center;">
+        <button class="btn btn-danger btn-xs" onclick="removeOEItem(${i})" title="Eliminar">✕</button>
+      </td>
+    </tr>`).join('');
+
+  /* Store items in window for manipulation */
+  window._oeItems = items.map(it => ({ ...it }));
+  window._oeOrderId = orderId;
+  window._oeOrder = order;
+
+  openModal(`
+    <div class="modal modal-xl" style="max-width:700px;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">✏️ Editar Orden #${ref}</div>
+          <div style="font-size:12px;color:var(--ink-3);">${order.customer_name||'—'} · ${order.customer_phone||''}
+            ${isApproved?'<span class="badge badge-emerald" style="margin-left:6px;font-size:10px;">Aprobada</span>':''}
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        ${isApproved ? `<div style="background:rgba(245,158,11,.1);border:1.5px solid var(--amber);border-radius:var(--r-sm);padding:10px 14px;margin-bottom:14px;font-size:12.5px;">
+          ⚠️ <strong>Orden ya aprobada.</strong> Si eliminas o reduces un artículo, el stock de ese producto será <strong>devuelto</strong> al lote correspondiente automáticamente. La factura ${linkedSale?`<strong>${linkedSale.invoiceNum||linkedSale.invoiceNumber}</strong>`:'vinculada'} también se actualizará.
+        </div>` : ''}
+        <div class="scroll-table" style="max-height:400px;overflow-y:auto;">
+          <table class="erp-table" style="width:100%;">
+            <thead style="position:sticky;top:0;z-index:1;">
+              <tr><th>Producto</th><th style="text-align:center;width:80px;">Cantidad</th><th style="text-align:right;">Total</th><th style="width:40px;"></th></tr>
+            </thead>
+            <tbody id="oeItemsBody">${renderItems(window._oeItems)}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;display:flex;justify-content:flex-end;align-items:center;gap:16px;">
+          <div style="font-size:13px;color:var(--ink-3);">Total orden:</div>
+          <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.4em;font-weight:900;color:var(--violet);" id="oeTotalDisplay">${formatDOP(parseFloat(order.total)||0)}</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveEditOnlineOrder()">💾 Guardar cambios</button>
+      </div>
+    </div>
+  `);
+}
+
+function removeOEItem(idx) {
+  window._oeItems.splice(idx, 1);
+  /* Re-render tbody */
+  const body = document.getElementById('oeItemsBody');
+  if (!body) return;
+  const renderItems = (its) => its.map((it,i) => `
+    <tr id="oeRow_${i}" style="border-bottom:1px solid var(--border);">
+      <td style="padding:8px 10px;font-size:13px;">${it.name||it.product_name||getProductName(it.product_id)||it.product_id}</td>
+      <td style="padding:8px 10px;text-align:center;">
+        <input type="number" min="0" value="${it.qty||1}" id="oeQty_${i}"
+          style="width:55px;text-align:center;border:1.5px solid var(--border);border-radius:6px;padding:4px;font-size:13px;font-weight:700;"
+          oninput="updateOETotal()">
+      </td>
+      <td style="padding:8px 10px;text-align:right;font-weight:600;color:var(--violet);" id="oeItemTotal_${i}">${formatDOP((parseFloat(it.price)||0)*(parseInt(it.qty)||1))}</td>
+      <td style="padding:8px 4px;text-align:center;">
+        <button class="btn btn-danger btn-xs" onclick="removeOEItem(${i})">✕</button>
+      </td>
+    </tr>`).join('');
+  body.innerHTML = renderItems(window._oeItems);
+  updateOETotal();
+}
+
+function updateOETotal() {
+  const items = window._oeItems || [];
+  let total = 0;
+  items.forEach((it,i) => {
+    const qty = parseInt(document.getElementById('oeQty_'+i)?.value) || 0;
+    const lineTotal = (parseFloat(it.price)||0) * qty;
+    total += lineTotal;
+    const el = document.getElementById('oeItemTotal_'+i);
+    if (el) el.textContent = formatDOP(lineTotal);
+  });
+  const el = document.getElementById('oeTotalDisplay');
+  if (el) el.textContent = formatDOP(total);
+}
+
+async function saveEditOnlineOrder() {
+  const orderId = window._oeOrderId;
+  const order   = window._oeOrder;
+  if (!orderId || !order) return;
+
+  /* Read current quantities from inputs */
+  const newItems = (window._oeItems||[]).map((it,i) => ({
+    ...it,
+    qty: parseInt(document.getElementById('oeQty_'+i)?.value) || 0,
+  })).filter(it => it.qty > 0); // remove zero-qty items
+
+  if (!newItems.length) { showToast('No puedes dejar la orden sin artículos', 'error'); return; }
+
+  const newTotal = newItems.reduce((s,it)=>(s+(parseFloat(it.price)||0)*(it.qty||1)),0);
+  const isApproved = order.status === 'approved';
+  const ref = orderId.slice(-8).toUpperCase();
+
+  /* If approved, restore stock for removed/reduced items */
+  if (isApproved) {
+    let oldItems = [];
+    try { oldItems = JSON.parse(order.items||'[]'); } catch(e) {}
+
+    for (const oldItem of oldItems) {
+      const newItem = newItems.find(n=>String(n.product_id)===String(oldItem.product_id));
+      const oldQty  = parseInt(oldItem.qty)||1;
+      const newQty  = newItem ? (parseInt(newItem.qty)||0) : 0;
+      const diff    = oldQty - newQty; // positive = items removed = stock to return
+      if (diff <= 0) continue;
+
+      /* Return stock to purchase lots (reverse FIFO — add back to most recent lot) */
+      const lots = purchases
+        .filter(p => String(p.productId)===String(oldItem.product_id) && p.status==='delivered')
+        .sort((a,b) => (b.date||'')<(a.date||'') ? -1 : 1); // most recent first for return
+      let toReturn = diff;
+      for (const lot of lots) {
+        if (toReturn <= 0) break;
+        const maxReturn = (lot.qty||0) - (lot.remainingQty||0); // how many were deducted
+        const ret = Math.min(toReturn, Math.max(0, maxReturn));
+        lot.remainingQty = (lot.remainingQty||0) + ret;
+        toReturn -= ret;
+      }
+    }
+
+    /* Update linked sale items, total and commissions */
+    const linkedSale = sales.find(s => s.onlineOrderId===orderId || (s.invoiceNum||s.invoiceNumber||'').includes(ref));
+    if (linkedSale) {
+      linkedSale.items    = newItems.map(it=>({ productId: parseInt(it.product_id), qty: it.qty, price: parseFloat(it.price)||0 }));
+      linkedSale.subtotal = newTotal;
+      linkedSale.total    = newTotal;
+      /* Recalculate commissions based on new total */
+      const customer = customers.find(c=>String(c.id)===String(linkedSale.customerId||linkedSale.sellerId));
+      const comm = calcCommission(newTotal, customer);
+      linkedSale.commissionAmt  = comm ? comm.sellerAmt  : 0;
+      linkedSale.distribAmt     = comm ? comm.distribAmt : 0;
+      linkedSale.commissionPct  = comm ? 15 : 0;
+    }
+  }
+
+  /* Save updated order to Supabase */
+  try {
+    await sb.from('online_orders').update({
+      items: JSON.stringify(newItems),
+      total: newTotal,
+      updated_at: new Date().toISOString(),
+    }).eq('id', orderId);
+  } catch(e) { showToast('Error guardando en Supabase: '+e.message, 'error'); return; }
+
+  await saveData();
+  closeModal();
+  loadPedidosOnline();
+  renderVentasKPI(); renderVentasList();
+  showToast(`Orden actualizada — ${newItems.length} producto(s), ${formatDOP(newTotal)} ✅`, 'success');
 }
 
 async function updateOrderStatus(orderId, status) {
