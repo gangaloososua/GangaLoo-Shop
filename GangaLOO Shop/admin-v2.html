@@ -7781,23 +7781,214 @@ function renderStoreOrderCard(o) {
           <div style="font-size:12px;color:var(--ink-3);">${items.length} artículo(s)</div>
         </div>
       </div>
+      ${items.length ? `<div style="background:var(--surface-2);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:10px;font-size:12px;">
+        ${items.map(it=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);">
+          <span><strong>${it.qty||1}×</strong> ${it.name||it.product_name||it.product_id}</span>
+          <span style="color:var(--violet);font-weight:600;">${formatDOP((parseFloat(it.price)||0)*(parseInt(it.qty)||1))}</span>
+        </div>`).join('')}
+      </div>`:''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${o.customer_phone?`<button class="btn btn-teal btn-xs" onclick="openWhatsApp('${o.customer_phone}','')">💬 WhatsApp</button>`:''}
         ${o.status==='pending'||o.status==='pending_payment'?`
           <button class="btn btn-success btn-xs" onclick="updateOrderStatus('${o.id}','approved')">✅ Aprobar</button>
           <button class="btn btn-danger btn-xs"  onclick="updateOrderStatus('${o.id}','rejected')">❌ Rechazar</button>
         `:''}
+        ${o.status==='approved'?(()=>{
+          const ref = (o.id||'').slice(-8).toUpperCase();
+          const hasSales = sales.some(s=>s.onlineOrderId===o.id || (s.invoiceNum||s.invoiceNumber||'').includes(ref));
+          return hasSales
+            ? `<button class="btn btn-ghost btn-xs" onclick="_activePanel='ventas';navigateTo('ventas');renderVentasList()">📄 Ver facturas</button>`
+            : `<button class="btn btn-amber btn-xs" onclick="reCreateOrderSales('${o.id}')">⚠️ Re-crear facturas</button>`;
+        })():''}
       </div>
     </div>
   `;
 }
 
 async function updateOrderStatus(orderId, status) {
-  try {
-    await sb.from('online_orders').update({ status }).eq('id', orderId);
-    showToast(`Pedido ${status === 'approved' ? 'aprobado ✅' : 'rechazado'}`, status==='approved'?'success':'warning');
+  if (status === 'approved') {
+    await approveOnlineOrder(orderId);
+  } else {
+    try {
+      await sb.from('online_orders').update({ status }).eq('id', orderId);
+      showToast('Pedido rechazado', 'warning');
+      loadPedidosOnline();
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
+  }
+}
+
+async function approveOnlineOrder(orderId) {
+  const { data: order, error } = await sb.from('online_orders').select('*').eq('id', orderId).single();
+  if (error || !order) { showToast('Error al obtener la orden', 'error'); return; }
+
+  let items = [];
+  try { items = JSON.parse(order.items || '[]'); } catch(e) {}
+  if (!items.length) { showToast('La orden no tiene artículos', 'error'); return; }
+
+  /* Deduct stock via FIFO */
+  const itemWarehouseMap = {};
+  for (const item of items) {
+    const productId = String(item.product_id);
+    const qtyNeeded = parseInt(item.qty) || 1;
+    let whId = order.warehouse_id ? String(order.warehouse_id) : null;
+    if (!whId) {
+      const bestLot = purchases
+        .filter(p => String(p.productId)===productId && p.status==='delivered' && (p.remainingQty||0)>0)
+        .sort((a,b)=>(b.remainingQty||0)-(a.remainingQty||0))[0];
+      whId = bestLot ? String(bestLot.warehouseId) : null;
+    }
+    itemWarehouseMap[productId] = whId;
+
+    const warehousePurchases = purchases
+      .filter(p => String(p.productId)===productId && String(p.warehouseId)===whId && p.status==='delivered' && (p.remainingQty||0)>0)
+      .sort((a,b) => (a.date||'')<(b.date||'') ? -1 : 1);
+
+    let remaining = qtyNeeded;
+    for (const p of warehousePurchases) {
+      if (remaining <= 0) break;
+      const deduct = Math.min(p.remainingQty, remaining);
+      p.remainingQty -= deduct;
+      remaining -= deduct;
+    }
+    if (remaining > 0) {
+      showToast(`⚠️ Stock insuficiente para: ${item.name || productId}`, 'error');
+      return;
+    }
+  }
+
+  /* Create sale records — one per item */
+  const orderRef  = (orderId||'').slice(-8).toUpperCase();
+  const orderDate = todayDR();
+  const orderCustomer = customers.find(c =>
+    (c.email && order.customer_email && c.email.toLowerCase()===order.customer_email.toLowerCase()) ||
+    (c.name  && order.customer_name  && c.name.toLowerCase() ===order.customer_name.toLowerCase())
+  );
+
+  const itemsRawTotal   = items.reduce((s,i) => s+(parseFloat(i.price)||0)*(parseInt(i.qty)||1), 0);
+  const orderActualTotal = parseFloat(order.total) || itemsRawTotal;
+  const discountRatio    = itemsRawTotal > 0 ? (orderActualTotal / itemsRawTotal) : 1;
+
+  items.forEach((item, idx) => {
+    const resolvedWH  = itemWarehouseMap[String(item.product_id)] || order.warehouse_id;
+    const product     = products.find(p => String(p.id)===String(item.product_id));
+    const qty         = parseInt(item.qty) || 1;
+    const priceRaw    = parseFloat(item.price) || 0;
+    const price       = Math.round(priceRaw * discountRatio * 100) / 100;
+    const totalSale   = qty * price;
+    const { totalCost: fifoCost, lotsUsed } = calculateFIFOCost(parseInt(resolvedWH), parseInt(item.product_id), qty);
+    const grossProfit = totalSale - fifoCost;
+    const commPct     = product?.commissionPercent || 0;
+    const commPaid    = totalSale * (commPct/100);
+    const invoiceNum  = items.length > 1 ? `ONL-${orderRef}-${idx+1}` : `ONL-${orderRef}`;
+
+    const customerAsSeller = customers.find(c =>
+      c.type==='seller' && (
+        (c.email && order.customer_email && c.email.toLowerCase()===order.customer_email.toLowerCase()) ||
+        (c.name  && order.customer_name  && c.name.toLowerCase() ===order.customer_name.toLowerCase())
+      )
+    );
+    const distObj   = customers.find(cx => cx.type==='distributor' && cx.distributorWarehouseId===parseInt(resolvedWH));
+    const distId    = distObj?.id || null;
+    const distPct   = distObj ? (distObj.distributorCommissionPct ?? 5) : 0;
+    const distPaid  = (customerAsSeller && distObj) ? Math.round(totalSale*(distPct/100)*100)/100 : 0;
+    const netProfit = grossProfit - commPaid - distPaid;
+
+    sales.push({
+      id:                        generateId(),
+      invoiceNum,
+      invoiceNumber:             invoiceNum,
+      productId:                 parseInt(item.product_id),
+      productName:               product?.name || item.name || '—',
+      warehouseId:               parseInt(resolvedWH),
+      qty, price, totalSale, fifoCost, grossProfit,
+      commissionPercent:         commPct,
+      commissionPaid:            commPaid,
+      netProfit,
+      profit:                    netProfit,
+      distributorId:             distId,
+      distributorName:           distObj?.name || null,
+      distributorCommissionPct:  distPct,
+      distributorCommissionPaid: distPaid,
+      date:                      orderDate,
+      customer:                  order.customer_name || '',
+      customerId:                orderCustomer?.id || null,
+      seller:                    customerAsSeller?.name || '',
+      sellerId:                  customerAsSeller?.id || null,
+      lotsUsed,
+      onlineOrderId:             orderId,
+      status:                    'pending',
+      createdAt:                 new Date().toISOString(),
+    });
+  });
+
+  await sb.from('online_orders').update({ status: 'approved', updated_at: new Date().toISOString() }).eq('id', orderId);
+  await saveData();
+  loadPedidosOnline();
+  if (_activePanel === 'ventas') { renderVentasKPI(); renderVentasList(); }
+  showToast(`Orden aprobada — ${items.length} factura(s) ONL-${orderRef} creadas ✅`, 'success');
+}
+
+async function reCreateOrderSales(orderId) {
+  confirmDialog('¿Crear las facturas para esta orden aprobada? El stock NO será modificado (ya fue descontado al aprobar).', async () => {
+    const { data: order, error } = await sb.from('online_orders').select('*').eq('id', orderId).single();
+    if (error || !order) { showToast('Error al obtener la orden', 'error'); return; }
+
+    let items = [];
+    try { items = JSON.parse(order.items || '[]'); } catch(e) {}
+    if (!items.length) { showToast('La orden no tiene artículos', 'error'); return; }
+
+    const orderRef  = (orderId||'').slice(-8).toUpperCase();
+    const orderDate = order.created_at ? order.created_at.slice(0,10) : todayDR();
+    const orderCustomer = customers.find(c =>
+      (c.email && order.customer_email && c.email.toLowerCase()===order.customer_email.toLowerCase()) ||
+      (c.name  && order.customer_name  && c.name.toLowerCase() ===order.customer_name.toLowerCase())
+    );
+    const itemsRawTotal    = items.reduce((s,i) => s+(parseFloat(i.price)||0)*(parseInt(i.qty)||1), 0);
+    const orderActualTotal = parseFloat(order.total) || itemsRawTotal;
+    const discountRatio    = itemsRawTotal > 0 ? (orderActualTotal / itemsRawTotal) : 1;
+
+    items.forEach((item, idx) => {
+      const product    = products.find(p => String(p.id)===String(item.product_id));
+      const qty        = parseInt(item.qty) || 1;
+      const price      = Math.round((parseFloat(item.price)||0) * discountRatio * 100) / 100;
+      const totalSale  = qty * price;
+      const whId       = order.warehouse_id ? parseInt(order.warehouse_id) : null;
+      const { totalCost: fifoCost, lotsUsed } = calculateFIFOCost(whId, parseInt(item.product_id), 0); // qty=0, no stock deduction
+      const grossProfit = totalSale - fifoCost;
+      const commPct     = product?.commissionPercent || 0;
+      const commPaid    = totalSale * (commPct/100);
+      const invoiceNum  = items.length > 1 ? `ONL-${orderRef}-${idx+1}` : `ONL-${orderRef}`;
+
+      const customerAsSeller = customers.find(c =>
+        c.type==='seller' && (
+          (c.email && order.customer_email && c.email.toLowerCase()===order.customer_email.toLowerCase()) ||
+          (c.name  && order.customer_name  && c.name.toLowerCase() ===order.customer_name.toLowerCase())
+        )
+      );
+      const distObj  = customers.find(cx => cx.type==='distributor' && cx.distributorWarehouseId===whId);
+      const distPct  = distObj ? (distObj.distributorCommissionPct ?? 5) : 0;
+      const distPaid = (customerAsSeller && distObj) ? Math.round(totalSale*(distPct/100)*100)/100 : 0;
+      const netProfit = grossProfit - commPaid - distPaid;
+
+      sales.push({
+        id: generateId(), invoiceNum, invoiceNumber: invoiceNum,
+        productId: parseInt(item.product_id), productName: product?.name || item.name || '—',
+        warehouseId: whId, qty, price, totalSale, fifoCost, grossProfit,
+        commissionPercent: commPct, commissionPaid: commPaid, netProfit, profit: netProfit,
+        distributorId: distObj?.id||null, distributorName: distObj?.name||null,
+        distributorCommissionPct: distPct, distributorCommissionPaid: distPaid,
+        date: orderDate, customer: order.customer_name||'',
+        customerId: orderCustomer?.id||null, seller: customerAsSeller?.name||'',
+        sellerId: customerAsSeller?.id||null, lotsUsed,
+        onlineOrderId: orderId, status: 'pending', createdAt: new Date().toISOString(),
+      });
+    });
+
+    await saveData();
     loadPedidosOnline();
-  } catch(e) { showToast('Error al actualizar: ' + e.message, 'error'); }
+    renderVentasKPI(); renderVentasList();
+    showToast(`${items.length} factura(s) ONL-${orderRef} creadas ✅`, 'success');
+  }, { confirmLabel: 'Crear Facturas', title: 'Recrear Facturas' });
 }
 
 function renderAliOrders(orders) {
