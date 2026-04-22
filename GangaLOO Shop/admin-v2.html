@@ -1596,11 +1596,32 @@ async function loadAllData() {
     }
     // Seed defaults if missing
     seedDefaults();
-    /* Backfill alias fields on existing sales (totalSale, commissionPaid) */
+    /* Backfill alias fields on existing sales for seller admin compatibility */
     let migrated = 0;
     sales.forEach(s => {
-      if (s.totalSale === undefined) { s.totalSale = parseFloat(s.total||0); migrated++; }
-      if (s.commissionPaid === undefined) { s.commissionPaid = parseFloat(s.commissionAmt||0); migrated++; }
+      /* totalSale alias */
+      if (!s.totalSale || s.totalSale === 0) {
+        s.totalSale = parseFloat(s.total || s.subtotal || 0);
+        migrated++;
+      }
+      /* commissionPaid alias */
+      if (s.commissionPaid === undefined || s.commissionPaid === 0) {
+        s.commissionPaid = parseFloat(s.commissionAmt || 0);
+        migrated++;
+      }
+      /* commissionPercent alias */
+      if (s.commissionPercent === undefined) {
+        s.commissionPercent = parseFloat(s.commissionPct || 0);
+        migrated++;
+      }
+      /* invoiceNumber alias */
+      if (!s.invoiceNumber && s.invoiceNum) { s.invoiceNumber = s.invoiceNum; migrated++; }
+      if (!s.invoiceNum && s.invoiceNumber) { s.invoiceNum = s.invoiceNumber; migrated++; }
+      /* productName for multi-item sales */
+      if (!s.productName && s.items?.length) {
+        s.productName = s.items.map(i => getProductName(i.productId)).filter(Boolean).join(', ');
+        migrated++;
+      }
     });
     if (migrated > 0) { debouncedSave(); console.log(`Migrated ${migrated} sale fields`); }
     renderDashboard();
@@ -3645,12 +3666,15 @@ function saveNuevaVenta(withWA = false) {
     status:       'active',
     notes,
     lotsUsed,
-    commissionPct:   comm ? 15 : 0,
-    commissionAmt:   comm ? comm.sellerAmt : 0,
-    commissionPaid:  comm ? comm.sellerAmt : 0,
-    distribAmt:      comm ? comm.distribAmt : 0,
-    sellerId:        customerId,
-    createdAt:       new Date().toISOString()
+    commissionPct:     comm ? 15 : 0,
+    commissionPercent: comm ? 15 : 0,
+    commissionAmt:     comm ? comm.sellerAmt : 0,
+    commissionPaid:    comm ? comm.sellerAmt : 0,
+    distribAmt:        comm ? comm.distribAmt : 0,
+    productName:       _saleItems.map(i=>getProductName(i.productId)).filter(Boolean).join(', '),
+    invoiceNumber:     invoiceNum,
+    sellerId:          customerId,
+    createdAt:         new Date().toISOString()
   };
 
   sales.push(sale);
@@ -8250,14 +8274,17 @@ async function approveOnlineOrder(orderId) {
     status:          'active',
     notes:           order.notes || '',
     lotsUsed,
-    commissionPct:   comm ? 15 : 0,
-    commissionAmt:   comm ? comm.sellerAmt : 0,
-    commissionPaid:  comm ? comm.sellerAmt : 0,
-    distribAmt:      comm ? comm.distribAmt : 0,
-    distributorId:   distObj?.id || null,
-    distributorName: distObj?.name || null,
-    onlineOrderId:   orderId,
-    createdAt:       new Date().toISOString(),
+    commissionPct:     comm ? 15 : 0,
+    commissionPercent: comm ? 15 : 0,
+    commissionAmt:     comm ? comm.sellerAmt : 0,
+    commissionPaid:    comm ? comm.sellerAmt : 0,
+    distribAmt:        comm ? comm.distribAmt : 0,
+    productName:       newItems ? newItems.map(i=>i.name||getProductName(i.product_id)).filter(Boolean).join(', ') : items.map(i=>i.name||getProductName(i.product_id)).filter(Boolean).join(', '),
+    invoiceNumber:     invoiceNum,
+    distributorId:     distObj?.id || null,
+    distributorName:   distObj?.name || null,
+    onlineOrderId:     orderId,
+    createdAt:         new Date().toISOString(),
   });
 
   await sb.from('online_orders').update({ status: 'approved', updated_at: new Date().toISOString() }).eq('id', orderId);
@@ -8362,14 +8389,17 @@ async function reCreateOrderSales(orderId) {
       status:          'active',
       notes:           order.notes || '',
       lotsUsed:        [],
-      commissionPct:   comm ? 15 : 0,
-      commissionAmt:   comm ? comm.sellerAmt : 0,
-      commissionPaid:  comm ? comm.sellerAmt : 0,
-      distribAmt:      comm ? comm.distribAmt : 0,
-      distributorId:   distObj?.id || null,
-      distributorName: distObj?.name || null,
-      onlineOrderId:   orderId,
-      createdAt:       new Date().toISOString(),
+      commissionPct:     comm ? 15 : 0,
+      commissionPercent: comm ? 15 : 0,
+      commissionAmt:     comm ? comm.sellerAmt : 0,
+      commissionPaid:    comm ? comm.sellerAmt : 0,
+      distribAmt:        comm ? comm.distribAmt : 0,
+      productName:       saleItems.map(i=>getProductName(i.productId)).filter(Boolean).join(', '),
+      invoiceNumber:     invoiceNum,
+      distributorId:     distObj?.id || null,
+      distributorName:   distObj?.name || null,
+      onlineOrderId:     orderId,
+      createdAt:         new Date().toISOString(),
     });
 
     await saveData();
