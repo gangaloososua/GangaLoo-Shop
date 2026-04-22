@@ -8356,17 +8356,17 @@ async function reCreateOrderSales(orderId) {
 
     const itemsRawTotal    = items.reduce((s,i) => s+(parseFloat(i.price)||0)*(parseInt(i.qty)||1), 0);
     const orderActualTotal = parseFloat(order.total) || itemsRawTotal;
-    const discountRatio    = itemsRawTotal > 0 ? (orderActualTotal / itemsRawTotal) : 1;
-    const discount         = Math.round((itemsRawTotal - orderActualTotal)*100)/100;
+    /* Use items prices directly — don't apply discount ratio which can distort prices */
+    const discount = Math.max(0, Math.round((itemsRawTotal - orderActualTotal)*100)/100);
 
     const saleItems = items.map(item => ({
       productId: parseInt(item.product_id),
       qty:       parseInt(item.qty) || 1,
-      price:     Math.round((parseFloat(item.price)||0) * discountRatio * 100) / 100,
+      price:     parseFloat(item.price) || 0,
     }));
 
     const subtotal = saleItems.reduce((s,i)=>s+i.qty*i.price, 0);
-    const total    = Math.max(0, subtotal - discount);
+    const total    = Math.max(0, subtotal - discount) || orderActualTotal;
     const comm     = calcCommission(total, orderCustomer || customerAsSeller);
     const whId     = order.warehouse_id ? parseInt(order.warehouse_id) : null;
     const distObj  = customers.find(cx => cx.type==='distributor' && cx.distributorWarehouseId===whId);
