@@ -7987,19 +7987,11 @@ function renderStoreOrderCard(o) {
           <button class="btn btn-success btn-xs" onclick="updateOrderStatus('${o.id}','approved')">✅ Aprobar</button>
           <button class="btn btn-danger btn-xs"  onclick="updateOrderStatus('${o.id}','rejected')">❌ Rechazar</button>
         `:''}
-        ${o.status==='approved'?(()=>{
-          const ref = (o.id||'').slice(-8).toUpperCase();
-          const activeStatuses = ['active', 'pending', 'paid', 'delivered'];
-          const hasSales = sales.some(s => {
-            const isActive = !s.status || s.status === 'active' || activeStatuses.includes(s.status);
-            return isActive && (s.onlineOrderId===o.id || (s.invoiceNum||s.invoiceNumber||'').includes(ref));
-          });
-          return hasSales
-            ? `<button class="btn btn-ghost btn-xs" onclick="navigateTo('ventas')">📄 Ver facturas</button>
-               <button class="btn btn-ghost btn-xs" onclick="deductStockForOrder('${o.id}')">📦 Descontar stock</button>`
-            : `<button class="btn btn-amber btn-xs" onclick="reCreateOrderSales('${o.id}')">⚠️ Re-crear factura</button>
-               <button class="btn btn-ghost btn-xs" onclick="deductStockForOrder('${o.id}')">📦 Descontar stock</button>`;
-        })():''}
+        ${o.status==='approved'?`
+          <button class="btn btn-ghost btn-xs" onclick="navigateTo('ventas')">📄 Ver facturas</button>
+          <button class="btn btn-amber btn-xs" onclick="reCreateOrderSales('${o.id}')">⚠️ Re-crear factura</button>
+          <button class="btn btn-ghost btn-xs" onclick="deductStockForOrder('${o.id}')">📦 Descontar stock</button>
+        `:''}
       </div>
     </div>
   `;
