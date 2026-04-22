@@ -2588,7 +2588,7 @@ function dashDrilldown(type) {
                 <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Cuenta</th><th class="text-right">Monto</th></tr></thead>
                 <tbody>
                   ${monthTx.map((t,i)=>{
-                    const cat=accountingCategories.find(c=>c.id===t.categoryId)?.name||'—';
+                    const cat=accountingCategories.find(c=>String(c.id)===String(t.categoryId))?.name||'—';
                     return `<tr style="background:${i%2===0?'var(--surface)':'var(--surface-2)'};">
                       <td style="font-size:12.5px;color:var(--ink-3);">${formatDate(t.date)}</td>
                       <td style="font-weight:600;">${t.description||'—'}</td>
@@ -2663,7 +2663,7 @@ function dashDrilldown(type) {
                 <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Cuenta</th><th class="text-right">Monto</th></tr></thead>
                 <tbody>
                   ${monthTx.map((t,i)=>{
-                    const cat=accountingCategories.find(c=>c.id===t.categoryId)?.name||'—';
+                    const cat=accountingCategories.find(c=>String(c.id)===String(t.categoryId))?.name||'—';
                     return `<tr style="background:${i%2===0?'var(--surface)':'var(--surface-2)'};">
                       <td style="font-size:12.5px;color:var(--ink-3);">${formatDate(t.date)}</td>
                       <td style="font-weight:600;">${t.description||'—'}</td>
@@ -10076,9 +10076,10 @@ function rptPyL(el) {
     ${rptSection('📊 Desglose de Gastos', (() => {
       const cats = {};
       transactions.filter(t=>rptInPeriod(t.date)&&t.type==='expense').forEach(t=>{
-        const cat = accountingCategories.find(c=>c.id===t.categoryId)?.name||'Sin categoría';
-        if (!cats[cat]) cats[cat]={amount:0,count:0};
-        cats[cat].amount+=parseFloat(t.amount)||0; cats[cat].count++;
+        const cat = accountingCategories.find(c=>String(c.id)===String(t.categoryId));
+        const catName = cat ? (cat.name+(cat.subname?' — '+cat.subname:'')) : (!t.categoryId ? 'Sin categoría' : `Sin categoría (ID: ${t.categoryId})`);
+        if (!cats[catName]) cats[catName]={amount:0,count:0};
+        cats[catName].amount+=parseFloat(t.amount)||0; cats[catName].count++;
       });
       if (commPaid>0) cats['Comisiones Vendedores']={amount:commPaid,count:commissionPayouts.filter(p=>rptInPeriod(p.date)).length};
       const total=Object.values(cats).reduce((s,d)=>s+d.amount,0);
