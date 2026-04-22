@@ -7116,16 +7116,113 @@ function openProductDetail(id) {
           <div class="field-hint">El precio DOP es el precio base de venta. El calculador lo sugiere, puedes editarlo.</div>
         </div>
 
-        <!-- Stock summary (readonly) -->
-        <div class="divider-label" style="margin:16px 0 10px;">📦 Stock actual</div>
-        <div style="display:grid;grid-template-columns:repeat(${warehouses.length},1fr);gap:8px;margin-bottom:16px;">
+        <!-- Stock summary + movements -->
+        <div class="divider-label" style="margin:16px 0 10px;">📦 Stock e Inventario</div>
+
+        <!-- Current stock per warehouse -->
+        <div style="display:grid;grid-template-columns:repeat(${warehouses.length},1fr);gap:8px;margin-bottom:14px;">
           ${warehouses.map(w => {
             const s = getStock(w.id, p.id);
             return `<div style="text-align:center;padding:10px;background:${s>0?'var(--violet-l)':'var(--surface-3)'};border-radius:var(--r-sm);">
               <div style="font-size:11px;color:var(--ink-3);">${w.name}</div>
-              <div style="font-weight:800;font-size:1.2em;color:${s>0?'var(--violet)':'var(--ink-4)'};">${s}</div>
+              <div style="font-weight:800;font-size:1.4em;color:${s>0?'var(--violet)':'var(--ink-4)'};">${s}</div>
+              <div style="font-size:10px;color:var(--ink-3);">en stock</div>
             </div>`;
           }).join('')}
+        </div>
+
+        <!-- Stock movements ledger -->
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:8px;">Movimientos de Inventario</div>
+        <div style="max-height:320px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r-sm);">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead style="position:sticky;top:0;background:var(--surface-2);z-index:1;">
+              <tr>
+                <th style="padding:7px 10px;text-align:left;font-weight:700;">Fecha</th>
+                <th style="padding:7px 10px;text-align:left;font-weight:700;">Tipo</th>
+                <th style="padding:7px 10px;text-align:left;font-weight:700;">Referencia</th>
+                <th style="padding:7px 10px;text-align:left;font-weight:700;">Almacén</th>
+                <th style="padding:7px 10px;text-align:right;font-weight:700;color:var(--emerald);">+Entrada</th>
+                <th style="padding:7px 10px;text-align:right;font-weight:700;color:var(--rose);">−Salida</th>
+                <th style="padding:7px 10px;text-align:right;font-weight:700;">Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(() => {
+                /* Build all movements for this product */
+                const moves = [];
+
+                /* ENTRIES: purchase lots */
+                purchases.filter(lot => String(lot.productId)===String(p.id) && lot.status==='delivered')
+                  .forEach(lot => {
+                    moves.push({
+                      date: lot.date||lot.createdAt||'',
+                      type: 'entrada',
+                      ref: lot.lotNumber||lot.lotNum||'LOT-?',
+                      warehouseId: lot.warehouseId,
+                      in: lot.qty||0,
+                      out: 0,
+                      remaining: lot.remainingQty,
+                      lotId: lot.id,
+                    });
+                  });
+
+                /* EXITS: sales that used this product via lotsUsed */
+                sales.filter(s => s.status !== 'cancelled').forEach(s => {
+                  const saleItems = s.items || [];
+                  const hasProduct = saleItems.some(i=>String(i.productId)===String(p.id)) ||
+                                     String(s.productId)===String(p.id);
+                  if (!hasProduct) return;
+                  const qty = saleItems.find(i=>String(i.productId)===String(p.id))?.qty || s.qty || 1;
+                  moves.push({
+                    date: s.date||'',
+                    type: 'salida',
+                    ref: s.invoiceNum||s.invoiceNumber||'FAC-?',
+                    warehouseId: s.warehouseId,
+                    in: 0,
+                    out: qty,
+                    saleId: s.id,
+                  });
+                });
+
+                /* EXITS: cancelled sales that were reversed */
+                /* Sort by date then type (entries before exits on same day) */
+                moves.sort((a,b) => {
+                  if ((a.date||'') !== (b.date||'')) return (a.date||'') < (b.date||'') ? -1 : 1;
+                  return a.type==='entrada' ? -1 : 1;
+                });
+
+                if (!moves.length) return '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--ink-3);">Sin movimientos registrados</td></tr>';
+
+                /* Running balance per warehouse */
+                const balances = {};
+                return moves.map(m => {
+                  const wh = warehouses.find(w=>String(w.id)===String(m.warehouseId));
+                  const whName = wh?.name || m.warehouseId || '—';
+                  const wKey = String(m.warehouseId||'?');
+                  balances[wKey] = (balances[wKey]||0) + m.in - m.out;
+                  const bal = balances[wKey];
+                  const isEntry = m.type==='entrada';
+                  const rowBg = isEntry ? 'background:rgba(16,185,129,.04);' : bal < 0 ? 'background:rgba(244,63,94,.06);' : '';
+                  return `<tr style="${rowBg}border-bottom:1px solid var(--border);">
+                    <td style="padding:6px 10px;color:var(--ink-3);white-space:nowrap;">${formatDate(m.date)}</td>
+                    <td style="padding:6px 10px;">
+                      ${isEntry
+                        ? '<span style="color:var(--emerald);font-weight:700;">▲ Compra</span>'
+                        : '<span style="color:var(--rose);font-weight:700;">▼ Venta</span>'}
+                    </td>
+                    <td style="padding:6px 10px;font-weight:600;color:var(--violet);">${m.ref}</td>
+                    <td style="padding:6px 10px;font-size:11px;color:var(--ink-3);">${whName}</td>
+                    <td style="padding:6px 10px;text-align:right;color:var(--emerald);font-weight:700;">${isEntry?m.in:'—'}</td>
+                    <td style="padding:6px 10px;text-align:right;color:var(--rose);font-weight:700;">${!isEntry?m.out:'—'}</td>
+                    <td style="padding:6px 10px;text-align:right;font-weight:800;color:${bal<0?'var(--rose)':bal===0?'var(--ink-3)':'var(--ink)'};">${bal}</td>
+                  </tr>`;
+                }).join('');
+              })()}
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--ink-3);">
+          El saldo final debe coincidir con el stock actual. Si no coincide, hay ventas sin registrar o ajustes pendientes.
         </div>
 
         <!-- ── DISCOUNTS ── -->
@@ -7798,7 +7895,10 @@ function renderStoreOrderCard(o) {
           const hasSales = sales.some(s=>s.onlineOrderId===o.id || (s.invoiceNum||s.invoiceNumber||'').includes(ref));
           return hasSales
             ? `<button class="btn btn-ghost btn-xs" onclick="_activePanel='ventas';navigateTo('ventas');renderVentasList()">📄 Ver facturas</button>`
-            : `<button class="btn btn-amber btn-xs" onclick="reCreateOrderSales('${o.id}')">⚠️ Re-crear facturas</button>`;
+            : `<div style="display:flex;gap:4px;flex-wrap:wrap;">
+                <button class="btn btn-amber btn-xs" onclick="reCreateOrderSales('${o.id}')">⚠️ Re-crear factura</button>
+                <button class="btn btn-ghost btn-xs" onclick="deductStockForOrder('${o.id}')">📦 Descontar stock</button>
+               </div>`;
         })():''}
       </div>
     </div>
@@ -7915,6 +8015,43 @@ async function approveOnlineOrder(orderId) {
   loadPedidosOnline();
   renderVentasKPI(); renderVentasList();
   showToast(`Orden aprobada — Factura ${invoiceNum} creada (${items.length} productos) ✅`, 'success');
+}
+
+async function deductStockForOrder(orderId) {
+  /* Find the sale record for this online order */
+  const orderRef = (orderId||'').slice(-8).toUpperCase();
+  const sale = sales.find(s =>
+    s.onlineOrderId === orderId ||
+    (s.invoiceNum||s.invoiceNumber||'').includes(orderRef)
+  );
+  if (!sale) { showToast('No se encontró factura para esta orden. Recrea la factura primero.', 'error'); return; }
+
+  const saleItems = sale.items || (sale.productId ? [{ productId: sale.productId, qty: sale.qty||1 }] : []);
+  if (!saleItems.length) { showToast('La factura no tiene productos', 'error'); return; }
+
+  const whId = sale.warehouseId;
+  const summary = saleItems.map(i => `${i.qty}× ${getProductName(i.productId)}`).join(', ');
+
+  confirmDialog(
+    `Descontar stock del almacén ${getWarehouseName(whId)} para:\n${summary}\n\nEsta acción modifica los lotes de compra (remainingQty). Solo hazlo si el stock NO fue descontado al crear la factura.`,
+    async () => {
+      const warnings = [];
+      const lotsUsed = [];
+      for (const item of saleItems) {
+        const used = deductFromFIFO(whId, item.productId, item.qty);
+        if (!used.length) warnings.push(`⚠️ Sin stock para: ${getProductName(item.productId)}`);
+        lotsUsed.push(...used);
+      }
+      /* Save lotsUsed back to the sale */
+      sale.lotsUsed = [...(sale.lotsUsed||[]), ...lotsUsed];
+      await saveData();
+      loadPedidosOnline();
+      _renderedPanels.delete('productos');
+      if (warnings.length) showToast(warnings.join('\n'), 'warning');
+      else showToast(`Stock descontado correctamente para ${saleItems.length} producto(s) ✅`, 'success');
+    },
+    { confirmLabel: 'Descontar Stock', danger: true, title: 'Descontar Stock' }
+  );
 }
 
 async function reCreateOrderSales(orderId) {
