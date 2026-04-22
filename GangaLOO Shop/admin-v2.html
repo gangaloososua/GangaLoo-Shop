@@ -6084,6 +6084,10 @@ function renderClientesList() {
 
   let list = Object.values(map);
 
+  /* Build paid map first — needed for debt calculations below */
+  const paidMap = {};
+  payments.forEach(p => { paidMap[String(p.saleId)] = (paidMap[String(p.saleId)]||0) + (parseFloat(p.amount)||0); });
+
   /* Filters */
   if (_clienteTypeFilter === 'debt') {
     list = list.filter(c => {
@@ -6126,9 +6130,7 @@ function renderClientesList() {
     if (dc) dc.textContent = allDebtors.length + ' persona' + (allDebtors.length!==1?'s':'');
   }
 
-  /* Build debt map */
-  const paidMap = {};
-  payments.forEach(p => { paidMap[String(p.saleId)] = (paidMap[String(p.saleId)]||0) + (parseFloat(p.amount)||0); });
+  /* paidMap already built above */
 
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">👥</div><h3>Sin clientes</h3><p>Agrega clientes o sincroniza con la tienda online</p></div></td></tr>`;
