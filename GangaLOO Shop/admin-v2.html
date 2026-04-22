@@ -1596,6 +1596,13 @@ async function loadAllData() {
     }
     // Seed defaults if missing
     seedDefaults();
+    /* Backfill alias fields on existing sales (totalSale, commissionPaid) */
+    let migrated = 0;
+    sales.forEach(s => {
+      if (s.totalSale === undefined) { s.totalSale = parseFloat(s.total||0); migrated++; }
+      if (s.commissionPaid === undefined) { s.commissionPaid = parseFloat(s.commissionAmt||0); migrated++; }
+    });
+    if (migrated > 0) { debouncedSave(); console.log(`Migrated ${migrated} sale fields`); }
     renderDashboard();
     setSaveState('saved');
     showToast('Datos cargados correctamente', 'success');
@@ -1768,7 +1775,7 @@ function convertToDOP(amount, currency, monthKey) {
 
 /* ─── SALE TOTAL HELPER (handles both old totalSale and new total field) ─── */
 function saleTotal(s) {
-  return parseFloat(s.total || s.totalSale || 0);
+  return parseFloat(s.totalSale || s.total || 0);
 }
 
 function nextInvoiceNumber() {
@@ -3634,11 +3641,13 @@ function saveNuevaVenta(withWA = false) {
     subtotal,
     discount,
     total,
+    totalSale:    total,
     status:       'active',
     notes,
     lotsUsed,
     commissionPct:   comm ? 15 : 0,
     commissionAmt:   comm ? comm.sellerAmt : 0,
+    commissionPaid:  comm ? comm.sellerAmt : 0,
     distribAmt:      comm ? comm.distribAmt : 0,
     sellerId:        customerId,
     createdAt:       new Date().toISOString()
@@ -8237,11 +8246,13 @@ async function approveOnlineOrder(orderId) {
     subtotal,
     discount,
     total,
+    totalSale:       total,
     status:          'active',
     notes:           order.notes || '',
     lotsUsed,
     commissionPct:   comm ? 15 : 0,
     commissionAmt:   comm ? comm.sellerAmt : 0,
+    commissionPaid:  comm ? comm.sellerAmt : 0,
     distribAmt:      comm ? comm.distribAmt : 0,
     distributorId:   distObj?.id || null,
     distributorName: distObj?.name || null,
@@ -8347,11 +8358,13 @@ async function reCreateOrderSales(orderId) {
       subtotal,
       discount,
       total,
+      totalSale:       total,
       status:          'active',
       notes:           order.notes || '',
       lotsUsed:        [],
       commissionPct:   comm ? 15 : 0,
       commissionAmt:   comm ? comm.sellerAmt : 0,
+      commissionPaid:  comm ? comm.sellerAmt : 0,
       distribAmt:      comm ? comm.distribAmt : 0,
       distributorId:   distObj?.id || null,
       distributorName: distObj?.name || null,
