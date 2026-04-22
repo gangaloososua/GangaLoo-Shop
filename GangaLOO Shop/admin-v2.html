@@ -7894,7 +7894,8 @@ function renderStoreOrderCard(o) {
           const ref = (o.id||'').slice(-8).toUpperCase();
           const hasSales = sales.some(s=>s.onlineOrderId===o.id || (s.invoiceNum||s.invoiceNumber||'').includes(ref));
           return hasSales
-            ? `<button class="btn btn-ghost btn-xs" onclick="_activePanel='ventas';navigateTo('ventas');renderVentasList()">📄 Ver facturas</button>`
+            ? `<button class="btn btn-ghost btn-xs" onclick="navigateTo('ventas')">📄 Ver facturas</button>
+               <button class="btn btn-ghost btn-xs" onclick="deductStockForOrder('${o.id}')">📦 Descontar stock</button>`
             : `<div style="display:flex;gap:4px;flex-wrap:wrap;">
                 <button class="btn btn-amber btn-xs" onclick="reCreateOrderSales('${o.id}')">⚠️ Re-crear factura</button>
                 <button class="btn btn-ghost btn-xs" onclick="deductStockForOrder('${o.id}')">📦 Descontar stock</button>
