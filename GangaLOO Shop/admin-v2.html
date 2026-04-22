@@ -7273,7 +7273,7 @@ function openNuevoProducto() {
             <input class="field" id="npName" placeholder="Ej: Ondulado 12a 12 pulgadas" oninput="const s=document.getElementById('npSku');if(!s._manual)s.value=generateSKU(this.value)">
           </div>
           <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-top:10px;">
-            <div class="form-group">
+            <div class="form-group" style="grid-column:1/-1;">
               <label class="field-label" style="display:flex;align-items:center;justify-content:space-between;">
                 SKU
                 <button type="button" class="btn btn-ghost btn-xs" onclick="document.getElementById('npSku').value=generateSKU(document.getElementById('npName').value)" style="font-size:10px;">🔄 Auto</button>
