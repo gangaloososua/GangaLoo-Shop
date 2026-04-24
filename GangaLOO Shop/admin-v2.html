@@ -1505,6 +1505,10 @@ async function doLogin() {
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('app').classList.add('visible');
       loadAllData();
+    } else if (role === 'seller') {
+      await sb.auth.signOut();
+      /* Redirect to old seller admin */
+      window.location.href = '/admin.html';
     } else {
       await sb.auth.signOut();
       err.textContent = 'Acceso denegado. Solo administradores pueden entrar aquí.';
@@ -1525,6 +1529,8 @@ async function checkExistingSession() {
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('app').classList.add('visible');
       loadAllData();
+    } else if (profile?.role === 'seller') {
+      window.location.href = '/admin.html';
     }
   } catch(e) { /* no session */ }
 }
@@ -3445,6 +3451,7 @@ function renderVentasList() {
             <button class="btn btn-sky btn-xs" onclick="openIntercambio('${s.id}')" title="Intercambio de producto" style="background:rgba(14,165,233,.1);color:var(--sky);border:1.5px solid rgba(14,165,233,.3);">🔄</button>
             <button class="btn btn-warning btn-xs" onclick="openBaja('${s.id}')" title="Baja / Dañado / Liquidación" style="background:rgba(245,158,11,.1);color:var(--amber);border:1.5px solid rgba(245,158,11,.3);">⚠️</button>
             <button class="btn btn-ghost btn-xs" onclick="sendVentaWA('${s.id}')" title="WhatsApp">💬</button>
+            <button class="btn btn-ghost btn-xs" onclick="printVentaPDF('${s.id}')" title="Descargar PDF">📄</button>
             <button class="btn btn-danger btn-xs" onclick="cancelVenta('${s.id}')" title="Cancelar">✕</button>
           ` : `
             <button class="btn btn-danger btn-xs" onclick="deleteCancelledVenta('${s.id}')" title="Eliminar permanentemente">🗑️</button>
@@ -4096,10 +4103,159 @@ function openVentaDetail(saleId) {
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
         ${pending>0.01?`<button class="btn btn-teal" onclick="closeModal();openRegistrarPago('${saleId}')">💵 Registrar Pago</button>`:''}
+        <button class="btn btn-secondary" onclick="printVentaPDF('${saleId}')">📄 PDF</button>
         <button class="btn btn-secondary" onclick="sendVentaWA('${saleId}')">💬 WhatsApp</button>
       </div>
     </div>
   `);
+}
+
+function printVentaPDF(saleId) {
+  const sale = sales.find(s => String(s.id) === String(saleId));
+  if (!sale) return;
+
+  const paidMap = {};
+  payments.forEach(p => { paidMap[String(p.saleId)] = (paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0); });
+  const paid    = paidMap[String(saleId)] || 0;
+  const pending = Math.max(0, saleTotal(sale) - paid);
+  const customer = customers.find(c => String(c.id) === String(sale.customerId));
+  const inv = sale.invoiceNum || sale.invoiceNumber || '#'+sale.id;
+
+  const saleItems = sale.items?.length
+    ? sale.items
+    : sale.productId ? [{ productId: sale.productId, qty: sale.qty||1, price: saleTotal(sale)/(sale.qty||1) }]
+    : [];
+
+  const itemRows = saleItems.map(i => `
+    <tr>
+      <td style="padding:10px 14px;border-bottom:1px solid #f0ede8;">${getProductName(i.productId)}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #f0ede8;text-align:center;">${i.qty}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #f0ede8;text-align:right;">${formatDOP(i.price)}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #f0ede8;text-align:right;font-weight:700;">${formatDOP(i.qty*i.price)}</td>
+    </tr>`).join('');
+
+  const ventaPayments = payments.filter(p => String(p.saleId) === String(saleId));
+  const paymentRows = ventaPayments.map(p => `
+    <tr>
+      <td style="padding:8px 14px;border-bottom:1px solid #f0ede8;">${formatDate(p.date)}</td>
+      <td style="padding:8px 14px;border-bottom:1px solid #f0ede8;">${getAccountName(p.accountId)}</td>
+      <td style="padding:8px 14px;border-bottom:1px solid #f0ede8;">${p.reference||'—'}</td>
+      <td style="padding:8px 14px;border-bottom:1px solid #f0ede8;text-align:right;font-weight:700;color:#27ae60;">${formatDOP(p.amount)}</td>
+    </tr>`).join('');
+
+  const sc = storeConfig || {};
+  const storeName = sc.storeName || 'GangaLoo';
+  const storePhone = sc.whatsapp || sc.phone || '';
+  const storeEmail = sc.email || '';
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Factura ${inv}</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; color: #222; padding: 40px; font-size: 14px; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
+      .store-name { font-size: 28px; font-weight: 900; color: #6c3ff5; }
+      .store-sub { color: #888; font-size: 13px; margin-top: 4px; }
+      .inv-box { text-align: right; }
+      .inv-num { font-size: 22px; font-weight: 800; color: #6c3ff5; }
+      .inv-date { color: #888; font-size: 13px; margin-top: 4px; }
+      .client-box { background: #f8f6ff; border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; }
+      .client-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #888; margin-bottom: 4px; }
+      .client-name { font-size: 17px; font-weight: 800; }
+      .client-info { color: #666; font-size: 13px; margin-top: 2px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+      thead th { background: #2c3e50; color: white; padding: 10px 14px; text-align: left; font-size: 13px; }
+      thead th.right { text-align: right; }
+      thead th.center { text-align: center; }
+      .totals-row td { font-weight: 800; background: #f8f6ff; }
+      .grand-total td { font-size: 16px; font-weight: 900; color: #6c3ff5; background: #ede9fe; }
+      .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #888; margin: 20px 0 8px; }
+      .status-box { border-radius: 10px; padding: 14px 20px; margin-bottom: 20px; display: flex; gap: 40px; }
+      .status-paid { background: #f0fdf4; border: 2px solid #27ae60; }
+      .status-pending { background: #fef2f2; border: 2px solid #dc2626; }
+      .status-partial { background: #fffbeb; border: 2px solid #f59e0b; }
+      .stat-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .06em; }
+      .stat-value { font-size: 18px; font-weight: 900; margin-top: 2px; }
+      .footer { margin-top: 32px; border-top: 1px solid #eee; padding-top: 16px; font-size: 11px; color: #aaa; text-align: center; }
+      .no-print { margin-bottom: 20px; }
+      @media print { .no-print { display: none !important; } body { padding: 20px; } }
+    </style>
+  </head><body>
+
+    <div class="no-print">
+      <button onclick="window.print()" style="background:#6c3ff5;color:white;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">
+        🖨️ Imprimir / Guardar PDF
+      </button>
+    </div>
+
+    <div class="header">
+      <div>
+        <div class="store-name">${storeName}</div>
+        <div class="store-sub">${storePhone ? '📱 '+storePhone : ''}${storeEmail ? ' · '+storeEmail : ''}</div>
+      </div>
+      <div class="inv-box">
+        <div class="inv-num">${inv}</div>
+        <div class="inv-date">📅 ${formatDate(sale.date)}</div>
+        <div class="inv-date">🏢 ${getWarehouseName(sale.warehouseId)}</div>
+      </div>
+    </div>
+
+    <div class="client-box">
+      <div class="client-label">Cliente</div>
+      <div class="client-name">${customer?.name || sale.customer || '—'}</div>
+      ${customer?.phone ? `<div class="client-info">📱 ${customer.phone}</div>` : ''}
+      ${customer?.email ? `<div class="client-info">✉️ ${customer.email}</div>` : ''}
+    </div>
+
+    <div class="section-title">Detalle de la Factura</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th class="center" style="width:70px;">Cant.</th>
+          <th class="right" style="width:130px;">Precio Unit.</th>
+          <th class="right" style="width:130px;">Total</th>
+        </tr>
+      </thead>
+      <tbody>${itemRows}</tbody>
+      <tfoot>
+        ${sale.subtotal&&sale.discount>0?`
+          <tr class="totals-row"><td colspan="3" style="padding:8px 14px;text-align:right;">Subtotal:</td><td style="padding:8px 14px;text-align:right;">${formatDOP(sale.subtotal)}</td></tr>
+          <tr class="totals-row"><td colspan="3" style="padding:8px 14px;text-align:right;color:#dc2626;">Descuento:</td><td style="padding:8px 14px;text-align:right;color:#dc2626;">− ${formatDOP(sale.discount)}</td></tr>
+        `:''}
+        <tr class="grand-total">
+          <td colspan="3" style="padding:12px 14px;text-align:right;">TOTAL:</td>
+          <td style="padding:12px 14px;text-align:right;">${formatDOP(saleTotal(sale))}</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div class="status-box ${pending<=0.01?'status-paid':paid>0?'status-partial':'status-pending'}">
+      <div><div class="stat-label">Total Factura</div><div class="stat-value">${formatDOP(saleTotal(sale))}</div></div>
+      <div><div class="stat-label">Pagado</div><div class="stat-value" style="color:#27ae60;">${formatDOP(paid)}</div></div>
+      <div><div class="stat-label">Pendiente</div><div class="stat-value" style="color:${pending>0.01?'#dc2626':'#27ae60'};">${pending>0.01?formatDOP(pending):'✓ Saldada'}</div></div>
+    </div>
+
+    ${ventaPayments.length ? `
+      <div class="section-title">Pagos Recibidos</div>
+      <table>
+        <thead><tr>
+          <th>Fecha</th><th>Cuenta</th><th>Referencia</th>
+          <th class="right">Monto</th>
+        </tr></thead>
+        <tbody>${paymentRows}</tbody>
+      </table>
+    ` : ''}
+
+    ${sale.notes ? `<div style="background:#f8f6f3;border-radius:8px;padding:12px 16px;margin-top:8px;font-size:13px;color:#555;">📝 <em>${sale.notes}</em></div>` : ''}
+
+    <div class="footer">
+      ${storeName} · Generado el ${new Date().toLocaleString('es-DO')} · ${inv}
+    </div>
+  </body></html>`);
+  win.document.close();
 }
 
 function sendVentaWA(saleId) {
@@ -10036,6 +10192,59 @@ function renderComisionesCards() {
 
           ${monthBreakdown}
 
+          <!-- Sales breakdown (collapsible) -->
+          ${sSales.length > 0 ? `
+            <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+              <button class="btn btn-ghost btn-xs" style="margin-bottom:8px;font-weight:700;"
+                onclick="const t=document.getElementById('comSales_${seller.id}');t.style.display=t.style.display==='none'?'block':'none';this.textContent=t.style.display==='none'?'▶ Ver ${sSales.length} facturas':'▼ Ocultar facturas'">
+                ▶ Ver ${sSales.length} facturas
+              </button>
+              <div id="comSales_${seller.id}" style="display:none;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                  <thead>
+                    <tr style="background:var(--surface-2);">
+                      <th style="padding:6px 10px;text-align:left;">Factura</th>
+                      <th style="padding:6px 10px;text-align:left;">Fecha</th>
+                      <th style="padding:6px 10px;text-align:left;">Cliente</th>
+                      <th style="padding:6px 10px;text-align:right;">Total</th>
+                      <th style="padding:6px 10px;text-align:right;color:var(--violet);">Comisión 15%</th>
+                      ${distrib5>0?`<th style="padding:6px 10px;text-align:right;color:var(--teal);">Distrib 5%</th>`:''}
+                      <th style="padding:6px 10px;text-align:right;color:var(--emerald);">Vendedor retiene</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${[...sSales].sort((a,b)=>(b.date||'')<(a.date||'')?-1:1).map(s => {
+                      const st   = saleTotal(s);
+                      const comm = Math.round(st*0.15*100)/100;
+                      const dist = distrib5>0 ? Math.round(st*0.05*100)/100 : 0;
+                      const ret  = comm - dist;
+                      const inv  = s.invoiceNum||s.invoiceNumber||'#'+s.id;
+                      const cust = getCustomerName(s.customerId)||s.customer||'—';
+                      return `<tr style="border-bottom:1px solid var(--border);">
+                        <td style="padding:6px 10px;"><strong style="color:var(--violet);">${inv}</strong></td>
+                        <td style="padding:6px 10px;color:var(--ink-3);">${formatDate(s.date)}</td>
+                        <td style="padding:6px 10px;font-size:11px;">${cust}</td>
+                        <td style="padding:6px 10px;text-align:right;font-weight:700;">${formatDOP(st)}</td>
+                        <td style="padding:6px 10px;text-align:right;font-weight:700;color:var(--violet);">${formatDOP(comm)}</td>
+                        ${distrib5>0?`<td style="padding:6px 10px;text-align:right;color:var(--teal);">${formatDOP(dist)}</td>`:''}
+                        <td style="padding:6px 10px;text-align:right;font-weight:700;color:var(--emerald);">${formatDOP(ret)}</td>
+                      </tr>`;
+                    }).join('')}
+                  </tbody>
+                  <tfoot>
+                    <tr style="background:var(--surface-2);font-weight:800;">
+                      <td colspan="3" style="padding:7px 10px;">TOTALES</td>
+                      <td style="padding:7px 10px;text-align:right;">${formatDOP(totalSales)}</td>
+                      <td style="padding:7px 10px;text-align:right;color:var(--violet);">${formatDOP(comm15)}</td>
+                      ${distrib5>0?`<td style="padding:7px 10px;text-align:right;color:var(--teal);">${formatDOP(distrib5)}</td>`:''}
+                      <td style="padding:7px 10px;text-align:right;color:var(--emerald);">${formatDOP(keeps)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          ` : ''}
+
           <!-- Pay button (only in month view when unpaid) -->
           ${_comPeriod==='month' && !isPaid && comm15>0 ? `
             <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
@@ -10631,20 +10840,51 @@ function rptComisiones(el) {
 
     ${rptSection('🏷 Detalle por Vendedor y Mes', (() => {
       if (!rows.length) return '<p style="color:var(--ink-3);">Sin comisiones en este período.</p>';
-      const trows = rows.map((r,i) => `<tr style="background:${i%2===0?'var(--surface)':'var(--surface-2)'};">
-        <td style="font-weight:700;">${r.seller}</td>
-        <td><span class="badge badge-violet" style="font-size:10px;">${r.mk}</span></td>
-        <td class="text-center" style="color:var(--ink-3);">${r.count}</td>
-        <td class="text-right">${formatDOP(r.total)}</td>
-        <td class="text-right" style="font-weight:700;color:var(--violet);">${formatDOP(r.comm)}</td>
-        <td class="text-right" style="color:var(--teal);">${r.distrib>0?formatDOP(r.distrib):'—'}</td>
-        <td class="text-right" style="color:var(--ink-2);">${formatDOP(r.keeps)}</td>
-        <td class="text-center">
-          ${r.payout
-            ? `<span class="badge badge-teal" style="font-size:10px;">✓ ${formatDate(r.payout.date)}</span>`
-            : `<span class="badge badge-rose" style="font-size:10px;">Pendiente</span>`}
-        </td>
-      </tr>`);
+      const trows = rows.map((r,i) => {
+        /* Get individual sales for this seller+month */
+        const mSales = sales.filter(s=>(s.date||'').startsWith(r.mk)&&(s.customerId===r.seller?.id||s.sellerId===r.seller?.id||s.seller===r.seller||getCustomerName(s.customerId)===r.seller||getCustomerName(s.sellerId)===r.seller)&&s.status!=='cancelled');
+        const expandId = `rptComRow_${i}`;
+        const salesDetail = mSales.map(s=>{
+          const st=saleTotal(s); const sc=Math.round(st*0.15*100)/100;
+          return `<tr style="background:rgba(109,40,217,.04);">
+            <td style="padding:4px 10px 4px 24px;font-size:11px;color:var(--violet);">${s.invoiceNum||s.invoiceNumber||'#'+s.id}</td>
+            <td style="padding:4px 10px;font-size:11px;color:var(--ink-3);">${formatDate(s.date)}</td>
+            <td style="padding:4px 10px;font-size:11px;">${getCustomerName(s.customerId)||s.customer||'—'}</td>
+            <td class="text-right" style="padding:4px 10px;font-size:11px;">${formatDOP(st)}</td>
+            <td class="text-right" style="padding:4px 10px;font-size:11px;color:var(--violet);">${formatDOP(sc)}</td>
+            <td colspan="3"></td>
+          </tr>`;
+        }).join('');
+        return `<tr style="background:${i%2===0?'var(--surface)':'var(--surface-2)'};cursor:pointer;" onclick="const el=document.getElementById('${expandId}');el.style.display=el.style.display==='none'?'':'none';">
+          <td style="font-weight:700;">${r.seller} <span style="font-size:10px;color:var(--ink-3);">▶ ${r.count} facturas</span></td>
+          <td><span class="badge badge-violet" style="font-size:10px;">${r.mk}</span></td>
+          <td class="text-center" style="color:var(--ink-3);">${r.count}</td>
+          <td class="text-right">${formatDOP(r.total)}</td>
+          <td class="text-right" style="font-weight:700;color:var(--violet);">${formatDOP(r.comm)}</td>
+          <td class="text-right" style="color:var(--teal);">${r.distrib>0?formatDOP(r.distrib):'—'}</td>
+          <td class="text-right" style="color:var(--ink-2);">${formatDOP(r.keeps)}</td>
+          <td class="text-center">
+            ${r.payout
+              ? `<span class="badge badge-teal" style="font-size:10px;">✓ ${formatDate(r.payout.date)}</span>`
+              : `<span class="badge badge-rose" style="font-size:10px;">Pendiente</span>`}
+          </td>
+        </tr>
+        <tr id="${expandId}" style="display:none;">
+          <td colspan="8" style="padding:0;">
+            <table style="width:100%;border-collapse:collapse;">
+              <thead><tr style="background:rgba(109,40,217,.08);">
+                <th style="padding:5px 10px 5px 24px;text-align:left;font-size:11px;">Factura</th>
+                <th style="padding:5px 10px;text-align:left;font-size:11px;">Fecha</th>
+                <th style="padding:5px 10px;text-align:left;font-size:11px;">Cliente</th>
+                <th style="padding:5px 10px;text-align:right;font-size:11px;">Total</th>
+                <th style="padding:5px 10px;text-align:right;font-size:11px;color:var(--violet);">Comisión</th>
+                <th colspan="3"></th>
+              </tr></thead>
+              <tbody>${salesDetail}</tbody>
+            </table>
+          </td>
+        </tr>`;
+      });
       return rptTable(
         [{label:'Vendedor'},{label:'Mes'},{label:'Ventas',center:true},{label:'Total Ventas',right:true},{label:'Comisión 15%',right:true},{label:'Delia 5%',right:true},{label:'Retiene',right:true},{label:'Estado',center:true}],
         trows,
