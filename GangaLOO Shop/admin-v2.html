@@ -4032,7 +4032,33 @@ function saveRegistrarPago(saleId) {
   renderVentasList();
   renderDashboard();
   closeModal();
-  showToast(`Pago de ${formatDOP(amount)} registrado ✅`, 'success');
+
+  /* Offer receipt options */
+  const customer = customers.find(c => String(c.id) === String(sale?.customerId));
+  const paidTotal = payments.filter(p => p.saleId === saleId).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+  const pendNow   = Math.max(0, saleTotal(sale) - paidTotal);
+
+  openModal(`
+    <div class="modal" style="max-width:380px;">
+      <div class="modal-header">
+        <div class="modal-title">✅ Pago Registrado</div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body" style="text-align:center;padding:24px;">
+        <div style="font-size:2em;margin-bottom:8px;">💵</div>
+        <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.8em;font-weight:900;color:var(--emerald);">${formatDOP(amount)}</div>
+        <div style="color:var(--ink-3);margin-top:4px;font-size:13px;">recibido · ${sale?.invoiceNum||'#'+saleId}</div>
+        ${ref?`<div style="margin-top:6px;background:var(--surface-2);border-radius:var(--r-sm);padding:6px 12px;font-size:12px;color:var(--ink-3);">Ref: ${ref}</div>`:''}
+        ${pendNow>0.01?`<div style="margin-top:10px;color:var(--amber);font-size:13px;font-weight:700;">Pendiente: ${formatDOP(pendNow)}</div>`
+                      :`<div style="margin-top:10px;color:var(--emerald);font-size:13px;font-weight:700;">✓ Factura completamente pagada</div>`}
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="closeModal();printReciboPDF('${saleId}','${payment.id}')">📄 Ver Recibo PDF</button>
+          ${customer?.phone?`<button class="btn btn-teal" onclick="closeModal();sendReciboWA('${saleId}','${payment.id}')">💬 Enviar por WhatsApp</button>`:''}
+          <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  `);
 }
 
 /* ─── VENTA DETAIL ─── */
@@ -4120,7 +4146,8 @@ function openVentaDetail(saleId) {
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
         ${pending>0.01?`<button class="btn btn-teal" onclick="closeModal();openRegistrarPago('${saleId}')">💵 Registrar Pago</button>`:''}
-        <button class="btn btn-secondary" onclick="printVentaPDF('${saleId}')">📄 PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="printReciboPDF('${saleId}',null)">🧾 Recibo</button>
+        <button class="btn btn-secondary" onclick="printVentaPDF('${saleId}')">📄 Factura PDF</button>
         <button class="btn btn-secondary" onclick="sendVentaWA('${saleId}')">💬 WhatsApp</button>
       </div>
     </div>
@@ -4273,6 +4300,125 @@ function printVentaPDF(saleId) {
     </div>
   </body></html>`);
   win.document.close();
+}
+
+function printReciboPDF(saleId, paymentId) {
+  const sale     = sales.find(s => String(s.id) === String(saleId));
+  if (!sale) return;
+  const allPayments = payments.filter(p => p.saleId === saleId);
+  const thisPay  = paymentId ? allPayments.find(p => String(p.id) === String(paymentId)) : allPayments[allPayments.length-1];
+  const paidTotal= allPayments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const pending  = Math.max(0, Math.round((saleTotal(sale)-paidTotal)*100)/100);
+  const customer = customers.find(c => String(c.id) === String(sale.customerId));
+  const inv      = sale.invoiceNum||sale.invoiceNumber||'#'+sale.id;
+  const sc       = storeConfig || {};
+  const storeName= sc.storeName || 'GangaLoo';
+
+  /* All payments list */
+  const payRows = allPayments.map(p => `
+    <tr style="${String(p.id)===String(paymentId)?'background:#f0fdf4;font-weight:700;':''};border-bottom:1px solid #eee;">
+      <td style="padding:8px 12px;">${String(p.id)===String(paymentId)?'<strong>✓ ESTE PAGO</strong>':formatDate(p.date)}</td>
+      <td style="padding:8px 12px;">${String(p.id)===String(paymentId)?formatDate(p.date):'—'}</td>
+      <td style="padding:8px 12px;">${getAccountName(p.accountId)}</td>
+      <td style="padding:8px 12px;">${p.reference||'—'}</td>
+      <td style="padding:8px 12px;text-align:right;color:#27ae60;font-weight:700;">${formatDOP(p.amount)}</td>
+    </tr>`).join('');
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8"><title>Recibo ${inv}</title>
+    <style>
+      * { box-sizing:border-box; margin:0; padding:0; }
+      body { font-family:Arial,sans-serif; color:#222; padding:40px; font-size:14px; }
+      .receipt { max-width:480px; margin:0 auto; border:2px solid #6c3ff5; border-radius:16px; overflow:hidden; }
+      .receipt-header { background:#6c3ff5; color:white; padding:20px 24px; }
+      .receipt-body { padding:24px; }
+      .store { font-size:22px; font-weight:900; }
+      .receipt-title { font-size:13px; opacity:.8; margin-top:2px; }
+      .amount-box { background:#f0fdf4; border:2px solid #27ae60; border-radius:10px; padding:16px 20px; margin:16px 0; text-align:center; }
+      .amount { font-size:32px; font-weight:900; color:#27ae60; }
+      .row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f0ede8; font-size:13px; }
+      .label { color:#888; }
+      .value { font-weight:600; }
+      table { width:100%; border-collapse:collapse; font-size:13px; margin-top:12px; }
+      th { background:#f0ede8; padding:8px 12px; text-align:left; font-size:12px; color:#666; }
+      .status { text-align:center; padding:12px; border-radius:8px; margin-top:16px; font-weight:700; }
+      .paid { background:#f0fdf4; color:#27ae60; border:2px solid #27ae60; }
+      .pending { background:#fef2f2; color:#dc2626; border:2px solid #dc2626; }
+      .footer { text-align:center; margin-top:20px; font-size:11px; color:#aaa; }
+      @media print { .no-print { display:none!important; } }
+    </style>
+  </head><body>
+    <div class="no-print" style="text-align:center;margin-bottom:20px;">
+      <button onclick="window.print()" style="background:#6c3ff5;color:white;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">🖨️ Imprimir / Guardar PDF</button>
+    </div>
+    <div class="receipt">
+      <div class="receipt-header">
+        <div class="store">${storeName}</div>
+        <div class="receipt-title">Recibo de Pago · ${inv}</div>
+      </div>
+      <div class="receipt-body">
+        <div class="amount-box">
+          <div style="font-size:12px;color:#666;margin-bottom:4px;">MONTO RECIBIDO</div>
+          <div class="amount">${formatDOP(thisPay?.amount||0)}</div>
+          <div style="font-size:12px;color:#666;margin-top:4px;">${formatDate(thisPay?.date)} · ${getAccountName(thisPay?.accountId)}</div>
+          ${thisPay?.reference?`<div style="font-size:12px;color:#555;margin-top:4px;background:white;padding:4px 10px;border-radius:6px;">📋 Ref: <strong>${thisPay.reference}</strong></div>`:''}
+        </div>
+
+        <div class="row"><span class="label">Cliente</span><span class="value">${customer?.name||sale.customer||'—'}</span></div>
+        <div class="row"><span class="label">Factura</span><span class="value">${inv}</span></div>
+        <div class="row"><span class="label">Total factura</span><span class="value">${formatDOP(saleTotal(sale))}</span></div>
+        <div class="row"><span class="label">Total pagado</span><span class="value" style="color:#27ae60;">${formatDOP(paidTotal)}</span></div>
+        <div class="row"><span class="label">Saldo pendiente</span><span class="value" style="color:${pending>0.01?'#dc2626':'#27ae60'};">${pending>0.01?formatDOP(pending):'✓ Saldada'}</span></div>
+
+        ${allPayments.length > 1 ? `
+          <div style="margin-top:16px;font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;">Historial de Pagos</div>
+          <table>
+            <thead><tr><th>Descripción</th><th>Fecha</th><th>Cuenta</th><th>Ref.</th><th style="text-align:right;">Monto</th></tr></thead>
+            <tbody>${payRows}</tbody>
+          </table>
+        ` : ''}
+
+        <div class="status ${pending<=0.01?'paid':'pending'}">
+          ${pending<=0.01 ? '✅ Factura completamente pagada' : `⏳ Pendiente: ${formatDOP(pending)}`}
+        </div>
+      </div>
+    </div>
+    <div class="footer">${storeName} · ${new Date().toLocaleString('es-DO')}</div>
+  </body></html>`);
+  win.document.close();
+}
+
+function sendReciboWA(saleId, paymentId) {
+  const sale     = sales.find(s => String(s.id) === String(saleId));
+  if (!sale) return;
+  const allPay   = payments.filter(p => p.saleId === saleId);
+  const thisPay  = paymentId ? allPay.find(p => String(p.id) === String(paymentId)) : allPay[allPay.length-1];
+  const paidTotal= allPay.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const pending  = Math.max(0, Math.round((saleTotal(sale)-paidTotal)*100)/100);
+  const customer = customers.find(c => String(c.id) === String(sale.customerId));
+  const inv      = sale.invoiceNum||sale.invoiceNumber||'#'+sale.id;
+  const sc       = storeConfig || {};
+
+  const msg = [
+    `✅ *Pago Recibido — ${inv}*`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `💵 *Monto:* ${formatDOP(thisPay?.amount||0)}`,
+    `📅 *Fecha:* ${formatDate(thisPay?.date)}`,
+    `🏦 *Cuenta:* ${getAccountName(thisPay?.accountId)}`,
+    thisPay?.reference ? `📋 *Ref:* ${thisPay.reference}` : '',
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `🧾 *Factura:* ${inv}`,
+    `💰 *Total factura:* ${formatDOP(saleTotal(sale))}`,
+    `✅ *Total pagado:* ${formatDOP(paidTotal)}`,
+    pending > 0.01
+      ? `⏳ *Pendiente:* ${formatDOP(pending)}`
+      : `✅ *Factura completamente pagada*`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `_${sc.storeName||'GangaLoo'}_`,
+  ].filter(Boolean).join('\n');
+
+  openWhatsApp(customer?.phone, msg);
 }
 
 function sendVentaWA(saleId) {
