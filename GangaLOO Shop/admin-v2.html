@@ -6326,14 +6326,22 @@ function renderClientesList() {
   const paidMap = {};
   payments.forEach(p => { paidMap[String(p.saleId)] = (paidMap[String(p.saleId)]||0) + (parseFloat(p.amount)||0); });
 
+  /* Helper: get all IDs for a person */
+  const getPersonIds = c => {
+    const key = (c.email||c.name||String(c.id)).toLowerCase();
+    return customers.filter(x => (x.email||x.name||String(x.id)).toLowerCase() === key).map(x => String(x.id));
+  };
+  const getPersonDebt = c => {
+    const ids = getPersonIds(c);
+    const cSales = sales.filter(s => (ids.includes(String(s.customerId))||ids.includes(String(s.sellerId))) && s.status!=='cancelled');
+    const cTotal = cSales.reduce((s,v)=>s+saleTotal(v),0);
+    const cPaid  = cSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
+    return Math.max(0, Math.round((cTotal-cPaid)*100)/100);
+  };
+
   /* Filters */
   if (_clienteTypeFilter === 'debt') {
-    list = list.filter(c => {
-      const cSales = sales.filter(s => (String(s.customerId)===String(c.id)||String(s.sellerId)===String(c.id)) && s.status!=='cancelled');
-      const cTotal = cSales.reduce((s,v)=>s+saleTotal(v),0);
-      const cPaid  = cSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
-      return Math.max(0, cTotal-cPaid) > 0.01;
-    });
+    list = list.filter(c => getPersonDebt(c) > 0.01);
   } else if (_clienteTypeFilter !== 'all') {
     list = list.filter(c => c.type === _clienteTypeFilter);
   }
@@ -6347,18 +6355,8 @@ function renderClientesList() {
   document.getElementById('clienteCount').textContent = list.length + ' cliente' + (list.length!==1?'s':'');
 
   /* Update debt summary strip */
-  const allDebtors = Object.values(map).filter(c => {
-    const cSales = sales.filter(s => (String(s.customerId)===String(c.id)||String(s.sellerId)===String(c.id)) && s.status!=='cancelled');
-    const cTotal = cSales.reduce((s,v)=>s+saleTotal(v),0);
-    const cPaid  = cSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
-    return Math.max(0,cTotal-cPaid) > 0.01;
-  });
-  const totalDebt = allDebtors.reduce((s,c) => {
-    const cSales = sales.filter(ss => (String(ss.customerId)===String(c.id)||String(ss.sellerId)===String(c.id)) && ss.status!=='cancelled');
-    const cTotal = cSales.reduce((ss,v)=>ss+saleTotal(v),0);
-    const cPaid  = cSales.reduce((ss,v)=>ss+(paidMap[String(v.id)]||0),0);
-    return s + Math.max(0,cTotal-cPaid);
-  }, 0);
+  const allDebtors = Object.values(map).filter(c => getPersonDebt(c) > 0.01);
+  const totalDebt  = allDebtors.reduce((s,c) => s + getPersonDebt(c), 0);
   const summEl = document.getElementById('clienteDebtSummary');
   if (summEl) {
     summEl.style.display = totalDebt > 0.01 ? 'flex' : 'none';
@@ -6386,8 +6384,14 @@ function renderClientesList() {
     _onlineProfiles.filter(p => (p.email||'').toLowerCase() === (c.email||'').toLowerCase())
       .forEach(p => { if (p.role) allRoles.add(p.role); });
 
-    /* Sales as customer + as seller */
-    const cSales  = sales.filter(s => (String(s.customerId)===String(c.id) || String(s.sellerId)===String(c.id)) && s.status !== 'cancelled');
+    /* Find ALL customer IDs belonging to same person (same email) */
+    const personKey = (c.email||c.name||String(c.id)).toLowerCase();
+    const allPersonIds = customers
+      .filter(x => (x.email||x.name||String(x.id)).toLowerCase() === personKey)
+      .map(x => String(x.id));
+
+    /* Sales as customer + as seller — across all their IDs */
+    const cSales  = sales.filter(s => (allPersonIds.includes(String(s.customerId)) || allPersonIds.includes(String(s.sellerId))) && s.status !== 'cancelled');
     const cTotal  = cSales.reduce((s,v) => s + saleTotal(v), 0);
     const cPaid   = cSales.reduce((s,v) => s + (paidMap[String(v.id)]||0), 0);
     const cDebt   = Math.max(0, Math.round((cTotal - cPaid)*100)/100);
