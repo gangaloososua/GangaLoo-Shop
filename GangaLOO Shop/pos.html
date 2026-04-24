@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>GangaLoo POS — Tienda Física</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <style>
@@ -407,8 +408,8 @@ select.field option { background:var(--surface2); }
 <div id="toastContainer"></div>
 
 <script>
-const SB_URL = 'https://xnbkwczolkinurohloxj.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes';
+const SB_URL = (window.GANGALOO_CONFIG||{}).supabaseUrl || 'SUPABASE_URL_PLACEHOLDER';
+const SB_KEY = (window.GANGALOO_CONFIG||{}).supabaseKey || 'SUPABASE_KEY_PLACEHOLDER';
 const sb = supabase.createClient(SB_URL, SB_KEY);
 
 /* ─── STATE ─── */
