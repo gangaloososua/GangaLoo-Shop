@@ -8307,7 +8307,7 @@ async function approveOnlineOrder(orderId) {
     commissionAmt:     comm ? comm.sellerAmt : 0,
     commissionPaid:    comm ? comm.sellerAmt : 0,
     distribAmt:        comm ? comm.distribAmt : 0,
-    productName:       newItems ? newItems.map(i=>i.name||getProductName(i.product_id)).filter(Boolean).join(', ') : items.map(i=>i.name||getProductName(i.product_id)).filter(Boolean).join(', '),
+    productName:       items.map(i=>i.name||getProductName(i.product_id)).filter(Boolean).join(', '),
     invoiceNumber:     invoiceNum,
     distributorId:     distObj?.id || null,
     distributorName:   distObj?.name || null,
