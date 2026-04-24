@@ -3173,6 +3173,24 @@
           </div>
         </div>
 
+        <!-- ACCORDION: Pagos Recibidos de Clientes -->
+        <div class="seller-accordion" style="background:white; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.06); overflow:hidden; margin-bottom:14px;">
+          <div onclick="toggleSellerSection('cobros')" style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" id="sellerHdr-cobros">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:1.2em;">💵</span>
+              <span style="font-weight:700; color:#1d4ed8;">Pagos Recibidos de Clientes</span>
+              <span id="sellerBadge-cobros" style="background:#1d4ed8; color:white; border-radius:20px; padding:2px 10px; font-size:.75em; font-weight:700;">0</span>
+            </div>
+            <span id="sellerArrow-cobros" style="color:#aaa; font-size:1.1em; transition:transform .2s;">▶</span>
+          </div>
+          <div id="sellerBody-cobros" style="display:none;">
+            <div id="sellerCobrosSummary" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; padding:16px 16px 0;"></div>
+            <div id="sellerCobrosList" style="padding:16px;">
+              <div style="text-align:center; padding:30px; color:#aaa;">Cargando...</div>
+            </div>
+          </div>
+        </div>
+
         <!-- ACCORDION: Inventario -->
         <div class="seller-accordion" style="background:white; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.06); overflow:hidden; margin-bottom:14px;">
           <div onclick="toggleSellerSection('inventario')" style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" id="sellerHdr-inventario">
@@ -3386,27 +3404,33 @@
             renderSellerInventory();
             // Match seller by email or name
             const sellerName = currentUser.email.split('@')[0];
-            // Find this seller's customer record for ID matching
-            const meAsCustomerLocal = _sellerCustomers.find(c =>
+            // Find ALL customer records for this seller (may have multiple roles)
+            const myAllRecords = _sellerCustomers.filter(c =>
                 (c.email && c.email.toLowerCase() === currentUser.email.toLowerCase()) ||
                 (c.name && c.name.toLowerCase() === sellerName.toLowerCase())
             );
+            const myAllIds = myAllRecords.map(c => String(c.id));
+            const meAsCustomerLocal = myAllRecords[0];
             const period = document.getElementById('sellerPeriodFilter').value;
             const now = getNowDO();
             const specificMonth = parseInt(document.getElementById('sellerMonthPick')?.value ?? now.getMonth());
             const specificYear = parseInt(document.getElementById('sellerYearPick')?.value ?? now.getFullYear());
             let mySales = allSales.filter(s => {
-                // Match by seller field OR by customer being this seller (for online orders)
-                const matchBySeller = s.seller && (s.seller.toLowerCase().includes(sellerName.toLowerCase()) || s.sellerEmail === currentUser.email);
-                const matchByCustomer = s.customer && (s.customer.toLowerCase() === sellerName.toLowerCase() || (meAsCustomerLocal && String(s.customerId) === String(meAsCustomerLocal.id)));
-                const match = matchBySeller || matchByCustomer;
+                // Match by seller name, sellerId, customerId — across all their IDs
+                const matchBySeller = s.seller && s.seller.toLowerCase().includes(sellerName.toLowerCase());
+                const matchBySellerEmail = s.sellerEmail === currentUser.email;
+                const matchBySellerId = s.sellerId && myAllIds.includes(String(s.sellerId));
+                const matchByCustomerId = s.customerId && myAllIds.includes(String(s.customerId));
+                const match = matchBySeller || matchBySellerEmail || matchBySellerId || matchByCustomerId;
                 if (!match) return false;
+                if (s.status === 'cancelled') return false;
                 const d = new Date(s.date || s.createdAt);
                 if (period === 'month') return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
                 if (period === 'specific') return d.getMonth()===specificMonth && d.getFullYear()===specificYear;
                 if (period === 'week') return (now - d) / (1000*60*60*24) <= 7;
                 return true;
             });
+            renderSellerCobros(mySales, myAllIds);
             const totalComm = mySales.reduce((s,sale) => s+(sale.commissionPaid||0), 0);
             const totalRev = mySales.reduce((s,sale) => s+(sale.totalSale||0), 0);
             document.getElementById('sellerTotalSales').textContent = mySales.length;
@@ -3678,6 +3702,67 @@
             }).join('');
         }
 
+        function renderSellerCobros(mySales, myAllIds) {
+            const summary = document.getElementById('sellerCobrosSummary');
+            const list    = document.getElementById('sellerCobrosList');
+            const badge   = document.getElementById('sellerBadge-cobros');
+            if (!summary || !list) return;
+
+            /* Get all payments for this seller's sales */
+            const mySaleIds = new Set(mySales.map(s => String(s.id)));
+            const myCobros  = _sellerPayments
+                .filter(p => mySaleIds.has(String(p.saleId)))
+                .sort((a,b) => (b.date||'') < (a.date||'') ? -1 : 1);
+
+            if (badge) badge.textContent = myCobros.length;
+
+            const totalCobrado = myCobros.reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+
+            /* Also show pending (what customers still owe) */
+            const totalVentas  = mySales.reduce((s,v) => s+(v.totalSale||v.total||0), 0);
+            const totalPendiente = Math.max(0, totalVentas - totalCobrado);
+
+            summary.innerHTML = `
+                <div style="background:#eff6ff;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:1.3em;font-weight:800;color:#1d4ed8;">RD$ ${totalCobrado.toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
+                    <div style="color:#888;font-size:.8em;margin-top:3px;">Total Cobrado</div>
+                </div>
+                <div style="background:#f0fdf4;border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:1.3em;font-weight:800;color:#166534;">${myCobros.length}</div>
+                    <div style="color:#888;font-size:.8em;margin-top:3px;">Pagos Recibidos</div>
+                </div>
+                <div style="background:${totalPendiente>0?'#fef2f2':'#f0fdf4'};border-radius:10px;padding:14px;text-align:center;">
+                    <div style="font-size:1.3em;font-weight:800;color:${totalPendiente>0?'#dc2626':'#166534'};">RD$ ${totalPendiente.toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
+                    <div style="color:#888;font-size:.8em;margin-top:3px;">Por Cobrar</div>
+                </div>`;
+
+            if (!myCobros.length) {
+                list.innerHTML = '<div style="text-align:center;padding:30px;color:#aaa;">No hay pagos registrados aún.</div>';
+                return;
+            }
+
+            list.innerHTML = myCobros.map(p => {
+                /* Find the sale */
+                const sale = mySales.find(s => String(s.id) === String(p.saleId));
+                const inv  = sale ? (sale.invoiceNum||sale.invoiceNumber||'#'+sale.id) : '#'+p.saleId;
+                const cust = sale ? (sale.customer||'—') : '—';
+                const dateStr = p.date ? new Date(p.date).toLocaleDateString('es-DO', {day:'2-digit',month:'short',year:'numeric'}) : '—';
+                return `<div style="background:white;border:1.5px solid #dbeafe;border-left:4px solid #1d4ed8;border-radius:10px;padding:12px 16px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                        <div>
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                                <span style="font-weight:800;color:#1d4ed8;font-size:.9em;">${inv}</span>
+                                <span style="font-size:.75em;color:#6b7280;">${dateStr}</span>
+                            </div>
+                            <div style="font-size:.82em;color:#374151;">${cust}</div>
+                            ${p.reference ? `<div style="font-size:.78em;color:#6b7280;margin-top:2px;">📋 Ref: ${p.reference}</div>` : ''}
+                        </div>
+                        <div style="font-weight:800;color:#166534;font-size:.95em;white-space:nowrap;">+RD$ ${(p.amount||0).toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
         let _sellerCountMode = false;
         let _sellerCounts = {}; // productId -> entered count
 
@@ -3752,10 +3837,9 @@
                 showToast('Cargando datos... espera un momento e intenta de nuevo.', 'error');
                 return;
             }
-            var whs = document.getElementById('sellerInvWH').value === 'all' ? _sellerWarehouses : _sellerWarehouses.filter(function(w){ return String(w.id) === document.getElementById('sellerInvWH').value; });
-            var q = (document.getElementById('sellerInvSearch').value || '').toLowerCase();
-            var catFilter = document.getElementById('sellerInvCat').value;
-            var isCountMode = _sellerCountMode && Object.keys(_sellerCounts).length > 0;
+            const whs = document.getElementById('sellerInvWH').value === 'all' ? _sellerWarehouses : _sellerWarehouses.filter(function(w){ return String(w.id) === document.getElementById('sellerInvWH').value; });
+            const q = (document.getElementById('sellerInvSearch').value || '').toLowerCase();
+            const catFilter = document.getElementById('sellerInvCat').value;
 
             function getStock(pid, wid) {
                 return _sellerPurchases.filter(function(p){
@@ -3769,77 +3853,40 @@
                 if (q && !p.name.toLowerCase().includes(q) && !(p.sku||'').toLowerCase().includes(q)) return;
                 var pCatIds = (p.categoryIds&&p.categoryIds.length ? p.categoryIds : [p.categoryId]).map(String);
                 if (catFilter !== 'all') {
-                    var subIds = _sellerCategories.filter(function(c){ return String(c.parentId) === catFilter; }).map(function(c){ return String(c.id); });
-                    var allIds = [catFilter].concat(subIds);
+                    // Also match subcategories of selected parent
+                    const subIds = _sellerCategories.filter(function(c){ return String(c.parentId) === catFilter; }).map(function(c){ return String(c.id); });
+                    const allIds = [catFilter].concat(subIds);
                     if (!pCatIds.some(function(id){ return allIds.includes(id); })) return;
                 }
                 var total = whs.reduce(function(s,w){ return s+getStock(p.id,w.id); }, 0);
-                var entered = _sellerCounts[String(p.id)];
-                // In count mode, only show products that have been counted OR have stock
-                if (isCountMode && entered === undefined && total === 0) return;
                 var cat = _sellerCategories.find(function(c){ return pCatIds.includes(String(c.id)); });
                 var catName = cat ? ((cat.icon||'') + ' ' + cat.name) : 'Sin categoría';
                 if (!byCategory[catName]) byCategory[catName] = [];
-                byCategory[catName].push({
-                    name: p.name,
-                    sku: p.sku||'—',
-                    total: total,
-                    entered: entered,
-                    stocks: whs.map(function(w){ return { name: w.name, stock: getStock(p.id,w.id) }; })
-                });
+                byCategory[catName].push({ name: p.name, sku: p.sku||'—', total: total, stocks: whs.map(function(w){ return { name: w.name, stock: getStock(p.id,w.id) }; }) });
             });
 
             var dateStr = new Date().toLocaleDateString('es-DO', { year:'numeric', month:'long', day:'numeric' });
             var sellerName = currentUser ? currentUser.email.split('@')[0] : 'Vendedor';
-            var hasIssues = false;
 
             var rows = '';
             var grandTotal = 0;
-            var grandEntered = 0;
             Object.keys(byCategory).sort().forEach(function(catName) {
                 var prods = byCategory[catName];
-                var colSpan = isCountMode ? (3 + whs.length) : (2 + whs.length);
-                rows += '<tr><td colspan="' + colSpan + '" style="background:#f0ede8;font-weight:700;padding:8px 12px;font-size:13px;">' + catName + '</td></tr>';
+                rows += '<tr><td colspan="' + (2 + whs.length) + '" style="background:#f0ede8;font-weight:700;padding:8px 12px;font-size:13px;">' + catName + '</td></tr>';
                 prods.sort(function(a,b){ return a.name.localeCompare(b.name); }).forEach(function(p) {
                     grandTotal += p.total;
-                    var diff = (p.entered !== undefined) ? (p.entered - p.total) : null;
-                    var diffText = '—';
-                    var diffColor = '#aaa';
-                    var diffBg = '';
-                    var rowBg = '';
-                    if (diff !== null) {
-                        grandEntered += p.entered;
-                        if (diff === 0) { diffText = '✓ OK'; diffColor = '#27ae60'; }
-                        else if (diff < 0) { diffText = diff + ' FALTAN'; diffColor = '#dc2626'; diffBg = 'background:#fef2f2;'; rowBg = 'background:#fff5f5;'; hasIssues = true; }
-                        else { diffText = '+' + diff + ' extra'; diffColor = '#f39c12'; diffBg = 'background:#fffbeb;'; rowBg = 'background:#fffef0;'; }
-                    }
-                    rows += '<tr style="' + rowBg + '">' +
+                    rows += '<tr>' +
                         '<td style="padding:8px 12px;border-bottom:1px solid #f0ede8;">' + p.name + '</td>' +
                         '<td style="padding:8px 12px;border-bottom:1px solid #f0ede8;color:#888;font-size:12px;">' + p.sku + '</td>' +
                         p.stocks.map(function(s){ return '<td style="padding:8px 12px;border-bottom:1px solid #f0ede8;text-align:center;font-weight:600;color:' + (s.stock===0?'#ccc':s.stock<=5?'#f39c12':'#27ae60') + ';">' + (s.stock||'—') + '</td>'; }).join('') +
-                        (isCountMode ? '<td style="padding:8px 12px;border-bottom:1px solid #f0ede8;text-align:center;font-weight:700;">' + (p.entered !== undefined ? p.entered : '<span style=\"color:#ccc\">—</span>') + '</td>' : '') +
-                        (isCountMode ? '<td style="padding:6px 12px;border-bottom:1px solid #f0ede8;text-align:center;font-weight:700;' + diffBg + 'color:' + diffColor + ';">' + diffText + '</td>' : '') +
                     '</tr>';
                 });
             });
 
             var whHeaders = whs.map(function(w){ return '<th style="padding:8px 12px;text-align:center;background:#2c3e50;color:white;">🏢 ' + w.name + '</th>'; }).join('');
-            var countHeaders = isCountMode ? '<th style="padding:8px 12px;text-align:center;background:#6c5ce7;color:white;">Mi Conteo</th><th style="padding:8px 12px;text-align:center;background:#6c5ce7;color:white;">Diferencia</th>' : '';
-            var colSpanTotal = isCountMode ? (1 + whs.length + 2) : (1 + whs.length);
-
-            var summaryBox = isCountMode && hasIssues ? (
-                '<div style="background:#fef2f2;border:2px solid #dc2626;border-radius:10px;padding:16px;margin-bottom:20px;">' +
-                '<strong style="color:#dc2626;font-size:15px;">⚠️ Productos con diferencias detectadas</strong><br>' +
-                '<p style="margin:8px 0 0;color:#555;font-size:13px;">Revisa los productos marcados en rojo — el conteo físico no coincide con el sistema.</p>' +
-                '</div>'
-            ) : isCountMode ? (
-                '<div style="background:#f0fdf4;border:2px solid #27ae60;border-radius:10px;padding:16px;margin-bottom:20px;">' +
-                '<strong style="color:#27ae60;font-size:15px;">✅ Todo el inventario cuadra</strong>' +
-                '</div>'
-            ) : '';
 
             var win = window.open('', '_blank');
-            win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + (isCountMode ? 'Conteo de Inventario' : 'Inventario') + ' — ' + sellerName + '</title>' +
+            win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Inventario — ' + sellerName + '</title>' +
                 '<style>body{font-family:Arial,sans-serif;padding:30px;color:#222;}' +
                 'h1{color:#2c3e50;margin-bottom:4px;font-size:22px;}' +
                 '.sub{color:#888;font-size:13px;margin-bottom:24px;}' +
@@ -3847,26 +3894,21 @@
                 'th{padding:8px 12px;background:#2c3e50;color:white;text-align:left;}' +
                 '.footer{margin-top:24px;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:12px;}' +
                 '.total-row td{font-weight:700;background:#f8f6f3;border-top:2px solid #2c3e50;}' +
-                '@media print{button{display:none!important;}.no-print{display:none!important;}}' +
+                '@media print{button{display:none!important}}' +
                 '</style></head><body>' +
                 '<button onclick="window.print()" style="float:right;background:#2c3e50;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;">🖨️ Imprimir / Guardar PDF</button>' +
-                '<h1>' + (isCountMode ? '🔢 Conteo de Inventario' : '📦 Inventario Disponible') + '</h1>' +
-                '<div class="sub">Vendedor: <strong>' + sellerName + '</strong> &nbsp;|&nbsp; Fecha: ' + dateStr + (isCountMode ? ' &nbsp;|&nbsp; <strong style="color:#6c5ce7;">MODO CONTEO</strong>' : '') + '</div>' +
-                summaryBox +
-                '<table><thead><tr><th>Producto</th><th>SKU</th>' + whHeaders + countHeaders + '</tr></thead>' +
+                '<h1>📦 Inventario Disponible</h1>' +
+                '<div class="sub">Vendedor: <strong>' + sellerName + '</strong> &nbsp;|&nbsp; Fecha: ' + dateStr + '</div>' +
+                '<table><thead><tr><th>Producto</th><th>SKU</th>' + whHeaders + '</tr></thead>' +
                 '<tbody>' + rows + '</tbody>' +
-                '<tfoot><tr class="total-row">' +
-                '<td colspan="' + colSpanTotal + '" style="padding:8px 12px;text-align:right;">Total unidades (sistema):</td>' +
-                '<td style="padding:8px 12px;text-align:center;font-size:16px;">' + grandTotal + '</td>' +
-                (isCountMode ? '<td style="padding:8px 12px;text-align:center;font-size:16px;color:#6c5ce7;">' + (grandEntered || '—') + '</td>' : '') +
-                '</tr></tfoot>' +
+                '<tfoot><tr class="total-row"><td colspan="' + (1+whs.length) + '" style="padding:8px 12px;text-align:right;">Total unidades:</td><td style="padding:8px 12px;text-align:center;font-size:16px;">' + grandTotal + '</td></tr></tfoot>' +
                 '</table>' +
                 '<div class="footer">Generado por GangaLoo Admin &nbsp;|&nbsp; ' + new Date().toLocaleString('es-DO') + '</div>' +
                 '</body></html>');
             win.document.close();
         }
 
-                function renderSellerInventory() {
+        function renderSellerInventory() {
 
             const list = document.getElementById('sellerInventoryList');
             if (!list) return;
