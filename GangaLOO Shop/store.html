@@ -3146,17 +3146,18 @@ if(sb){initAuth();}else{loadData();}
   <div id="chatMessages" style="height:300px;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:10px;background:#f8f6ff;">
     <div class="chat-msg bot" style="align-self:flex-start;max-width:85%;">
       <div style="background:white;border-radius:12px 12px 12px 2px;padding:10px 13px;font-size:13px;color:#222;box-shadow:0 1px 4px rgba(0,0,0,.08);line-height:1.5;">
-        👋 ¡Hola! Soy el asistente de GangaLoo.<br><br>Puedo ayudarte con información sobre pelucas, extensiones, precios, disponibilidad y más.<br><br>¿En qué te puedo ayudar? 😊
+        👋 ¡Hola! Soy el asistente de GangaLoo.<br><br>Puedo ayudarte con:<br>🛍️ Pedidos de Temu, Shein, Amazon, eBay<br>💆 Pelucas y extensiones online<br>👑 Club GangaLoo · 💰 Ganar dinero<br>📍 Ubicaciones y contacto<br><br>¿En qué te ayudo hoy? 😊
       </div>
     </div>
   </div>
 
   <!-- Quick replies -->
   <div id="quickReplies" style="padding:8px 12px;display:flex;gap:6px;flex-wrap:wrap;background:#f8f6ff;border-top:1px solid #ede9fe;">
-    <button onclick="sendQuick('¿Qué tipos de pelucas tienen?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">💆 Tipos de pelucas</button>
-    <button onclick="sendQuick('¿Cuáles son sus precios?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">💰 Precios</button>
-    <button onclick="sendQuick('¿Hacen envíos?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">🚚 Envíos</button>
-    <button onclick="sendQuick('¿Cómo puedo pagar?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">💳 Pagos</button>
+    <button onclick="sendQuick('¿Cómo hago un pedido de Temu o Shein?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">🛍️ Pedir de Temu/Shein</button>
+    <button onclick="sendQuick('¿Qué es el Club GangaLoo y cuánto cuesta?')" style="background:#fff3cd;border:1px solid #f5c842;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#8a6200;font-weight:600;">👑 Club GangaLoo</button>
+    <button onclick="sendQuick('¿Cómo puedo ganar dinero con GangaLoo?')" style="background:#e8f5e9;border:1px solid #81c784;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#2e7d32;font-weight:600;">💰 Ganar dinero</button>
+    <button onclick="sendQuick('¿Qué pelucas tienen disponibles y a qué precio?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">💆 Ver pelucas</button>
+    <button onclick="sendQuick('¿Dónde están ubicados y cuál es el horario?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">📍 Tiendas</button>
   </div>
 
   <!-- Input -->
@@ -3233,11 +3234,36 @@ if(sb){initAuth();}else{loadData();}
     const btn = document.getElementById('chatSendBtn');
     btn.disabled = true;
 
+    // Build a compact product catalog to send with the request
+    function buildCatalog() {
+      try {
+        const prods = window.allProducts || [];
+        const catsData = window.allCategories || [];
+        if (!prods.length) {
+          console.warn('[GangaLoo chat] allProducts is empty — catalog null');
+          return null;
+        }
+        const cats = {};
+        prods.forEach(p => {
+          const price = p.salePrice || p.price || 0;
+          if (!price) return;
+          const catId = String((p.categoryIds && p.categoryIds[0]) || p.categoryId || '');
+          const cat = catsData.find(c => String(c.id) === catId);
+          const catName = cat ? cat.name : 'General';
+          if (!cats[catName]) cats[catName] = [];
+          cats[catName].push(`  - ${p.name}${p.sku?' (SKU:'+p.sku+')':''}: RD$ ${Number(price).toLocaleString('es-DO')}`);
+        });
+        const result = Object.entries(cats).map(([cat, items]) => `${cat}:\n${items.join('\n')}`).join('\n\n');
+        console.log('[GangaLoo chat] catalog sent:', prods.length, 'products,', Object.keys(cats).length, 'cats,', result.length, 'chars');
+        return result;
+      } catch(e) { console.error('[GangaLoo chat] buildCatalog error:', e); return null; }
+    }
+
     try {
       const response = await fetch('/.netlify/functions/chat-proxy', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ messages: chatHistory })
+        body: JSON.stringify({ messages: chatHistory, catalog: buildCatalog() })
       });
       const data = await response.json();
       removeTyping(typingId);
