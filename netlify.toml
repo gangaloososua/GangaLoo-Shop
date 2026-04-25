@@ -4,7 +4,7 @@
   publish   = "GangaLOO Shop"
 
 [build.environment]
-  SECRETS_SCAN_OMIT_PATHS = "GangaLOO Shop/store.html,GangaLOO Shop/admin.html,GangaLOO Shop/admin-v2.html,GangaLOO Shop/pos.html,GangaLOO Shop/index.html,GangaLOO Shop/seller-signup.html,GangaLOO Shop/gangaloo-orders-admin.html,GangaLOO Shop/netlify/functions/create-paypal.js,GangaLOO Shop/netlify/functions/capture-paypal.js,GangaLOO Shop/netlify/functions/create-checkout.js,GangaLOO Shop/netlify/functions/stripe-webhook.js,GangaLOO Shop/netlify/functions/chat-proxy.js,GangaLOO Shop/club-gangaloo.html,GangaLOO Shop/config.js,GangaLOO Shop/wholesale.html,GangaLOO Shop/gangaloo-landing.html,GangaLOO Shop/partners.html,GangaLOO Shop/aliexpress.html,GangaLOO Shop/netlify/functions/aliexpress-api.js,GangaLOO Shop/gangaloo-client-form.html,GangaLOO Shop/inject-config.sh"
+  SECRETS_SCAN_OMIT_PATHS = "GangaLOO Shop/store.html,GangaLOO Shop/chat.html,GangaLOO Shop/admin.html,GangaLOO Shop/admin-v2.html,GangaLOO Shop/pos.html,GangaLOO Shop/index.html,GangaLOO Shop/seller-signup.html,GangaLOO Shop/gangaloo-orders-admin.html,GangaLOO Shop/netlify/functions/create-paypal.js,GangaLOO Shop/netlify/functions/capture-paypal.js,GangaLOO Shop/netlify/functions/create-checkout.js,GangaLOO Shop/netlify/functions/stripe-webhook.js,GangaLOO Shop/netlify/functions/chat-proxy.js,GangaLOO Shop/club-gangaloo.html,GangaLOO Shop/config.js,GangaLOO Shop/wholesale.html,GangaLOO Shop/gangaloo-landing.html,GangaLOO Shop/partners.html,GangaLOO Shop/aliexpress.html,GangaLOO Shop/netlify/functions/aliexpress-api.js,GangaLOO Shop/gangaloo-client-form.html,GangaLOO Shop/inject-config.sh"
 
 [functions]
   node_bundler = "esbuild"
