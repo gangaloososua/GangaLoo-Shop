@@ -336,17 +336,17 @@
 const SUPABASE_URL = 'https://xnbkwczolkinurohloxj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes';
 
-let _catalog = null;  // built once on load
+let _catalog = null;
 
 async function loadCatalog() {
   try {
     const { createClient } = supabase;
     const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
-    const { data } = await sb
+    const { data, error } = await sb
       .from('inventory_data')
       .select('products,purchases,categories')
       .limit(1);
-    if (!data?.length) return;
+    if (error || !data?.length) return;
 
     const row = data[0];
     const products   = JSON.parse(row.products   || '[]');
@@ -355,24 +355,26 @@ async function loadCatalog() {
 
     // Build stock map
     const stock = {};
-    purchases.forEach(p => {
-      if (p.status === 'delivered' && (p.remainingQty || 0) > 0) {
-        stock[p.productId] = (stock[p.productId] || 0) + (p.remainingQty || 0);
+    purchases.forEach(pu => {
+      if (pu.status === 'delivered') {
+        const pid = String(pu.productId);
+        stock[pid] = (stock[pid] || 0) + (pu.remainingQty || 0);
       }
     });
 
-    // Group by category, only show in-stock products
+    // Group by category — include all products with a price
     const cats = {};
     products.forEach(p => {
       const price = p.salePrice || p.price || 0;
       if (!price) return;
-      const qty = stock[p.id] || 0;
-      const catId = (p.categoryIds && p.categoryIds[0]) || p.categoryId;
-      const cat = categories.find(c => String(c.id) === String(catId));
+      const catId = String((p.categoryIds && p.categoryIds[0]) || p.categoryId || '');
+      const cat = categories.find(c => String(c.id) === catId);
       const catName = cat ? cat.name : 'General';
+      const qty = stock[String(p.id)] || 0;
       if (!cats[catName]) cats[catName] = [];
       cats[catName].push(
-        `  - ${p.name}${p.sku ? ' (' + p.sku + ')' : ''}: RD$ ${Number(price).toLocaleString('es-DO')}${qty > 0 ? ' · ' + qty + ' en stock' : ' · sin stock'}`
+        `  - ${p.name}${p.sku ? ' (SKU:' + p.sku + ')' : ''}: RD$ ${Number(price).toLocaleString('es-DO')}` +
+        (qty > 0 ? ` · ${qty} disponibles` : '')
       );
     });
 
@@ -380,14 +382,14 @@ async function loadCatalog() {
       .map(([cat, items]) => cat + ':\n' + items.join('\n'))
       .join('\n\n');
 
-    console.log('[GangaLoo] Catalog loaded:', Object.keys(cats).length, 'categories,', products.length, 'products');
+    console.log('[GangaLoo] ✅ Catalog ready —', products.length, 'products,', Object.keys(cats).length, 'categories');
   } catch(e) {
-    console.warn('Catalog load failed:', e.message);
+    console.warn('[GangaLoo] ❌ Catalog error:', e.message);
   }
 }
 
-// Load catalog immediately
-loadCatalog();
+// Start loading immediately — store promise so sendChat can await it
+const _catalogPromise = loadCatalog();
 </script>
 
 <script>
@@ -420,6 +422,9 @@ async function sendChat() {
   const typingId = showTyping();
   const btn = document.getElementById('sendBtn');
   btn.disabled = true;
+
+  // Wait for catalog if still loading (first message only)
+  if (_catalogPromise) await _catalogPromise;
 
   try {
     const res = await fetch('/.netlify/functions/chat-proxy', {
