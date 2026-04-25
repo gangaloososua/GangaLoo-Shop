@@ -454,7 +454,8 @@ function appendMsg(role, text) {
   // Convert URLs to clickable links and newlines to <br>
   const safe = text
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
+    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:#00b4d8;word-break:break-all;text-underline-offset:2px;">$1</a>')
+      .replace(/\b(wa\.me\/[^\s<]+)/g, '<a href="https://$1" target="_blank" rel="noopener" style="color:#25D366;word-break:break-all;">$1</a>')
     .replace(/\n/g, '<br>');
 
   div.innerHTML = `

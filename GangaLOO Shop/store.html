@@ -3174,8 +3174,8 @@ if(sb){initAuth();}else{loadData();}
 
 <style>
   @media(max-width:600px){
-    #chatBubble{bottom:72px;}
-    #chatBox{bottom:136px;right:12px;left:12px;width:auto;}
+    #chatBubble{bottom:90px;}
+    #chatBox{bottom:155px;right:12px;left:12px;width:auto;}
   }
   .chat-msg.user>div{background:#6c3ff5;color:white;border-radius:12px 12px 2px 12px;}
   .chat-msg.bot>div{background:white;color:#222;border-radius:12px 12px 12px 2px;box-shadow:0 1px 4px rgba(0,0,0,.08);}
@@ -3283,8 +3283,11 @@ if(sb){initAuth();}else{loadData();}
     const div = document.createElement('div');
     div.className = 'chat-msg ' + role;
     div.style.cssText = 'align-self:' + (role==='user'?'flex-end':'flex-start') + ';max-width:85%';
-    // Convert line breaks
-    const safeText = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    // Convert URLs to links and line breaks
+    const safeText = text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:#00b4d8;text-decoration:underline;word-break:break-all;">$1</a>')
+      .replace(/\n/g,'<br>');
     div.innerHTML = `<div style="padding:10px 13px;font-size:13px;line-height:1.5;">${safeText}</div>`;
     msgs.appendChild(div);
     scrollChat();
