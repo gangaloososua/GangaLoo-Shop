@@ -330,6 +330,64 @@
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ── CONFIG (same as store) ──
+const SUPABASE_URL = 'SUPABASE_URL_PLACEHOLDER';
+const SUPABASE_KEY = 'SUPABASE_KEY_PLACEHOLDER';
+
+let _catalog = null;  // built once on load
+
+async function loadCatalog() {
+  try {
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { data } = await sb
+      .from('inventory_data')
+      .select('products,purchases,categories')
+      .limit(1);
+    if (!data?.length) return;
+
+    const row = data[0];
+    const products   = JSON.parse(row.products   || '[]');
+    const purchases  = JSON.parse(row.purchases  || '[]');
+    const categories = JSON.parse(row.categories || '[]');
+
+    // Build stock map
+    const stock = {};
+    purchases.forEach(p => {
+      if (p.status === 'delivered' && (p.remainingQty || 0) > 0) {
+        stock[p.productId] = (stock[p.productId] || 0) + (p.remainingQty || 0);
+      }
+    });
+
+    // Group by category, only show in-stock products
+    const cats = {};
+    products.forEach(p => {
+      const price = p.salePrice || p.price || 0;
+      if (!price) return;
+      const qty = stock[p.id] || 0;
+      const catId = (p.categoryIds && p.categoryIds[0]) || p.categoryId;
+      const cat = categories.find(c => String(c.id) === String(catId));
+      const catName = cat ? cat.name : 'General';
+      if (!cats[catName]) cats[catName] = [];
+      cats[catName].push(
+        `  - ${p.name}${p.sku ? ' (' + p.sku + ')' : ''}: RD$ ${Number(price).toLocaleString('es-DO')}${qty > 0 ? ' · ' + qty + ' en stock' : ' · sin stock'}`
+      );
+    });
+
+    _catalog = Object.entries(cats)
+      .map(([cat, items]) => cat + ':\n' + items.join('\n'))
+      .join('\n\n');
+  } catch(e) {
+    console.warn('Catalog load failed:', e.message);
+  }
+}
+
+// Load catalog immediately
+loadCatalog();
+</script>
+
 <script>
 const chatHistory = [];
 
@@ -365,7 +423,7 @@ async function sendChat() {
     const res = await fetch('/.netlify/functions/chat-proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: chatHistory, catalog: null })
+      body: JSON.stringify({ messages: chatHistory, catalog: _catalog })
     });
     const data = await res.json();
     removeTyping(typingId);

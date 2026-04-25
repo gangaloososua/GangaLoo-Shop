@@ -14,7 +14,8 @@ echo "Injecting config into HTML files..."
 for FILE in \
   "$SHOP/gangaloo-client-form.html" \
   "$SHOP/admin-v2.html" \
-  "$SHOP/pos.html"
+  "$SHOP/pos.html" \
+  "$SHOP/chat.html"
 do
   if [ -f "$FILE" ]; then
     echo "  → $FILE"
