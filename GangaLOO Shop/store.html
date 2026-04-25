@@ -397,38 +397,6 @@ button{font-family:'Jost',sans-serif;}
 .success-box h2{color:var(--green);}
 .success-box p{color:var(--muted);line-height:1.7;font-size:13px;margin-top:9px;}
 
-/* ── PRODUCT DETAIL MODAL ── */
-.pd-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:600;display:none;align-items:flex-end;justify-content:center;padding:0;}
-.pd-bg.open{display:flex;}
-@media(min-width:600px){.pd-bg{align-items:center;padding:16px;}}
-.pd-modal{background:var(--white);border-radius:24px 24px 0 0;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;animation:pdUp .28s ease-out;position:relative;}
-@media(min-width:600px){.pd-modal{border-radius:20px;}}
-@keyframes pdUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
-.pd-close{position:sticky;top:0;z-index:10;display:flex;justify-content:flex-end;padding:14px 16px 0;background:var(--white);}
-.pd-close button{width:36px;height:36px;border-radius:50%;border:none;background:var(--warm);color:var(--text);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
-.pd-close button:hover{background:var(--border);}
-.pd-img-wrap{width:100%;aspect-ratio:4/3;overflow:hidden;background:var(--warm);}
-.pd-img-wrap img{width:100%;height:100%;object-fit:cover;}
-.pd-img-wrap .pd-emoji{display:flex;align-items:center;justify-content:center;height:100%;font-size:5rem;}
-.pd-body{padding:20px 22px 28px;}
-.pd-cat-badge{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--gold);background:rgba(201,169,110,.12);border-radius:20px;padding:3px 10px;margin-bottom:10px;}
-.pd-name{font-family:'Cormorant Garamond',serif;font-size:1.75em;font-weight:600;line-height:1.2;color:var(--text);margin-bottom:6px;}
-.pd-sku{font-size:11px;color:var(--muted);margin-bottom:14px;}
-.pd-desc{font-size:13.5px;color:var(--muted);line-height:1.7;margin-bottom:18px;white-space:pre-wrap;}
-.pd-video{width:100%;border-radius:12px;overflow:hidden;margin-bottom:18px;aspect-ratio:16/9;background:#000;}
-.pd-video iframe,.pd-video video{width:100%;height:100%;border:none;}
-.pd-price-row{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
-.pd-price{font-family:'Cormorant Garamond',serif;font-size:2em;font-weight:700;color:var(--text);}
-.pd-price.club-price{color:#7c3aed;}
-.pd-price-orig{font-size:1em;color:var(--muted);text-decoration:line-through;}
-.pd-stock-pill{font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;}
-.pd-actions{display:flex;gap:10px;flex-wrap:wrap;}
-.pd-cart-btn{flex:1;min-width:140px;padding:14px 20px;background:var(--text);color:white;border:none;border-radius:12px;font-family:'Jost',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;}
-.pd-cart-btn:hover:not(:disabled){background:var(--gold);transform:translateY(-2px);}
-.pd-cart-btn:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;transform:none;}
-.pd-wa-btn{padding:14px 20px;background:#25D366;color:white;border:none;border-radius:12px;font-family:'Jost',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;text-decoration:none;}
-.pd-wa-btn:hover{background:#1ebe5d;transform:translateY(-2px);}
-
 /* ── TOAST ── */
 .toast-stack{position:fixed;bottom:24px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px;}
 .toast{background:#002D62;color:white;padding:11px 16px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:tIn .22s ease-out;max-width:280px;}
@@ -1202,33 +1170,6 @@ button{font-family:'Jost',sans-serif;}
   </div>
 </div>
 
-<!-- ═══ PRODUCT DETAIL MODAL ═══ -->
-<div class="pd-bg" id="pdBg" onclick="closePdModal(event)">
-  <div class="pd-modal" id="pdModal">
-    <div class="pd-close"><button onclick="closePdModal()" aria-label="Cerrar">×</button></div>
-    <div class="pd-img-wrap" id="pdImgWrap"></div>
-    <div class="pd-body">
-      <div id="pdCatBadge" class="pd-cat-badge" style="display:none"></div>
-      <div class="pd-name" id="pdName"></div>
-      <div class="pd-sku" id="pdSku"></div>
-      <div id="pdVideoWrap" class="pd-video" style="display:none"></div>
-      <div class="pd-desc" id="pdDesc" style="display:none"></div>
-      <div class="pd-price-row">
-        <div class="pd-price" id="pdPrice"></div>
-        <div class="pd-price-orig" id="pdPriceOrig" style="display:none"></div>
-        <span class="pd-stock-pill" id="pdStockPill"></span>
-      </div>
-      <div class="pd-actions">
-        <button class="pd-cart-btn" id="pdCartBtn" onclick="pdAddCart()">🛒 Agregar al carrito</button>
-        <button class="pd-wa-btn" id="pdWaBtn">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-          Consultar
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ═══ CHECKOUT MODAL ═══ -->
 <div class="modal-bg" id="checkoutBg"><div class="modal" id="checkoutContent"></div></div>
 
@@ -1643,16 +1584,16 @@ function renderProducts(){
     else if(stk<=5){pc='sp-low';pt=`Últimas ${stk}`;}
     else{pc='sp-in';pt='Disponible';}
     return`<div class="pcard">
-      <div class="pcard-img" onclick="openPdModal(${p.id})" style="cursor:pointer;" title="Ver detalles">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}
+      <div class="pcard-img">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}
         <span class="stock-pill ${pc}">${pt}</span>
         ${isClub?`<span class="club-disc-badge">-10%</span>`:(hasDisc?`<span class="disc-badge">-${discPct}%</span>`:(isGuest&&guestMarkup>0?`<span style="background:#002D62;color:white;border-radius:20px;padding:1px 5px;font-size:.55em;font-weight:700;position:absolute;top:6px;left:6px;">Regístrate</span>`:''))}
       </div>
-      <div class="pcard-body" onclick="openPdModal(${p.id})" style="cursor:pointer;" title="Ver detalles">
+      <div class="pcard-body">
         ${cat?`<div class="pcard-cat">${cat.icon?cat.icon+' ':''}${cat.name}</div>`:''}
         <div class="pcard-name">${p.name}</div>
         <div style="display:flex;align-items:center;gap:6px;">
           <div class="pcard-sku">SKU: ${p.sku||'—'}</div>
-          <button class="wa-share-btn" onclick="event.stopPropagation();shareProductWA(${p.id},${price})" title="Compartir por WhatsApp">
+          <button class="wa-share-btn" onclick="shareProductWA(${p.id},${price})" title="Compartir por WhatsApp">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
           </button>
         </div>
@@ -1664,7 +1605,7 @@ function renderProducts(){
           ${isClub?'<span class="club-badge">Club -10%</span>':''}
           ${isGuest&&guestMarkup>0?'<span style="font-size:.68em;color:#888;display:block;margin-top:2px;">Inicia sesión para precio especial</span>':''}
         </div>
-        <button class="add-btn" ${dis} onclick="event.stopPropagation();addCart(${p.id},'${esc(p.name)}',${price},'${esc(p.sku||'')}',${basePrice})" title="Agregar">+</button>
+        <button class="add-btn" ${dis} onclick="addCart(${p.id},'${esc(p.name)}',${price},'${esc(p.sku||'')}',${basePrice})" title="Agregar">+</button>
       </div>
     </div>`;
   }).join('');
@@ -1676,125 +1617,6 @@ function closeMobSearch(e){if(!e||e.target===document.getElementById('mobSearchO
 function syncSearch(val){document.getElementById('searchInput').value=val;searchQuery=val.toLowerCase();renderProducts();}
 
 /* ── CART ── */
-/* ── PRODUCT DETAIL MODAL ── */
-let _pdProduct=null, _pdPrice=0, _pdBasePrice=0;
-
-function openPdModal(productId){
-  const p = allProducts.find(pr=>String(pr.id)===String(productId));
-  if(!p) return;
-  _pdProduct = p;
-
-  const stk = selectedWH ? getStock(p.id, selectedWH) : getStock(p.id, null);
-  const origPrice = p.price||p.finalPrice||p.salePrice||0;
-  const hasDisc = p.discountPrice && p.discountPrice>0 && p.discountPrice<origPrice;
-  const basePrice = hasDisc ? p.discountPrice : origPrice;
-  const isClub = isClubMember();
-  const guestMarkup = parseFloat(storeConfig?.guest_markup||0);
-  const isGuest = !isLoggedIn();
-  const price = getDisplayPrice(basePrice);
-  const origToShow = isGuest&&guestMarkup>0 ? basePrice : (isClub ? basePrice : origPrice);
-  const showOrig = isClub||hasDisc||(isGuest&&guestMarkup>0);
-  _pdPrice = price;
-  _pdBasePrice = basePrice;
-
-  const pCatIds = (p.categoryIds&&p.categoryIds.length?p.categoryIds:[p.categoryId]);
-  const cat = allCategories.find(c=>pCatIds.map(String).includes(String(c.id)));
-
-  // Image
-  const imgWrap = document.getElementById('pdImgWrap');
-  if(p.imageUrl){
-    imgWrap.innerHTML = `<img src="${p.imageUrl}" alt="${p.name}" onerror="this.parentElement.innerHTML='<div class=pd-emoji>'+(cat?.icon||'💇')+'</div>'">`;
-  } else {
-    imgWrap.innerHTML = `<div class="pd-emoji">${cat?.icon||'💇'}</div>`;
-  }
-
-  // Category
-  const catBadge = document.getElementById('pdCatBadge');
-  if(cat){ catBadge.textContent = (cat.icon?cat.icon+' ':'')+cat.name; catBadge.style.display='inline-block'; }
-  else { catBadge.style.display='none'; }
-
-  // Name & SKU
-  document.getElementById('pdName').textContent = p.name;
-  document.getElementById('pdSku').textContent = p.sku ? 'SKU: '+p.sku : '';
-
-  // Description
-  const descEl = document.getElementById('pdDesc');
-  if(p.description && p.description.trim()){
-    descEl.textContent = p.description;
-    descEl.style.display = 'block';
-  } else {
-    descEl.style.display = 'none';
-  }
-
-  // Video — supports YouTube URL or direct video URL
-  const videoWrap = document.getElementById('pdVideoWrap');
-  const videoUrl = p.videoUrl || p.video_url || '';
-  if(videoUrl){
-    const ytMatch = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if(ytMatch){
-      videoWrap.innerHTML = `<iframe src="https://www.youtube.com/embed/${ytMatch[1]}" allowfullscreen></iframe>`;
-    } else {
-      videoWrap.innerHTML = `<video src="${videoUrl}" controls></video>`;
-    }
-    videoWrap.style.display = 'block';
-  } else {
-    videoWrap.innerHTML = '';
-    videoWrap.style.display = 'none';
-  }
-
-  // Price
-  const priceEl = document.getElementById('pdPrice');
-  priceEl.textContent = 'RD$ '+fmt(price);
-  priceEl.className = 'pd-price'+(isClub?' club-price':'');
-  const priceOrig = document.getElementById('pdPriceOrig');
-  if(showOrig){ priceOrig.textContent = 'RD$ '+fmt(origToShow); priceOrig.style.display='block'; }
-  else { priceOrig.style.display='none'; }
-
-  // Stock pill
-  const pill = document.getElementById('pdStockPill');
-  if(stk===0){ pill.textContent='Agotado'; pill.style.cssText='background:#fee2e2;color:#b91c1c;'; }
-  else if(stk<=5){ pill.textContent='Últimas '+stk; pill.style.cssText='background:#fef9c3;color:#a16207;'; }
-  else { pill.textContent='Disponible'; pill.style.cssText='background:#dcfce7;color:#15803d;'; }
-
-  // Cart button
-  const cartBtn = document.getElementById('pdCartBtn');
-  cartBtn.disabled = stk===0;
-  cartBtn.textContent = stk===0 ? 'Agotado' : '🛒 Agregar al carrito';
-
-  // WhatsApp button
-  const waBtn = document.getElementById('pdWaBtn');
-  const waMsg = encodeURIComponent(`Hola! Me interesa este producto:\n*${p.name}*\nSKU: ${p.sku||'—'}\nPrecio: RD$ ${fmt(price)}\n\n¿Está disponible?`);
-  waBtn.onclick = () => window.open(`https://wa.me/18292867868?text=${waMsg}`, '_blank');
-
-  // Open
-  document.getElementById('pdBg').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-
-function closePdModal(e){
-  if(e && e.target !== document.getElementById('pdBg')) return;
-  document.getElementById('pdBg').classList.remove('open');
-  document.body.style.overflow = '';
-  // Stop any video playback
-  const vw = document.getElementById('pdVideoWrap');
-  const iframe = vw.querySelector('iframe');
-  if(iframe){ iframe.src = iframe.src; } // reload stops playback
-}
-
-function pdAddCart(){
-  if(!_pdProduct) return;
-  addCart(_pdProduct.id, _pdProduct.name, _pdPrice, _pdProduct.sku||'', _pdBasePrice);
-  closePdModal();
-}
-
-// Close on Escape key
-document.addEventListener('keydown', e => {
-  if(e.key==='Escape' && document.getElementById('pdBg').classList.contains('open')){
-    document.getElementById('pdBg').classList.remove('open');
-    document.body.style.overflow='';
-  }
-});
-
 function shareProductWA(id, price) {
   const p = allProducts.find(x=>x.id===id);
   const name = p ? p.name : '';
@@ -3286,5 +3108,224 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 if(sb){initAuth();}else{loadData();}
 </script>
+<!-- ═══ AI CHAT BOT ═══ -->
+<div id="chatBubble" onclick="toggleChat()" title="Chat con GangaLoo" style="
+  position:fixed;bottom:80px;right:20px;z-index:500;
+  width:54px;height:54px;border-radius:50%;
+  background:linear-gradient(135deg,#6c3ff5,#00b4d8);
+  box-shadow:0 4px 18px rgba(108,63,245,.45);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:transform .2s;">
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+  <span id="chatUnread" style="display:none;position:absolute;top:-4px;right:-4px;background:#ff4757;color:white;border-radius:99px;font-size:10px;padding:1px 6px;font-weight:700;">1</span>
+</div>
+
+<div id="chatBox" style="
+  display:none;position:fixed;bottom:145px;right:20px;z-index:500;
+  width:340px;max-width:calc(100vw - 32px);
+  background:#fff;border-radius:16px;
+  box-shadow:0 8px 40px rgba(0,0,0,.18);
+  overflow:hidden;font-family:'Syne',sans-serif;
+  flex-direction:column;">
+
+  <!-- Header -->
+  <div style="background:linear-gradient(135deg,#6c3ff5,#00b4d8);padding:14px 16px;display:flex;align-items:center;gap:10px;">
+    <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 8v4l3 3"/></svg>
+    </div>
+    <div style="flex:1;">
+      <div style="color:white;font-weight:700;font-size:14px;">GangaLoo Asistente</div>
+      <div style="color:rgba(255,255,255,.75);font-size:11px;">🟢 En línea · Responde al instante</div>
+    </div>
+    <button onclick="toggleChat()" style="background:none;border:none;color:white;cursor:pointer;font-size:20px;line-height:1;opacity:.8;">✕</button>
+  </div>
+
+  <!-- Messages -->
+  <div id="chatMessages" style="height:300px;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:10px;background:#f8f6ff;">
+    <div class="chat-msg bot" style="align-self:flex-start;max-width:85%;">
+      <div style="background:white;border-radius:12px 12px 12px 2px;padding:10px 13px;font-size:13px;color:#222;box-shadow:0 1px 4px rgba(0,0,0,.08);line-height:1.5;">
+        👋 ¡Hola! Soy el asistente de GangaLoo.<br><br>Puedo ayudarte con información sobre pelucas, extensiones, precios, disponibilidad y más.<br><br>¿En qué te puedo ayudar? 😊
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick replies -->
+  <div id="quickReplies" style="padding:8px 12px;display:flex;gap:6px;flex-wrap:wrap;background:#f8f6ff;border-top:1px solid #ede9fe;">
+    <button onclick="sendQuick('¿Qué tipos de pelucas tienen?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">💆 Tipos de pelucas</button>
+    <button onclick="sendQuick('¿Cuáles son sus precios?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">💰 Precios</button>
+    <button onclick="sendQuick('¿Hacen envíos?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">🚚 Envíos</button>
+    <button onclick="sendQuick('¿Cómo puedo pagar?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">💳 Pagos</button>
+  </div>
+
+  <!-- Input -->
+  <div style="padding:10px 12px;background:white;border-top:1px solid #eee;display:flex;gap:8px;align-items:flex-end;">
+    <textarea id="chatInput" placeholder="Escribe tu pregunta..." rows="1"
+      style="flex:1;border:1.5px solid #ede9fe;border-radius:10px;padding:8px 10px;font-size:13px;font-family:'Syne',sans-serif;resize:none;outline:none;max-height:80px;line-height:1.4;color:#222;background:#fafafa;"
+      oninput="autoResize(this)"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+    <button onclick="sendChat()" id="chatSendBtn" style="background:#6c3ff5;border:none;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+</div>
+
+<style>
+  @media(max-width:600px){
+    #chatBubble{bottom:72px;}
+    #chatBox{bottom:136px;right:12px;left:12px;width:auto;}
+  }
+  .chat-msg.user>div{background:#6c3ff5;color:white;border-radius:12px 12px 2px 12px;}
+  .chat-msg.bot>div{background:white;color:#222;border-radius:12px 12px 12px 2px;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+  .chat-typing span{display:inline-block;width:7px;height:7px;background:#9e8fc7;border-radius:50%;animation:blink 1.2s infinite;}
+  .chat-typing span:nth-child(2){animation-delay:.2s;}
+  .chat-typing span:nth-child(3){animation-delay:.4s;}
+  @keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+</style>
+
+<script>
+(function(){
+  let chatHistory = [];
+  let chatOpen = false;
+  let chatGreeted = false;
+  const SYSTEM_PROMPT = `Eres el asistente virtual de GangaLoo, una tienda especializada en pelucas y extensiones de cabello ubicada en República Dominicana (Sosúa, Puerto Plata).
+
+SOBRE GANGALOO:
+- Tienda de pelucas, extensiones y accesorios de cabello
+- Marca profesional, productos de calidad (cabello 100% humano y sintético)
+- Categorías: Pelucas Lacio, Ondulado, Rizado, Frontales, Cabellos 9a, 12a, etc.
+- Precios en pesos dominicanos (RD$)
+- Envíos a toda República Dominicana
+- Métodos de pago: efectivo, transferencia bancaria, tarjeta
+
+PERSONALIDAD:
+- Amable, profesional, entusiasta sobre cabello y belleza
+- Responde en español dominicano natural y cálido
+- Usa emojis con moderación (1-2 por mensaje)
+- Respuestas cortas y útiles (máx 3-4 oraciones)
+- Si no sabes algo específico, sugiere contactar directamente a la tienda
+
+NO hagas:
+- No inventes precios exactos si no los conoces
+- No prometas tiempos de entrega específicos
+- No menciones competidores`;
+
+  window.toggleChat = function() {
+    chatOpen = !chatOpen;
+    const box = document.getElementById('chatBox');
+    const unread = document.getElementById('chatUnread');
+    if(chatOpen){
+      box.style.display = 'flex';
+      box.style.flexDirection = 'column';
+      unread.style.display = 'none';
+      document.getElementById('chatInput').focus();
+    } else {
+      box.style.display = 'none';
+    }
+  };
+
+  window.autoResize = function(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 80) + 'px';
+  };
+
+  window.sendQuick = function(text) {
+    document.getElementById('chatInput').value = text;
+    document.getElementById('quickReplies').style.display = 'none';
+    sendChat();
+  };
+
+  window.sendChat = async function() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if(!text) return;
+    input.value = '';
+    input.style.height = 'auto';
+
+    appendMsg('user', text);
+    chatHistory.push({role:'user', content: text});
+
+    // Hide quick replies after first message
+    document.getElementById('quickReplies').style.display = 'none';
+
+    // Show typing
+    const typingId = showTyping();
+    const btn = document.getElementById('chatSendBtn');
+    btn.disabled = true;
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 400,
+          system: SYSTEM_PROMPT,
+          messages: chatHistory
+        })
+      });
+      const data = await response.json();
+      removeTyping(typingId);
+      const reply = data.content?.[0]?.text || 'Lo siento, tuve un problema. ¡Intenta de nuevo! 😊';
+      chatHistory.push({role:'assistant', content: reply});
+      appendMsg('bot', reply);
+    } catch(e) {
+      removeTyping(typingId);
+      appendMsg('bot', 'Tuve un problema técnico. Por favor intenta de nuevo en un momento 🙏');
+    }
+    btn.disabled = false;
+    scrollChat();
+  };
+
+  function appendMsg(role, text) {
+    const msgs = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = 'chat-msg ' + role;
+    div.style.cssText = 'align-self:' + (role==='user'?'flex-end':'flex-start') + ';max-width:85%';
+    // Convert line breaks
+    const safeText = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    div.innerHTML = `<div style="padding:10px 13px;font-size:13px;line-height:1.5;">${safeText}</div>`;
+    msgs.appendChild(div);
+    scrollChat();
+  }
+
+  function showTyping() {
+    const msgs = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    const id = 'typing_' + Date.now();
+    div.id = id;
+    div.className = 'chat-msg bot';
+    div.style.cssText = 'align-self:flex-start';
+    div.innerHTML = `<div class="chat-typing" style="padding:10px 13px;"><span></span><span></span><span></span></div>`;
+    msgs.appendChild(div);
+    scrollChat();
+    return id;
+  }
+
+  function removeTyping(id) {
+    const el = document.getElementById(id);
+    if(el) el.remove();
+  }
+
+  function scrollChat() {
+    const msgs = document.getElementById('chatMessages');
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  // Show unread badge after 3s if chat not opened
+  setTimeout(()=>{
+    if(!chatOpen){
+      document.getElementById('chatUnread').style.display='block';
+    }
+  }, 3000);
+
+  // Bubble pulse animation
+  const bubble = document.getElementById('chatBubble');
+  bubble.addEventListener('mouseover',()=>bubble.style.transform='scale(1.1)');
+  bubble.addEventListener('mouseout',()=>bubble.style.transform='scale(1)');
+})();
+</script>
+
 </body>
 </html>
