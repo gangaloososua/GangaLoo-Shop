@@ -7274,6 +7274,16 @@ function renderProductosList() {
       discBadge = `<span class="badge badge-amber" style="font-size:10px;">🏷 ${p.discountType==='percent'?p.discountValue+'%':formatDOP(p.discountValue)} OFF</span>`;
     }
 
+    /* Average purchase cost from actual lots */
+    const pLots = purchases.filter(l => String(l.productId)===String(p.id) && l.status==='delivered' && (l.costDOP||0)>0);
+    const avgCostDOP = pLots.length
+      ? Math.round(pLots.reduce((s,l)=>(s+(l.costDOP||0)*(l.qty||1)),0) / pLots.reduce((s,l)=>s+(l.qty||1),0))
+      : 0;
+    const salePrice  = p.salePrice || p.price || 0;
+    const realMarginPct = avgCostDOP > 0 && salePrice > 0
+      ? Math.round((salePrice - avgCostDOP) / salePrice * 100)
+      : null;
+
     return `
       <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-md);overflow:hidden;cursor:pointer;transition:box-shadow .2s,transform .2s,border-color .2s;"
            onclick="openProductDetail('${p.id}')"
@@ -7301,19 +7311,23 @@ function renderProductosList() {
         <!-- Warehouse stock -->
         ${whBreakdown ? `<div style="padding:4px 14px;display:flex;gap:4px;flex-wrap:wrap;">${whBreakdown}</div>` : ''}
 
-        <!-- Stats row: Costo USD · Precio DOP · Margen -->
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:10px 14px;border-radius:var(--r-xs);overflow:hidden;border:1px solid var(--border);">
+        <!-- Stats row: Costo USD · Costo DOP · Precio · Margen -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:10px 14px;border-radius:var(--r-xs);overflow:hidden;border:1px solid var(--border);">
           <div style="padding:6px 8px;text-align:center;background:var(--surface-2);">
             <div style="font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;">Costo USD</div>
             <div style="font-weight:700;font-size:.88em;margin-top:2px;">$${baseCostUSD.toFixed(2)}</div>
           </div>
+          <div style="padding:6px 8px;text-align:center;background:var(--surface-2);border-left:1px solid var(--border);">
+            <div style="font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;">Costo DOP</div>
+            <div style="font-weight:700;font-size:.88em;margin-top:2px;color:${avgCostDOP>0?'var(--amber)':'var(--ink-4)'};">${avgCostDOP>0?formatDOP(avgCostDOP):'—'}</div>
+          </div>
           <div style="padding:6px 8px;text-align:center;background:var(--violet-l);border-left:1px solid var(--border);border-right:1px solid var(--border);">
-            <div style="font-size:10px;color:var(--violet);text-transform:uppercase;letter-spacing:.05em;">Precio DOP</div>
-            <div style="font-weight:800;font-size:.88em;color:var(--violet);margin-top:2px;">$${price.toFixed(0)}</div>
+            <div style="font-size:10px;color:var(--violet);text-transform:uppercase;letter-spacing:.05em;">Precio</div>
+            <div style="font-weight:800;font-size:.88em;color:var(--violet);margin-top:2px;">${salePrice>0?formatDOP(salePrice):'—'}</div>
           </div>
           <div style="padding:6px 8px;text-align:center;background:var(--surface-2);">
             <div style="font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;">Margen</div>
-            <div style="font-weight:700;font-size:.88em;margin-top:2px;color:${margin>=20?'var(--emerald)':margin>=10?'var(--amber)':'var(--rose)'};">${margin.toFixed(1)}%</div>
+            <div style="font-weight:700;font-size:.88em;margin-top:2px;color:${realMarginPct===null?'var(--ink-4)':realMarginPct>=30?'var(--emerald)':realMarginPct>=15?'var(--amber)':'var(--rose)'};">${realMarginPct!==null?realMarginPct+'%':margin.toFixed(1)+'%'}</div>
           </div>
         </div>
 
