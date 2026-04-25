@@ -201,6 +201,9 @@ select.field option { background:var(--surface2); }
 .photo-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px; }
 .photo-thumb { aspect-ratio:1; border-radius:8px; overflow:hidden; position:relative; background:var(--surface3); cursor:pointer; border:1px solid var(--border); }
 .photo-thumb img { width:100%; height:100%; object-fit:cover; }
+.photo-thumb video { width:100%; height:100%; object-fit:cover; }
+.photo-thumb .video-badge { position:absolute; bottom:3px; left:3px; background:rgba(0,0,0,.7); color:white; font-size:9px; padding:1px 5px; border-radius:99px; pointer-events:none; }
+.video-upload-progress { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; color:white; font-size:11px; border-radius:8px; text-align:center; }
 .photo-thumb .del-btn { position:absolute; top:3px; right:3px; background:rgba(255,77,109,.9); color:white; border:none; border-radius:99px; width:18px; height:18px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 .photo-add { aspect-ratio:1; border-radius:8px; border:1.5px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; color:var(--ink3); font-size:11px; gap:4px; transition:border-color .2s; }
 .photo-add:hover { border-color:var(--accent); color:var(--accent); }
@@ -745,9 +748,10 @@ function openAddToStoreModal(productId) {
         <input class="field" id="as_shelf" placeholder="Ej: Pasillo A, Estante 2, Lado derecho" value="${existing.shelf||''}">
       </div>
       <div class="form-group">
-        <label class="form-label">📸 Fotos del producto</label>
+        <label class="form-label">📸 Fotos &amp; 🎥 Video del producto</label>
         <div id="as_photoGrid" class="photo-grid"></div>
         <input type="file" id="as_fileInput" accept="image/*" multiple style="display:none;" onchange="handlePhotoUpload(this,'as')">
+        <input type="file" id="as_videoInput" accept="video/*" style="display:none;" onchange="handleVideoUpload(this,'as')">
       </div>
       <div class="form-group">
         <label class="form-label">📝 Notas para el cliente</label>
@@ -760,6 +764,7 @@ function openAddToStoreModal(productId) {
     </div>
   `);
   window._storePhotos = [...(existing.photos||[])];
+  window._storeVideo = existing.video ? { type: 'url', url: existing.video } : null;
   renderPhotoGrid('as');
 }
 
@@ -778,9 +783,10 @@ function openEditStoreProduct(productId) {
         <input class="field" id="as_shelf" placeholder="Ej: Pasillo A, Estante 2" value="${existing.shelf||''}">
       </div>
       <div class="form-group">
-        <label class="form-label">📸 Fotos</label>
+        <label class="form-label">📸 Fotos &amp; 🎥 Video</label>
         <div id="as_photoGrid" class="photo-grid"></div>
         <input type="file" id="as_fileInput" accept="image/*" multiple style="display:none;" onchange="handlePhotoUpload(this,'as')">
+        <input type="file" id="as_videoInput" accept="video/*" style="display:none;" onchange="handleVideoUpload(this,'as')">
       </div>
       <div class="form-group">
         <label class="form-label">📝 Notas</label>
@@ -796,6 +802,7 @@ function openEditStoreProduct(productId) {
     </div>
   `);
   window._storePhotos = [...(existing.photos||[])];
+  window._storeVideo = existing.video ? { type: 'url', url: existing.video } : null;
   renderPhotoGrid('as');
 }
 
@@ -803,19 +810,49 @@ function renderPhotoGrid(prefix) {
   const grid = document.getElementById(`${prefix}_photoGrid`);
   if (!grid) return;
   const photos = window._storePhotos || [];
-  grid.innerHTML = photos.map((url,i) => `
+  const video  = window._storeVideo  || null; // { url, type:'url'|'uploading' }
+
+  let html = photos.map((url,i) => `
     <div class="photo-thumb">
       <img src="${url}" alt="foto">
       <button class="del-btn" onclick="removeStorePhoto(${i},'${prefix}')">✕</button>
-    </div>`).join('') +
-    `<div class="photo-add" onclick="document.getElementById('${prefix}_fileInput').click()">
-      <span style="font-size:20px;">📷</span>
-      <span>Agregar foto</span>
+    </div>`).join('');
+
+  // Video thumb
+  if (video) {
+    const isUploading = video.type === 'uploading';
+    html += `<div class="photo-thumb" style="position:relative;">
+      ${isUploading
+        ? `<div class="video-upload-progress">⏫<br>Subiendo...</div>`
+        : `<video src="${video.url}" muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+           <span class="video-badge">🎥 Video</span>
+           <button class="del-btn" onclick="removeStoreVideo('${prefix}')">✕</button>`}
     </div>`;
+  }
+
+  // Add buttons
+  html += `<div class="photo-add" onclick="document.getElementById('${prefix}_fileInput').click()">
+    <span style="font-size:20px;">📷</span>
+    <span>Foto</span>
+  </div>`;
+
+  if (!video) {
+    html += `<div class="photo-add" onclick="document.getElementById('${prefix}_videoInput').click()">
+      <span style="font-size:20px;">🎥</span>
+      <span>Video</span>
+    </div>`;
+  }
+
+  grid.innerHTML = html;
 }
 
 function removeStorePhoto(idx, prefix) {
   window._storePhotos.splice(idx, 1);
+  renderPhotoGrid(prefix);
+}
+
+function removeStoreVideo(prefix) {
+  window._storeVideo = null;
   renderPhotoGrid(prefix);
 }
 
@@ -832,12 +869,53 @@ function handlePhotoUpload(input, prefix) {
   input.value = '';
 }
 
+async function handleVideoUpload(input, prefix) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+
+  const maxMB = 50;
+  if (file.size > maxMB * 1024 * 1024) {
+    showToast(`Video muy grande. Máximo ${maxMB}MB`, 'error');
+    return;
+  }
+
+  // Show uploading state immediately
+  window._storeVideo = { type: 'uploading', url: '' };
+  renderPhotoGrid(prefix);
+
+  try {
+    const ext = file.name.split('.').pop() || 'mp4';
+    const path = `pos-videos/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { data, error } = await sb.storage.from('gangaloo-media').upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+    if (error) throw error;
+
+    const { data: urlData } = sb.storage.from('gangaloo-media').getPublicUrl(path);
+    window._storeVideo = { type: 'url', url: urlData.publicUrl };
+    showToast('Video subido ✅', 'success');
+  } catch(e) {
+    console.error('Video upload failed:', e);
+    window._storeVideo = null;
+    showToast('Error subiendo video: ' + (e.message || e), 'error');
+  }
+  renderPhotoGrid(prefix);
+}
+
 function saveAddToStore(productId) {
+  if (window._storeVideo?.type === 'uploading') {
+    showToast('Espera — el video todavía se está subiendo', 'error');
+    return;
+  }
   const shelf  = document.getElementById('as_shelf')?.value.trim() || '';
   const notes  = document.getElementById('as_notes')?.value.trim() || '';
   const photos = window._storePhotos || [];
+  const video  = window._storeVideo?.url || null;
   posProducts[String(productId)] = {
     active: true, shelf, notes, photos,
+    video: video || posProducts[String(productId)]?.video || null,
     addedAt: posProducts[String(productId)]?.addedAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
