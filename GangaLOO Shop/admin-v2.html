@@ -2241,7 +2241,14 @@ function renderDashboard() {
   /* ── Financial cards ── */
   const monthPurch    = purchases.filter(p => (p.date||'').startsWith(mk));
   const monthPurchPay = purchasePayments.filter(p => (p.date||'').startsWith(mk));
-  const monthExp      = transactions.filter(t => (t.date||'').startsWith(mk) && t.type==='expense');
+  const monthExp      = transactions.filter(t => {
+    if (!(t.date||'').startsWith(mk) || t.type!=='expense') return false;
+    if (t.isPurchasePayment) return false;
+    if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
+    if ((t.description||'').toLowerCase().startsWith('pago compra')) return false;
+    if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
+    return true;
+  });
   const monthIncomeTx = transactions.filter(t => (t.date||'').startsWith(mk) && t.type==='income');
   const monthSalePay  = payments.filter(p => (p.date||'').startsWith(mk));
 
@@ -11129,7 +11136,14 @@ function rptPyL(el) {
   const cogs      = purchases.filter(p=>rptInPeriod(p.date)&&p.status==='delivered').reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
   const grossProfit = revenue - cogs;
   const commPaid  = commissionPayouts.filter(p=>rptInPeriod(p.date)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  const otherExp  = transactions.filter(t=>rptInPeriod(t.date)&&t.type==='expense').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+  const otherExp  = transactions.filter(t => {
+    if (!rptInPeriod(t.date) || t.type!=='expense') return false;
+    if (t.isPurchasePayment) return false;                          // new purchase payments
+    if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false; // old lot payments
+    if ((t.description||'').toLowerCase().startsWith('pago compra')) return false; // old purchase payments
+    if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false; // commission txns
+    return true;
+  }).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
   const totalExp  = commPaid + otherExp;
   const netProfit = grossProfit - commPaid;
   const grossMargin = revenue>0?(grossProfit/revenue*100):0;
@@ -11169,7 +11183,14 @@ function rptPyL(el) {
 
     ${rptSection('📊 Desglose de Gastos', (() => {
       const cats = {};
-      transactions.filter(t=>rptInPeriod(t.date)&&t.type==='expense').forEach(t=>{
+      transactions.filter(t => {
+        if (!rptInPeriod(t.date) || t.type!=='expense') return false;
+        if (t.isPurchasePayment) return false;
+        if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
+        if ((t.description||'').toLowerCase().startsWith('pago compra')) return false;
+        if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
+        return true;
+      }).forEach(t=>{
         const cat = accountingCategories.find(c=>String(c.id)===String(t.categoryId));
         const catName = cat ? (cat.name+(cat.subname?' — '+cat.subname:'')) : (!t.categoryId ? 'Sin categoría' : `Sin categoría (ID: ${t.categoryId})`);
         if (!cats[catName]) cats[catName]={amount:0,count:0};
@@ -11327,10 +11348,18 @@ function rptInventario(el) {
 
 /* ═══ TAB 7: POR MES (Monthly Trend) ═══ */
 function rptMensual(el) {
-  const months = [...new Set([
+  // Always include current month + last 17, merged with months that have data
+  const currentMk = monthKeyDR();
+  const dataMks = [...new Set([
     ...sales.map(s=>(s.date||'').slice(0,7)),
     ...purchases.map(p=>(p.date||'').slice(0,7)),
-  ].filter(Boolean))].sort().reverse().slice(0,18);
+  ].filter(Boolean))];
+  const last18 = [];
+  for (let i = 0; i < 18; i++) {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
+    last18.push(d.toLocaleString('en-CA',{timeZone:'America/Santo_Domingo',year:'numeric',month:'2-digit'}).slice(0,7));
+  }
+  const months = [...new Set([...last18, ...dataMks])].sort().reverse().slice(0,18);
 
   const paidMap = {}; payments.forEach(p=>{paidMap[String(p.saleId)]=(paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0);});
 
@@ -11343,7 +11372,7 @@ function rptMensual(el) {
     const comm    = commissionPayouts.filter(p=>p.monthKey===mk).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
     const gross   = rev - cogs;
     const net     = gross - comm;
-    const label   = new Date(mk+'-01').toLocaleString('es-DO',{month:'short',year:'2-digit'});
+    const label   = new Date(mk+'-02').toLocaleString('es-DO',{month:'short',year:'2-digit'});
     return { mk, label, rev, coll, cogs, comm, gross, net, count:mSales.length };
   });
 
@@ -12377,7 +12406,14 @@ function rptMetas(el) {
   const periodSales    = sales.filter(s => s.status !== 'cancelled' && inPeriod(s.date));
   const actualVentas   = periodSales.reduce((s,v) => s + saleTotal(v), 0);
   const actualCompras  = purchases.filter(p => inPeriod(p.date)).reduce((s,p) => s + (p.totalCostDOP || (p.costDOP||0)*(p.qty||0)), 0);
-  const actualGastos   = transactions.filter(t => t.type==='expense' && inPeriod(t.date)).reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
+  const actualGastos   = transactions.filter(t => {
+    if (t.type!=='expense' || !inPeriod(t.date)) return false;
+    if (t.isPurchasePayment) return false;
+    if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
+    if ((t.description||'').toLowerCase().startsWith('pago compra')) return false;
+    if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
+    return true;
+  }).reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
   const paidMap        = {};
   payments.forEach(p => { paidMap[String(p.saleId)] = (paidMap[String(p.saleId)]||0) + (parseFloat(p.amount)||0); });
   const actualGanancia = periodSales.reduce((s,v) => {
