@@ -11352,34 +11352,32 @@ function rptContabilidad(el) {
   const totalExp    = expenses + purchPayExp;  // true egresos = manual expenses + purchase payments
   const net         = totalIn - totalExp;
 
-  /* By accounting category */
+  /* By accounting category — store txns per category for drill-down */
   const inCats={}, exCats={};
   filtTx.filter(t=>t.type==='income').forEach(t=>{
     const c=accountingCategories.find(x=>x.id===t.categoryId)?.name||'Sin cat.';
-    if(!inCats[c])inCats[c]={a:0,n:0};
-    inCats[c].a+=parseFloat(t.amount)||0; inCats[c].n++;
+    if(!inCats[c])inCats[c]={a:0,n:0,txns:[]};
+    inCats[c].a+=parseFloat(t.amount)||0; inCats[c].n++; inCats[c].txns.push(t);
   });
-  // Regular expense transactions (exclude auto-generated purchase payment duplicates)
   filtTx.filter(t=>t.type==='expense'&&!t.isPurchasePayment&&!t.isReceiptEntry
     &&!(t.reference||'').startsWith('commission-payout')
     &&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
     &&!((t.description||'').toLowerCase().startsWith('pago compra'))
   ).forEach(t=>{
     const c=accountingCategories.find(x=>x.id===t.categoryId)?.name||'Sin cat.';
-    if(!exCats[c])exCats[c]={a:0,n:0};
-    exCats[c].a+=parseFloat(t.amount)||0; exCats[c].n++;
+    if(!exCats[c])exCats[c]={a:0,n:0,txns:[],pays:[]};
+    exCats[c].a+=parseFloat(t.amount)||0; exCats[c].n++; exCats[c].txns.push(t);
   });
-  // Purchase payments with category → show in egresos
   filtPurchPay.forEach(p=>{
     const amt = parseFloat(p.dopAmount||p.amount)||0;
     if (!amt) return;
     const catName = p.categoryId
       ? (accountingCategories.find(c=>String(c.id)===String(p.categoryId))?.name || 'Sin cat.')
       : '📦 Pagos Compras (sin cat.)';
-    if(!exCats[catName])exCats[catName]={a:0,n:0};
-    exCats[catName].a+=amt; exCats[catName].n++;
+    if(!exCats[catName])exCats[catName]={a:0,n:0,txns:[],pays:[]};
+    exCats[catName].a+=amt; exCats[catName].n++; exCats[catName].pays.push(p);
   });
-  if (salesColl>0) inCats['💳 Cobros de Ventas']={a:salesColl,n:filtPay.length};
+  if (salesColl>0) inCats['💳 Cobros de Ventas']={a:salesColl,n:filtPay.length,txns:[],pays:filtPay};
 
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
@@ -11393,22 +11391,44 @@ function rptContabilidad(el) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
       <div class="card">
         <div style="font-weight:800;font-size:.9em;color:var(--emerald);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">📈 Ingresos por Categoría</div>
-        ${Object.entries(inCats).sort((a,b)=>b[1].a-a[1].a).map(([k,d])=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">
-            <div style="font-size:13px;font-weight:600;">${k} <span style="color:var(--ink-3);font-size:11px;">(${d.n})</span></div>
-            <div style="font-weight:800;color:var(--emerald);">${formatDOP(d.a)}</div>
-          </div>`).join('')}
+        ${Object.entries(inCats).sort((a,b)=>b[1].a-a[1].a).map(([k,d],i)=>{
+          const uid = 'inc_'+i;
+          const rows = (d.pays||[]).map(p=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 12px;border-bottom:1px solid var(--border);background:var(--surface);">
+              <div><strong>${p.clientName||p.customerName||'Cliente'}</strong> · ${formatDate(p.date)} · Fact. ${p.invoiceNum||p.invoiceNumber||''}</div>
+              <div style="font-weight:700;color:var(--emerald);">${formatDOP(parseFloat(p.amount)||0)}</div></div>`).join('')
+            + (d.txns||[]).map(t=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 12px;border-bottom:1px solid var(--border);background:var(--surface);">
+              <div><strong>${t.description||'Sin descripción'}</strong> · ${formatDate(t.date)} · ${getAccountName(t.accountId)}</div>
+              <div style="font-weight:700;color:var(--emerald);">${formatDOP(parseFloat(t.amount)||0)}</div></div>`).join('');
+          return `<div style="border-bottom:1px solid var(--border);">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;cursor:pointer;" onclick="var el=document.getElementById('${uid}');el.style.display=el.style.display==='none'?'block':'none'">
+              <div style="font-size:13px;font-weight:600;">${k} <span style="color:var(--ink-3);font-size:11px;">(${d.n}) ▾</span></div>
+              <div style="font-weight:800;color:var(--emerald);">${formatDOP(d.a)}</div>
+            </div>
+            <div id="${uid}" style="display:none;">${rows||'<div style="font-size:11px;padding:4px 12px;color:var(--ink-3);">Sin detalle disponible</div>'}</div>
+          </div>`;
+        }).join('')}
         <div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:900;">
           <div>TOTAL</div><div style="color:var(--emerald);">${formatDOP(totalIn)}</div>
         </div>
       </div>
       <div class="card">
         <div style="font-weight:800;font-size:.9em;color:var(--rose);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">📉 Egresos por Categoría</div>
-        ${Object.entries(exCats).sort((a,b)=>b[1].a-a[1].a).map(([k,d])=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">
-            <div style="font-size:13px;font-weight:600;">${k} <span style="color:var(--ink-3);font-size:11px;">(${d.n})</span></div>
-            <div style="font-weight:800;color:var(--rose);">${formatDOP(d.a)}</div>
-          </div>`).join('')}
+        ${Object.entries(exCats).sort((a,b)=>b[1].a-a[1].a).map(([k,d],i)=>{
+          const uid = 'exc_'+i;
+          const rows = (d.pays||[]).map(p=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 12px;border-bottom:1px solid var(--border);background:var(--surface);">
+              <div><strong>${p.lotNumber||'—'}</strong> · ${formatDate(p.date)} · ${getAccountName(p.accountId)}</div>
+              <div style="font-weight:700;color:var(--rose);">${formatDOP(parseFloat(p.dopAmount||p.amount)||0)}</div></div>`).join('')
+            + (d.txns||[]).map(t=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 12px;border-bottom:1px solid var(--border);background:var(--surface);">
+              <div><strong>${t.description||'Sin descripción'}</strong> · ${formatDate(t.date)} · ${getAccountName(t.accountId)}</div>
+              <div style="font-weight:700;color:var(--rose);">${formatDOP(parseFloat(t.amount)||0)}</div></div>`).join('');
+          return `<div style="border-bottom:1px solid var(--border);">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;cursor:pointer;" onclick="var el=document.getElementById('${uid}');el.style.display=el.style.display==='none'?'block':'none'">
+              <div style="font-size:13px;font-weight:600;">${k} <span style="color:var(--ink-3);font-size:11px;">(${d.n}) ▾</span></div>
+              <div style="font-weight:800;color:var(--rose);">${formatDOP(d.a)}</div>
+            </div>
+            <div id="${uid}" style="display:none;">${rows||'<div style="font-size:11px;padding:4px 12px;color:var(--ink-3);">Sin detalle disponible</div>'}</div>
+          </div>`;
+        }).join('')}
         <div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:900;">
           <div>TOTAL</div><div style="color:var(--rose);">${formatDOP(expenses)}</div>
         </div>
