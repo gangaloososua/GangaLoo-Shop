@@ -12866,6 +12866,14 @@ function openRegistrarPagoLot(lotNumber) {
             <label class="field-label">Referencia</label>
             <input class="field" id="plRef" placeholder="Transferencia, PayPal, efectivo...">
           </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label class="field-label">Categoría de gasto</label>
+            <select class="field" id="plCategory">
+              <option value="">— Sin categoría —</option>
+              ${accountingCategories.filter(c=>c.type==='expense').map(c=>`<option value="${c.id}" ${c.id==='gas-compras'?'selected':''}>${c.name}</option>`).join('')}
+            </select>
+            <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">Se registrará como gasto en Contabilidad con esta categoría</div>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -12932,6 +12940,7 @@ function saveRegistrarPagoLot(presetLot) {
   const acctId  = document.getElementById('plAccount')?.value;
   const date    = document.getElementById('plDate')?.value || todayDR();
   const ref     = document.getElementById('plRef')?.value.trim() || '';
+  const catId   = document.getElementById('plCategory')?.value || '';
 
   if (!amount || amount <= 0) { showToast('Monto inválido', 'error'); return; }
   if (!acctId) { showToast('Selecciona una cuenta', 'error'); return; }
@@ -12988,9 +12997,25 @@ function saveRegistrarPagoLot(presetLot) {
     currency:  acct?.currency || 'DOP',
     impliedRate,
     accountId: acctId,
+    categoryId: catId || '',
     date,
     reference: ref || lotNumber,
   });
+
+  /* Create expense transaction so it shows in reports */
+  if (catId) {
+    transactions.push({
+      id:          generateId(),
+      type:        'expense',
+      description: `Pago compra ${lotNumber}${ref?' · '+ref:''}`,
+      amount:      Math.round(dopAmount*100)/100,
+      accountId:   acctId,
+      categoryId:  catId,
+      date,
+      reference:   lotNumber,
+      isPurchasePayment: true,
+    });
+  }
 
   debouncedSave();
   renderContabTab('pagoscompra');
