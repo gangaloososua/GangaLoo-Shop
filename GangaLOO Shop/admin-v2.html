@@ -9921,6 +9921,17 @@ function toggleGroupScope(ids) {
   showToast(`Categorías marcadas como ${newScope==='personal'?'👤 Personal':'🏢 Negocio'} ✅`,'success');
 }
 
+function markAsInternalTransfer(txnId) {
+  const t = transactions.find(x => String(x.id) === String(txnId));
+  if (!t) return;
+  t.isInternalTransfer = true;
+  debouncedSave();
+  // Re-render P&L
+  const el = document.getElementById('rptContent');
+  if (el) renderRptContent();
+  showToast('Transacción excluida del P&L ✅', 'success');
+}
+
 function toggleCatScope(id) {
   const cat = accountingCategories.find(c => String(c.id) === String(id));
   if (!cat) return;
@@ -11203,9 +11214,13 @@ function rptPyL(el) {
   const otherExpTxns = transactions.filter(t => {
     if (!rptInPeriod(t.date) || t.type!=='expense') return false;
     if (t.isPurchasePayment) return false;
+    if (t.isInternalTransfer) return false;
     if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
     if ((t.description||'').toLowerCase().startsWith('pago compra')) return false;
     if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
+    if ((t.reference||'').toLowerCase() === 'transferencia') return false;
+    const desc = (t.description||'').toLowerCase();
+    if (desc.startsWith('transferencia') || desc.startsWith('transfer entre') || desc.startsWith('movimiento interno')) return false;
     if (t.categoryId && !businessCatIds.has(String(t.categoryId))) return false;
     return true;
   }).sort((a,b)=>(parseFloat(b.amount)||0)-(parseFloat(a.amount)||0));
@@ -11259,7 +11274,10 @@ function rptPyL(el) {
                 '<div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (t.description||'Sin descripción') + '</div>' +
                 '<div style="color:var(--ink-3);font-size:11px;">' + formatDate(t.date) + ' · ' + (cat?cat.name:'Sin cat.') + ' · ' + getAccountName(t.accountId) + '</div>' +
               '</div>' +
-              '<div style="font-weight:700;color:var(--rose);white-space:nowrap;margin-left:12px;">− ' + formatDOP(parseFloat(t.amount)||0) + '</div>' +
+              '<div style="display:flex;align-items:center;gap:8px;white-space:nowrap;margin-left:12px;">' +
+                '<button onclick="markAsInternalTransfer(\"' + t.id + '\")" style="border:none;background:rgba(99,102,241,.1);color:var(--violet);border-radius:6px;padding:2px 7px;font-size:10px;cursor:pointer;font-weight:700;" title="Marcar como transferencia interna — excluir del P&L">↔ Excluir</button>' +
+                '<div style="font-weight:700;color:var(--rose);">− ' + formatDOP(parseFloat(t.amount)||0) + '</div>' +
+              '</div>' +
             '</div>';
           }).join('') : '<div style="padding:10px 32px;font-size:12px;color:var(--ink-3);">Sin transacciones de egreso</div>'}
         </div>
@@ -11276,9 +11294,13 @@ function rptPyL(el) {
       transactions.filter(t => {
         if (!rptInPeriod(t.date) || t.type!=='expense') return false;
         if (t.isPurchasePayment) return false;
+        if (t.isInternalTransfer) return false;
         if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
         if ((t.description||'').toLowerCase().startsWith('pago compra')) return false;
         if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
+        if ((t.reference||'').toLowerCase() === 'transferencia') return false;
+        const desc2 = (t.description||'').toLowerCase();
+        if (desc2.startsWith('transferencia') || desc2.startsWith('transfer entre') || desc2.startsWith('movimiento interno')) return false;
         if (t.categoryId && !businessCatIds.has(String(t.categoryId))) return false;
         return true;
       }).forEach(t=>{
