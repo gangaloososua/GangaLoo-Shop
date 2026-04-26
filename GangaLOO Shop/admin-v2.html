@@ -11200,16 +11200,16 @@ function rptPyL(el) {
   const grossProfit = revenue - cogs;
   const commPaid  = commissionPayouts.filter(p=>rptInPeriod(p.date)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const businessCatIds = new Set(accountingCategories.filter(c=>c.scope!=='personal').map(c=>String(c.id)));
-  const otherExp  = transactions.filter(t => {
+  const otherExpTxns = transactions.filter(t => {
     if (!rptInPeriod(t.date) || t.type!=='expense') return false;
     if (t.isPurchasePayment) return false;
     if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
     if ((t.description||'').toLowerCase().startsWith('pago compra')) return false;
     if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
-    // Exclude personal categories
     if (t.categoryId && !businessCatIds.has(String(t.categoryId))) return false;
     return true;
-  }).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+  }).sort((a,b)=>(parseFloat(b.amount)||0)-(parseFloat(a.amount)||0));
+  const otherExp = otherExpTxns.reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
   const totalExp  = commPaid + otherExp;
   const netProfit = grossProfit - commPaid;
   const grossMargin = revenue>0?(grossProfit/revenue*100):0;
@@ -11239,7 +11239,31 @@ function rptPyL(el) {
       ${row('GANANCIA BRUTA', formatDOP(grossProfit), `${grossMargin.toFixed(1)}% de margen`, grossProfit>=0?'var(--emerald)':'var(--rose)', true)}
       <div style="padding:8px 16px;background:var(--surface-2);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);">Gastos Operativos</div>
       ${row('Comisiones Vendedores', `− ${formatDOP(commPaid)}`, 'pagadas en el período', 'var(--amber)', false, 1)}
-      ${row('Otros Gastos', `− ${formatDOP(otherExp)}`, 'transacciones de egreso', 'var(--rose)', false, 1)}
+      <div style="border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 32px;cursor:pointer;background:var(--surface);"
+             onclick="document.getElementById('pyl_otros_list').style.display=document.getElementById('pyl_otros_list').style.display==='none'?'block':'none';document.getElementById('pyl_otros_arrow').style.transform=document.getElementById('pyl_otros_list').style.display==='none'?'':'rotate(180deg)'">
+          <div>
+            <div style="font-weight:600;font-size:.93em;color:var(--rose);">Otros Gastos</div>
+            <div style="font-size:11px;color:var(--ink-3);">${otherExpTxns.length} transacciones · click para ver detalle</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-weight:700;font-size:.95em;color:var(--rose);">− ${formatDOP(otherExp)}</div>
+            <span id="pyl_otros_arrow" style="color:var(--ink-3);font-size:12px;transition:transform .2s;">▼</span>
+          </div>
+        </div>
+        <div id="pyl_otros_list" style="display:none;background:var(--surface-2);">
+          ${otherExpTxns.length ? otherExpTxns.map(t => {
+            const cat = accountingCategories.find(c=>String(c.id)===String(t.categoryId));
+            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 32px;border-top:1px solid var(--border);font-size:12px;">' +
+              '<div style="flex:1;min-width:0;">' +
+                '<div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (t.description||'Sin descripción') + '</div>' +
+                '<div style="color:var(--ink-3);font-size:11px;">' + formatDate(t.date) + ' · ' + (cat?cat.name:'Sin cat.') + ' · ' + getAccountName(t.accountId) + '</div>' +
+              '</div>' +
+              '<div style="font-weight:700;color:var(--rose);white-space:nowrap;margin-left:12px;">− ' + formatDOP(parseFloat(t.amount)||0) + '</div>' +
+            '</div>';
+          }).join('') : '<div style="padding:10px 32px;font-size:12px;color:var(--ink-3);">Sin transacciones de egreso</div>'}
+        </div>
+      </div>
       ${row('Total Gastos', `− ${formatDOP(totalExp)}`, '', 'var(--rose)', true)}
       <div style="padding:14px 16px;background:${netProfit>=0?'var(--violet-l)':'rgba(244,63,94,.08)'};display:flex;justify-content:space-between;align-items:center;">
         <div style="font-family:'Cabinet Grotesk',sans-serif;font-weight:900;font-size:1.05em;">RESULTADO NETO</div>
