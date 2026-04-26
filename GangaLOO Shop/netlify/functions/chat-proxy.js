@@ -24,6 +24,13 @@ const STORE_KNOWLEDGE = `
   - Envíos a toda República Dominicana
   - Pago: efectivo, transferencia, tarjeta
 
+  LINKS DIRECTOS (usa estos cuando menciones productos o categorías):
+  - Ver categoría: https://gangaloo.netlify.app/store.html#cat-{ID}
+  - Ver producto:  https://gangaloo.netlify.app/store.html#prod-{ID}
+  Cuando el catálogo muestre un producto, construye su link con su ID.
+  Ejemplo: producto con id 42 → https://gangaloo.netlify.app/store.html#prod-42
+  Ejemplo: categoría con id 5  → https://gangaloo.netlify.app/store.html#cat-5
+
 ═══ COTIZADOR (Temu, Shein, Amazon, eBay, AliExpress) ═══
   🔗 https://gangaloo.netlify.app/#pedidos
   Pasos: 1) Arma carrito → 2) Anota total USD → 3) Calcula en cotizador → 4) Envía por WhatsApp
