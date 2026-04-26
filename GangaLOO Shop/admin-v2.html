@@ -11177,7 +11177,26 @@ function rptPyL(el) {
 
   const revenue   = filtSales.reduce((s,v)=>s+saleTotal(v),0);
   const collected = filtSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
-  const cogs      = purchases.filter(p=>rptInPeriod(p.date)&&p.status==='delivered').reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
+  // COGS = cost of goods sold: for each sale, find the avg cost of that product from delivered lots
+  const cogsCalc = (() => {
+    const filtSalesForCogs = sales.filter(s=>rptInPeriod(s.date)&&s.status!=='cancelled');
+    let total = 0;
+    filtSalesForCogs.forEach(sale => {
+      const items = sale.items || [{ productId: sale.productId, qty: sale.qty||1 }];
+      items.forEach(item => {
+        const pid = item.productId || sale.productId;
+        const qty = item.qty || 1;
+        // Find delivered lots for this product, compute weighted avg cost
+        const lots = purchases.filter(p => String(p.productId)===String(pid) && p.status==='delivered');
+        const totalQty  = lots.reduce((s,p)=>s+(p.remainingQty||p.qty||0),0);
+        const totalCost = lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
+        const avgCost   = totalQty > 0 ? totalCost / totalQty : 0;
+        total += avgCost * qty;
+      });
+    });
+    return total;
+  })();
+  const cogs = cogsCalc;
   const grossProfit = revenue - cogs;
   const commPaid  = commissionPayouts.filter(p=>rptInPeriod(p.date)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const businessCatIds = new Set(accountingCategories.filter(c=>c.scope!=='personal').map(c=>String(c.id)));
@@ -11263,24 +11282,51 @@ function rptPyL(el) {
 
 /* ═══ TAB 5: CONTABILIDAD ═══ */
 function rptContabilidad(el) {
-  const filtTx   = transactions.filter(t=>rptInPeriod(t.date));
-  const filtPay  = payments.filter(p=>rptInPeriod(p.date));
-  const income   = filtTx.filter(t=>t.type==='income').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-  const expenses = filtTx.filter(t=>t.type==='expense').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-  const salesColl= filtPay.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  const totalIn  = income + salesColl;
-  const net      = totalIn - expenses;
+  const filtTx      = transactions.filter(t=>rptInPeriod(t.date));
+  const filtPay     = payments.filter(p=>rptInPeriod(p.date));
+  const filtPurchPay= purchasePayments.filter(p=>rptInPeriod(p.date));
+  const income      = filtTx.filter(t=>t.type==='income').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+  const expenses    = filtTx.filter(t=>t.type==='expense').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+  const purchPayExp = filtPurchPay.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+  const salesColl   = filtPay.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const totalIn     = income + salesColl;
+  const totalExp    = expenses + purchPayExp;
+  const net         = totalIn - totalExp;
 
   /* By accounting category */
   const inCats={}, exCats={};
-  filtTx.filter(t=>t.type==='income').forEach(t=>{const c=accountingCategories.find(x=>x.id===t.categoryId)?.name||'Sin cat.';if(!inCats[c])inCats[c]={a:0,n:0};inCats[c].a+=parseFloat(t.amount)||0;inCats[c].n++;});
-  filtTx.filter(t=>t.type==='expense'&&!t.isPurchasePayment&&!t.isReceiptEntry&&!(t.reference||'').startsWith('commission-payout')&&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))&&!((t.description||'').toLowerCase().startsWith('pago compra'))).forEach(t=>{const c=accountingCategories.find(x=>x.id===t.categoryId)?.name||'Sin cat.';if(!exCats[c])exCats[c]={a:0,n:0};exCats[c].a+=parseFloat(t.amount)||0;exCats[c].n++;});
+  filtTx.filter(t=>t.type==='income').forEach(t=>{
+    const c=accountingCategories.find(x=>x.id===t.categoryId)?.name||'Sin cat.';
+    if(!inCats[c])inCats[c]={a:0,n:0};
+    inCats[c].a+=parseFloat(t.amount)||0; inCats[c].n++;
+  });
+  // Regular expense transactions (exclude auto-generated purchase payment duplicates)
+  filtTx.filter(t=>t.type==='expense'&&!t.isPurchasePayment&&!t.isReceiptEntry
+    &&!(t.reference||'').startsWith('commission-payout')
+    &&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
+    &&!((t.description||'').toLowerCase().startsWith('pago compra'))
+  ).forEach(t=>{
+    const c=accountingCategories.find(x=>x.id===t.categoryId)?.name||'Sin cat.';
+    if(!exCats[c])exCats[c]={a:0,n:0};
+    exCats[c].a+=parseFloat(t.amount)||0; exCats[c].n++;
+  });
+  // Purchase payments with category → show in egresos
+  filtPurchPay.forEach(p=>{
+    const amt = parseFloat(p.dopAmount||p.amount)||0;
+    if (!amt) return;
+    const catName = p.categoryId
+      ? (accountingCategories.find(c=>String(c.id)===String(p.categoryId))?.name || 'Sin cat.')
+      : '📦 Pagos Compras (sin cat.)';
+    if(!exCats[catName])exCats[catName]={a:0,n:0};
+    exCats[catName].a+=amt; exCats[catName].n++;
+  });
   if (salesColl>0) inCats['💳 Cobros de Ventas']={a:salesColl,n:filtPay.length};
 
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
       ${rptCard('Total Ingresos', formatDOP(totalIn), filtTx.filter(t=>t.type==='income').length+' transacciones', 'var(--emerald)')}
-      ${rptCard('Total Egresos', formatDOP(expenses), filtTx.filter(t=>t.type==='expense').length+' transacciones', 'var(--rose)')}
+      ${rptCard('Total Egresos', formatDOP(totalExp), (filtTx.filter(t=>t.type==='expense').length+filtPurchPay.length)+' transacciones', 'var(--rose)')}
+      ${rptCard('Pagos Compras', formatDOP(purchPayExp), filtPurchPay.length+' pagos de órdenes', 'var(--amber)')}
       ${rptCard('Resultado Neto', formatDOP(net), net>=0?'superávit':'déficit', net>=0?'var(--violet)':'var(--rose)')}
       ${rptCard('Saldo Cuentas', formatDOP(accounts.filter(a=>a.active!==false&&a.currency==='DOP').reduce((s,a)=>s+(parseFloat(a.balance)||0),0)), 'total en cuentas DOP', 'var(--sky)')}
     </div>
