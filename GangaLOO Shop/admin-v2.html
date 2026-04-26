@@ -12896,8 +12896,12 @@ function editPagoCompra(id) {
   const p = purchasePayments.find(x => String(x.id) === String(id));
   if (!p) return;
   const acctOpts = accounts.filter(a=>a.active!==false).map(a=>`<option value="${a.id}" ${String(a.id)===String(p.accountId)?'selected':''}>${a.name}</option>`).join('');
+  // Check if existing categoryId matches an accounting category
+  const _matchedCat = p.categoryId ? accountingCategories.find(c=>String(c.id)===String(p.categoryId)) : null;
+  const _legacyCat  = p.categoryId && !_matchedCat ? (categories.find(c=>String(c.id)===String(p.categoryId))?.name || p.categoryId) : null;
   const catOpts  = '<option value="">— Sin categoría —</option>' +
-    accountingCategories.filter(c=>c.type==='expense').sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')).map(c=>`<option value="${c.id}" ${String(c.id)===String(p.categoryId)?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
+    (_legacyCat ? `<option value="${p.categoryId}" selected>⚠️ Legado: ${_legacyCat} (selecciona una nueva)</option>` : '') +
+    accountingCategories.filter(c=>c.type==='expense').sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')).map(c=>`<option value="${c.id}" ${!_legacyCat&&String(c.id)===String(p.categoryId)?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
   openModal(`
     <div class="modal" style="max-width:420px;">
       <div class="modal-header"><div class="modal-title">✏️ Editar Pago Compra</div><button class="modal-close" onclick="closeModal()">✕</button></div>
