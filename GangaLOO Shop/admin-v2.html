@@ -9744,12 +9744,16 @@ function renderCatCard(c) {
       <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;"
            onclick="toggleCatExpand('${uid}')">
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;font-size:.93em;">${c.name}${c.subname ? `<span style="font-weight:400;color:var(--ink-3);"> — ${c.subname}</span>` : ''}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <div style="font-weight:700;font-size:.93em;">${c.name}${c.subname ? `<span style="font-weight:400;color:var(--ink-3);"> — ${c.subname}</span>` : ''}</div>
+            ${(c.scope||'business')==='personal' ? '<span style="background:rgba(249,115,22,.12);color:#ea580c;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:700;">👤 Personal</span>' : '<span style="background:rgba(99,102,241,.1);color:var(--violet);border-radius:99px;padding:1px 7px;font-size:10px;font-weight:700;">🏢 Negocio</span>'}
+          </div>
           <div style="font-size:11px;color:var(--ink-3);margin-top:1px;">${catTxns.length} transacción${catTxns.length!==1?'es':''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
           <span style="font-weight:800;font-size:.95em;color:${color};">${catTxns.length>0?formatDOP(total):'—'}</span>
           <span id="${uid}_arrow" style="color:var(--ink-3);font-size:12px;transition:transform .2s;">▼</span>
+          <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();toggleCatScope('${c.id}')" title="${(c.scope||'business')==='personal'?'Cambiar a Negocio':'Cambiar a Personal'}">${(c.scope||'business')==='personal'?'→ Negocio':'→ Personal'}</button>
           <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openNuevaSubcat('${c.id}')" title="Agregar subcategoría">+ Sub</button>
           <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();deleteAccountingCat('${c.id}')" ${canDel?'':'disabled title="Tiene transacciones"'}>✕</button>
         </div>
@@ -9863,6 +9867,13 @@ function openNuevaCategoria(preType, preName) {
             <option value="income" ${preType==='income'?'selected':''}>Ingreso</option>
             <option value="expense" ${preType==='expense'?'selected':''}>Egreso</option>
           </select></div>
+        <div class="form-group" style="margin-top:12px;"><label class="field-label">Alcance</label>
+          <select class="field" id="newCatScope">
+            <option value="business">🏢 Negocio</option>
+            <option value="personal">👤 Personal</option>
+          </select>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">Personal = excluido del P&L del negocio</div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -9876,14 +9887,24 @@ function saveNuevaCategoria() {
   const name    = document.getElementById('newCat').value.trim();
   const subname = document.getElementById('newCatSub')?.value.trim() || '';
   const type    = document.getElementById('newCatType').value;
+  const scope   = document.getElementById('newCatScope')?.value || 'business';
   if (!name) { showToast('Nombre obligatorio','error'); return; }
-  const entry = { id: generateId(), name, type, subcategories: [] };
+  const entry = { id: generateId(), name, type, scope, subcategories: [] };
   if (subname) entry.subname = subname;
   accountingCategories.push(entry);
   debouncedSave();
   closeModal();
   renderContabTab('categorias');
   showToast('Categoría creada ✅','success');
+}
+
+function toggleCatScope(id) {
+  const cat = accountingCategories.find(c => String(c.id) === String(id));
+  if (!cat) return;
+  cat.scope = (cat.scope || 'business') === 'business' ? 'personal' : 'business';
+  debouncedSave();
+  renderContabTab('categorias');
+  showToast(`Categoría marcada como ${cat.scope === 'personal' ? '👤 Personal' : '🏢 Negocio'} ✅`, 'success');
 }
 
 function deleteAccountingCat(id) {
@@ -11136,12 +11157,15 @@ function rptPyL(el) {
   const cogs      = purchases.filter(p=>rptInPeriod(p.date)&&p.status==='delivered').reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
   const grossProfit = revenue - cogs;
   const commPaid  = commissionPayouts.filter(p=>rptInPeriod(p.date)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const businessCatIds = new Set(accountingCategories.filter(c=>c.scope!=='personal').map(c=>String(c.id)));
   const otherExp  = transactions.filter(t => {
     if (!rptInPeriod(t.date) || t.type!=='expense') return false;
-    if (t.isPurchasePayment) return false;                          // new purchase payments
-    if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false; // old lot payments
-    if ((t.description||'').toLowerCase().startsWith('pago compra')) return false; // old purchase payments
-    if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false; // commission txns
+    if (t.isPurchasePayment) return false;
+    if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
+    if ((t.description||'').toLowerCase().startsWith('pago compra')) return false;
+    if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
+    // Exclude personal categories
+    if (t.categoryId && !businessCatIds.has(String(t.categoryId))) return false;
     return true;
   }).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
   const totalExp  = commPaid + otherExp;
@@ -11189,6 +11213,7 @@ function rptPyL(el) {
         if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
         if ((t.description||'').toLowerCase().startsWith('pago compra')) return false;
         if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
+        if (t.categoryId && !businessCatIds.has(String(t.categoryId))) return false;
         return true;
       }).forEach(t=>{
         const cat = accountingCategories.find(c=>String(c.id)===String(t.categoryId));
