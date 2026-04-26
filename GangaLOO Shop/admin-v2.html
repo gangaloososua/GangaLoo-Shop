@@ -11274,7 +11274,7 @@ function rptContabilidad(el) {
   /* By accounting category */
   const inCats={}, exCats={};
   filtTx.filter(t=>t.type==='income').forEach(t=>{const c=accountingCategories.find(x=>x.id===t.categoryId)?.name||'Sin cat.';if(!inCats[c])inCats[c]={a:0,n:0};inCats[c].a+=parseFloat(t.amount)||0;inCats[c].n++;});
-  filtTx.filter(t=>t.type==='expense').forEach(t=>{const c=accountingCategories.find(x=>x.id===t.categoryId)?.name||'Sin cat.';if(!exCats[c])exCats[c]={a:0,n:0};exCats[c].a+=parseFloat(t.amount)||0;exCats[c].n++;});
+  filtTx.filter(t=>t.type==='expense'&&!t.isPurchasePayment&&!t.isReceiptEntry&&!(t.reference||'').startsWith('commission-payout')&&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))&&!((t.description||'').toLowerCase().startsWith('pago compra'))).forEach(t=>{const c=accountingCategories.find(x=>x.id===t.categoryId)?.name||'Sin cat.';if(!exCats[c])exCats[c]={a:0,n:0};exCats[c].a+=parseFloat(t.amount)||0;exCats[c].n++;});
   if (salesColl>0) inCats['💳 Cobros de Ventas']={a:salesColl,n:filtPay.length};
 
   el.innerHTML = `
