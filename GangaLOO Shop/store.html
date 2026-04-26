@@ -1331,6 +1331,8 @@ async function loadData(){
   buildDealSection();
   // Restore active category button after rebuild
   if(wasLoaded) setActiveStripBtn(selectedCat);
+  // Handle URL hash navigation (runs once on first load)
+  if(!wasLoaded) handleHashNav();
 }
 
 /* ── WAREHOUSE ── */
@@ -1459,6 +1461,12 @@ function filterCat(id){
   selectedCat=id!=null?String(id):null;
   setActiveStripBtn(id);
   renderProducts();
+  // Update URL hash so link is shareable
+  if(id != null) {
+    history.replaceState(null,'','#cat-'+id);
+  } else {
+    history.replaceState(null,'',window.location.pathname + window.location.search);
+  }
   // show subcat container only when a category with subcats is selected
   const container=document.getElementById('subcatContainer');
   if(container){
@@ -1617,6 +1625,25 @@ function closeMobSearch(e){if(!e||e.target===document.getElementById('mobSearchO
 function syncSearch(val){document.getElementById('searchInput').value=val;searchQuery=val.toLowerCase();renderProducts();}
 
 /* ── PRODUCT DETAIL MODAL ── */
+function handleHashNav() {
+  const hash = window.location.hash;
+  if (!hash) return;
+  if (hash.startsWith('#cat-')) {
+    const catId = hash.slice(5);
+    const cat = allCategories.find(c => String(c.id) === catId);
+    if (cat) { filterCat(catId); scrollToProd(); }
+  } else if (hash.startsWith('#prod-')) {
+    const prodId = hash.slice(6);
+    const p = allProducts.find(x => String(x.id) === prodId);
+    if (p) { setTimeout(() => openProductModal(prodId), 100); }
+  }
+}
+
+// Also handle hash changes (e.g. browser back)
+window.addEventListener('hashchange', () => {
+  if (_dataLoaded) handleHashNav();
+});
+
 function openProductModal(id) {
   const p = allProducts.find(x => String(x.id) === String(id));
   if (!p) return;
@@ -1676,10 +1703,12 @@ function openProductModal(id) {
     </div>`;
   modal.style.display = 'flex';
   window._pmIdx = 0;
+  history.replaceState(null, '', '#prod-' + id);
 }
 
 function closeProductModal() {
   document.getElementById('productModal').style.display = 'none';
+  history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
 function pmNav(dir) {
@@ -3347,7 +3376,7 @@ if(sb){initAuth();}else{loadData();}
           const cat = catsData.find(c => String(c.id) === catId);
           const catName = cat ? cat.name : 'General';
           if (!cats[catName]) cats[catName] = [];
-          cats[catName].push(`  - ${p.name}${p.sku?' (SKU:'+p.sku+')':''}: RD$ ${Number(price).toLocaleString('es-DO')}`);
+          cats[catName].push(`  - ${p.name}${p.sku?' (SKU:'+p.sku+')':''}: RD$ ${Number(price).toLocaleString('es-DO')} [id:${p.id}]`);
         });
         const result = Object.entries(cats).map(([cat, items]) => `${cat}:\n${items.join('\n')}`).join('\n\n');
         console.log('[GangaLoo chat] catalog sent:', prods.length, 'products,', Object.keys(cats).length, 'cats,', result.length, 'chars');

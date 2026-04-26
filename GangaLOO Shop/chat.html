@@ -373,7 +373,7 @@ async function loadCatalog() {
       const qty = stock[String(p.id)] || 0;
       if (!cats[catName]) cats[catName] = [];
       cats[catName].push(
-        `  - ${p.name}${p.sku ? ' (SKU:' + p.sku + ')' : ''}: RD$ ${Number(price).toLocaleString('es-DO')}` +
+        `  - ${p.name}${p.sku ? ' (SKU:' + p.sku + ')' : ''}: RD$ ${Number(price).toLocaleString('es-DO')} [id:${p.id}]` +
         (qty > 0 ? ` · ${qty} disponibles` : '')
       );
     });
