@@ -12397,6 +12397,23 @@ function saveFullStoreConfig() {
 
 /* ─── METAS / GOALS ─── */
 
+function buildUncatCard(txns, accCats, inPeriodFn) {
+  const knownCatIds = accCats.filter(c => c.type === 'expense').map(c => String(c.id));
+  const uncat = txns.filter(t =>
+    t.type === 'expense' && inPeriodFn(t.date) &&
+    (!t.categoryId || !knownCatIds.includes(String(t.categoryId)))
+  ).reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+  if (!uncat) return '';
+  return `<div class="card" style="padding:16px;border-left:4px solid var(--border);opacity:.8;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-weight:800;font-size:.9em;color:var(--ink-3);">Sin categoría</div>
+      <span style="color:var(--ink-3);font-size:11px;">No asignado</span>
+    </div>
+    <div style="font-size:12px;color:var(--ink-3);margin-bottom:6px;">Gastado este período: <strong style="color:var(--ink-1);">${formatDOP(uncat)}</strong></div>
+    <div style="font-size:11px;color:var(--ink-3);">Asigna categorías en Contabilidad → Transacciones</div>
+  </div>`;
+}
+
 function rptMetas(el) {
   const mk = _rptPeriod === 'month' ? _rptMonth : monthKeyDR();
   const yr = _rptPeriod === 'year'  ? _rptYear  : new Date().getFullYear().toString();
@@ -12571,22 +12588,8 @@ function rptMetas(el) {
                 ${budget > 0 ? `<button class="btn btn-ghost btn-xs" onclick="setGoal('${period}','${catKey}',0);rptMetas(document.getElementById('rptContent'))">✕</button>` : ''}
               </div>
             </div>`;
-          }).join('') + (()=>{
-            const knownCatIds = expCats.map(c => String(c.id));
-            const uncat = transactions.filter(t =>
-              t.type==='expense' && inPeriod(t.date) &&
-              (!t.categoryId || !knownCatIds.includes(String(t.categoryId)))
-            ).reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
-            if (!uncat) return '';
-            return '<div class="card" style="padding:16px;border-left:4px solid var(--border);opacity:.8;">' +
-              '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-                '<div style="font-weight:800;font-size:.9em;color:var(--ink-3);">Sin categoría</div>' +
-                '<span style="color:var(--ink-3);font-size:11px;">No asignado</span>' +
-              '</div>' +
-              '<div style="font-size:12px;color:var(--ink-3);margin-bottom:8px;">Gastado este período: <strong style="color:var(--ink-1);">' + formatDOP(uncat) + '</strong></div>' +
-              '<div style="font-size:11px;color:var(--ink-3);">Asigna categorías en Contabilidad</div>' +
-            '</div>';
-          })()}
+          }).join('')}
+        ${buildUncatCard(transactions, accountingCategories, inPeriod)}
       </div>
     </div>
 
