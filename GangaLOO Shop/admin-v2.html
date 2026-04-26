@@ -2354,6 +2354,41 @@ function renderDashboard() {
 
   /* Pending commissions */
   renderDashComisiones();
+
+  /* Budget alerts */
+  renderDashBudgetAlerts();
+}
+
+function renderDashBudgetAlerts() {
+  const mk = monthKeyDR();
+  const goals = storeConfig?.goals?.[mk] || {};
+  const alerts = [];
+  accountingCategories.filter(c => c.type === 'expense').forEach(cat => {
+    const budget = parseFloat(goals['cat_' + cat.id]) || 0;
+    if (!budget) return;
+    const actual = transactions.filter(t => t.type==='expense' && String(t.categoryId)===String(cat.id) && (t.date||'').startsWith(mk))
+                               .reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
+    const pct = (actual/budget)*100;
+    if (pct >= 85) alerts.push({ cat: cat.name, actual, budget, pct, over: pct >= 100 });
+  });
+  let alertEl = document.getElementById('dashBudgetAlerts');
+  if (!alertEl) {
+    alertEl = document.createElement('div');
+    alertEl.id = 'dashBudgetAlerts';
+    alertEl.style.cssText = 'margin:0 0 16px;display:flex;flex-direction:column;gap:8px;';
+    const dashContent = document.getElementById('dashGreeting')?.closest('section') || document.querySelector('#panel-dashboard');
+    if (dashContent) dashContent.insertBefore(alertEl, dashContent.firstChild);
+  }
+  if (!alerts.length) { alertEl.innerHTML = ''; return; }
+  alertEl.innerHTML = alerts.map(a => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${a.over?'rgba(244,63,94,.08)':'rgba(245,158,11,.08)'};border:1px solid ${a.over?'rgba(244,63,94,.3)':'rgba(245,158,11,.3)'};border-radius:10px;font-size:13px;">
+      <span style="font-size:1.2em;">${a.over?'🚨':'⚠️'}</span>
+      <div style="flex:1;">
+        <strong>${a.cat}</strong> — ${a.over?'Excedido':'Al'} <strong style="color:${a.over?'var(--rose)':'var(--amber)'};">${Math.round(a.pct)}%</strong> del presupuesto
+        <span style="color:var(--ink-3);font-size:11px;margin-left:8px;">${formatDOP(a.actual)} / ${formatDOP(a.budget)}</span>
+      </div>
+      <span onclick="showPanel('reportes')" style="font-size:11px;color:var(--violet);cursor:pointer;font-weight:700;white-space:nowrap;">Ver metas →</span>
+    </div>`).join('');
 }
 
 async function renderDashPedidos() {
@@ -3267,12 +3302,21 @@ function populateVentaFilters() {
   cSel.innerHTML = '<option value="">Todos los clientes</option>' +
     customers.map(c => `<option value="${c.id}" ${c.id === existing ? 'selected':''}>${c.name}</option>`).join('');
 
-  /* Month dropdown */
+  /* Month dropdown — show last 24 months regardless of whether sales exist */
   const mSel = document.getElementById('ventaFilterMonth');
   if (!mSel) return;
-  const months = [...new Set(sales.map(s => (s.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
-  mSel.innerHTML = '<option value="">Todos los meses</option>' +
-    months.map(m => `<option value="${m}">${m}</option>`).join('');
+  const currentVal = mSel.value;
+  const monthOpts = [];
+  for (let i = 0; i < 24; i++) {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    const mk = d.toLocaleString('en-CA', { timeZone:'America/Santo_Domingo', year:'numeric', month:'2-digit' }).slice(0, 7);
+    const label = new Date(mk + '-02').toLocaleString('es-DO', { month:'long', year:'numeric' });
+    monthOpts.push(`<option value="${mk}" ${mk === currentVal ? 'selected' : ''}>${label}</option>`);
+  }
+  mSel.innerHTML = '<option value="">Todos los meses</option>' + monthOpts.join('');
+  if (!currentVal) mSel.value = monthKeyDR();
 }
 
 function renderVentasKPI() {
@@ -10172,10 +10216,15 @@ function renderComisiones(el) {
   const mk  = monthKeyDR();
   const yr  = mk.slice(0,4);
 
-  /* Build all months + years that have sales */
-  const allMonths = [...new Set(sales.map(s=>(s.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  /* Build last 24 months + years */
+  const monthsList24 = [];
+  for (let i = 0; i < 24; i++) {
+    const dd = new Date(); dd.setDate(1); dd.setMonth(dd.getMonth() - i);
+    monthsList24.push(dd.toLocaleString('en-CA',{timeZone:'America/Santo_Domingo',year:'numeric',month:'2-digit'}).slice(0,7));
+  }
+  const allMonths = monthsList24;
   const allYears  = [...new Set(allMonths.map(m=>m.slice(0,4)))].sort().reverse();
-  const months    = [...new Set([mk,...allMonths])];
+  const months    = monthsList24;
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 16px;flex-wrap:wrap;gap:12px;">
@@ -10192,7 +10241,7 @@ function renderComisiones(el) {
         </div>
         <!-- Month selector -->
         <select class="field" id="comMonthSel" style="width:160px;" onchange="renderComisionesCards()">
-          ${months.map(m=>`<option value="${m}" ${m===mk?'selected':''}>${m}</option>`).join('')}
+          ${months.map(m=>{const lbl=new Date(m+'-02').toLocaleString('es-DO',{month:'long',year:'numeric'});return`<option value="${m}" ${m===mk?'selected':''}>${lbl}</option>`;}).join('')}
         </select>
         <!-- Year selector -->
         <select class="field" id="comYearSel" style="width:100px;display:none;" onchange="renderComisionesCards()">
@@ -12444,6 +12493,61 @@ function rptMetas(el) {
       ${goalCard('compras',  'Compras',         '📦', actualCompras,  'var(--amber)')}
       ${goalCard('gastos',   'Gastos',          '💸', actualGastos,   'var(--rose)')}
       ${goalCard('ganancia', 'Ganancia Bruta',  '💰', actualGanancia, 'var(--emerald)')}
+    </div>
+
+    <!-- Budget by category section -->
+    <div style="margin-top:28px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.1em;font-weight:900;">💳 Presupuesto por Categoría de Gasto</div>
+          <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Establece un límite mensual para cada categoría de gasto</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+        ${accountingCategories.filter(c => c.type === 'expense').map(cat => {
+          const catKey = 'cat_' + cat.id;
+          const budget = parseFloat(goals[catKey]) || 0;
+          const actual = transactions.filter(t => t.type==='expense' && String(t.categoryId)===String(cat.id) && inPeriod(t.date))
+                                     .reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
+          const pct      = budget > 0 ? Math.min(100, (actual/budget)*100) : 0;
+          const over     = budget > 0 && actual > budget;
+          const barColor = over ? 'var(--rose)' : pct > 85 ? 'var(--amber)' : 'var(--emerald)';
+          const missing  = budget > 0 ? Math.max(0, budget - actual) : 0;
+          const excess   = budget > 0 ? Math.max(0, actual - budget) : 0;
+          return `
+            <div class="card" style="padding:16px;border-left:4px solid ${over?'var(--rose)':budget>0?barColor:'var(--border)'};position:relative;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <div style="font-weight:800;font-size:.9em;">${cat.name}</div>
+                ${over
+                  ? `<span style="background:rgba(244,63,94,.1);color:var(--rose);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">⚠️ +${formatDOP(excess)}</span>`
+                  : budget > 0
+                    ? `<span style="background:rgba(16,185,129,.1);color:var(--emerald);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">Disponible ${formatDOP(missing)}</span>`
+                    : `<span style="color:var(--ink-3);font-size:11px;">Sin presupuesto</span>`}
+              </div>
+              ${budget > 0 ? `
+                <div style="background:var(--surface-2);border-radius:99px;height:8px;margin-bottom:10px;overflow:hidden;">
+                  <div style="height:100%;border-radius:99px;background:${barColor};width:${pct}%;transition:width .5s;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-3);margin-bottom:10px;">
+                  <span>Gastado: <strong style="color:var(--ink-1);">${formatDOP(actual)}</strong></span>
+                  <span>Límite: <strong style="color:var(--ink-1);">${formatDOP(budget)}</strong></span>
+                  <span>${Math.round(pct)}%</span>
+                </div>` : `
+                <div style="font-size:12px;color:var(--ink-3);margin-bottom:10px;">
+                  Gastado este período: <strong>${formatDOP(actual)}</strong>
+                </div>`}
+              <div style="display:flex;gap:8px;align-items:center;">
+                <div class="input-group" style="flex:1;">
+                  <span class="input-addon" style="font-size:11px;">RD$</span>
+                  <input class="field" type="number" placeholder="Límite de presupuesto..." value="${budget||''}" step="100" min="0"
+                    style="font-size:12px;"
+                    onchange="setGoal('${period}','${catKey}',this.value);rptMetas(document.getElementById('rptContent'))">
+                </div>
+                ${budget > 0 ? `<button class="btn btn-ghost btn-xs" onclick="setGoal('${period}','${catKey}',0);rptMetas(document.getElementById('rptContent'))">✕</button>` : ''}
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
     </div>
 
     <!-- Quick copy goals to other months -->
