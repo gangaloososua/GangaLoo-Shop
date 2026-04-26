@@ -11210,7 +11210,6 @@ function rptPyL(el) {
   const cogs = cogsCalc;
   const grossProfit = revenue - cogs;
   const commPaid  = commissionPayouts.filter(p=>rptInPeriod(p.date)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  const businessCatIds = new Set(accountingCategories.filter(c=>c.scope!=='personal').map(c=>String(c.id)));
   const otherExpTxns = transactions.filter(t => {
     if (!rptInPeriod(t.date) || t.type!=='expense') return false;
     if (t.isPurchasePayment) return false;
@@ -11221,7 +11220,11 @@ function rptPyL(el) {
     if ((t.reference||'').toLowerCase() === 'transferencia') return false;
     const desc = (t.description||'').toLowerCase();
     if (desc.startsWith('transferencia') || desc.startsWith('transfer entre') || desc.startsWith('movimiento interno')) return false;
-    if (t.categoryId && !businessCatIds.has(String(t.categoryId))) return false;
+    // Only exclude if category is explicitly marked personal — unknown categories pass through
+    if (t.categoryId) {
+      const cat = accountingCategories.find(c=>String(c.id)===String(t.categoryId));
+      if (cat && cat.scope === 'personal') return false;
+    }
     return true;
   }).sort((a,b)=>(parseFloat(b.amount)||0)-(parseFloat(a.amount)||0));
   const otherExp = otherExpTxns.reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
@@ -11301,7 +11304,10 @@ function rptPyL(el) {
         if ((t.reference||'').toLowerCase() === 'transferencia') return false;
         const desc2 = (t.description||'').toLowerCase();
         if (desc2.startsWith('transferencia') || desc2.startsWith('transfer entre') || desc2.startsWith('movimiento interno')) return false;
-        if (t.categoryId && !businessCatIds.has(String(t.categoryId))) return false;
+        if (t.categoryId) {
+          const cat2 = accountingCategories.find(c=>String(c.id)===String(t.categoryId));
+          if (cat2 && cat2.scope === 'personal') return false;
+        }
         return true;
       }).forEach(t=>{
         const cat = accountingCategories.find(c=>String(c.id)===String(t.categoryId));
