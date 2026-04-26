@@ -10210,20 +10210,20 @@ function renderPagosCompra(el) {
     <div class="table-container">
       <div class="scroll-table">
         <table class="erp-table">
-          <thead><tr><th>Fecha</th><th>Lote</th><th>Proveedor</th><th>Cuenta</th><th class="text-right">Monto</th><th></th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Lote</th><th>Categoría</th><th>Cuenta</th><th class="text-right">Monto</th><th></th></tr></thead>
           <tbody>
             ${!sorted.length
               ? '<tr><td colspan="6"><div class="empty-state" style="padding:40px;"><div class="empty-icon">📦</div><p>Sin pagos de compras</p></div></td></tr>'
               : sorted.map(p => {
                   const lotNum = p.lotNumber || p.purchaseId || '—';
-                  const sample = purchases.find(x => (x.lotNumber||x.lotNum||String(x.id)) === lotNum);
                   const acct   = accounts.find(a=>String(a.id)===String(p.accountId));
+                  const cat    = p.categoryId ? accountingCategories.find(c=>String(c.id)===String(p.categoryId)) : null;
                   const cur    = acct?.currency || 'DOP';
                   const dispAmt = cur==='USD' ? formatUSD(p.amount) : cur==='EUR' ? formatEUR(p.amount) : formatDOP(p.amount);
                   return `<tr ${p.skipBalance?'style="opacity:0.7;"':''}>
                     <td style="font-size:12.5px;color:var(--ink-3);">${formatDate(p.date)}</td>
                     <td><strong style="color:var(--violet);">${lotNum}</strong>${p.skipBalance?'<span style="font-size:9px;color:var(--ink-3);margin-left:4px;">🚚</span>':''}</td>
-                    <td style="font-size:12.5px;">${sample?.supplier||'—'}</td>
+                    <td style="font-size:12.5px;">${cat ? `<span style="background:rgba(99,102,241,.1);color:var(--violet);border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;">${cat.name}</span>` : '<span style="color:var(--ink-3);font-size:11px;">Sin cat.</span>'}</td>
                     <td style="font-size:12.5px;">${getAccountName(p.accountId)}</td>
                     <td class="text-right" style="font-weight:800;color:var(--rose);">${dispAmt}${p.dopAmount&&p.dopAmount!==p.amount?`<div style="font-size:10px;color:var(--ink-3);">${formatDOP(p.dopAmount)}</div>`:''}</td>
                     <td><div style="display:flex;gap:4px;">
@@ -11338,11 +11338,18 @@ function rptContabilidad(el) {
   const filtPay     = payments.filter(p=>rptInPeriod(p.date));
   const filtPurchPay= purchasePayments.filter(p=>rptInPeriod(p.date));
   const income      = filtTx.filter(t=>t.type==='income').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-  const expenses    = filtTx.filter(t=>t.type==='expense').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+  // Only count expense transactions that are NOT purchase-payment duplicates
+  const expenses    = filtTx.filter(t=>t.type==='expense'
+    && !t.isPurchasePayment
+    && !t.isInternalTransfer
+    && !(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
+    && !((t.description||'').toLowerCase().startsWith('pago compra'))
+    && !((t.reference||'').toLowerCase().startsWith('commission-payout'))
+  ).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
   const purchPayExp = filtPurchPay.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
   const salesColl   = filtPay.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const totalIn     = income + salesColl;
-  const totalExp    = expenses + purchPayExp;
+  const totalExp    = expenses + purchPayExp;  // true egresos = manual expenses + purchase payments
   const net         = totalIn - totalExp;
 
   /* By accounting category */
@@ -11377,7 +11384,7 @@ function rptContabilidad(el) {
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
       ${rptCard('Total Ingresos', formatDOP(totalIn), filtTx.filter(t=>t.type==='income').length+' transacciones', 'var(--emerald)')}
-      ${rptCard('Total Egresos', formatDOP(totalExp), (filtTx.filter(t=>t.type==='expense').length+filtPurchPay.length)+' transacciones', 'var(--rose)')}
+      ${rptCard('Total Egresos', formatDOP(totalExp), (filtTx.filter(t=>t.type==='expense'&&!t.isPurchasePayment&&!t.isInternalTransfer&&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))&&!((t.description||'').toLowerCase().startsWith('pago compra'))&&!((t.reference||'').toLowerCase().startsWith('commission-payout'))).length+filtPurchPay.length)+' transacciones', 'var(--rose)')}
       ${rptCard('Pagos Compras', formatDOP(purchPayExp), filtPurchPay.length+' pagos de órdenes', 'var(--amber)')}
       ${rptCard('Resultado Neto', formatDOP(net), net>=0?'superávit':'déficit', net>=0?'var(--violet)':'var(--rose)')}
       ${rptCard('Saldo Cuentas', formatDOP(accounts.filter(a=>a.active!==false&&a.currency==='DOP').reduce((s,a)=>s+(parseFloat(a.balance)||0),0)), 'total en cuentas DOP', 'var(--sky)')}
