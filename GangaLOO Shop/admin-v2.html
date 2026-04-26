@@ -1587,7 +1587,8 @@ async function loadAllData() {
       transfers            = JSON.parse(row.transfers            || '[]');
       sales                = JSON.parse(row.sales                || '[]');
       accounts             = JSON.parse(row.accounts             || '[]');
-      accountingCategories = JSON.parse(row.accounting_categories || '[]');
+      accountingCategories = JSON.parse(row.accounting_categories || '[]')
+        .filter(c => c.type === 'income' || c.type === 'expense');
       transactions         = JSON.parse(row.transactions         || '[]');
       customers            = JSON.parse(row.customers            || '[]');
       payments             = JSON.parse(row.payments             || '[]');
@@ -2366,8 +2367,16 @@ function renderDashBudgetAlerts() {
   accountingCategories.filter(c => c.type === 'expense').forEach(cat => {
     const budget = parseFloat(goals['cat_' + cat.id]) || 0;
     if (!budget) return;
-    const actual = transactions.filter(t => t.type==='expense' && String(t.categoryId)===String(cat.id) && (t.date||'').startsWith(mk))
-                               .reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
+    const catNames = [cat.name.toLowerCase(), ...(cat.subcategories||[]).map(s=>s.toLowerCase())];
+    const actual = transactions.filter(t => {
+      if (t.type !== 'expense' || !(t.date||'').startsWith(mk)) return false;
+      if (t.categoryId && String(t.categoryId)===String(cat.id)) return true;
+      if (t.categoryId) {
+        const oldCat = (t.categoryId||'').toLowerCase();
+        if (catNames.some(n => oldCat.includes(n) || n.includes(oldCat))) return true;
+      }
+      return false;
+    }).reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
     const pct = (actual/budget)*100;
     if (pct >= 85) alerts.push({ cat: cat.name, actual, budget, pct, over: pct >= 100 });
   });
@@ -10668,9 +10677,9 @@ function renderReportesPanel() {
   /* Build month options (last 24 months) */
   const monthOpts = [];
   for (let i=0; i<24; i++) {
-    const d = new Date(); d.setMonth(d.getMonth()-i);
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-i);
     const mk = d.toLocaleString('en-CA',{timeZone:'America/Santo_Domingo',year:'numeric',month:'2-digit'}).slice(0,7);
-    const label = new Date(mk+'-01').toLocaleString('es-DO',{month:'long',year:'numeric'});
+    const label = new Date(mk+'-02').toLocaleString('es-DO',{month:'long',year:'numeric'});
     monthOpts.push(`<option value="${mk}" ${mk===_rptMonth?'selected':''}>${label}</option>`);
   }
   const yearOpts = [];
@@ -12504,11 +12513,27 @@ function rptMetas(el) {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
-        ${accountingCategories.filter(c => c.type === 'expense').map(cat => {
+        ${(()=>{
+          const expCats = accountingCategories.filter(c => c.type === 'expense');
+          if (!expCats.length) return '<div style="grid-column:1/-1;color:var(--ink-3);font-size:13px;padding:20px;text-align:center;">Sin categorías de gasto configuradas. Ve a Contabilidad → Categorías para agregarlas.</div>';
+          return expCats.map(cat => {
           const catKey = 'cat_' + cat.id;
           const budget = parseFloat(goals[catKey]) || 0;
-          const actual = transactions.filter(t => t.type==='expense' && String(t.categoryId)===String(cat.id) && inPeriod(t.date))
-                                     .reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
+          // Match by categoryId (current) OR by category name in description (legacy)
+          const catNames = [cat.name.toLowerCase(), ...(cat.subcategories||[]).map(s=>s.toLowerCase())];
+          const actual = transactions.filter(t => {
+            if (!t.type==='expense' || !inPeriod(t.date)) return false;
+            if (t.type !== 'expense') return false;
+            if (!inPeriod(t.date)) return false;
+            // Match by categoryId
+            if (t.categoryId && String(t.categoryId)===String(cat.id)) return true;
+            // Match by old category name stored in categoryId field
+            if (t.categoryId) {
+              const oldCat = (t.categoryId||'').toLowerCase();
+              if (catNames.some(n => oldCat.includes(n) || n.includes(oldCat))) return true;
+            }
+            return false;
+          }).reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
           const pct      = budget > 0 ? Math.min(100, (actual/budget)*100) : 0;
           const over     = budget > 0 && actual > budget;
           const barColor = over ? 'var(--rose)' : pct > 85 ? 'var(--amber)' : 'var(--emerald)';
@@ -12546,7 +12571,23 @@ function rptMetas(el) {
                 ${budget > 0 ? `<button class="btn btn-ghost btn-xs" onclick="setGoal('${period}','${catKey}',0);rptMetas(document.getElementById('rptContent'))">✕</button>` : ''}
               </div>
             </div>`;
-        }).join('')}
+          }).join('') + (()=>{
+            // Uncategorized expenses
+            const knownCatIds = expCats.map(c => String(c.id));
+            const uncat = transactions.filter(t =>
+              t.type==='expense' && inPeriod(t.date) &&
+              (!t.categoryId || !knownCatIds.includes(String(t.categoryId)))
+            ).reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
+            if (!uncat) return '';
+            return \`<div class="card" style="padding:16px;border-left:4px solid var(--border);opacity:.8;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div style="font-weight:800;font-size:.9em;color:var(--ink-3);">Sin categoría</div>
+                <span style="color:var(--ink-3);font-size:11px;">No asignado</span>
+              </div>
+              <div style="font-size:12px;color:var(--ink-3);margin-bottom:8px;">Gastado este período: <strong style="color:var(--ink-1);">\${formatDOP(uncat)}</strong></div>
+              <div style="font-size:11px;color:var(--ink-3);">Asigna categorías en Contabilidad → Transacciones</div>
+            </div>\`;
+          })()}
       </div>
     </div>
 
