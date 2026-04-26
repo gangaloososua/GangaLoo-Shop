@@ -12848,6 +12848,8 @@ function editPagoCompra(id) {
   const p = purchasePayments.find(x => String(x.id) === String(id));
   if (!p) return;
   const acctOpts = accounts.filter(a=>a.active!==false).map(a=>`<option value="${a.id}" ${String(a.id)===String(p.accountId)?'selected':''}>${a.name}</option>`).join('');
+  const catOpts  = '<option value="">— Sin categoría —</option>' +
+    accountingCategories.filter(c=>c.type==='expense').sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')).map(c=>`<option value="${c.id}" ${String(c.id)===String(p.categoryId)?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
   openModal(`
     <div class="modal" style="max-width:420px;">
       <div class="modal-header"><div class="modal-title">✏️ Editar Pago Compra</div><button class="modal-close" onclick="closeModal()">✕</button></div>
@@ -12856,6 +12858,10 @@ function editPagoCompra(id) {
         <div class="form-group" style="margin-top:10px;"><label class="field-label">Monto (RD$)</label>
           <div class="input-group"><span class="input-addon">RD$</span><input class="field" type="number" id="epc_amount" value="${p.amount||0}" step="0.01"></div></div>
         <div class="form-group" style="margin-top:10px;"><label class="field-label">Cuenta</label><select class="field" id="epc_acct">${acctOpts}</select></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">Categoría de gasto</label>
+          <select class="field" id="epc_cat">${catOpts}</select>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">Aparecerá en Egresos por Categoría en reportes</div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -12869,11 +12875,12 @@ function saveEditPagoCompra(id) {
   const diff = (parseFloat(document.getElementById('epc_amount').value)||0) - (parseFloat(p.amount)||0);
   if (diff !== 0) {
     const acct = accounts.find(a => String(a.id) === String(p.accountId));
-    if (acct) acct.balance = Math.round((acct.balance - diff)*100)/100; // purchase payment debits account
+    if (acct) acct.balance = Math.round((acct.balance - diff)*100)/100;
   }
-  p.date      = document.getElementById('epc_date').value;
-  p.amount    = parseFloat(document.getElementById('epc_amount').value)||0;
-  p.accountId = document.getElementById('epc_acct').value;
+  p.date       = document.getElementById('epc_date').value;
+  p.amount     = parseFloat(document.getElementById('epc_amount').value)||0;
+  p.accountId  = document.getElementById('epc_acct').value;
+  p.categoryId = document.getElementById('epc_cat').value || '';
   debouncedSave(); closeModal(); renderContabTab('pagoscompra');
   showToast('Pago de compra actualizado ✅','success');
 }
