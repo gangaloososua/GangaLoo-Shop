@@ -9697,6 +9697,12 @@ function renderCatGroup(cats) {
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
             <span style="font-weight:800;font-size:.95em;color:${color};">${countAll>0?formatDOP(totalAll):'—'}</span>
+            <button onclick="event.stopPropagation();toggleGroupScope(${JSON.stringify(items.map(c=>c.id))})"
+              style="border:none;border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;
+                background:${(items[0].scope||'business')==='personal'?'rgba(249,115,22,.15)':'rgba(99,102,241,.12)'};
+                color:${(items[0].scope||'business')==='personal'?'#ea580c':'var(--violet)'};">
+              ${(items[0].scope||'business')==='personal'?'👤 Personal':'🏢 Negocio'}
+            </button>
             <button class="btn btn-ghost btn-xs" onclick="openNuevaCategoria('${items[0].type}','${name}')">+ Sub</button>
           </div>
         </div>
@@ -9753,7 +9759,13 @@ function renderCatCard(c) {
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
           <span style="font-weight:800;font-size:.95em;color:${color};">${catTxns.length>0?formatDOP(total):'—'}</span>
           <span id="${uid}_arrow" style="color:var(--ink-3);font-size:12px;transition:transform .2s;">▼</span>
-          <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();toggleCatScope('${c.id}')" title="${(c.scope||'business')==='personal'?'Cambiar a Negocio':'Cambiar a Personal'}">${(c.scope||'business')==='personal'?'→ Negocio':'→ Personal'}</button>
+          <button onclick="event.stopPropagation();toggleCatScope('${c.id}')"
+            style="border:none;border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;
+              background:${(c.scope||'business')==='personal'?'rgba(249,115,22,.15)':'rgba(99,102,241,.12)'};
+              color:${(c.scope||'business')==='personal'?'#ea580c':'var(--violet)'};"
+            title="Cambiar alcance">
+            ${(c.scope||'business')==='personal'?'👤 Personal':'🏢 Negocio'}
+          </button>
           <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openNuevaSubcat('${c.id}')" title="Agregar subcategoría">+ Sub</button>
           <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();deleteAccountingCat('${c.id}')" ${canDel?'':'disabled title="Tiene transacciones"'}>✕</button>
         </div>
@@ -9896,6 +9908,17 @@ function saveNuevaCategoria() {
   closeModal();
   renderContabTab('categorias');
   showToast('Categoría creada ✅','success');
+}
+
+function toggleGroupScope(ids) {
+  const newScope = (accountingCategories.find(c=>String(c.id)===String(ids[0]))?.scope||'business')==='business'?'personal':'business';
+  ids.forEach(id => {
+    const cat = accountingCategories.find(c=>String(c.id)===String(id));
+    if (cat) cat.scope = newScope;
+  });
+  debouncedSave();
+  renderContabTab('categorias');
+  showToast(`Categorías marcadas como ${newScope==='personal'?'👤 Personal':'🏢 Negocio'} ✅`,'success');
 }
 
 function toggleCatScope(id) {
