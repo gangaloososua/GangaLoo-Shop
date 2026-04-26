@@ -12572,21 +12572,20 @@ function rptMetas(el) {
               </div>
             </div>`;
           }).join('') + (()=>{
-            // Uncategorized expenses
             const knownCatIds = expCats.map(c => String(c.id));
             const uncat = transactions.filter(t =>
               t.type==='expense' && inPeriod(t.date) &&
               (!t.categoryId || !knownCatIds.includes(String(t.categoryId)))
             ).reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
             if (!uncat) return '';
-            return \`<div class="card" style="padding:16px;border-left:4px solid var(--border);opacity:.8;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                <div style="font-weight:800;font-size:.9em;color:var(--ink-3);">Sin categoría</div>
-                <span style="color:var(--ink-3);font-size:11px;">No asignado</span>
-              </div>
-              <div style="font-size:12px;color:var(--ink-3);margin-bottom:8px;">Gastado este período: <strong style="color:var(--ink-1);">\${formatDOP(uncat)}</strong></div>
-              <div style="font-size:11px;color:var(--ink-3);">Asigna categorías en Contabilidad → Transacciones</div>
-            </div>\`;
+            return '<div class="card" style="padding:16px;border-left:4px solid var(--border);opacity:.8;">' +
+              '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+                '<div style="font-weight:800;font-size:.9em;color:var(--ink-3);">Sin categoría</div>' +
+                '<span style="color:var(--ink-3);font-size:11px;">No asignado</span>' +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--ink-3);margin-bottom:8px;">Gastado este período: <strong style="color:var(--ink-1);">' + formatDOP(uncat) + '</strong></div>' +
+              '<div style="font-size:11px;color:var(--ink-3);">Asigna categorías en Contabilidad</div>' +
+            '</div>';
           })()}
       </div>
     </div>
