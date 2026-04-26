@@ -3792,6 +3792,12 @@ function openRecibirPago() {
             <input class="field" id="rpRef" placeholder="Transferencia, efectivo...">
           </div>
         </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="field-label">Categoría de ingreso</label>
+          <select class="field" id="rpCategory" style="max-width:340px;">
+            ${'<option value="">— Sin categoría —</option>' + accountingCategories.filter(c=>c.type==='income').sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')).map(c=>`<option value="${c.id}">${c.name}${c.subname?' — '+c.subname:''}</option>`).join('')}
+          </select>
+        </div>
 
         <!-- Balance indicator -->
         <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px 16px;margin-bottom:16px;display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
@@ -3913,6 +3919,7 @@ function saveRecibirPago() {
   const acctId = document.getElementById('rpCuenta')?.value;
   const fecha  = document.getElementById('rpFecha')?.value || todayDR();
   const ref    = document.getElementById('rpRef')?.value.trim() || '';
+  const incCatId = document.getElementById('rpCategory')?.value || '';
 
   if (!total || total <= 0) { showToast('Ingresa el monto recibido', 'error'); return; }
   if (!acctId) { showToast('Selecciona una cuenta', 'error'); return; }
@@ -3964,7 +3971,9 @@ function saveRecibirPago() {
   });
 
   /* Also add a single transaction entry so Movimientos shows ONE line */
-  const incomeCat = accountingCategories.find(c=>c.type==='income') || accountingCategories[0];
+  const incomeCat = incCatId
+    ? accountingCategories.find(c=>String(c.id)===incCatId)
+    : (accountingCategories.find(c=>c.type==='income') || accountingCategories[0]);
   transactions.push({
     id: generateId(),
     type: 'income',
@@ -4029,6 +4038,12 @@ function openRegistrarPago(saleId) {
             <label class="field-label">Referencia</label>
             <input class="field" id="pagoRef" placeholder="Transferencia, efectivo...">
           </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label class="field-label">Categoría de ingreso</label>
+            <select class="field" id="pagoCategory">
+              ${'<option value="">— Sin categoría —</option>' + accountingCategories.filter(c=>c.type==='income').sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')).map(c=>`<option value="${c.id}">${c.name}${c.subname?' — '+c.subname:''}</option>`).join('')}
+            </select>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -4044,14 +4059,20 @@ function saveRegistrarPago(saleId) {
   const acctId  = document.getElementById('pagoCuenta').value;
   const fecha   = document.getElementById('pagoFecha').value;
   const ref     = document.getElementById('pagoRef').value.trim();
+  const pagoCatId = document.getElementById('pagoCategory')?.value || '';
   if (!amount || amount <= 0) { showToast('Monto inválido', 'error'); return; }
   if (!acctId)  { showToast('Selecciona una cuenta', 'error'); return; }
 
   const account = accounts.find(a => String(a.id) === String(acctId));
   if (account) account.balance = Math.round((account.balance + amount) * 100) / 100;
 
-  const payment = { id: generateId(), saleId, amount: Math.round(amount*100)/100, accountId: acctId, date: fecha, reference: ref };
+  const payment = { id: generateId(), saleId, amount: Math.round(amount*100)/100, accountId: acctId, date: fecha, reference: ref, categoryId: pagoCatId };
   payments.push(payment);
+  // Also create income transaction for Contabilidad
+  if (pagoCatId) {
+    const sale2 = sales.find(s => String(s.id) === String(saleId));
+    transactions.push({ id: generateId(), type: 'income', description: `Pago recibido · ${sale2?.invoiceNum||'#'+saleId}${ref?' ('+ref+')':''}`, amount: Math.round(amount*100)/100, accountId: acctId, categoryId: pagoCatId, date: fecha, reference: ref, isReceiptEntry: true });
+  }
 
   /* Check if fully paid */
   const sale     = sales.find(s => s.id === saleId);
