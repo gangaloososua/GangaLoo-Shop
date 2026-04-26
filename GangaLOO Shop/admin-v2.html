@@ -12521,78 +12521,6 @@ function rptMetas(el) {
       ${goalCard('ganancia', 'Ganancia Bruta',  '💰', actualGanancia, 'var(--emerald)')}
     </div>
 
-    <!-- Budget by category section -->
-    <div style="margin-top:28px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.1em;font-weight:900;">💳 Presupuesto por Categoría de Gasto</div>
-          <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Establece un límite mensual para cada categoría de gasto</div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
-        ${(()=>{
-          const expCats = accountingCategories.filter(c => c.type === 'expense');
-          if (!expCats.length) return '<div style="grid-column:1/-1;color:var(--ink-3);font-size:13px;padding:20px;text-align:center;">Sin categorías de gasto configuradas. Ve a Contabilidad → Categorías para agregarlas.</div>';
-          return expCats.map(cat => {
-          const catKey = 'cat_' + cat.id;
-          const budget = parseFloat(goals[catKey]) || 0;
-          // Match by categoryId (current) OR by category name in description (legacy)
-          const catNames = [cat.name.toLowerCase(), ...(cat.subcategories||[]).map(s=>s.toLowerCase())];
-          const actual = transactions.filter(t => {
-            if (!t.type==='expense' || !inPeriod(t.date)) return false;
-            if (t.type !== 'expense') return false;
-            if (!inPeriod(t.date)) return false;
-            // Match by categoryId
-            if (t.categoryId && String(t.categoryId)===String(cat.id)) return true;
-            // Match by old category name stored in categoryId field
-            if (t.categoryId) {
-              const oldCat = (t.categoryId||'').toLowerCase();
-              if (catNames.some(n => oldCat.includes(n) || n.includes(oldCat))) return true;
-            }
-            return false;
-          }).reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
-          const pct      = budget > 0 ? Math.min(100, (actual/budget)*100) : 0;
-          const over     = budget > 0 && actual > budget;
-          const barColor = over ? 'var(--rose)' : pct > 85 ? 'var(--amber)' : 'var(--emerald)';
-          const missing  = budget > 0 ? Math.max(0, budget - actual) : 0;
-          const excess   = budget > 0 ? Math.max(0, actual - budget) : 0;
-          return `
-            <div class="card" style="padding:16px;border-left:4px solid ${over?'var(--rose)':budget>0?barColor:'var(--border)'};position:relative;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                <div style="font-weight:800;font-size:.9em;">${cat.name}</div>
-                ${over
-                  ? `<span style="background:rgba(244,63,94,.1);color:var(--rose);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">⚠️ +${formatDOP(excess)}</span>`
-                  : budget > 0
-                    ? `<span style="background:rgba(16,185,129,.1);color:var(--emerald);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">Disponible ${formatDOP(missing)}</span>`
-                    : `<span style="color:var(--ink-3);font-size:11px;">Sin presupuesto</span>`}
-              </div>
-              ${budget > 0 ? `
-                <div style="background:var(--surface-2);border-radius:99px;height:8px;margin-bottom:10px;overflow:hidden;">
-                  <div style="height:100%;border-radius:99px;background:${barColor};width:${pct}%;transition:width .5s;"></div>
-                </div>
-                <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-3);margin-bottom:10px;">
-                  <span>Gastado: <strong style="color:var(--ink-1);">${formatDOP(actual)}</strong></span>
-                  <span>Límite: <strong style="color:var(--ink-1);">${formatDOP(budget)}</strong></span>
-                  <span>${Math.round(pct)}%</span>
-                </div>` : `
-                <div style="font-size:12px;color:var(--ink-3);margin-bottom:10px;">
-                  Gastado este período: <strong>${formatDOP(actual)}</strong>
-                </div>`}
-              <div style="display:flex;gap:8px;align-items:center;">
-                <div class="input-group" style="flex:1;">
-                  <span class="input-addon" style="font-size:11px;">RD$</span>
-                  <input class="field" type="number" placeholder="Límite de presupuesto..." value="${budget||''}" step="100" min="0"
-                    style="font-size:12px;"
-                    onchange="setGoal('${period}','${catKey}',this.value);rptMetas(document.getElementById('rptContent'))">
-                </div>
-                ${budget > 0 ? `<button class="btn btn-ghost btn-xs" onclick="setGoal('${period}','${catKey}',0);rptMetas(document.getElementById('rptContent'))">✕</button>` : ''}
-              </div>
-            </div>`;
-          }).join('')}
-        ${buildUncatCard(transactions, accountingCategories, inPeriod)}
-      </div>
-    </div>
-
     <!-- Quick copy goals to other months -->
     <div style="margin-top:24px;padding:16px;background:var(--surface-2);border-radius:var(--r-md);">
       <div style="font-weight:700;font-size:13px;margin-bottom:10px;">📋 Copiar metas a otro período</div>
@@ -12611,6 +12539,97 @@ function rptMetas(el) {
       </div>
     </div>
   `;
+  renderBudgetSection(el, period, goals, transactions, accountingCategories, inPeriod);
+}
+
+function renderBudgetSection(el, period, goals, transactions, accountingCategories, inPeriod) {
+  const expCats = accountingCategories.filter(c => c.type === 'expense');
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'margin-top:28px;';
+  wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">' +
+    '<div><div style="font-family:var(--font-head),sans-serif;font-size:1.1em;font-weight:900;">💳 Presupuesto por Categoría de Gasto</div>' +
+    '<div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Establece un límite mensual para cada categoría de gasto</div></div></div>' +
+    '<div id="budgetCatGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;"></div>';
+  el.appendChild(wrap);
+  const grid = wrap.querySelector('#budgetCatGrid');
+
+  function catCard(cat) {
+    const catKey = 'cat_' + cat.id;
+    const budget = parseFloat(goals[catKey]) || 0;
+    const catNames = [cat.name.toLowerCase()];
+    const actual = transactions.filter(function(t) {
+      if (t.type !== 'expense' || !inPeriod(t.date)) return false;
+      if (t.categoryId && String(t.categoryId) === String(cat.id)) return true;
+      if (t.categoryId) {
+        const old = (t.categoryId||'').toLowerCase();
+        return catNames.some(function(n){ return old.includes(n) || n.includes(old); });
+      }
+      return false;
+    }).reduce(function(s,t){ return s+(parseFloat(t.amount)||0); }, 0);
+    const pct = budget > 0 ? Math.min(100, (actual/budget)*100) : 0;
+    const over = budget > 0 && actual > budget;
+    const barColor = over ? 'var(--rose)' : pct > 85 ? 'var(--amber)' : 'var(--emerald)';
+    const missing = budget > 0 ? Math.max(0, budget - actual) : 0;
+    const excess  = budget > 0 ? Math.max(0, actual - budget) : 0;
+
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.style.cssText = 'padding:16px;border-left:4px solid ' + (over ? 'var(--rose)' : budget > 0 ? barColor : 'var(--border)') + ';';
+    div.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+        '<div style="font-weight:800;font-size:.9em;">' + cat.name + '</div>' +
+        (over
+          ? '<span style="background:rgba(244,63,94,.1);color:var(--rose);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">⚠️ +' + formatDOP(excess) + '</span>'
+          : budget > 0
+            ? '<span style="background:rgba(16,185,129,.1);color:var(--emerald);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">Disponible ' + formatDOP(missing) + '</span>'
+            : '<span style="color:var(--ink-3);font-size:11px;">Sin presupuesto</span>') +
+      '</div>' +
+      (budget > 0
+        ? '<div style="background:var(--surface-2);border-radius:99px;height:8px;margin-bottom:10px;overflow:hidden;">' +
+            '<div style="height:100%;border-radius:99px;background:' + barColor + ';width:' + pct + '%;transition:width .5s;"></div>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-3);margin-bottom:10px;">' +
+            '<span>Gastado: <strong style="color:var(--ink-1);">' + formatDOP(actual) + '</strong></span>' +
+            '<span>Límite: <strong style="color:var(--ink-1);">' + formatDOP(budget) + '</strong></span>' +
+            '<span>' + Math.round(pct) + '%</span>' +
+          '</div>'
+        : '<div style="font-size:12px;color:var(--ink-3);margin-bottom:10px;">Gastado: <strong>' + formatDOP(actual) + '</strong></div>') +
+      '<div style="display:flex;gap:8px;align-items:center;">' +
+        '<div class="input-group" style="flex:1;">' +
+          '<span class="input-addon" style="font-size:11px;">RD$</span>' +
+          '<input class="field" type="number" placeholder="Límite de presupuesto..." value="' + (budget||'') + '" step="100" min="0" style="font-size:12px;" data-period="' + period + '" data-key="' + catKey + '">' +
+        '</div>' +
+        (budget > 0 ? '<button class="btn btn-ghost btn-xs" data-period="' + period + '" data-key="' + catKey + '" data-clear="1">✕</button>' : '') +
+      '</div>';
+
+    // Wire up input events
+    const inp = div.querySelector('input');
+    inp.onchange = function(){ setGoal(this.dataset.period, this.dataset.key, this.value); rptMetas(document.getElementById('rptContent')); };
+    const clr = div.querySelector('[data-clear]');
+    if (clr) clr.onclick = function(){ setGoal(this.dataset.period, this.dataset.key, 0); rptMetas(document.getElementById('rptContent')); };
+
+    grid.appendChild(div);
+  }
+
+  if (!expCats.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;color:var(--ink-3);font-size:13px;padding:20px;text-align:center;">Sin categorías de gasto. Agrégalas en Contabilidad → Categorías.</div>';
+  } else {
+    expCats.forEach(catCard);
+    // Uncategorized
+    const knownIds = expCats.map(function(c){ return String(c.id); });
+    const uncat = transactions.filter(function(t){
+      return t.type==='expense' && inPeriod(t.date) && (!t.categoryId || !knownIds.includes(String(t.categoryId)));
+    }).reduce(function(s,t){ return s+(parseFloat(t.amount)||0); }, 0);
+    if (uncat) {
+      const u = document.createElement('div');
+      u.className = 'card';
+      u.style.cssText = 'padding:16px;border-left:4px solid var(--border);opacity:.8;';
+      u.innerHTML = '<div style="font-weight:800;font-size:.9em;color:var(--ink-3);margin-bottom:8px;">Sin categoría</div>' +
+        '<div style="font-size:12px;color:var(--ink-3);margin-bottom:6px;">Gastado: <strong style="color:var(--ink-1);">' + formatDOP(uncat) + '</strong></div>' +
+        '<div style="font-size:11px;color:var(--ink-3);">Asigna categorías en Contabilidad → Transacciones</div>';
+      grid.appendChild(u);
+    }
+  }
 }
 
 function setGoal(period, key, value) {
