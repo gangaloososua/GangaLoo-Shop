@@ -2356,50 +2356,7 @@ function renderDashboard() {
   /* Pending commissions */
   renderDashComisiones();
 
-  /* Budget alerts */
-  renderDashBudgetAlerts();
 }
-
-function renderDashBudgetAlerts() {
-  const mk = monthKeyDR();
-  const goals = storeConfig?.goals?.[mk] || {};
-  const alerts = [];
-  accountingCategories.filter(c => c.type === 'expense').forEach(cat => {
-    const budget = parseFloat(goals['cat_' + cat.id]) || 0;
-    if (!budget) return;
-    const catNames = [cat.name.toLowerCase(), ...(cat.subcategories||[]).map(s=>s.toLowerCase())];
-    const actual = transactions.filter(t => {
-      if (t.type !== 'expense' || !(t.date||'').startsWith(mk)) return false;
-      if (t.categoryId && String(t.categoryId)===String(cat.id)) return true;
-      if (t.categoryId) {
-        const oldCat = (t.categoryId||'').toLowerCase();
-        if (catNames.some(n => oldCat.includes(n) || n.includes(oldCat))) return true;
-      }
-      return false;
-    }).reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
-    const pct = (actual/budget)*100;
-    if (pct >= 85) alerts.push({ cat: cat.name, actual, budget, pct, over: pct >= 100 });
-  });
-  let alertEl = document.getElementById('dashBudgetAlerts');
-  if (!alertEl) {
-    alertEl = document.createElement('div');
-    alertEl.id = 'dashBudgetAlerts';
-    alertEl.style.cssText = 'margin:0 0 16px;display:flex;flex-direction:column;gap:8px;';
-    const dashContent = document.getElementById('dashGreeting')?.closest('section') || document.querySelector('#panel-dashboard');
-    if (dashContent) dashContent.insertBefore(alertEl, dashContent.firstChild);
-  }
-  if (!alerts.length) { alertEl.innerHTML = ''; return; }
-  alertEl.innerHTML = alerts.map(a => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${a.over?'rgba(244,63,94,.08)':'rgba(245,158,11,.08)'};border:1px solid ${a.over?'rgba(244,63,94,.3)':'rgba(245,158,11,.3)'};border-radius:10px;font-size:13px;">
-      <span style="font-size:1.2em;">${a.over?'🚨':'⚠️'}</span>
-      <div style="flex:1;">
-        <strong>${a.cat}</strong> — ${a.over?'Excedido':'Al'} <strong style="color:${a.over?'var(--rose)':'var(--amber)'};">${Math.round(a.pct)}%</strong> del presupuesto
-        <span style="color:var(--ink-3);font-size:11px;margin-left:8px;">${formatDOP(a.actual)} / ${formatDOP(a.budget)}</span>
-      </div>
-      <span onclick="showPanel('reportes')" style="font-size:11px;color:var(--violet);cursor:pointer;font-weight:700;white-space:nowrap;">Ver metas →</span>
-    </div>`).join('');
-}
-
 async function renderDashPedidos() {
   const el = document.getElementById('dashPedidos');
   try {
@@ -2468,7 +2425,7 @@ function renderDashComisiones() {
 /* ─── DASHBOARD DRILLDOWN MODALS ─── */
 function dashDrilldown(type) {
   const mk = monthKeyDR();
-  const monthLabel = new Date(mk+'-01').toLocaleString('es-DO',{month:'long',year:'numeric'});
+  const monthLabel = new Date(mk+'-02').toLocaleString('es-DO',{month:'long',year:'numeric'});
 
   if (type === 'ventas') {
     const paidMap = {};
@@ -10770,7 +10727,7 @@ function rptInPeriod(dateStr) {
 function rptPeriodLabel() {
   if (_rptPeriod === 'all')   return 'Todo el tiempo';
   if (_rptPeriod === 'year')  return `Año ${_rptYear}`;
-  return new Date(_rptMonth+'-01').toLocaleString('es-DO',{month:'long',year:'numeric'});
+  return new Date(_rptMonth+'-02').toLocaleString('es-DO',{month:'long',year:'numeric'});
 }
 
 /* ─── KPI strip (always visible) ─── */
@@ -12397,30 +12354,13 @@ function saveFullStoreConfig() {
 
 /* ─── METAS / GOALS ─── */
 
-function buildUncatCard(txns, accCats, inPeriodFn) {
-  const knownCatIds = accCats.filter(c => c.type === 'expense').map(c => String(c.id));
-  const uncat = txns.filter(t =>
-    t.type === 'expense' && inPeriodFn(t.date) &&
-    (!t.categoryId || !knownCatIds.includes(String(t.categoryId)))
-  ).reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
-  if (!uncat) return '';
-  return `<div class="card" style="padding:16px;border-left:4px solid var(--border);opacity:.8;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-      <div style="font-weight:800;font-size:.9em;color:var(--ink-3);">Sin categoría</div>
-      <span style="color:var(--ink-3);font-size:11px;">No asignado</span>
-    </div>
-    <div style="font-size:12px;color:var(--ink-3);margin-bottom:6px;">Gastado este período: <strong style="color:var(--ink-1);">${formatDOP(uncat)}</strong></div>
-    <div style="font-size:11px;color:var(--ink-3);">Asigna categorías en Contabilidad → Transacciones</div>
-  </div>`;
-}
-
 function rptMetas(el) {
   const mk = _rptPeriod === 'month' ? _rptMonth : monthKeyDR();
   const yr = _rptPeriod === 'year'  ? _rptYear  : new Date().getFullYear().toString();
   const period = _rptPeriod === 'year' ? yr : mk;
   const label  = _rptPeriod === 'year'
     ? yr
-    : new Date(mk+'-01').toLocaleString('es-DO',{month:'long',year:'numeric'});
+    : new Date(mk+'-02').toLocaleString('es-DO',{month:'long',year:'numeric'});
 
   if (!storeConfig) return;
   if (!storeConfig.goals) storeConfig.goals = {};
@@ -12529,7 +12469,7 @@ function rptMetas(el) {
           ${Array.from({length:6},(_,i)=>{
             const d=new Date(); d.setMonth(d.getMonth()+i+1);
             const mk2=d.toLocaleString('en-CA',{timeZone:'America/Santo_Domingo',year:'numeric',month:'2-digit'}).slice(0,7);
-            const lbl=new Date(mk2+'-01').toLocaleString('es-DO',{month:'long',year:'numeric'});
+            const lbl=new Date(mk2+'-02').toLocaleString('es-DO',{month:'long',year:'numeric'});
             return `<option value="${mk2}">${lbl}</option>`;
           }).join('')}
         </select>
@@ -12539,97 +12479,6 @@ function rptMetas(el) {
       </div>
     </div>
   `;
-  renderBudgetSection(el, period, goals, transactions, accountingCategories, inPeriod);
-}
-
-function renderBudgetSection(el, period, goals, transactions, accountingCategories, inPeriod) {
-  const expCats = accountingCategories.filter(c => c.type === 'expense');
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'margin-top:28px;';
-  wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">' +
-    '<div><div style="font-family:var(--font-head),sans-serif;font-size:1.1em;font-weight:900;">💳 Presupuesto por Categoría de Gasto</div>' +
-    '<div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Establece un límite mensual para cada categoría de gasto</div></div></div>' +
-    '<div id="budgetCatGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;"></div>';
-  el.appendChild(wrap);
-  const grid = wrap.querySelector('#budgetCatGrid');
-
-  function catCard(cat) {
-    const catKey = 'cat_' + cat.id;
-    const budget = parseFloat(goals[catKey]) || 0;
-    const catNames = [cat.name.toLowerCase()];
-    const actual = transactions.filter(function(t) {
-      if (t.type !== 'expense' || !inPeriod(t.date)) return false;
-      if (t.categoryId && String(t.categoryId) === String(cat.id)) return true;
-      if (t.categoryId) {
-        const old = (t.categoryId||'').toLowerCase();
-        return catNames.some(function(n){ return old.includes(n) || n.includes(old); });
-      }
-      return false;
-    }).reduce(function(s,t){ return s+(parseFloat(t.amount)||0); }, 0);
-    const pct = budget > 0 ? Math.min(100, (actual/budget)*100) : 0;
-    const over = budget > 0 && actual > budget;
-    const barColor = over ? 'var(--rose)' : pct > 85 ? 'var(--amber)' : 'var(--emerald)';
-    const missing = budget > 0 ? Math.max(0, budget - actual) : 0;
-    const excess  = budget > 0 ? Math.max(0, actual - budget) : 0;
-
-    const div = document.createElement('div');
-    div.className = 'card';
-    div.style.cssText = 'padding:16px;border-left:4px solid ' + (over ? 'var(--rose)' : budget > 0 ? barColor : 'var(--border)') + ';';
-    div.innerHTML =
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
-        '<div style="font-weight:800;font-size:.9em;">' + cat.name + '</div>' +
-        (over
-          ? '<span style="background:rgba(244,63,94,.1);color:var(--rose);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">⚠️ +' + formatDOP(excess) + '</span>'
-          : budget > 0
-            ? '<span style="background:rgba(16,185,129,.1);color:var(--emerald);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">Disponible ' + formatDOP(missing) + '</span>'
-            : '<span style="color:var(--ink-3);font-size:11px;">Sin presupuesto</span>') +
-      '</div>' +
-      (budget > 0
-        ? '<div style="background:var(--surface-2);border-radius:99px;height:8px;margin-bottom:10px;overflow:hidden;">' +
-            '<div style="height:100%;border-radius:99px;background:' + barColor + ';width:' + pct + '%;transition:width .5s;"></div>' +
-          '</div>' +
-          '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-3);margin-bottom:10px;">' +
-            '<span>Gastado: <strong style="color:var(--ink-1);">' + formatDOP(actual) + '</strong></span>' +
-            '<span>Límite: <strong style="color:var(--ink-1);">' + formatDOP(budget) + '</strong></span>' +
-            '<span>' + Math.round(pct) + '%</span>' +
-          '</div>'
-        : '<div style="font-size:12px;color:var(--ink-3);margin-bottom:10px;">Gastado: <strong>' + formatDOP(actual) + '</strong></div>') +
-      '<div style="display:flex;gap:8px;align-items:center;">' +
-        '<div class="input-group" style="flex:1;">' +
-          '<span class="input-addon" style="font-size:11px;">RD$</span>' +
-          '<input class="field" type="number" placeholder="Límite de presupuesto..." value="' + (budget||'') + '" step="100" min="0" style="font-size:12px;" data-period="' + period + '" data-key="' + catKey + '">' +
-        '</div>' +
-        (budget > 0 ? '<button class="btn btn-ghost btn-xs" data-period="' + period + '" data-key="' + catKey + '" data-clear="1">✕</button>' : '') +
-      '</div>';
-
-    // Wire up input events
-    const inp = div.querySelector('input');
-    inp.onchange = function(){ setGoal(this.dataset.period, this.dataset.key, this.value); rptMetas(document.getElementById('rptContent')); };
-    const clr = div.querySelector('[data-clear]');
-    if (clr) clr.onclick = function(){ setGoal(this.dataset.period, this.dataset.key, 0); rptMetas(document.getElementById('rptContent')); };
-
-    grid.appendChild(div);
-  }
-
-  if (!expCats.length) {
-    grid.innerHTML = '<div style="grid-column:1/-1;color:var(--ink-3);font-size:13px;padding:20px;text-align:center;">Sin categorías de gasto. Agrégalas en Contabilidad → Categorías.</div>';
-  } else {
-    expCats.forEach(catCard);
-    // Uncategorized
-    const knownIds = expCats.map(function(c){ return String(c.id); });
-    const uncat = transactions.filter(function(t){
-      return t.type==='expense' && inPeriod(t.date) && (!t.categoryId || !knownIds.includes(String(t.categoryId)));
-    }).reduce(function(s,t){ return s+(parseFloat(t.amount)||0); }, 0);
-    if (uncat) {
-      const u = document.createElement('div');
-      u.className = 'card';
-      u.style.cssText = 'padding:16px;border-left:4px solid var(--border);opacity:.8;';
-      u.innerHTML = '<div style="font-weight:800;font-size:.9em;color:var(--ink-3);margin-bottom:8px;">Sin categoría</div>' +
-        '<div style="font-size:12px;color:var(--ink-3);margin-bottom:6px;">Gastado: <strong style="color:var(--ink-1);">' + formatDOP(uncat) + '</strong></div>' +
-        '<div style="font-size:11px;color:var(--ink-3);">Asigna categorías en Contabilidad → Transacciones</div>';
-      grid.appendChild(u);
-    }
-  }
 }
 
 function setGoal(period, key, value) {
@@ -12647,7 +12496,7 @@ function copyGoals(fromPeriod, toPeriod) {
   if (!src || !Object.keys(src).length) { showToast('No hay metas en el período actual para copiar','error'); return; }
   storeConfig.goals[toPeriod] = { ...src };
   debouncedSave();
-  showToast(`Metas copiadas a ${new Date(toPeriod+'-01').toLocaleString('es-DO',{month:'long',year:'numeric'})} ✅`,'success');
+  showToast(`Metas copiadas a ${new Date(toPeriod+'-02').toLocaleString('es-DO',{month:'long',year:'numeric'})} ✅`,'success');
 }
 
 function openRegistrarTransportGasto(lotNumber, pendingAmount) {
