@@ -5633,8 +5633,11 @@ function openEditCompra(lotNumber) {
         <div>
           <!-- Order meta -->
           <div class="form-grid" style="grid-template-columns:1fr 1fr;">
-            <div class="form-group"><label class="field-label">Proveedor</label>
-              <input class="field" id="ec_supplier" value="${first.supplier||''}"></div>
+            <div class="form-group"><label class="field-label">Categoría de gasto</label>
+              <select class="field" id="ec_category">
+                <option value="">— Sin categoría —</option>
+                ${accountingCategories.filter(c=>c.type==='expense').sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')).map(c=>`<option value="${c.id}" ${String(c.id)===String(first.categoryId||'')?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('')}
+              </select></div>
             <div class="form-group"><label class="field-label">Fecha</label>
               <input class="field" type="date" id="ec_date" value="${first.date||''}"></div>
             <div class="form-group"><label class="field-label">Almacén</label>
@@ -5765,7 +5768,8 @@ function syncRemainingQty(lotId) {
 
 function saveEditCompra(lotNumber) {
   const lots      = purchases.filter(p=>(p.lotNumber||p.lotNum||String(p.id))===lotNumber);
-  const supplier  = document.getElementById('ec_supplier')?.value.trim();
+  const supplier  = first.supplier || '';  // keep existing supplier
+  const categoryId = document.getElementById('ec_category')?.value || '';
   const date      = document.getElementById('ec_date')?.value;
   const warehouseId = document.getElementById('ec_warehouse')?.value;
   const status    = document.getElementById('ec_status')?.value;
@@ -5834,6 +5838,7 @@ function saveEditCompra(lotNumber) {
     if (!isNaN(qty))  p.qty = qty;
     if (!isNaN(rqty)) p.remainingQty = rqty;
     if (supplier  !== undefined) p.supplier       = supplier;
+    if (categoryId !== undefined) p.categoryId    = categoryId;
     if (date)                    p.date           = date;
     if (warehouseId)             p.warehouseId    = warehouseId;
     if (status)                  p.status         = status;
@@ -11079,7 +11084,7 @@ function rptCompras(el) {
         return `<tr style="background:${i%2===0?'var(--surface)':'var(--surface-2)'};">
           <td style="font-weight:700;color:var(--violet);">${o.lotNumber}</td>
           <td style="font-size:12.5px;color:var(--ink-3);">${formatDate(o.date)}</td>
-          <td>${o.supplier||'—'}</td>
+          <td style="font-size:12px;">${(()=>{const cat=o.lots[0]?.categoryId?accountingCategories.find(c=>String(c.id)===String(o.lots[0].categoryId)):null;return cat?`<span style="background:rgba(99,102,241,.1);color:var(--violet);border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;">${cat.name}</span>`:'<span style="color:var(--ink-3);">—</span>';})()}</td>
           <td><span class="badge wh-${o.warehouseId}" style="font-size:10px;">${getWarehouseName(o.warehouseId)}</span></td>
           <td class="text-center">${o.lots.length} prod · ${qty} u</td>
           <td class="text-right" style="font-weight:700;">${formatDOP(total)}</td>
@@ -11392,9 +11397,15 @@ function rptContabilidad(el) {
   filtPurchPay.forEach(p=>{
     const amt = parseFloat(p.dopAmount||p.amount)||0;
     if (!amt) return;
-    const catName = p.categoryId
-      ? (accountingCategories.find(c=>String(c.id)===String(p.categoryId))?.name || 'Sin cat.')
-      : '📦 Pagos Compras (sin cat.)';
+    let catName;
+    if (p.categoryId) {
+      // Match by id (string or number) or by name
+      const cat = accountingCategories.find(c=>String(c.id)===String(p.categoryId))
+               || accountingCategories.find(c=>(c.name||'').toLowerCase()===(String(p.categoryId)).toLowerCase());
+      catName = cat ? cat.name : '📦 Pagos Compras (sin cat.)';
+    } else {
+      catName = '📦 Pagos Compras (sin cat.)';
+    }
     if(!exCats[catName])exCats[catName]={a:0,n:0,txns:[],pays:[]};
     exCats[catName].a+=amt; exCats[catName].n++; exCats[catName].pays.push(p);
   });
