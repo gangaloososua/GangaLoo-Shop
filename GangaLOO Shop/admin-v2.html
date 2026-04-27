@@ -10236,9 +10236,12 @@ function renderPagosContab(el) {
   const sorted = [...payments].filter(contabDateFilter).sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1);
   const total  = sorted.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   el.innerHTML = `
-    <div style="margin:20px 0 16px;">
-      <div class="text-xs text-muted">Total cobrado</div>
-      <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:2em;font-weight:900;color:var(--emerald);">${formatDOP(total)}</div>
+    <div style="margin:20px 0 16px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div class="text-xs text-muted">Total cobrado</div>
+        <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:2em;font-weight:900;color:var(--emerald);">${formatDOP(total)}</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="openBulkAssignPaymentCat()">🏷️ Asignar Categoría en Bloque</button>
     </div>
     <div class="table-container">
       <div class="scroll-table">
@@ -12983,6 +12986,99 @@ function ajustarCostoAlPago(lotNumber) {
 }
 
 
+
+function openBulkAssignPaymentCat() {
+  const custOpts = '<option value="">— Todos los clientes —</option>' +
+    [...new Set(payments.map(p => {
+      const sale = sales.find(s=>String(s.id)===String(p.saleId));
+      return sale?.customerId || '';
+    }).filter(Boolean))].map(cid => {
+      const c = customers.find(x=>String(x.id)===String(cid));
+      return `<option value="${cid}">${c?.name||cid}</option>`;
+    }).join('');
+
+  const catOpts = '<option value="">— Sin categoría —</option>' +
+    accountingCategories.filter(c=>c.type==='income').sort((a,b)=>(a.name||'').localeCompare(b.name||'','es'))
+    .map(c=>`<option value="${c.id}">${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
+
+  openModal(`
+    <div class="modal" style="max-width:460px;">
+      <div class="modal-header"><div class="modal-title">🏷️ Asignar Categoría en Bloque</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-body">
+        <div style="font-size:13px;color:var(--ink-2);margin-bottom:16px;">Asigna una categoría de ingreso a todos los pagos de un cliente de una vez.</div>
+        <div class="form-group">
+          <label class="field-label">Filtrar por cliente</label>
+          <select class="field" id="bulk_customer">${custOpts}</select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="field-label">Categoría de ingreso</label>
+          <select class="field" id="bulk_cat">${catOpts}</select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="field-label">Solo sin categoría</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="bulk_onlyEmpty" checked style="width:16px;height:16px;">
+            Solo actualizar pagos que no tienen categoría asignada
+          </label>
+        </div>
+        <div id="bulk_preview" style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:8px;font-size:12px;color:var(--ink-3);">
+          Selecciona un cliente y categoría para ver cuántos pagos se actualizarán.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveBulkAssignPaymentCat()">Asignar</button>
+      </div>
+    </div>`);
+
+  // Live preview
+  ['bulk_customer','bulk_cat','bulk_onlyEmpty'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', updateBulkPreview);
+  });
+}
+
+function updateBulkPreview() {
+  const custId    = document.getElementById('bulk_customer')?.value || '';
+  const catId     = document.getElementById('bulk_cat')?.value || '';
+  const onlyEmpty = document.getElementById('bulk_onlyEmpty')?.checked;
+  const preview   = document.getElementById('bulk_preview');
+  if (!preview) return;
+
+  const matched = payments.filter(p => {
+    const sale = sales.find(s=>String(s.id)===String(p.saleId));
+    if (custId && String(sale?.customerId) !== custId) return false;
+    if (onlyEmpty && (p.categoryId || sale?.categoryId)) return false;
+    return true;
+  });
+
+  const custName = custId ? (customers.find(c=>String(c.id)===custId)?.name||custId) : 'todos los clientes';
+  const catName  = catId  ? accountingCategories.find(c=>String(c.id)===catId)?.name||catId : '(ninguna)';
+  preview.innerHTML = `<strong>${matched.length} pagos</strong> de <em>${custName}</em> serán asignados a <strong>${catName}</strong>.`;
+  preview.style.color = matched.length > 0 ? 'var(--ink-1)' : 'var(--ink-3)';
+}
+
+function saveBulkAssignPaymentCat() {
+  const custId    = document.getElementById('bulk_customer')?.value || '';
+  const catId     = document.getElementById('bulk_cat')?.value || '';
+  const onlyEmpty = document.getElementById('bulk_onlyEmpty')?.checked;
+
+  if (!catId) { showToast('Selecciona una categoría','error'); return; }
+
+  let count = 0;
+  payments.forEach(p => {
+    const sale = sales.find(s=>String(s.id)===String(p.saleId));
+    if (custId && String(sale?.customerId) !== custId) return;
+    if (onlyEmpty && (p.categoryId || sale?.categoryId)) return;
+    p.categoryId = catId;
+    count++;
+  });
+
+  debouncedSave();
+  closeModal();
+  renderContabTab('pagos');
+  showToast(`✅ ${count} pagos actualizados con la categoría seleccionada`, 'success');
+}
 
 function editPago(id) {
   const p = payments.find(x => String(x.id) === String(id));
