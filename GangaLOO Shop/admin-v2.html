@@ -4671,7 +4671,7 @@ function setCompraFilter(status, el) {
 
 /* Build grouped purchase orders */
 function getOrderPaid(lotNumber) {
-  /* Payments from purchasePayments array — deduplicate by amount+date+account to avoid triple-counting */
+  /* All payments for this lot (product + transport — transport is part of totalCostDOP) */
   const rawPayments = purchasePayments
     .filter(pp => String(pp.lotNumber)===String(lotNumber)
       || String(pp.purchaseId)===String(lotNumber)
@@ -4684,17 +4684,24 @@ function getOrderPaid(lotNumber) {
     return true;
   }).reduce((s,pp) => s + (parseFloat(pp.dopAmount || pp.amount)||0), 0);
 
-  /* Transport payments recorded as transactions (new style only - old style goes via purchasePayments) */
-  const fromTransport = transactions
-    .filter(t => t.isTransportPayment && t.type==='expense' && String(t.lotNumber)===String(lotNumber))
-    .reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
-
   /* Transport marked as externally paid (no transaction) */
   const transportExtra = purchases
     .filter(p => (p.lotNumber||p.lotNum||String(p.id))===String(lotNumber) && p.transportMarkedPaid)
     .reduce((s,p) => s + (parseFloat(p.transportMarkedPaid)||0), 0);
 
-  return Math.round((fromPayments + fromTransport + transportExtra)*100)/100;
+  return Math.round((fromPayments + transportExtra)*100)/100;
+}
+
+function getOrderTransportPaid(lotNumber) {
+  /* Transport payments only — used to check if transport is covered */
+  const fromPP = purchasePayments
+    .filter(pp => pp.isTransportPayment &&
+      (String(pp.lotNumber)===String(lotNumber) || String(pp.purchaseId)===String(lotNumber)))
+    .reduce((s,pp) => s + (parseFloat(pp.dopAmount||pp.amount)||0), 0);
+  const fromTxn = transactions
+    .filter(t => t.isTransportPayment && t.type==='expense' && String(t.lotNumber)===String(lotNumber))
+    .reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
+  return Math.round((fromPP + fromTxn)*100)/100;
 }
 
 function getCompraOrders() {
@@ -4917,18 +4924,62 @@ function renderCompraDetail(lotNumber) {
         </table>
       </div>
 
-      <!-- Payment section -->
+      <!-- Payment section — two clear payment types -->
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;margin-bottom:20px;">
-        <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);">Pagos</div>
-          ${pend>0
-            ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button class="btn btn-primary btn-sm" onclick="openRegistrarPagoLot('${lotNumber}')">+ Registrar Pago</button>
-                <button class="btn btn-amber btn-sm" onclick="ajustarCostoAlPago('${lotNumber}')" title="Ajusta el costo de la orden al monto ya pagado">⚖️ Ajustar al pago real</button>
-                <button class="btn btn-ghost btn-sm" onclick="openRegistrarTransportGasto('${lotNumber}',${pend.toFixed(2)})" title="Registrar el pendiente como gasto de courier/transporte">📝 Registrar como Gasto</button>
-              </div>`
-            : '<span style="font-size:12px;font-weight:700;color:var(--emerald);">✓ Completamente pagada</span>'}
+        <div style="padding:12px 16px;background:var(--surface-2);border-bottom:1px solid var(--border);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);">
+          Pagos de la Orden
         </div>
+        ${(() => {
+          const productPmts = purchasePayments.filter(pp=>(String(pp.lotNumber)===String(lotNumber)||String(pp.purchaseId)===String(lotNumber))&&!pp.isTransportPayment);
+          const transportPmts = purchasePayments.filter(pp=>(String(pp.lotNumber)===String(lotNumber)||String(pp.purchaseId)===String(lotNumber))&&pp.isTransportPayment);
+          const productPaid = productPmts.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+          const transportPaid = transportPmts.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+          const productPending = Math.max(0, Math.round((total-productPaid-transportPaid)*100)/100);
+
+          const pmtRow = pp => {
+            const acct = accounts.find(a=>String(a.id)===String(pp.accountId));
+            const cat = pp.categoryId ? accountingCategories.find(c=>String(c.id)===String(pp.categoryId)) : null;
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;border-top:1px solid var(--border);font-size:12px;">
+              <div>
+                <span style="font-weight:600;">${formatDate(pp.date)}</span>
+                <span style="color:var(--ink-3);"> · ${acct?.name||'—'}</span>
+                ${cat ? `<span style="background:rgba(99,102,241,.1);color:var(--violet);border-radius:4px;padding:1px 5px;font-size:10px;margin-left:4px;">${cat.subname||cat.name}</span>` : ''}
+              </div>
+              <div style="font-weight:700;color:var(--emerald);">${formatDOP(parseFloat(pp.dopAmount||pp.amount)||0)}</div>
+            </div>`;
+          };
+
+          return `
+          <!-- Product Payment -->
+          <div style="border-bottom:2px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(99,102,241,.04);">
+              <div style="font-weight:700;font-size:13px;">💳 Pago de Productos</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:800;color:${productPaid>=total-0.01?'var(--emerald)':'var(--ink)'};">${formatDOP(productPaid)}</span>
+                ${productPending>0.01
+                  ? `<span style="font-size:11px;color:var(--rose);">Pendiente: ${formatDOP(productPending)}</span>
+                     <button class="btn btn-primary btn-xs" onclick="openRegistrarPagoLot('${lotNumber}')">+ Pagar</button>`
+                  : `<span style="font-size:11px;font-weight:700;color:var(--emerald);">✓ Pagado</span>`}
+              </div>
+            </div>
+            ${productPmts.map(pmtRow).join('')}
+          </div>
+
+          <!-- Transport Payment -->
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(245,158,11,.04);">
+              <div style="font-weight:700;font-size:13px;">🚚 Pago de Transporte</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:800;color:${transportPaid>0?'var(--emerald)':'var(--ink-3)'};">${transportPaid>0?formatDOP(transportPaid):'No registrado'}</span>
+                ${transportPaid<0.01
+                  ? `<button class="btn btn-secondary btn-xs" onclick="openRegistrarTransportGasto('${lotNumber}',0)">+ Pagar</button>`
+                  : `<span style="font-size:11px;font-weight:700;color:var(--emerald);">✓ Pagado</span>`}
+              </div>
+            </div>
+            ${transportPmts.map(pmtRow).join('')}
+          </div>`;
+        })()}
+        <div style="padding:10px 14px;background:var(--surface-2);border-top:1px solid var(--border);">
         <div style="padding:14px 16px;">
           <!-- Progress bar -->
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;">
@@ -5037,7 +5088,7 @@ function openPagarTransporte() {
   const defaultCourier = courierCats.find(c=>(c.name||'').toLowerCase().includes('courier')) || courierCats[0];
   const catOpts = courierCats.map(c=>`<option value="${c.id}" ${defaultCourier&&String(c.id)===String(defaultCourier.id)?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
 
-  /* Find orders with pending transport (total > paid) */
+  /* Find orders with pending transport — pend = totalCostDOP - allPayments */
   const pendingOrders = getCompraOrders()
     .filter(o => o.status !== 'cancelled')
     .map(o => {
@@ -9713,8 +9764,16 @@ function renderCategorias(el) {
   const income  = accountingCategories.filter(c => c.type==='income');
   const expense = accountingCategories.filter(c => c.type==='expense');
 
-  const totalIn  = transactions.filter(t=>t.type==='income'&&contabDateFilter(t)).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-  const totalOut = transactions.filter(t=>t.type==='expense'&&contabDateFilter(t)).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+  const totalIn  = transactions.filter(t=>t.type==='income'&&contabDateFilter(t)&&!t.isInternalTransfer).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+  // Total egresos = expense transactions + purchasePayments (deduplicated)
+  const _ppSeenTotal = new Set();
+  const totalPurchPay = purchasePayments.filter(p=>{
+    if (!contabDateFilter(p)) return false;
+    const key = `${p.lotNumber}|${Math.round((parseFloat(p.dopAmount||p.amount)||0)*100)}|${p.accountId}`;
+    if (_ppSeenTotal.has(key)) return false;
+    _ppSeenTotal.add(key); return true;
+  }).reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+  const totalOut = transactions.filter(t=>t.type==='expense'&&contabDateFilter(t)&&!t.isInternalTransfer).reduce((s,t)=>s+(parseFloat(t.amount)||0),0) + totalPurchPay;
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 16px;flex-wrap:wrap;gap:10px;">
