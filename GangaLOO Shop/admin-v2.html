@@ -4672,10 +4672,18 @@ function setCompraFilter(status, el) {
 /* Build grouped purchase orders */
 function getOrderPaid(lotNumber) {
   /* All payments for this lot (product + transport — transport is part of totalCostDOP) */
+  // Strip LOT- prefix for flexible matching
+  const lotNumeric = String(lotNumber).replace(/^LOT-/i, '');
   const rawPayments = purchasePayments
-    .filter(pp => String(pp.lotNumber)===String(lotNumber)
-      || String(pp.purchaseId)===String(lotNumber)
-      || (String(pp.reference||'').includes(lotNumber) && !pp.lotNumber));
+    .filter(pp => {
+      const ppLot = String(pp.lotNumber||'');
+      const ppLotNum = ppLot.replace(/^LOT-/i, '');
+      return ppLot === String(lotNumber)
+        || ppLotNum === lotNumeric
+        || String(pp.purchaseId) === String(lotNumber)
+        || (String(pp.reference||'').includes(lotNumber) && !pp.lotNumber)
+        || (String(pp.reference||'').includes(lotNumeric) && !pp.lotNumber);
+    });
   const seenPP = new Set();
   const fromPayments = rawPayments.filter(pp => {
     const key = `${pp.lotNumber}|${Math.round((parseFloat(pp.dopAmount||pp.amount)||0)*100)}|${pp.accountId}`;
