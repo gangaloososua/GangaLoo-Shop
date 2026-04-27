@@ -2904,6 +2904,14 @@ function openEditVenta(saleId) {
           <label class="field-label">Notas</label>
           <input class="field" id="ev_notes" value="${sale.notes||''}">
         </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label class="field-label">Categoría de ingreso</label>
+          <select class="field" id="ev_cat">
+            <option value="">— Sin categoría —</option>
+            ${accountingCategories.filter(c=>c.type==='income').sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')).map(c=>`<option value="${c.id}" ${String(c.id)===String(sale.categoryId||'')?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('')}
+          </select>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">Se aplicará a todos los pagos de esta venta</div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -2946,6 +2954,7 @@ function saveEditVenta(saleId) {
   sale.sellerId      = sellId || null;
   sale.seller        = sellId ? (customers.find(c=>String(c.id)===String(sellId))?.name||'') : '';
   sale.notes         = document.getElementById('ev_notes').value.trim();
+  sale.categoryId    = document.getElementById('ev_cat')?.value || '';
 
   debouncedSave();
   renderVentasKPI();
@@ -9776,11 +9785,18 @@ function renderCatCard(c) {
   const catTxns  = transactions.filter(t => String(t.categoryId) === String(c.id) && contabDateFilter(t)
     && !t.isPurchasePayment
     && !t.isInternalTransfer
+    && !t.isReceiptEntry  // exclude auto-created receipt transactions (counted via payments below)
     && !(t.reference && /^LOT-|^ORD-/i.test(t.reference))
     && !((t.description||'').toLowerCase().startsWith('pago compra'))
     && !((t.reference||'').toLowerCase().startsWith('commission-payout')));
-  // Also include purchasePayments for expense categories
-  const catPays  = c.type === 'expense'
+  // Include payments (income) or purchasePayments (expense) — no double counting
+  const catPays  = c.type === 'income'
+    ? payments.filter(p => {
+        if (!contabDateFilter(p)) return false;
+        const resolvedCatId = p.categoryId || sales.find(s=>String(s.id)===String(p.saleId))?.categoryId || '';
+        return resolvedCatId && String(resolvedCatId) === String(c.id);
+      })
+    : c.type === 'expense'
     ? purchasePayments.filter(p => {
         if (!contabDateFilter(p)) return false;
         if (p.isTransportPayment) return false; // already counted as transaction
@@ -9795,7 +9811,7 @@ function renderCatCard(c) {
       })
     : [];
   const txTotal  = catTxns.reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
-  const payTotal = catPays.reduce((s,p) => s + (parseFloat(p.dopAmount||p.amount)||0), 0);
+  const payTotal = catPays.reduce((s,p) => s + (parseFloat(c.type==='income'?p.amount:(p.dopAmount||p.amount))||0), 0);
   const total    = txTotal + payTotal;
   const count    = catTxns.length + catPays.length;
   const isIncome = c.type === 'income';
@@ -9821,7 +9837,13 @@ function renderCatCard(c) {
   /* Transaction + purchase payment rows (collapsed by default) */
   const allRows = [
     ...catTxns.map(t => ({ date: t.date, desc: t.description||'—', sub: formatDate(t.date)+' · '+getAccountName(t.accountId), amt: parseFloat(t.amount)||0 })),
-    ...catPays.map(p => ({ date: p.date, desc: (p.lotNumber?'Pago compra '+p.lotNumber:'Pago compra'), sub: formatDate(p.date)+' · '+getAccountName(p.accountId)+' · Pagos Compras', amt: parseFloat(p.dopAmount||p.amount)||0 })),
+    ...catPays.map(p => {
+      if (c.type === 'income') {
+        const s = sales.find(x=>String(x.id)===String(p.saleId));
+        return { date: p.date, desc: 'Pago · '+(s?.invoiceNum||s?.invoiceNumber||p.saleId||'—'), sub: formatDate(p.date)+' · '+getAccountName(p.accountId)+(p.reference?' · '+p.reference:''), amt: parseFloat(p.amount)||0 };
+      }
+      return { date: p.date, desc: (p.lotNumber?'Pago compra '+p.lotNumber:'Pago compra'), sub: formatDate(p.date)+' · '+getAccountName(p.accountId)+' · Pagos Compras', amt: parseFloat(p.dopAmount||p.amount)||0 };
+    }),
   ].sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1);
   const txRows = allRows.length ? allRows.map(r => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px;border-top:1px solid var(--border);background:var(--surface-2);font-size:12px;">
@@ -10208,17 +10230,23 @@ function renderPagosContab(el) {
     <div class="table-container">
       <div class="scroll-table">
         <table class="erp-table">
-          <thead><tr><th>Fecha</th><th>Factura</th><th>Cuenta</th><th>Referencia</th><th class="text-right">Monto</th><th></th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Factura</th><th>Cuenta</th><th>Categoría</th><th class="text-right">Monto</th><th></th></tr></thead>
           <tbody>
             ${!sorted.length
               ? '<tr><td colspan="6"><div class="empty-state" style="padding:40px;"><div class="empty-icon">💵</div><p>Sin pagos</p></div></td></tr>'
               : sorted.map(p => {
                   const sale = sales.find(s=>String(s.id)===String(p.saleId));
+                  // Resolve category: payment → sale → fallback
+                  const _pCatId = p.categoryId || sale?.categoryId || '';
+                  const _pCat   = _pCatId ? accountingCategories.find(c=>String(c.id)===String(_pCatId)) : null;
+                  const _fromSale = !p.categoryId && !!sale?.categoryId;
                   return `<tr>
                     <td style="font-size:12.5px;color:var(--ink-3);">${formatDate(p.date)}</td>
                     <td><strong style="color:var(--violet);">${sale?.invoiceNum||sale?.invoiceNumber||p.saleId||'—'}</strong></td>
                     <td style="font-size:12.5px;">${getAccountName(p.accountId)}</td>
-                    <td style="font-size:12.5px;color:var(--ink-3);">${p.reference||'—'}</td>
+                    <td style="font-size:12.5px;">${_pCat
+                      ? `<span style="background:rgba(16,185,129,.1);color:var(--emerald);border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;">${_pCat.name}${_fromSale?'<span title="Heredado de la venta" style="opacity:.6;font-size:9px;margin-left:3px;">↑</span>':''}</span>`
+                      : '<span style="color:var(--ink-3);font-size:11px;">Sin cat.</span>'}</td>
                     <td class="text-right" style="font-weight:800;color:var(--emerald);">${formatDOP(p.amount)}</td>
                     <td><div style="display:flex;gap:4px;">
                       <button class="btn btn-ghost btn-xs" onclick="editPago('${p.id}')">✏️</button>
@@ -11450,10 +11478,26 @@ function rptContabilidad(el) {
 
   /* By accounting category — store txns per category for drill-down */
   const inCats={}, exCats={};
-  filtTx.filter(t=>t.type==='income').forEach(t=>{
+  filtTx.filter(t=>t.type==='income'
+    && !t.isInternalTransfer
+    && !t.isReceiptEntry
+    && !((t.reference||'').toLowerCase()==='transferencia')
+    && !((t.description||'').toLowerCase().startsWith('transferencia'))
+  ).forEach(t=>{
     const c=accountingCategories.find(x=>String(x.id)===String(t.categoryId))?.name||'Sin cat.';
-    if(!inCats[c])inCats[c]={a:0,n:0,txns:[]};
+    if(!inCats[c])inCats[c]={a:0,n:0,txns:[],pays:[]};
     inCats[c].a+=parseFloat(t.amount)||0; inCats[c].n++; inCats[c].txns.push(t);
+  });
+  // Include payments in income categories (resolve category from payment → sale)
+  filtPay.forEach(p=>{
+    const amt = parseFloat(p.amount)||0;
+    if (!amt) return;
+    const resolvedCatId = p.categoryId || sales.find(s=>String(s.id)===String(p.saleId))?.categoryId || '';
+    const catName = resolvedCatId
+      ? (accountingCategories.find(c=>String(c.id)===String(resolvedCatId))?.name || '💳 Cobros de Ventas')
+      : '💳 Cobros de Ventas';
+    if(!inCats[catName])inCats[catName]={a:0,n:0,txns:[],pays:[]};
+    inCats[catName].a+=amt; inCats[catName].n++; inCats[catName].pays.push(p);
   });
   filtTx.filter(t=>t.type==='expense'&&!t.isPurchasePayment&&!t.isReceiptEntry&&!t.isInternalTransfer
     &&!(t.reference||'').startsWith('commission-payout')
@@ -11485,7 +11529,7 @@ function rptContabilidad(el) {
     if(!exCats[catName])exCats[catName]={a:0,n:0,txns:[],pays:[]};
     exCats[catName].a+=amt; exCats[catName].n++; exCats[catName].pays.push(p);
   });
-  if (salesColl>0) inCats['💳 Cobros de Ventas']={a:salesColl,n:filtPay.length,txns:[],pays:filtPay};
+  // payments now included in inCats above with proper category resolution
 
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
@@ -12940,6 +12984,10 @@ function editPago(id) {
           <div class="input-group"><span class="input-addon">RD$</span><input class="field" type="number" id="ep_amount" value="${p.amount||0}" step="0.01"></div></div>
         <div class="form-group" style="margin-top:10px;"><label class="field-label">Cuenta</label><select class="field" id="ep_acct">${acctOpts}</select></div>
         <div class="form-group" style="margin-top:10px;"><label class="field-label">Referencia</label><input class="field" id="ep_ref" value="${p.reference||''}"></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">Categoría de ingreso</label>
+          <select class="field" id="ep_cat">${'<option value="">— Sin categoría —</option>' + accountingCategories.filter(c=>c.type==='income').sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')).map(c=>`<option value="${c.id}" ${String(c.id)===String(p.categoryId||'')?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('')}</select>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">Aparecerá en Ingresos por Categoría en reportes</div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -12958,10 +13006,11 @@ function saveEditPago(id) {
     const acct = accounts.find(a => String(a.id) === String(p.accountId));
     if (acct) acct.balance = Math.round((acct.balance + diff)*100)/100;
   }
-  p.date      = document.getElementById('ep_date').value;
-  p.amount    = newAmt;
-  p.accountId = document.getElementById('ep_acct').value;
-  p.reference = document.getElementById('ep_ref').value.trim();
+  p.date       = document.getElementById('ep_date').value;
+  p.amount     = newAmt;
+  p.accountId  = document.getElementById('ep_acct').value;
+  p.reference  = document.getElementById('ep_ref').value.trim();
+  p.categoryId = document.getElementById('ep_cat')?.value || '';
   debouncedSave(); closeModal(); renderContabTab('pagos');
   showToast('Pago actualizado ✅','success');
 }
