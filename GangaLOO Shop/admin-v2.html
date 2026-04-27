@@ -2584,7 +2584,7 @@ function dashDrilldown(type) {
   if(o.supplier) return o.supplier;
   const catId=o.lots?.[0]?.categoryId;
   const cat=catId?accountingCategories.find(c=>String(c.id)===String(catId)):null;
-  return cat?cat.name:'—';
+  return cat?(cat.subname||cat.name):'—';
 })()}</td>
                     <td><span class="badge wh-${o.lots[0]?.warehouseId}" style="font-size:10px;">${getWarehouseName(o.lots[0]?.warehouseId)}</span></td>
                     <td class="text-center">${o.lots.length}</td>
@@ -4789,7 +4789,7 @@ function renderComprasList() {
   if(order.supplier) return order.supplier;
   const catId=order.lots?.[0]?.categoryId;
   const cat=catId?accountingCategories.find(c=>String(c.id)===String(catId)):null;
-  return cat?`<span style="color:var(--violet);font-size:11px;">${cat.name}</span>`:'<em style="opacity:.5">Sin proveedor</em>';
+  return cat?`<span style="color:var(--violet);font-size:11px;">${cat.subname||cat.name}</span>`:'<em style="opacity:.5">Sin proveedor</em>';
 })()} · ${formatDate(order.date)}
           </div>
         </div>
@@ -5091,7 +5091,7 @@ function openPagarTransporte() {
   if(o.supplier) return ' · '+o.supplier;
   const catId=o.lots?.[0]?.categoryId;
   const cat=catId?accountingCategories.find(c=>String(c.id)===String(catId)):null;
-  return cat?' · '+cat.name:'';
+  return cat?' · '+(cat.subname||cat.name):'';
 })()}</div>
                   </div>
                   <div>
@@ -13453,7 +13453,7 @@ function openRegistrarPagoLot(lotNumber) {
   if(o.supplier) return o.supplier;
   const catId=o.lots?.[0]?.categoryId;
   const cat=catId?accountingCategories.find(c=>String(c.id)===String(catId)):null;
-  return cat?cat.name:'Sin proveedor';
+  return cat?(cat.subname||cat.name):'Sin proveedor';
 })()} · Pendiente: ${formatDOP(pend)}</option>`;
     }).join('');
 
