@@ -9739,7 +9739,7 @@ function renderCatGroup(cats) {
               <span style="font-size:11px;color:var(--ink-3);margin-left:6px;">${catCount} tx</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-weight:700;font-size:.88em;color:${color};">${catTxns.length>0?formatDOP(catTotal):'—'}</span>
+              <span style="font-weight:700;font-size:.88em;color:${color};">${catCount>0?formatDOP(catTotal):'—'}</span>
               <span id="${uid}_arrow" style="color:var(--ink-3);font-size:11px;">▼</span>
               <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openNuevaTransaccionCat('${c.id}','${c.type}')">+ Tx</button>
               <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();deleteAccountingCat('${c.id}')" ${canDel?'':'disabled'}>✕</button>
@@ -10305,13 +10305,21 @@ function renderPagosCompra(el) {
               : sorted.map(p => {
                   const lotNum = p.lotNumber || p.purchaseId || '—';
                   const acct   = accounts.find(a=>String(a.id)===String(p.accountId));
-                  const cat    = p.categoryId ? accountingCategories.find(c=>String(c.id)===String(p.categoryId)) : null;
+                  // Resolve category: from payment, or fall back to lot's categoryId
+                  const _resolvedCatId = p.categoryId || (() => {
+                    const _lot = purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===lotNum);
+                    return _lot?.categoryId || '';
+                  })();
+                  const cat = _resolvedCatId ? accountingCategories.find(c=>String(c.id)===String(_resolvedCatId)) : null;
+                  const _fromLot = !p.categoryId && !!_resolvedCatId;
                   const cur    = acct?.currency || 'DOP';
                   const dispAmt = cur==='USD' ? formatUSD(p.amount) : cur==='EUR' ? formatEUR(p.amount) : formatDOP(p.amount);
                   return `<tr ${p.skipBalance?'style="opacity:0.7;"':''}>
                     <td style="font-size:12.5px;color:var(--ink-3);">${formatDate(p.date)}</td>
                     <td><strong style="color:var(--violet);">${lotNum}</strong>${p.skipBalance?'<span style="font-size:9px;color:var(--ink-3);margin-left:4px;">🚚</span>':''}</td>
-                    <td style="font-size:12.5px;">${cat ? `<span style="background:rgba(99,102,241,.1);color:var(--violet);border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;">${cat.name}</span>` : '<span style="color:var(--ink-3);font-size:11px;">Sin cat.</span>'}</td>
+                    <td style="font-size:12.5px;">${cat
+                      ? `<span style="background:rgba(99,102,241,.1);color:var(--violet);border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;">${cat.name}${_fromLot?'<span title="Heredado de la orden" style="opacity:.6;font-size:9px;margin-left:3px;">↑</span>':''}</span>`
+                      : '<span style="color:var(--ink-3);font-size:11px;">Sin cat.</span>'}</td>
                     <td style="font-size:12.5px;">${getAccountName(p.accountId)}</td>
                     <td class="text-right" style="font-weight:800;color:var(--rose);">${dispAmt}${p.dopAmount&&p.dopAmount!==p.amount?`<div style="font-size:10px;color:var(--ink-3);">${formatDOP(p.dopAmount)}</div>`:''}</td>
                     <td><div style="display:flex;gap:4px;">
