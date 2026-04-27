@@ -10497,7 +10497,7 @@ function renderComisionesCards() {
 
   /* Build per-seller data */
   const sellerData = allSellers.map(seller => {
-    const sSales     = filtSales.filter(s => s.customerId===seller.id || s.sellerId===seller.id);
+    const sSales     = filtSales.filter(s => String(s.customerId)===String(seller.id) || String(s.sellerId)===String(seller.id));
     const totalSales = sSales.reduce((t,v)=>t+saleTotal(v),0);
     const comm15     = Math.round(totalSales*0.15*100)/100;
     const distrib5   = seller.warehouseId==='montellano' ? Math.round(totalSales*0.05*100)/100 : 0;
@@ -10507,12 +10507,12 @@ function renderComisionesCards() {
     /* For year/all: show all payouts in period */
     let periodPayouts = [];
     if (_comPeriod === 'month') {
-      const p = commissionPayouts.find(p=>p.sellerId===seller.id&&p.monthKey===mk);
+      const p = commissionPayouts.find(p=>String(p.sellerId)===String(seller.id)&&p.monthKey===mk);
       if (p) periodPayouts = [p];
     } else {
       const yr = document.getElementById('comYearSel')?.value || mk.slice(0,4);
       periodPayouts = commissionPayouts.filter(p => {
-        if (p.sellerId !== seller.id) return false;
+        if (String(p.sellerId) !== String(seller.id)) return false;
         if (_comPeriod === 'year') return (p.monthKey||'').startsWith(yr);
         return true;
       });
