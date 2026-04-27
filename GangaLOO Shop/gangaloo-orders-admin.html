@@ -312,19 +312,8 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-he
 </div>
 
 <script>
-// ── CONFIG — pre-configured for GangaLoo ──
-const _HARDCODED_CFG = {
-  url:     'https://xnbkwczolkinurohloxj.supabase.co',
-  key:     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes',
-  baseurl: 'https://gangaloo.netlify.app/gangaloo-client-form.html',
-  waphone: '18292867868'
-};
-let CFG = { ..._HARDCODED_CFG, ...JSON.parse(localStorage.getItem('gl_cfg') || '{}') };
-// Always ensure hardcoded values are present
-CFG.url     = CFG.url     || _HARDCODED_CFG.url;
-CFG.key     = CFG.key     || _HARDCODED_CFG.key;
-CFG.baseurl = CFG.baseurl || _HARDCODED_CFG.baseurl;
-CFG.waphone = CFG.waphone || _HARDCODED_CFG.waphone;
+// ── CONFIG ──
+let CFG = JSON.parse(localStorage.getItem('gl_cfg') || '{}');
 let orders = [];
 let selectedId = null;
 let filterMode = 'all';
@@ -353,10 +342,11 @@ function saveSetup() {
 }
 
 async function initApp() {
-  // Always use hardcoded credentials — no setup needed
+  if (!CFG.url || !CFG.key) { openSetup(); return; }
+  // Ensure table exists (will silently fail if already exists)
+  await ensureTable();
   document.getElementById('setupScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'block';
-  await ensureTable();
   await loadOrders();
   startPolling();
 }
@@ -458,9 +448,9 @@ const STATUS_CLASS = {
 
 function calcBalance(prefix) {
   const amount = parseFloat(document.getElementById(`${prefix}_amount`).value) || 0;
-  const paid = parseFloat(document.getElementById(`${prefix}_paid`).value) || 0;
-  const fee = parseFloat(document.getElementById(`${prefix}_deliveryFee`).value) || 0;
-  document.getElementById(`${prefix}_balance`).value = Math.max(0, amount + fee - paid).toFixed(2);
+  const paid   = parseFloat(document.getElementById(`${prefix}_paid`).value) || 0;
+  // Base balance excludes delivery — delivery is only added if client chooses it
+  document.getElementById(`${prefix}_balance`).value = Math.max(0, amount - paid).toFixed(2);
 }
 
 function clientFormLink(orderId) {
@@ -477,7 +467,8 @@ function buildWANotify(o) {
   if (o.desc) msg += `📋 ${o.desc}\n`;
   msg += `\n💰 Total del pedido: *${fmt(o.amount)}*`;
   if (paid > 0) msg += `\n✅ Ya pagado: *${fmt(paid)}*`;
-  msg += `\n⚡ Saldo pendiente: *${fmt(balance)}*`;
+  msg += `\n⚡ Saldo pendiente: *${fmt(balance)}* _(recogida en tienda)_`;
+  if (o.deliveryFee > 0) msg += `\n🚚 Si prefieres envío a domicilio: *${fmt(balance + o.deliveryFee)}* (+${fmt(o.deliveryFee)} envío)`;
   msg += `\n\n¿Cómo prefieres recibirlo?\n\n`;
   msg += `🏪 *1 — Recojo en tienda* (gratis)\n`;
   msg += `🚚 *2 — Envío a domicilio* (+${fmt(o.deliveryFee)})\n\n`;
@@ -488,7 +479,7 @@ function buildWANotify(o) {
 
 function buildWAConfirm(o) {
   const balance = Number(o.balance || 0);
-  const totalWithDelivery = Number(o.amount || 0) + Number(o.deliveryFee || 0);
+  const totalWithDelivery = balance + Number(o.deliveryFee || 0);
   let msg = `✅ *Confirmación de entrega — GangaLoo*\n\n`;
   msg += `Hola ${o.client}! Tu entrega está confirmada 🎉\n\n`;
   msg += `📦 *Pedido:* ${o.platform.charAt(0).toUpperCase()+o.platform.slice(1)}`;
@@ -500,7 +491,7 @@ function buildWAConfirm(o) {
   msg += `   Pedido: ${fmt(o.amount)}\n`;
   msg += `   Envío: ${fmt(o.deliveryFee)}\n`;
   if (Number(o.paid) > 0) msg += `   Ya pagado: -${fmt(o.paid)}\n`;
-  msg += `   ⚡ *A pagar al recibir: ${fmt(balance)}*\n\n`;
+  msg += `   ⚡ *A pagar al recibir: ${fmt(totalWithDelivery)}*\n\n`;
   msg += `Nos comunicamos contigo el día de la entrega. ¡Gracias! 🙏`;
   return msg;
 }
@@ -519,7 +510,7 @@ function renderOrders() {
   let list = orders.filter(o => {
     if (filterMode !== 'all') {
       if (filterMode === 'pending' && !['pending','notified'].includes(o.status)) return false;
-      if (filterMode === 'form_filled' && !['form_filled','scheduled','pickup','done'].includes(o.status) && !o.clientChoice) return false;
+      if (filterMode === 'form_filled' && o.status !== 'form_filled') return false;
       if (filterMode === 'scheduled' && o.status !== 'scheduled') return false;
       if (filterMode === 'pickup' && o.status !== 'pickup') return false;
       if (filterMode === 'done' && o.status !== 'done') return false;
@@ -636,21 +627,18 @@ function renderSidebar() {
       <div class="tl-time">${new Date(t.ts).toLocaleString('es-DO')}</div>
     </div>`).join('') || '<div class="tl-item old"><div style="color:var(--muted)">No activity</div></div>';
 
-  // Delivery info — show for any status once client has responded
+  // Delivery info
   let deliveryInfo = '';
-  if (o.clientChoice) {
+  if (o.status === 'scheduled' && o.clientDeliveryDate) {
     const mapEmbed = o.clientLat && o.clientLng
       ? `<div class="map-preview"><iframe src="https://maps.google.com/maps?q=${o.clientLat},${o.clientLng}&z=15&output=embed" allowfullscreen></iframe></div>`
       : '';
     deliveryInfo = `
     <div class="detail-section">
-      <h3>📋 Client Response</h3>
-      <div class="detail-row"><span class="detail-label">Choice</span><span class="detail-value">${o.clientChoice === 'delivery' ? '🚚 Delivery' : '🏪 Pickup'}</span></div>
-      ${o.clientChoice === 'delivery' ? `
-      <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${o.clientDeliveryDate || '—'}</span></div>
-      <div class="detail-row"><span class="detail-label">Address</span><span class="detail-value">${o.clientAddress || '—'}</span></div>
-      ${o.clientNote ? `<div class="detail-row"><span class="detail-label">Note</span><span class="detail-value">${o.clientNote}</span></div>` : ''}
-      ${mapEmbed}` : ''}
+      <h3>Delivery Details</h3>
+      <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${o.clientDeliveryDate}</span></div>
+      <div class="detail-row"><span class="detail-label">Address</span><span class="detail-value">${o.clientAddress}</span></div>
+      ${mapEmbed}
     </div>`;
   }
 
