@@ -11455,6 +11455,99 @@ function rptPyL(el) {
       </div>
     </div>
 
+    <!-- ═══ COMBINED MONTHLY STATEMENT ═══ -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-family:'Cabinet Grotesk',sans-serif;font-weight:900;font-size:1.1em;margin-bottom:4px;">📋 Resumen Completo del Mes — ${rptPeriodLabel()}</div>
+      <div style="font-size:12px;color:var(--ink-3);margin-bottom:16px;">Negocio + Personal · Vista consolidada</div>
+
+      ${(() => {
+        /* ── PERSONAL INCOME ── */
+        const personalIncCats = accountingCategories.filter(c=>c.type==='income'&&c.scope==='personal');
+        const personalIncIds  = new Set(personalIncCats.map(c=>String(c.id)));
+        // Also include subcategory IDs
+        personalIncCats.forEach(c=>(c.subcategories||[]).forEach(s=>personalIncIds.add(String(s.id||s))));
+        const personalInc = transactions.filter(t=>rptInPeriod(t.date)&&t.type==='income'&&!t.isInternalTransfer&&!t.isReceiptEntry
+          &&t.categoryId&&personalIncIds.has(String(t.categoryId))).reduce((s,t)=>s+(parseFloat(t.amount)||0),0)
+          + payments.filter(p=>{
+            if(!rptInPeriod(p.date)) return false;
+            const rid=p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||'';
+            return rid && personalIncIds.has(String(rid));
+          }).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+
+        /* ── PERSONAL EXPENSES ── */
+        const personalExpCats = accountingCategories.filter(c=>c.type==='expense'&&c.scope==='personal');
+        const personalExpIds  = new Set(personalExpCats.map(c=>String(c.id)));
+        personalExpCats.forEach(c=>(c.subcategories||[]).forEach(s=>personalExpIds.add(String(s.id||s))));
+        const personalExp = transactions.filter(t=>rptInPeriod(t.date)&&t.type==='expense'
+          &&!t.isInternalTransfer&&t.categoryId&&personalExpIds.has(String(t.categoryId))).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+
+        /* ── CASHBACK INCOME (special — not personal, not business sales) ── */
+        const cashbackInc = transactions.filter(t=>rptInPeriod(t.date)&&t.type==='income'
+          &&!t.isInternalTransfer&&!t.isReceiptEntry
+          &&t.categoryId&&!personalIncIds.has(String(t.categoryId))
+          &&(accountingCategories.find(c=>String(c.id)===String(t.categoryId))?.name||'').toLowerCase().includes('cashback')
+        ).reduce((s,t)=>s+(parseFloat(t.amount)||0),0)
+        + payments.filter(p=>{
+            if(!rptInPeriod(p.date)) return false;
+            const rid=p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||'';
+            const cat=rid?accountingCategories.find(c=>String(c.id)===String(rid)):null;
+            return cat&&(cat.name||'').toLowerCase().includes('cashback');
+          }).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+
+        /* ── PURCHASE PAYMENTS (total cash out for orders) ── */
+        const purchPaid = purchasePayments.filter(p=>rptInPeriod(p.date)&&!p.isTransportPayment)
+          .reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+        const transPaid = transactions.filter(t=>rptInPeriod(t.date)&&t.isTransportPayment)
+          .reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+
+        const bizNet    = netProfit - otherExp;
+        const totalNet  = bizNet + personalInc + cashbackInc - personalExp;
+        const cashFlow  = collected + cashbackInc + personalInc - commPaid - otherExp - personalExp - purchPaid - transPaid;
+
+        const sec = (label, color='var(--ink-3)') =>
+          `<div style="padding:6px 16px;background:var(--surface-2);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:${color};">${label}</div>`;
+
+        const row2 = (label, val, sub='', color='var(--ink)', indent=0, bold=false) =>
+          `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px ${16+indent*12}px;border-bottom:1px solid var(--border);">
+            <div>
+              <div style="font-weight:${bold?'800':'500'};font-size:${bold?'.95em':'.88em'};color:var(--ink-2);">${label}</div>
+              ${sub?`<div style="font-size:10px;color:var(--ink-3);">${sub}</div>`:''}
+            </div>
+            <div style="font-weight:${bold?'900':'700'};font-size:${bold?'1em':'.9em'};color:${color};">${val}</div>
+          </div>`;
+
+        return `
+          ${sec('🏢 Negocio', 'var(--violet)')}
+          ${row2('Ingresos por Ventas', formatDOP(revenue), filtSales.length+' facturas', 'var(--emerald)', 1)}
+          ${row2('− Costo de Mercancía (COGS)', '− '+formatDOP(cogs), 'costo promedio ponderado', 'var(--rose)', 1)}
+          ${row2('GANANCIA BRUTA', formatDOP(grossProfit), grossMargin.toFixed(1)+'% margen', grossProfit>=0?'var(--emerald)':'var(--rose)', 0, true)}
+          ${row2('− Comisiones Vendedores', '− '+formatDOP(commPaid), '', 'var(--amber)', 1)}
+          ${row2('− Otros Gastos Operativos', '− '+formatDOP(otherExp), otherExpTxns.length+' transacciones', 'var(--rose)', 1)}
+          ${row2('RESULTADO NEGOCIO', (bizNet>=0?'+':'')+formatDOP(bizNet), '', bizNet>=0?'var(--violet)':'var(--rose)', 0, true)}
+
+          ${sec('👤 Personal', 'var(--amber)')}
+          ${row2('Ingresos Personales', personalInc>0?'+'+formatDOP(personalInc):'—', personalIncCats.map(c=>c.name).join(', ')||'categorías personales', 'var(--emerald)', 1)}
+          ${row2('Cashback Income', cashbackInc>0?'+'+formatDOP(cashbackInc):'—', 'cobros de cashback clientes', 'var(--sky)', 1)}
+          ${row2('− Gastos Personales', personalExp>0?'− '+formatDOP(personalExp):'—', personalExpCats.map(c=>c.name).join(', ')||'categorías personales', 'var(--rose)', 1)}
+
+          ${sec('💰 TOTAL NETO DEL MES', 'var(--emerald)')}
+          ${row2('Resultado Negocio + Personal', (totalNet>=0?'+':'')+formatDOP(totalNet), 'antes de pagos a proveedores', totalNet>=0?'var(--emerald)':'var(--rose)', 0, true)}
+
+          ${sec('💳 Flujo de Caja Real', 'var(--sky)')}
+          ${row2('Cobrado de Clientes', '+'+formatDOP(collected), 'efectivo recibido', 'var(--emerald)', 1)}
+          ${row2('+ Cashback + Personal', '+'+(formatDOP(cashbackInc+personalInc)), '', 'var(--emerald)', 1)}
+          ${row2('− Pagos a Proveedores', '− '+formatDOP(purchPaid+transPaid), 'compras + transporte', 'var(--rose)', 1)}
+          ${row2('− Comisiones + Gastos', '− '+formatDOP(commPaid+otherExp+personalExp), '', 'var(--rose)', 1)}
+          <div style="padding:14px 16px;background:${cashFlow>=0?'rgba(16,185,129,.08)':'rgba(244,63,94,.08)'};display:flex;justify-content:space-between;align-items:center;border-top:2px solid ${cashFlow>=0?'var(--emerald)':'var(--rose)'};">
+            <div>
+              <div style="font-family:'Cabinet Grotesk',sans-serif;font-weight:900;font-size:1em;">FLUJO NETO DE CAJA</div>
+              <div style="font-size:11px;color:var(--ink-3);">efectivo real del mes</div>
+            </div>
+            <div style="font-family:'Cabinet Grotesk',sans-serif;font-weight:900;font-size:1.4em;color:${cashFlow>=0?'var(--emerald)':'var(--rose)'};">${cashFlow>=0?'+':''}${formatDOP(cashFlow)}</div>
+          </div>`;
+      })()}
+    </div>
+
     ${rptSection('📊 Desglose de Gastos', (() => {
       const cats = {};
       transactions.filter(t => {
