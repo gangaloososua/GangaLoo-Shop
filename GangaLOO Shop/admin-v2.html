@@ -5116,9 +5116,10 @@ function openPagarTransporte() {
             </div>`}
 
       </div>
-      <div style="padding:10px 16px;background:var(--surface-2);border-top:1px solid var(--border);font-size:12px;color:var(--ink-3);">
-        ¿Ya pagaste este transporte antes y no quieres crear otra transacción?
-        <button class="btn btn-secondary btn-sm" style="margin-left:8px;" onclick="markTransportPaid()">✓ Marcar como ya pagado</button>
+      <div style="padding:10px 16px;background:var(--surface-2);border-top:1px solid var(--border);font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span>¿Ya fue pagado antes y solo quieres cerrar el pendiente?</span>
+        <button class="btn btn-secondary btn-sm" onclick="markTransportPaid()">✓ Marcar todo como ya pagado (sin nueva transacción)</button>
+        <span style="opacity:.6;">· O entra montos arriba y usa "Registrar Pago" para registrar en contabilidad</span>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -5151,27 +5152,38 @@ function updatePtBalance() {
 }
 
 function markTransportPaid() {
-  const checked = [...document.querySelectorAll('#pt_orderList input[type=checkbox]:checked')].map(cb=>cb.value);
-  if (!checked.length) { showToast('Selecciona al menos una orden','error'); return; }
+  // Find all orders currently shown in the modal and mark their full pending amount as paid
+  const orders = getCompraOrders()
+    .filter(o => o.status !== 'cancelled')
+    .map(o => {
+      const total = o.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
+      const paid  = getOrderPaid(o.lotNumber);
+      const pend  = Math.max(0, Math.round((total-paid)*100)/100);
+      return { ...o, pend };
+    })
+    .filter(o => o.pend > 0.01);
 
-  checked.forEach(lotNumber => {
-    // Get the pending amount for this lot and mark it as paid on the purchase lots
-    const order = getCompraOrders().find(o=>o.lotNumber===lotNumber);
-    if (!order) return;
-    const total = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
-    const paid  = getOrderPaid(lotNumber);
-    const pend  = Math.max(0, Math.round((total-paid)*100)/100);
-    if (pend <= 0) return;
-    // Mark all lots in this order as transport paid
-    purchases.filter(p=>(p.lotNumber||p.lotNum||String(p.id))===lotNumber)
-      .forEach(p => { p.transportMarkedPaid = (parseFloat(p.transportMarkedPaid)||0) + pend/order.lots.length; });
+  if (!orders.length) { showToast('No hay transporte pendiente','error'); return; }
+
+  // For each order, check if user entered an amount — if yes use that, else use full pending
+  let count = 0;
+  orders.forEach(o => {
+    const inputEl = document.getElementById(`pt_lot_${o.lotNumber}`);
+    const markAmt = inputEl ? (parseFloat(inputEl.value)||0) : 0;
+    const amt = markAmt > 0 ? markAmt : o.pend; // use entered amount or full pending
+    if (amt <= 0) return;
+    purchases.filter(p=>(p.lotNumber||p.lotNum||String(p.id))===o.lotNumber)
+      .forEach((p, i, arr) => {
+        p.transportMarkedPaid = (parseFloat(p.transportMarkedPaid)||0) + amt/arr.length;
+      });
+    count++;
   });
 
   debouncedSave();
   closeModal();
   renderComprasKPI();
   renderComprasList();
-  showToast(`✅ ${checked.length} orden${checked.length!==1?'es':''} marcada${checked.length!==1?'s':''} como transporte pagado`, 'success');
+  showToast(`✅ ${count} orden${count!==1?'es':''} marcada${count!==1?'s':''} como transporte pagado`, 'success');
 }
 
 function savePagarTransporte() {
