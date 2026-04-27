@@ -11451,16 +11451,18 @@ function rptContabilidad(el) {
   /* By accounting category — store txns per category for drill-down */
   const inCats={}, exCats={};
   filtTx.filter(t=>t.type==='income').forEach(t=>{
-    const c=accountingCategories.find(x=>x.id===t.categoryId)?.name||'Sin cat.';
+    const c=accountingCategories.find(x=>String(x.id)===String(t.categoryId))?.name||'Sin cat.';
     if(!inCats[c])inCats[c]={a:0,n:0,txns:[]};
     inCats[c].a+=parseFloat(t.amount)||0; inCats[c].n++; inCats[c].txns.push(t);
   });
-  filtTx.filter(t=>t.type==='expense'&&!t.isPurchasePayment&&!t.isReceiptEntry
+  filtTx.filter(t=>t.type==='expense'&&!t.isPurchasePayment&&!t.isReceiptEntry&&!t.isInternalTransfer
     &&!(t.reference||'').startsWith('commission-payout')
     &&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
     &&!((t.description||'').toLowerCase().startsWith('pago compra'))
+    &&!((t.reference||'').toLowerCase()==='transferencia')
+    &&!((t.description||'').toLowerCase().startsWith('transferencia'))
   ).forEach(t=>{
-    const c=accountingCategories.find(x=>x.id===t.categoryId)?.name||'Sin cat.';
+    const c=accountingCategories.find(x=>String(x.id)===String(t.categoryId))?.name||'Sin cat.';
     if(!exCats[c])exCats[c]={a:0,n:0,txns:[],pays:[]};
     exCats[c].a+=parseFloat(t.amount)||0; exCats[c].n++; exCats[c].txns.push(t);
   });
