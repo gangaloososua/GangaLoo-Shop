@@ -9683,11 +9683,11 @@ function renderCatGroup(cats) {
     /* Multiple with same name — render as one grouped card */
     const totalAll = items.reduce((s,c) => {
       const txAmt  = transactions.filter(t=>String(t.categoryId)===String(c.id)&&contabDateFilter(t)
-        &&!t.isPurchasePayment&&!t.isInternalTransfer
+        &&!t.isPurchasePayment&&!t.isInternalTransfer&&!t.isReceiptEntry
         &&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
         &&!((t.description||'').toLowerCase().startsWith('pago compra'))
         &&!((t.reference||'').toLowerCase().startsWith('commission-payout'))).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
-      const payAmt = c.type==='expense' ? purchasePayments.filter(p=>String(p.categoryId)===String(c.id)&&contabDateFilter(p)).reduce((a,p)=>a+(parseFloat(p.dopAmount||p.amount)||0),0) : 0;
+      const payAmt = c.type==='income' ? payments.filter(p=>{ if(!contabDateFilter(p))return false; const rid=p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||''; return String(rid)===String(c.id); }).reduce((a,p)=>a+(parseFloat(p.amount)||0),0) : c.type==='expense' ? purchasePayments.filter(p=>String(p.categoryId)===String(c.id)&&contabDateFilter(p)&&!p.isTransportPayment).reduce((a,p)=>a+(parseFloat(p.dopAmount||p.amount)||0),0) : 0;
       return s + txAmt + payAmt;
     }, 0);
     const countAll = items.reduce((s,c) => {
@@ -9696,7 +9696,11 @@ function renderCatGroup(cats) {
         &&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
         &&!((t.description||'').toLowerCase().startsWith('pago compra'))
         &&!((t.reference||'').toLowerCase().startsWith('commission-payout'))).length;
-      const payCnt = c.type==='expense' ? purchasePayments.filter(p=>String(p.categoryId)===String(c.id)&&contabDateFilter(p)).length : 0;
+      const payCnt = c.type==='expense'
+        ? purchasePayments.filter(p=>String(p.categoryId)===String(c.id)&&contabDateFilter(p)&&!p.isTransportPayment).length
+        : c.type==='income'
+          ? payments.filter(p=>{ if(!contabDateFilter(p))return false; const rid=p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||''; return String(rid)===String(c.id); }).length
+          : 0;
       return s + txCnt + payCnt;
     }, 0);
     const isIncome = items[0].type === 'income';
@@ -9710,16 +9714,22 @@ function renderCatGroup(cats) {
         && !(t.reference && /^LOT-|^ORD-/i.test(t.reference))
         && !((t.description||'').toLowerCase().startsWith('pago compra'))
         && !((t.reference||'').toLowerCase().startsWith('commission-payout')));
-      const catPays = c.type==='expense' ? purchasePayments.filter(p=>{
-        if (!contabDateFilter(p)) return false;
-        if (p.isTransportPayment) return false;
-        if (p.categoryId && String(p.categoryId)===String(c.id)) return true;
-        if (!p.categoryId) {
-          const lot = purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));
-          if (lot && String(lot.categoryId)===String(c.id)) return true;
-        }
-        return false;
-      }) : [];
+      const catPays = c.type==='income'
+        ? payments.filter(p=>{
+            if(!contabDateFilter(p)) return false;
+            const rid=p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||'';
+            return String(rid)===String(c.id);
+          })
+        : c.type==='expense' ? purchasePayments.filter(p=>{
+          if (!contabDateFilter(p)) return false;
+          if (p.isTransportPayment) return false;
+          if (p.categoryId && String(p.categoryId)===String(c.id)) return true;
+          if (!p.categoryId) {
+            const lot = purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));
+            if (lot && String(lot.categoryId)===String(c.id)) return true;
+          }
+          return false;
+        }) : [];
       const catTotal = catTxns.reduce((s,t) => s+(parseFloat(t.amount)||0),0) + catPays.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
       const catCount = catTxns.length + catPays.length;
       const uid = 'cat_' + String(c.id).replace(/[^a-z0-9]/gi,'_');
@@ -9727,7 +9737,10 @@ function renderCatGroup(cats) {
 
       const allSubRows = [
         ...catTxns.map(t=>({date:t.date, desc:t.description||'—', sub:formatDate(t.date)+' · '+getAccountName(t.accountId), amt:parseFloat(t.amount)||0})),
-        ...catPays.map(p=>({date:p.date, desc:(p.lotNumber?'Pago compra '+p.lotNumber:'Pago compra'), sub:formatDate(p.date)+' · '+getAccountName(p.accountId), amt:parseFloat(p.dopAmount||p.amount)||0})),
+        ...catPays.map(p=>{
+          if(c.type==='income'){const s=sales.find(x=>String(x.id)===String(p.saleId));return{date:p.date,desc:'Pago · '+(s?.invoiceNum||s?.invoiceNumber||p.saleId||'—'),sub:formatDate(p.date)+' · '+getAccountName(p.accountId),amt:parseFloat(p.amount)||0};}
+          return{date:p.date,desc:(p.lotNumber?'Pago compra '+p.lotNumber:'Pago compra'),sub:formatDate(p.date)+' · '+getAccountName(p.accountId),amt:parseFloat(p.dopAmount||p.amount)||0};
+        }),
       ].sort((a,b)=>(b.date||'')<(a.date||'') ? -1 : 1);
       const txRows = allSubRows.length ? allSubRows.map(r => `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 14px 5px 28px;border-top:1px solid var(--border);background:var(--surface-2);font-size:12px;">
