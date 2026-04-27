@@ -4678,7 +4678,7 @@ function getOrderPaid(lotNumber) {
       || (String(pp.reference||'').includes(lotNumber) && !pp.lotNumber));
   const seenPP = new Set();
   const fromPayments = rawPayments.filter(pp => {
-    const key = `${pp.lotNumber}|${Math.round((parseFloat(pp.dopAmount||pp.amount)||0)*100)}`;
+    const key = `${pp.lotNumber}|${Math.round((parseFloat(pp.dopAmount||pp.amount)||0)*100)}|${pp.accountId}`;
     if (seenPP.has(key)) return false;
     seenPP.add(key);
     return true;
@@ -9807,16 +9807,24 @@ function renderCatGroup(cats) {
             const rid=p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||'';
             return String(rid)===String(c.id);
           })
-        : c.type==='expense' ? purchasePayments.filter(p=>{
-          if (!contabDateFilter(p)) return false;
-          if (p.isTransportPayment) return false;
-          if (p.categoryId && String(p.categoryId)===String(c.id)) return true;
-          if (!p.categoryId) {
-            const lot = purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));
-            if (lot && String(lot.categoryId)===String(c.id)) return true;
-          }
-          return false;
-        }) : [];
+        : c.type==='expense' ? (() => {
+            const _raw = purchasePayments.filter(p=>{
+              if (!contabDateFilter(p)) return false;
+              if (p.isTransportPayment) return false;
+              if (p.categoryId && String(p.categoryId)===String(c.id)) return true;
+              if (!p.categoryId) {
+                const lot = purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));
+                if (lot && String(lot.categoryId)===String(c.id)) return true;
+              }
+              return false;
+            });
+            const _seen = new Set();
+            return _raw.filter(p => {
+              const key = `${p.lotNumber}|${Math.round((parseFloat(p.dopAmount||p.amount)||0)*100)}|${p.accountId}`;
+              if (_seen.has(key)) return false;
+              _seen.add(key); return true;
+            });
+          })() : [];
       const catTotal = catTxns.reduce((s,t) => s+(parseFloat(t.amount)||0),0) + catPays.reduce((s,p)=>s+(parseFloat(c.type==='income'?p.amount:(p.dopAmount||p.amount))||0),0);
       const catCount = catTxns.length + catPays.length;
       const uid = 'cat_' + String(c.id).replace(/[^a-z0-9]/gi,'_');
@@ -9903,6 +9911,8 @@ function renderCatCard(c) {
         const raw = purchasePayments.filter(p => {
           if (!contabDateFilter(p)) return false;
           if (p.isTransportPayment) return false;
+          // Exclude courier receipt payments (skipBalance = courier bulk payment, counted as transaction)
+          if (p.skipBalance && p.receiptId) return false;
           if (p.categoryId && String(p.categoryId) === String(c.id)) return true;
           if (!p.categoryId) {
             const lot = purchases.find(x => (x.lotNumber||x.lotNum||String(x.id)) === (p.lotNumber||p.purchaseId));
@@ -9910,10 +9920,10 @@ function renderCatCard(c) {
           }
           return false;
         });
-        // Deduplicate: same lotNumber + same rounded amount = same payment
+        // Deduplicate: same lotNumber + amount + account = same payment
         const seen = new Set();
         return raw.filter(p => {
-          const key = `${p.lotNumber}|${Math.round((parseFloat(p.dopAmount||p.amount)||0)*100)}`;
+          const key = `${p.lotNumber}|${Math.round((parseFloat(p.dopAmount||p.amount)||0)*100)}|${p.accountId}`;
           if (seen.has(key)) return false;
           seen.add(key); return true;
         });
@@ -11675,6 +11685,7 @@ function rptContabilidad(el) {
   const _ppSeen = new Set();
   const filtPurchPay= purchasePayments.filter(p=>{
     if (!rptInPeriod(p.date) || p.isTransportPayment) return false;
+    if (p.skipBalance && p.receiptId) return false; // courier receipt entries, counted via transaction
     const key = `${p.lotNumber}|${Math.round((parseFloat(p.dopAmount||p.amount)||0)*100)}`;
     if (_ppSeen.has(key)) return false;
     _ppSeen.add(key); return true;
