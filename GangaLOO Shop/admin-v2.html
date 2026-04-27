@@ -2244,7 +2244,7 @@ function renderDashboard() {
   const monthExp      = transactions.filter(t => {
     if (!(t.date||'').startsWith(mk) || t.type!=='expense') return false;
     if (t.isPurchasePayment) return false;
-    if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
+    if (t.reference && /^LOT-|^ORD-/i.test(t.reference) && !t.isTransportPayment) return false;
     if ((t.description||'').toLowerCase().startsWith('pago compra'))
     if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
     return true;
@@ -9684,20 +9684,34 @@ function renderCatGroup(cats) {
     const totalAll = items.reduce((s,c) => {
       const txAmt  = transactions.filter(t=>String(t.categoryId)===String(c.id)&&contabDateFilter(t)
         &&!t.isPurchasePayment&&!t.isInternalTransfer&&!t.isReceiptEntry
-        &&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
+        &&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference)&&!t.isTransportPayment)
         &&!((t.description||'').toLowerCase().startsWith('pago compra'))
         &&!((t.reference||'').toLowerCase().startsWith('commission-payout'))).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
-      const payAmt = c.type==='income' ? payments.filter(p=>{ if(!contabDateFilter(p))return false; const rid=p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||''; return String(rid)===String(c.id); }).reduce((a,p)=>a+(parseFloat(p.amount)||0),0) : c.type==='expense' ? purchasePayments.filter(p=>String(p.categoryId)===String(c.id)&&contabDateFilter(p)&&!p.isTransportPayment).reduce((a,p)=>a+(parseFloat(p.dopAmount||p.amount)||0),0) : 0;
+      const payAmt = c.type==='income'
+        ? payments.filter(p=>{ if(!contabDateFilter(p))return false; const rid=p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||''; return String(rid)===String(c.id); }).reduce((a,p)=>a+(parseFloat(p.amount)||0),0)
+        : c.type==='expense'
+          ? purchasePayments.filter(p=>{
+              if(!contabDateFilter(p)||p.isTransportPayment) return false;
+              if(p.categoryId && String(p.categoryId)===String(c.id)) return true;
+              if(!p.categoryId){const lot=purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));if(lot&&String(lot.categoryId)===String(c.id))return true;}
+              return false;
+            }).reduce((a,p)=>a+(parseFloat(p.dopAmount||p.amount)||0),0)
+          : 0;
       return s + txAmt + payAmt;
     }, 0);
     const countAll = items.reduce((s,c) => {
       const txCnt  = transactions.filter(t=>String(t.categoryId)===String(c.id)&&contabDateFilter(t)
         &&!t.isPurchasePayment&&!t.isInternalTransfer
-        &&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
+        &&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference)&&!t.isTransportPayment)
         &&!((t.description||'').toLowerCase().startsWith('pago compra'))
         &&!((t.reference||'').toLowerCase().startsWith('commission-payout'))).length;
       const payCnt = c.type==='expense'
-        ? purchasePayments.filter(p=>String(p.categoryId)===String(c.id)&&contabDateFilter(p)&&!p.isTransportPayment).length
+        ? purchasePayments.filter(p=>{
+            if(!contabDateFilter(p)||p.isTransportPayment) return false;
+            if(p.categoryId && String(p.categoryId)===String(c.id)) return true;
+            if(!p.categoryId){const lot=purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));if(lot&&String(lot.categoryId)===String(c.id))return true;}
+            return false;
+          }).length
         : c.type==='income'
           ? payments.filter(p=>{ if(!contabDateFilter(p))return false; const rid=p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||''; return String(rid)===String(c.id); }).length
           : 0;
@@ -9711,7 +9725,8 @@ function renderCatGroup(cats) {
       const catTxns = transactions.filter(t => String(t.categoryId) === String(c.id) && contabDateFilter(t)
         && !t.isPurchasePayment
         && !t.isInternalTransfer
-        && !(t.reference && /^LOT-|^ORD-/i.test(t.reference))
+        && !t.isReceiptEntry
+        && !(t.reference && /^LOT-|^ORD-/i.test(t.reference) && !t.isTransportPayment)
         && !((t.description||'').toLowerCase().startsWith('pago compra'))
         && !((t.reference||'').toLowerCase().startsWith('commission-payout')));
       const catPays = c.type==='income'
@@ -9730,7 +9745,7 @@ function renderCatGroup(cats) {
           }
           return false;
         }) : [];
-      const catTotal = catTxns.reduce((s,t) => s+(parseFloat(t.amount)||0),0) + catPays.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+      const catTotal = catTxns.reduce((s,t) => s+(parseFloat(t.amount)||0),0) + catPays.reduce((s,p)=>s+(parseFloat(c.type==='income'?p.amount:(p.dopAmount||p.amount))||0),0);
       const catCount = catTxns.length + catPays.length;
       const uid = 'cat_' + String(c.id).replace(/[^a-z0-9]/gi,'_');
       const canDel = catCount === 0;
@@ -9799,15 +9814,17 @@ function renderCatCard(c) {
     && !t.isPurchasePayment
     && !t.isInternalTransfer
     && !t.isReceiptEntry  // exclude auto-created receipt transactions (counted via payments below)
-    && !(t.reference && /^LOT-|^ORD-/i.test(t.reference))
+    && !(t.reference && /^LOT-|^ORD-/i.test(t.reference) && !t.isTransportPayment)
     && !((t.description||'').toLowerCase().startsWith('pago compra'))
     && !((t.reference||'').toLowerCase().startsWith('commission-payout')));
   // Include payments (income) or purchasePayments (expense) — no double counting
+  // All IDs this category covers: itself + subcategories
+  const _catAllIds = new Set([String(c.id), ...(c.subcategories||[]).map(s=>String(s.id||s))]);
   const catPays  = c.type === 'income'
     ? payments.filter(p => {
         if (!contabDateFilter(p)) return false;
         const resolvedCatId = p.categoryId || sales.find(s=>String(s.id)===String(p.saleId))?.categoryId || '';
-        return resolvedCatId && String(resolvedCatId) === String(c.id);
+        return resolvedCatId && _catAllIds.has(String(resolvedCatId));
       })
     : c.type === 'expense'
     ? purchasePayments.filter(p => {
@@ -9835,14 +9852,20 @@ function renderCatCard(c) {
 
   /* Subcategory rows */
   const subRows = subs.map(sub => {
-    const subTxns  = transactions.filter(t => String(t.categoryId) === String(sub.id||sub));
-    const subTotal = subTxns.reduce((s,t) => s+(parseFloat(t.amount)||0),0);
+    const subId = String(sub.id||sub);
+    const subTxns  = transactions.filter(t => String(t.categoryId) === subId && contabDateFilter(t)
+      && !t.isReceiptEntry && !t.isPurchasePayment && !t.isInternalTransfer);
+    const subPays  = isIncome
+      ? payments.filter(p=>{ if(!contabDateFilter(p))return false; const rid=p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||''; return String(rid)===subId; })
+      : [];
+    const subTotal = subTxns.reduce((s,t)=>s+(parseFloat(t.amount)||0),0) + subPays.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+    const subCount = subTxns.length + subPays.length;
     return `
       <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 12px 5px 24px;border-top:1px solid var(--border);font-size:12.5px;">
         <span style="color:var(--ink-2);">↳ ${sub.name||sub}</span>
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-weight:700;color:${color};">${subTxns.length > 0 ? formatDOP(subTotal) : '—'}</span>
-          <span style="color:var(--ink-3);font-size:11px;">${subTxns.length} tx</span>
+          <span style="font-weight:700;color:${color};">${subCount > 0 ? formatDOP(subTotal) : '—'}</span>
+          <span style="color:var(--ink-3);font-size:11px;">${subCount} tx</span>
         </div>
       </div>`;
   }).join('');
@@ -11354,7 +11377,7 @@ function rptPyL(el) {
     if (!rptInPeriod(t.date) || t.type!=='expense') return false;
     if (t.isPurchasePayment) return false;
     if (t.isInternalTransfer) return false;
-    if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
+    if (t.reference && /^LOT-|^ORD-/i.test(t.reference) && !t.isTransportPayment) return false;
     if ((t.description||'').toLowerCase().startsWith('pago compra'))
     if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
     if ((t.reference||'').toLowerCase() === 'transferencia') return false;
@@ -11438,7 +11461,7 @@ function rptPyL(el) {
         if (!rptInPeriod(t.date) || t.type!=='expense') return false;
         if (t.isPurchasePayment) return false;
         if (t.isInternalTransfer) return false;
-        if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
+        if (t.reference && /^LOT-|^ORD-/i.test(t.reference) && !t.isTransportPayment) return false;
         if ((t.description||'').toLowerCase().startsWith('pago compra'))
         if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
         if ((t.reference||'').toLowerCase() === 'transferencia') return false;
@@ -12750,7 +12773,7 @@ function rptMetas(el) {
   const actualGastos   = transactions.filter(t => {
     if (t.type!=='expense' || !inPeriod(t.date)) return false;
     if (t.isPurchasePayment) return false;
-    if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
+    if (t.reference && /^LOT-|^ORD-/i.test(t.reference) && !t.isTransportPayment) return false;
     if ((t.description||'').toLowerCase().startsWith('pago compra'))
     if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
     return true;
