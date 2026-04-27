@@ -2399,7 +2399,7 @@ function renderDashComisiones() {
     allMonths.forEach(mk => {
       const alreadyPaid = commissionPayouts.find(p=>p.sellerId===seller.id&&p.monthKey===mk);
       if (alreadyPaid) return;
-      const mSales = sales.filter(s=>(s.date||'').startsWith(mk)&&(s.customerId===seller.id||s.sellerId===seller.id)&&s.status!=='cancelled');
+      const mSales = sales.filter(s=>(s.date||'').startsWith(mk)&&(String(s.customerId)===String(seller.id)||String(s.sellerId)===String(seller.id))&&s.status!=='cancelled');
       const total  = mSales.reduce((t,v)=>t+saleTotal(v),0);
       const comm   = Math.round(total*0.15*100)/100;
       if (comm > 0.01) pending.push({ seller, mk, total, comm, count:mSales.length });
@@ -11250,13 +11250,13 @@ function rptComisiones(el) {
     months.forEach(mk => {
       if (_rptPeriod==='month' && !mk.startsWith(_rptMonth.slice(0,7))) return;
       if (_rptPeriod==='year'  && !mk.startsWith(_rptYear)) return;
-      const mSales = sales.filter(s=>(s.date||'').startsWith(mk)&&(s.customerId===seller.id||s.sellerId===seller.id)&&s.status!=='cancelled');
+      const mSales = sales.filter(s=>(s.date||'').startsWith(mk)&&(String(s.customerId)===String(seller.id)||String(s.sellerId)===String(seller.id))&&s.status!=='cancelled');
       const total  = mSales.reduce((t,v)=>t+saleTotal(v),0);
       if (!total) return;
       const comm   = Math.round(total*0.15*100)/100;
       const distrib= seller.warehouseId==='montellano' ? Math.round(total*0.05*100)/100 : 0;
       const keeps  = comm - distrib;
-      const payout = commissionPayouts.find(p=>p.sellerId===seller.id&&p.monthKey===mk);
+      const payout = commissionPayouts.find(p=>String(p.sellerId)===String(seller.id)&&p.monthKey===mk);
       rows.push({ seller:seller.name, mk, total, comm, distrib, keeps, payout, count:mSales.length });
     });
   });
@@ -11277,7 +11277,7 @@ function rptComisiones(el) {
       if (!rows.length) return '<p style="color:var(--ink-3);">Sin comisiones en este período.</p>';
       const trows = rows.map((r,i) => {
         /* Get individual sales for this seller+month */
-        const mSales = sales.filter(s=>(s.date||'').startsWith(r.mk)&&(s.customerId===r.seller?.id||s.sellerId===r.seller?.id||s.seller===r.seller||getCustomerName(s.customerId)===r.seller||getCustomerName(s.sellerId)===r.seller)&&s.status!=='cancelled');
+        const mSales = sales.filter(s=>(s.date||'').startsWith(r.mk)&&(String(s.customerId)===String(r.seller?.id)||String(s.sellerId)===String(r.seller?.id)||s.seller===r.seller||getCustomerName(s.customerId)===r.seller||getCustomerName(s.sellerId)===r.seller)&&s.status!=='cancelled');
         const expandId = `rptComRow_${i}`;
         const salesDetail = mSales.map(s=>{
           const st=saleTotal(s); const sc=Math.round(st*0.15*100)/100;
