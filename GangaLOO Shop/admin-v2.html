@@ -4671,17 +4671,25 @@ function setCompraFilter(status, el) {
 
 /* Build grouped purchase orders */
 function getOrderPaid(lotNumber) {
-  /* Use dopAmount when available (foreign currency payments), else fall back to amount */
+  /* Payments from purchasePayments array */
   const fromPayments = purchasePayments
-    .filter(pp => String(pp.lotNumber)===String(lotNumber) || String(pp.purchaseId)===String(lotNumber))
+    .filter(pp => String(pp.lotNumber)===String(lotNumber)
+      || String(pp.purchaseId)===String(lotNumber)
+      // Old courier payments stored with reference containing lotNumber
+      || (String(pp.reference||'').includes(lotNumber) && !pp.lotNumber))
     .reduce((s,pp) => s + (parseFloat(pp.dopAmount || pp.amount)||0), 0);
 
-  /* Also count transport marked as externally paid (no new transaction) */
+  /* Transport payments recorded as transactions (new style only - old style goes via purchasePayments) */
+  const fromTransport = transactions
+    .filter(t => t.isTransportPayment && t.type==='expense' && String(t.lotNumber)===String(lotNumber))
+    .reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
+
+  /* Transport marked as externally paid (no transaction) */
   const transportExtra = purchases
     .filter(p => (p.lotNumber||p.lotNum||String(p.id))===String(lotNumber) && p.transportMarkedPaid)
     .reduce((s,p) => s + (parseFloat(p.transportMarkedPaid)||0), 0);
 
-  return Math.round((fromPayments + transportExtra)*100)/100;
+  return Math.round((fromPayments + fromTransport + transportExtra)*100)/100;
 }
 
 function getCompraOrders() {
