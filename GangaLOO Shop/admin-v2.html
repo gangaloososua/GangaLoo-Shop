@@ -2245,7 +2245,7 @@ function renderDashboard() {
     if (!(t.date||'').startsWith(mk) || t.type!=='expense') return false;
     if (t.isPurchasePayment) return false;
     if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
-    if ((t.description||'').toLowerCase().startsWith('pago compra')) return false;
+    if ((t.description||'').toLowerCase().startsWith('pago compra'))
     if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
     return true;
   });
@@ -9673,12 +9673,20 @@ function renderCatGroup(cats) {
 
     /* Multiple with same name — render as one grouped card */
     const totalAll = items.reduce((s,c) => {
-      const txAmt  = transactions.filter(t=>String(t.categoryId)===String(c.id)&&contabDateFilter(t)).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
+      const txAmt  = transactions.filter(t=>String(t.categoryId)===String(c.id)&&contabDateFilter(t)
+        &&!t.isPurchasePayment&&!t.isInternalTransfer
+        &&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
+        &&!((t.description||'').toLowerCase().startsWith('pago compra'))
+        &&!((t.reference||'').toLowerCase().startsWith('commission-payout'))).reduce((a,t)=>a+(parseFloat(t.amount)||0),0);
       const payAmt = c.type==='expense' ? purchasePayments.filter(p=>String(p.categoryId)===String(c.id)&&contabDateFilter(p)).reduce((a,p)=>a+(parseFloat(p.dopAmount||p.amount)||0),0) : 0;
       return s + txAmt + payAmt;
     }, 0);
     const countAll = items.reduce((s,c) => {
-      const txCnt  = transactions.filter(t=>String(t.categoryId)===String(c.id)&&contabDateFilter(t)).length;
+      const txCnt  = transactions.filter(t=>String(t.categoryId)===String(c.id)&&contabDateFilter(t)
+        &&!t.isPurchasePayment&&!t.isInternalTransfer
+        &&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
+        &&!((t.description||'').toLowerCase().startsWith('pago compra'))
+        &&!((t.reference||'').toLowerCase().startsWith('commission-payout'))).length;
       const payCnt = c.type==='expense' ? purchasePayments.filter(p=>String(p.categoryId)===String(c.id)&&contabDateFilter(p)).length : 0;
       return s + txCnt + payCnt;
     }, 0);
@@ -9687,8 +9695,22 @@ function renderCatGroup(cats) {
 
     const subRows = items.map(c => {
       const label = c.subname || c.scope || c.description || `ID ${c.id}`;
-      const catTxns = transactions.filter(t => String(t.categoryId) === String(c.id) && contabDateFilter(t));
-      const catPays = c.type==='expense' ? purchasePayments.filter(p=>String(p.categoryId)===String(c.id)&&contabDateFilter(p)) : [];
+      const catTxns = transactions.filter(t => String(t.categoryId) === String(c.id) && contabDateFilter(t)
+        && !t.isPurchasePayment
+        && !t.isInternalTransfer
+        && !(t.reference && /^LOT-|^ORD-/i.test(t.reference))
+        && !((t.description||'').toLowerCase().startsWith('pago compra'))
+        && !((t.reference||'').toLowerCase().startsWith('commission-payout')));
+      const catPays = c.type==='expense' ? purchasePayments.filter(p=>{
+        if (!contabDateFilter(p)) return false;
+        if (p.isTransportPayment) return false;
+        if (p.categoryId && String(p.categoryId)===String(c.id)) return true;
+        if (!p.categoryId) {
+          const lot = purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));
+          if (lot && String(lot.categoryId)===String(c.id)) return true;
+        }
+        return false;
+      }) : [];
       const catTotal = catTxns.reduce((s,t) => s+(parseFloat(t.amount)||0),0) + catPays.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
       const catCount = catTxns.length + catPays.length;
       const uid = 'cat_' + String(c.id).replace(/[^a-z0-9]/gi,'_');
@@ -9751,10 +9773,26 @@ function renderCatGroup(cats) {
 }
 
 function renderCatCard(c) {
-  const catTxns  = transactions.filter(t => String(t.categoryId) === String(c.id) && contabDateFilter(t));
+  const catTxns  = transactions.filter(t => String(t.categoryId) === String(c.id) && contabDateFilter(t)
+    && !t.isPurchasePayment
+    && !t.isInternalTransfer
+    && !(t.reference && /^LOT-|^ORD-/i.test(t.reference))
+    && !((t.description||'').toLowerCase().startsWith('pago compra'))
+    && !((t.reference||'').toLowerCase().startsWith('commission-payout')));
   // Also include purchasePayments for expense categories
   const catPays  = c.type === 'expense'
-    ? purchasePayments.filter(p => String(p.categoryId) === String(c.id) && contabDateFilter(p))
+    ? purchasePayments.filter(p => {
+        if (!contabDateFilter(p)) return false;
+        if (p.isTransportPayment) return false; // already counted as transaction
+        // Match by payment categoryId directly
+        if (p.categoryId && String(p.categoryId) === String(c.id)) return true;
+        // Fall back to lot's categoryId if payment has none
+        if (!p.categoryId) {
+          const lot = purchases.find(x => (x.lotNumber||x.lotNum||String(x.id)) === (p.lotNumber||p.purchaseId));
+          if (lot && String(lot.categoryId) === String(c.id)) return true;
+        }
+        return false;
+      })
     : [];
   const txTotal  = catTxns.reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
   const payTotal = catPays.reduce((s,p) => s + (parseFloat(p.dopAmount||p.amount)||0), 0);
@@ -11265,7 +11303,7 @@ function rptPyL(el) {
     if (t.isPurchasePayment) return false;
     if (t.isInternalTransfer) return false;
     if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
-    if ((t.description||'').toLowerCase().startsWith('pago compra')) return false;
+    if ((t.description||'').toLowerCase().startsWith('pago compra'))
     if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
     if ((t.reference||'').toLowerCase() === 'transferencia') return false;
     const desc = (t.description||'').toLowerCase();
@@ -11349,7 +11387,7 @@ function rptPyL(el) {
         if (t.isPurchasePayment) return false;
         if (t.isInternalTransfer) return false;
         if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
-        if ((t.description||'').toLowerCase().startsWith('pago compra')) return false;
+        if ((t.description||'').toLowerCase().startsWith('pago compra'))
         if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
         if ((t.reference||'').toLowerCase() === 'transferencia') return false;
         const desc2 = (t.description||'').toLowerCase();
@@ -11386,7 +11424,7 @@ function rptPyL(el) {
 function rptContabilidad(el) {
   const filtTx      = transactions.filter(t=>rptInPeriod(t.date));
   const filtPay     = payments.filter(p=>rptInPeriod(p.date));
-  const filtPurchPay= purchasePayments.filter(p=>rptInPeriod(p.date));
+  const filtPurchPay= purchasePayments.filter(p=>rptInPeriod(p.date) && !p.isTransportPayment);
   const income      = filtTx.filter(t=>t.type==='income').reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
   // Only count expense transactions that are NOT purchase-payment duplicates
   const expenses    = filtTx.filter(t=>t.type==='expense'
@@ -11422,10 +11460,14 @@ function rptContabilidad(el) {
     const amt = parseFloat(p.dopAmount||p.amount)||0;
     if (!amt) return;
     let catName;
-    if (p.categoryId) {
-      // Match by id (string or number) or by name
-      const cat = accountingCategories.find(c=>String(c.id)===String(p.categoryId))
-               || accountingCategories.find(c=>(c.name||'').toLowerCase()===(String(p.categoryId)).toLowerCase());
+    // Resolve categoryId: from payment itself, or fall back to lot's categoryId
+    const resolvedCatId = p.categoryId || (() => {
+      const lot = purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));
+      return lot?.categoryId || '';
+    })();
+    if (resolvedCatId) {
+      const cat = accountingCategories.find(c=>String(c.id)===String(resolvedCatId))
+               || accountingCategories.find(c=>(c.name||'').toLowerCase()===String(resolvedCatId).toLowerCase());
       catName = cat ? cat.name : '📦 Pagos Compras (sin cat.)';
     } else {
       catName = '📦 Pagos Compras (sin cat.)';
@@ -12639,7 +12681,7 @@ function rptMetas(el) {
     if (t.type!=='expense' || !inPeriod(t.date)) return false;
     if (t.isPurchasePayment) return false;
     if (t.reference && /^LOT-|^ORD-/i.test(t.reference)) return false;
-    if ((t.description||'').toLowerCase().startsWith('pago compra')) return false;
+    if ((t.description||'').toLowerCase().startsWith('pago compra'))
     if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
     return true;
   }).reduce((s,t) => s + (parseFloat(t.amount)||0), 0);
@@ -12830,11 +12872,11 @@ function saveRegistrarTransportGasto(lotNumber) {
   const acct = accounts.find(a=>String(a.id)===String(acctId));
   if (acct) acct.balance = Math.round((acct.balance - amount)*100)/100;
 
-  /* Create expense transaction */
-  transactions.push({ id: generateId(), type:'expense', description: desc, amount, accountId: acctId, categoryId: catId, date });
+  /* Create expense transaction (categorized) */
+  transactions.push({ id: generateId(), type:'expense', description: desc, amount, accountId: acctId, categoryId: catId, date, isTransportPayment: true, lotNumber });
 
-  /* Also register as purchase payment so order shows as paid */
-  purchasePayments.push({ id: generateId(), lotNumber, amount: Math.round(amount*100)/100, accountId: acctId, date, reference: desc });
+  /* Register as purchase payment so order shows transport cost — no categoryId to avoid double-counting */
+  purchasePayments.push({ id: generateId(), lotNumber, amount: Math.round(amount*100)/100, accountId: acctId, date, reference: desc, isTransportPayment: true });
 
   debouncedSave();
   renderContabTab('transacciones');
@@ -13278,20 +13320,7 @@ function saveRegistrarPagoLot(presetLot) {
     reference: ref || lotNumber,
   });
 
-  /* Create expense transaction so it shows in reports */
-  if (catId) {
-    transactions.push({
-      id:          generateId(),
-      type:        'expense',
-      description: `Pago compra ${lotNumber}${ref?' · '+ref:''}`,
-      amount:      Math.round(dopAmount*100)/100,
-      accountId:   acctId,
-      categoryId:  catId,
-      date,
-      reference:   lotNumber,
-      isPurchasePayment: true,
-    });
-  }
+  /* categoryId stored on purchasePayment — no separate transaction needed */
 
   debouncedSave();
   renderContabTab('pagoscompra');
