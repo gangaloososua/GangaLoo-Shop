@@ -4676,7 +4676,12 @@ function getOrderPaid(lotNumber) {
     .filter(pp => String(pp.lotNumber)===String(lotNumber) || String(pp.purchaseId)===String(lotNumber))
     .reduce((s,pp) => s + (parseFloat(pp.dopAmount || pp.amount)||0), 0);
 
-  return Math.round(fromPayments*100)/100;
+  /* Also count transport marked as externally paid (no new transaction) */
+  const transportExtra = purchases
+    .filter(p => (p.lotNumber||p.lotNum||String(p.id))===String(lotNumber) && p.transportMarkedPaid)
+    .reduce((s,p) => s + (parseFloat(p.transportMarkedPaid)||0), 0);
+
+  return Math.round((fromPayments + transportExtra)*100)/100;
 }
 
 function getCompraOrders() {
@@ -5111,6 +5116,10 @@ function openPagarTransporte() {
             </div>`}
 
       </div>
+      <div style="padding:10px 16px;background:var(--surface-2);border-top:1px solid var(--border);font-size:12px;color:var(--ink-3);">
+        ¿Ya pagaste este transporte antes y no quieres crear otra transacción?
+        <button class="btn btn-secondary btn-sm" style="margin-left:8px;" onclick="markTransportPaid()">✓ Marcar como ya pagado</button>
+      </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
         <button class="btn btn-primary" onclick="savePagarTransporte()">💾 Registrar Pago Courier</button>
@@ -5139,6 +5148,30 @@ function updatePtBalance() {
         ? `RD$ ${formatDOP(saldo).replace('RD$ ','')} quedarán sin aplicar`
         : '✅ Todo el monto aplicado';
   }
+}
+
+function markTransportPaid() {
+  const checked = [...document.querySelectorAll('#pt_orderList input[type=checkbox]:checked')].map(cb=>cb.value);
+  if (!checked.length) { showToast('Selecciona al menos una orden','error'); return; }
+
+  checked.forEach(lotNumber => {
+    // Get the pending amount for this lot and mark it as paid on the purchase lots
+    const order = getCompraOrders().find(o=>o.lotNumber===lotNumber);
+    if (!order) return;
+    const total = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
+    const paid  = getOrderPaid(lotNumber);
+    const pend  = Math.max(0, Math.round((total-paid)*100)/100);
+    if (pend <= 0) return;
+    // Mark all lots in this order as transport paid
+    purchases.filter(p=>(p.lotNumber||p.lotNum||String(p.id))===lotNumber)
+      .forEach(p => { p.transportMarkedPaid = (parseFloat(p.transportMarkedPaid)||0) + pend/order.lots.length; });
+  });
+
+  debouncedSave();
+  closeModal();
+  renderComprasKPI();
+  renderComprasList();
+  showToast(`✅ ${checked.length} orden${checked.length!==1?'es':''} marcada${checked.length!==1?'s':''} como transporte pagado`, 'success');
 }
 
 function savePagarTransporte() {
