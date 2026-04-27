@@ -5768,7 +5768,8 @@ function syncRemainingQty(lotId) {
 
 function saveEditCompra(lotNumber) {
   const lots      = purchases.filter(p=>(p.lotNumber||p.lotNum||String(p.id))===lotNumber);
-  const supplier  = first.supplier || '';  // keep existing supplier
+  const _firstLot = lots[0] || {};
+  const supplier  = _firstLot.supplier || '';  // keep existing supplier
   const categoryId = document.getElementById('ec_category')?.value || '';
   const date      = document.getElementById('ec_date')?.value;
   const warehouseId = document.getElementById('ec_warehouse')?.value;
