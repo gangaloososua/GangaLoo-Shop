@@ -12988,14 +12988,28 @@ function ajustarCostoAlPago(lotNumber) {
 
 
 function openBulkAssignPaymentCat() {
+  // Get unique customer IDs from payments, then deduplicate by name/email
+  const _paymentCustIds = [...new Set(payments.map(p => {
+    const sale = sales.find(s=>String(s.id)===String(p.saleId));
+    return sale?.customerId || '';
+  }).filter(Boolean))];
+
+  // Deduplicate: group by email/name, keep only first ID per unique person
+  const _seen = new Set();
+  const _uniqueCusts = [];
+  _paymentCustIds.forEach(cid => {
+    const c = customers.find(x=>String(x.id)===String(cid));
+    if (!c) return;
+    const key = (c.email||c.name||cid).toLowerCase().trim();
+    if (!_seen.has(key)) {
+      _seen.add(key);
+      _uniqueCusts.push({ cid, name: c.name||cid, key });
+    }
+  });
+  _uniqueCusts.sort((a,b)=>a.name.localeCompare(b.name,'es'));
+
   const custOpts = '<option value="">— Todos los clientes —</option>' +
-    [...new Set(payments.map(p => {
-      const sale = sales.find(s=>String(s.id)===String(p.saleId));
-      return sale?.customerId || '';
-    }).filter(Boolean))].map(cid => {
-      const c = customers.find(x=>String(x.id)===String(cid));
-      return `<option value="${cid}">${c?.name||cid}</option>`;
-    }).join('');
+    _uniqueCusts.map(u => `<option value="${u.key}">${u.name}</option>`).join('');
 
   const catOpts = '<option value="">— Sin categoría —</option>' +
     accountingCategories.filter(c=>c.type==='income').sort((a,b)=>(a.name||'').localeCompare(b.name||'','es'))
@@ -13047,12 +13061,16 @@ function updateBulkPreview() {
 
   const matched = payments.filter(p => {
     const sale = sales.find(s=>String(s.id)===String(p.saleId));
-    if (custId && String(sale?.customerId) !== custId) return false;
+    if (custId) {
+      const c = customers.find(x=>String(x.id)===String(sale?.customerId));
+      const key = c ? (c.email||c.name||String(c.id)).toLowerCase().trim() : '';
+      if (key !== custId) return false;
+    }
     if (onlyEmpty && (p.categoryId || sale?.categoryId)) return false;
     return true;
   });
 
-  const custName = custId ? (customers.find(c=>String(c.id)===custId)?.name||custId) : 'todos los clientes';
+  const custName = custId ? (_uniqueCusts?.find(u=>u.key===custId)?.name||custId) : 'todos los clientes';
   const catName  = catId  ? accountingCategories.find(c=>String(c.id)===catId)?.name||catId : '(ninguna)';
   preview.innerHTML = `<strong>${matched.length} pagos</strong> de <em>${custName}</em> serán asignados a <strong>${catName}</strong>.`;
   preview.style.color = matched.length > 0 ? 'var(--ink-1)' : 'var(--ink-3)';
@@ -13068,7 +13086,11 @@ function saveBulkAssignPaymentCat() {
   let count = 0;
   payments.forEach(p => {
     const sale = sales.find(s=>String(s.id)===String(p.saleId));
-    if (custId && String(sale?.customerId) !== custId) return;
+    if (custId) {
+      const c = customers.find(x=>String(x.id)===String(sale?.customerId));
+      const key = c ? (c.email||c.name||String(c.id)).toLowerCase().trim() : '';
+      if (key !== custId) return;
+    }
     if (onlyEmpty && (p.categoryId || sale?.categoryId)) return;
     p.categoryId = catId;
     count++;
