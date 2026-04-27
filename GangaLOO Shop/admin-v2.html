@@ -5089,7 +5089,8 @@ function openPagarTransporte() {
             </div>
             <div style="display:grid;gap:6px;">
               ${pendingOrders.map(o => `
-                <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:10px 14px;">
+                <div style="display:grid;grid-template-columns:auto auto 1fr auto auto;gap:10px;align-items:center;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:10px 14px;">
+                  <input type="checkbox" class="pt-already-paid-cb" data-lot="${o.lotNumber}" style="width:16px;height:16px;cursor:pointer;" title="Marcar este como ya pagado">
                   <div>
                     <div style="font-weight:800;color:var(--violet);font-size:.9em;">${o.lotNumber}</div>
                     <div style="font-size:11px;color:var(--ink-3);">${formatDate(o.date)}${(()=>{
@@ -5116,10 +5117,9 @@ function openPagarTransporte() {
             </div>`}
 
       </div>
-      <div style="padding:10px 16px;background:var(--surface-2);border-top:1px solid var(--border);font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <span>¿Ya fue pagado antes y solo quieres cerrar el pendiente?</span>
-        <button class="btn btn-secondary btn-sm" onclick="markTransportPaid()">✓ Marcar todo como ya pagado (sin nueva transacción)</button>
-        <span style="opacity:.6;">· O entra montos arriba y usa "Registrar Pago" para registrar en contabilidad</span>
+      <div style="padding:12px 16px;background:rgba(245,158,11,.08);border-top:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span style="color:var(--ink-2);">⚠️ ¿Estas órdenes ya fueron pagadas antes y no quieres duplicar en contabilidad?</span>
+        <button class="btn btn-secondary btn-sm" onclick="markTransportPaid()">✓ Cerrar seleccionados como ya pagados (sin nueva transacción)</button>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -5153,8 +5153,12 @@ function updatePtBalance() {
 
 function markTransportPaid() {
   // Find all orders currently shown in the modal and mark their full pending amount as paid
+  // Only process orders that have the checkbox checked
+  const checkedLots = new Set([...document.querySelectorAll('.pt-already-paid-cb:checked')].map(cb=>cb.dataset.lot));
+  if (!checkedLots.size) { showToast('Selecciona las órdenes que ya fueron pagadas','error'); return; }
+
   const orders = getCompraOrders()
-    .filter(o => o.status !== 'cancelled')
+    .filter(o => o.status !== 'cancelled' && checkedLots.has(o.lotNumber))
     .map(o => {
       const total = o.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
       const paid  = getOrderPaid(o.lotNumber);
@@ -5163,18 +5167,13 @@ function markTransportPaid() {
     })
     .filter(o => o.pend > 0.01);
 
-  if (!orders.length) { showToast('No hay transporte pendiente','error'); return; }
+  if (!orders.length) { showToast('Las órdenes seleccionadas ya están al día','error'); return; }
 
-  // For each order, check if user entered an amount — if yes use that, else use full pending
   let count = 0;
   orders.forEach(o => {
-    const inputEl = document.getElementById(`pt_lot_${o.lotNumber}`);
-    const markAmt = inputEl ? (parseFloat(inputEl.value)||0) : 0;
-    const amt = markAmt > 0 ? markAmt : o.pend; // use entered amount or full pending
-    if (amt <= 0) return;
     purchases.filter(p=>(p.lotNumber||p.lotNum||String(p.id))===o.lotNumber)
-      .forEach((p, i, arr) => {
-        p.transportMarkedPaid = (parseFloat(p.transportMarkedPaid)||0) + amt/arr.length;
+      .forEach(p => {
+        p.transportMarkedPaid = (parseFloat(p.transportMarkedPaid)||0) + o.pend;
       });
     count++;
   });
