@@ -13758,7 +13758,11 @@ function saveRegistrarPagoLot(presetLot) {
   if (!isDOP) {
     const dopRaw = parseFloat(document.getElementById('plDopAmount')?.value) || 0;
     if (!dopRaw || dopRaw <= 0) {
-      showToast(`Ingresa el equivalente en RD$ para el pago en ${acct?.currency}`, 'error');
+      // Show DOP field if hidden and alert
+      const dopGroup = document.getElementById('plDopGroup');
+      if (dopGroup) dopGroup.style.display = 'block';
+      showToast(`⚠️ Debes ingresar el equivalente en RD$ para pagos en ${acct?.currency}`, 'error');
+      document.getElementById('plDopAmount')?.focus();
       return;
     }
     dopAmount = dopRaw;
