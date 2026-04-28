@@ -9846,7 +9846,7 @@ function renderCatGroup(cats) {
         ? payments.filter(p=>{ if(!contabDateFilter(p))return false; const rid=p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||''; return String(rid)===String(c.id); }).reduce((a,p)=>a+(parseFloat(p.amount)||0),0)
         : c.type==='expense'
           ? purchasePayments.filter(p=>{
-              if(!contabDateFilter(p)||p.isTransportPayment) return false;
+              if(!contabDateFilter(p)) return false;
               if(p.categoryId && String(p.categoryId)===String(c.id)) return true;
               if(!p.categoryId){const lot=purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));if(lot&&String(lot.categoryId)===String(c.id))return true;}
               return false;
@@ -9862,7 +9862,7 @@ function renderCatGroup(cats) {
         &&!((t.reference||'').toLowerCase().startsWith('commission-payout'))).length;
       const payCnt = c.type==='expense'
         ? purchasePayments.filter(p=>{
-            if(!contabDateFilter(p)||p.isTransportPayment) return false;
+            if(!contabDateFilter(p)) return false;
             if(p.categoryId && String(p.categoryId)===String(c.id)) return true;
             if(!p.categoryId){const lot=purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));if(lot&&String(lot.categoryId)===String(c.id))return true;}
             return false;
@@ -9893,7 +9893,6 @@ function renderCatGroup(cats) {
         : c.type==='expense' ? (() => {
             const _raw = purchasePayments.filter(p=>{
               if (!contabDateFilter(p)) return false;
-              if (p.isTransportPayment) return false;
               if (p.categoryId && String(p.categoryId)===String(c.id)) return true;
               if (!p.categoryId) {
                 const lot = purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));
@@ -9993,9 +9992,6 @@ function renderCatCard(c) {
     ? (() => {
         const raw = purchasePayments.filter(p => {
           if (!contabDateFilter(p)) return false;
-          if (p.isTransportPayment) return false;
-          // Exclude courier receipt payments (skipBalance = courier bulk payment, counted as transaction)
-          if (p.skipBalance && p.receiptId) return false;
           if (p.categoryId && String(p.categoryId) === String(c.id)) return true;
           if (!p.categoryId) {
             const lot = purchases.find(x => (x.lotNumber||x.lotNum||String(x.id)) === (p.lotNumber||p.purchaseId));
@@ -11767,7 +11763,7 @@ function rptContabilidad(el) {
   // Deduplicate purchasePayments by lotNumber+amount to avoid triple counting from old admin
   const _ppSeen = new Set();
   const filtPurchPay= purchasePayments.filter(p=>{
-    if (!rptInPeriod(p.date) || p.isTransportPayment) return false;
+    if (!rptInPeriod(p.date)) return false;
     if (p.skipBalance && p.receiptId) return false; // courier receipt entries, counted via transaction
     const key = `${p.lotNumber}|${Math.round((parseFloat(p.dopAmount||p.amount)||0)*100)}`;
     if (_ppSeen.has(key)) return false;
