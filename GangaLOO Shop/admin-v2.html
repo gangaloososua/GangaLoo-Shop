@@ -4862,10 +4862,15 @@ function renderCompraDetail(lotNumber) {
   if (!order) return;
 
   const st    = COMPRA_STATUSES[order.status] || COMPRA_STATUSES.pending;
-  const total = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
-  const paid  = getOrderPaid(lotNumber);
-  const pend  = Math.max(0, total-paid);
-  const paidPct = total > 0 ? Math.min(100, paid/total*100) : 0;
+  const total          = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
+  const transportShare = order.lots.reduce((s,p)=>s+(parseFloat(p.transportShare)||0),0);
+  const productCost    = total - transportShare;
+  const productPaid    = purchasePayments.filter(pp=>(String(pp.lotNumber)===String(lotNumber)||String(pp.lotNumber)===String(lotNumber).replace(/^LOT-/i,''))&&!pp.isTransportPayment).reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+  const transportPaid  = purchasePayments.filter(pp=>(String(pp.lotNumber)===String(lotNumber)||String(pp.lotNumber)===String(lotNumber).replace(/^LOT-/i,''))&&pp.isTransportPayment).reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+  const paid           = productPaid + transportPaid;
+  const pend           = Math.max(0, Math.round((productCost - productPaid)*100)/100); // pending product cost only
+  const pendTransport  = Math.max(0, Math.round((transportShare - transportPaid)*100)/100);
+  const paidPct        = total > 0 ? Math.min(100, paid/total*100) : 0;
 
   pane.innerHTML = `
     <div style="padding:24px 28px;max-width:720px;">
@@ -4938,11 +4943,13 @@ function renderCompraDetail(lotNumber) {
           Pagos de la Orden
         </div>
         ${(() => {
-          const productPmts = purchasePayments.filter(pp=>(String(pp.lotNumber)===String(lotNumber)||String(pp.purchaseId)===String(lotNumber))&&!pp.isTransportPayment);
-          const transportPmts = purchasePayments.filter(pp=>(String(pp.lotNumber)===String(lotNumber)||String(pp.purchaseId)===String(lotNumber))&&pp.isTransportPayment);
-          const productPaid = productPmts.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
-          const transportPaid = transportPmts.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
-          const productPending = Math.max(0, Math.round((total-productPaid-transportPaid)*100)/100);
+          const lotNum2 = String(lotNumber).replace(/^LOT-/i,'');
+          const productPmts = purchasePayments.filter(pp=>(String(pp.lotNumber)===String(lotNumber)||String(pp.lotNumber)===lotNum2||String(pp.purchaseId)===String(lotNumber))&&!pp.isTransportPayment);
+          const transportPmts = purchasePayments.filter(pp=>(String(pp.lotNumber)===String(lotNumber)||String(pp.lotNumber)===lotNum2||String(pp.purchaseId)===String(lotNumber))&&pp.isTransportPayment);
+          const productPaid2 = productPmts.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+          const transportPaid2 = transportPmts.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+          const productPending = Math.max(0, Math.round((productCost-productPaid2)*100)/100);
+          const transportPending = Math.max(0, Math.round((transportShare-transportPaid2)*100)/100);
 
           const pmtRow = pp => {
             const acct = accounts.find(a=>String(a.id)===String(pp.accountId));
@@ -4963,7 +4970,7 @@ function renderCompraDetail(lotNumber) {
             <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(99,102,241,.04);">
               <div style="font-weight:700;font-size:13px;">💳 Pago de Productos</div>
               <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-weight:800;color:${productPaid>=total-0.01?'var(--emerald)':'var(--ink)'};">${formatDOP(productPaid)}</span>
+                <span style="font-weight:800;color:${productPaid2>=productCost-0.01?'var(--emerald)':'var(--ink)'};">${formatDOP(productPaid2)}</span>
                 ${productPending>0.01
                   ? `<span style="font-size:11px;color:var(--rose);">Pendiente: ${formatDOP(productPending)}</span>
                      <button class="btn btn-primary btn-xs" onclick="openRegistrarPagoLot('${lotNumber}')">+ Pagar</button>`
@@ -4978,10 +4985,13 @@ function renderCompraDetail(lotNumber) {
             <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(245,158,11,.04);">
               <div style="font-weight:700;font-size:13px;">🚚 Pago de Transporte</div>
               <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-weight:800;color:${transportPaid>0?'var(--emerald)':'var(--ink-3)'};">${transportPaid>0?formatDOP(transportPaid):'No registrado'}</span>
-                ${transportPaid<0.01
-                  ? `<button class="btn btn-secondary btn-xs" onclick="openRegistrarTransportGasto('${lotNumber}',0)">+ Pagar</button>`
-                  : `<span style="font-size:11px;font-weight:700;color:var(--emerald);">✓ Pagado</span>`}
+                <span style="font-weight:800;color:${transportPaid2>=transportShare-0.01?'var(--emerald)':transportPaid2>0?'var(--amber)':'var(--ink-3)'};">${transportPaid2>0?formatDOP(transportPaid2):'No registrado'}</span>
+                ${transportShare>0 && transportPending>0.01
+                  ? `<span style="font-size:11px;color:var(--rose);">Pendiente: ${formatDOP(transportPending)}</span>
+                     <button class="btn btn-secondary btn-xs" onclick="openRegistrarTransportGasto('${lotNumber}',0)">+ Pagar</button>`
+                  : transportPaid2>0
+                    ? `<span style="font-size:11px;font-weight:700;color:var(--emerald);">✓ Pagado</span>`
+                    : `<button class="btn btn-secondary btn-xs" onclick="openRegistrarTransportGasto('${lotNumber}',0)">+ Pagar</button>`}
               </div>
             </div>
             ${transportPmts.map(pmtRow).join('')}
@@ -5096,14 +5106,18 @@ function openPagarTransporte() {
   const defaultCourier = courierCats.find(c=>(c.name||'').toLowerCase().includes('courier')) || courierCats[0];
   const catOpts = courierCats.map(c=>`<option value="${c.id}" ${defaultCourier&&String(c.id)===String(defaultCourier.id)?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
 
-  /* Find orders with pending transport — pend = totalCostDOP - allPayments */
+  /* Find orders with pending transport */
   const pendingOrders = getCompraOrders()
     .filter(o => o.status !== 'cancelled')
     .map(o => {
-      const total = o.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
-      const paid  = getOrderPaid(o.lotNumber);
-      const pend  = Math.max(0, Math.round((total-paid)*100)/100);
-      return { ...o, total, paid, pend };
+      const total         = o.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
+      const transportShare= o.lots.reduce((s,p)=>s+(parseFloat(p.transportShare)||0),0);
+      const productCost   = total - transportShare; // product cost without transport
+      const transportPaid = purchasePayments.filter(pp=>(String(pp.lotNumber)===String(o.lotNumber)||String(pp.lotNumber)===String(o.lotNumber).replace(/^LOT-/i,''))&&pp.isTransportPayment).reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+      const productPaid   = purchasePayments.filter(pp=>(String(pp.lotNumber)===String(o.lotNumber)||String(pp.lotNumber)===String(o.lotNumber).replace(/^LOT-/i,''))&&!pp.isTransportPayment).reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+      // Pending transport = transportShare - transportPaid
+      const pend = Math.max(0, Math.round((transportShare - transportPaid)*100)/100);
+      return { ...o, total, productCost, transportShare, productPaid, transportPaid, pend };
     })
     .filter(o => o.pend > 0.01)
     .sort((a,b) => (b.date||'')<(a.date||'') ? -1 : 1);
@@ -5309,10 +5323,12 @@ function savePagarTransporte() {
       lotNumber: x.lotNumber,
       amount: Math.round(x.amount*100)/100,
       accountId: acctId,
+      categoryId: catId,
       date,
       reference: txDesc,
       receiptId,
       skipBalance: true,
+      isTransportPayment: true,
     });
   });
 
