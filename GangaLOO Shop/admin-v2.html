@@ -4016,7 +4016,7 @@ function saveRecibirPago() {
 function openRegistrarPago(saleId) {
   const sale = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
-  const paidSoFar = payments.filter(p => p.saleId === saleId).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+  const paidSoFar = payments.filter(p => String(p.saleId) === String(saleId)).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
   const pending   = Math.max(0, (saleTotal(sale)||0) - paidSoFar);
   const acctOpts  = accounts.filter(a=>a.active!==false).map(a => `<option value="${a.id}">${a.name} (${formatDOP(a.balance)})</option>`).join('');
 
