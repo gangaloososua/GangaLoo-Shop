@@ -2852,8 +2852,8 @@ function openEditVenta(saleId) {
   const sale = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
   const inv     = sale.invoiceNum || sale.invoiceNumber || '#'+sale.id;
-  const custOpts = customers.map(c=>`<option value="${c.id}" ${String(c.id)===String(sale.customerId)?'selected':''}>${c.name} (${c.type})</option>`).join('');
-  const sellOpts = '<option value="">Sin vendedor</option>' + customers.filter(c=>c.type==='seller').map(c=>`<option value="${c.id}" ${String(c.id)===String(sale.sellerId)?'selected':''}>${c.name}</option>`).join('');
+  const custOpts = getCustomerOpts(sale.customerId, null, '— Seleccionar cliente —');
+  const sellOpts = getCustomerOpts(sale.sellerId, c=>c.type==='seller', 'Sin vendedor');
 
   openModal(`
     <div class="modal modal-lg">
@@ -3286,8 +3286,7 @@ function populateVentaFilters() {
   const cSel = document.getElementById('ventaFilterCustomer');
   if (!cSel) return;
   const existing = cSel.value;
-  cSel.innerHTML = '<option value="">Todos los clientes</option>' +
-    customers.map(c => `<option value="${c.id}" ${c.id === existing ? 'selected':''}>${c.name}</option>`).join('');
+  cSel.innerHTML = getCustomerOpts(existing, null, 'Todos los clientes');
 
   /* Month dropdown — show last 24 months regardless of whether sales exist */
   const mSel = document.getElementById('ventaFilterMonth');
@@ -3502,7 +3501,7 @@ let _saleItems = [];
 function openNuevaVenta() {
   _saleItems = [{ id: generateId(), productId: '', qty: 1, price: 0, discount: 0 }];
   const warehouseOpts = warehouses.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
-  const customerOpts  = customers.map(c => `<option value="${c.id}">${c.name} (${c.type})</option>`).join('');
+  const customerOpts  = getCustomerOpts('', null, '— Seleccionar cliente —');
 
   openModal(`
     <div class="modal modal-xl" style="max-width:880px;">
@@ -3767,14 +3766,7 @@ function saveNuevaVenta(withWA = false) {
 /* ─── RECIBIR PAGO (bulk payment across multiple invoices) ─── */
 function openRecibirPago() {
   const acctOpts = accounts.filter(a=>a.active!==false).map(a=>`<option value="${a.id}">${a.name} (${formatDOP(a.balance)})</option>`).join('');
-  const custOpts = `<option value="">— Seleccionar cliente/vendedor —</option>` +
-    Object.values(customers.reduce((map, c) => {
-      const key = (c.email||c.name||String(c.id)).toLowerCase();
-      if (!map[key]) map[key] = c;
-      return map;
-    }, {}))
-    .sort((a,b) => (a.name||'').localeCompare(b.name||'', 'es'))
-    .map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  const custOpts = getCustomerOpts('', null, '— Seleccionar cliente/vendedor —');
 
   openModal(`
     <div class="modal modal-xl" style="max-width:800px;">
@@ -7008,6 +7000,26 @@ async function applyMergeClientes(mergeData) {
   await saveData();
   renderClientesList();
   showToast(`✅ ${merged} duplicados eliminados y unificados`, 'success');
+}
+
+function getCustomerOpts(selectedId='', filterFn=null, placeholder='— Seleccionar cliente —') {
+  // Deduplicate customers by email/name — same person shown once
+  const seen = new Map();
+  const roleRank = { distributor: 4, seller: 3, club_member: 2, customer: 1 };
+  customers.forEach(c => {
+    const key = (c.email || c.phone || c.name || String(c.id)).toLowerCase().trim();
+    if (!seen.has(key)) {
+      seen.set(key, c);
+    } else {
+      const existing = seen.get(key);
+      if ((roleRank[c.type]||0) > (roleRank[existing.type]||0)) seen.set(key, c);
+    }
+  });
+  let list = [...seen.values()];
+  if (filterFn) list = list.filter(filterFn);
+  list.sort((a,b) => (a.name||'').localeCompare(b.name||'', 'es'));
+  return (placeholder ? `<option value="">${placeholder}</option>` : '') +
+    list.map(c => `<option value="${c.id}" ${String(c.id)===String(selectedId)?'selected':''}>${c.name||c.email||c.id}${filterFn?'':' ('+c.type+')'}</option>`).join('');
 }
 
 function deleteCliente(id) {
