@@ -10496,11 +10496,17 @@ function openNuevaTransaccion() {
             <input class="field" type="date" id="ntDate" value="${todayDR()}"></div>
           <div class="form-group full"><label class="field-label">Descripción <span style="color:var(--ink-3);font-weight:400;font-size:11px;">(opcional)</span></label>
             <input class="field" id="ntDesc" placeholder="Nota adicional..."></div>
-          <div class="form-group"><label class="field-label">Monto (RD$)</label>
-            <div class="input-group"><span class="input-addon">RD$</span>
-              <input class="field" type="number" id="ntMonto" min="0.01" step="0.01"></div></div>
           <div class="form-group"><label class="field-label">Cuenta</label>
-            <select class="field" id="ntAccount">${acctOpts}</select></div>
+            <select class="field" id="ntAccount" onchange="updateNtCurrency()">${acctOpts}</select></div>
+          <div class="form-group"><label class="field-label" id="ntMontoLabel">Monto</label>
+            <div class="input-group"><span class="input-addon" id="ntCurrSymbol">RD$</span>
+              <input class="field" type="number" id="ntMonto" min="0.01" step="0.01" oninput="updateNtDopEst()"></div></div>
+          <div class="form-group" id="ntDopGroup" style="display:none;">
+            <label class="field-label">Equivalente en RD$ <span style="color:var(--rose);font-size:11px;">*requerido</span></label>
+            <div class="input-group"><span class="input-addon">RD$</span>
+              <input class="field" type="number" id="ntDopAmount" min="0.01" step="0.01" placeholder="Monto en pesos dominicanos"></div>
+            <div id="ntRateEst" style="font-size:11px;color:var(--ink-3);margin-top:4px;"></div>
+          </div>
           <div class="form-group full"><label class="field-label">Categoría</label>
             <select class="field" id="ntCat"></select></div>
         </div>
@@ -10512,6 +10518,7 @@ function openNuevaTransaccion() {
     </div>
   `);
   updateNtCatOptions();
+  updateNtCurrency();
 }
 
 const sortCats = cats => [...cats].sort((a,b) => { const n = (a.name||'').localeCompare(b.name||'','es'); return n !== 0 ? n : (a.subname||'').localeCompare(b.subname||'','es'); });
@@ -10527,6 +10534,29 @@ function updateNtCatOptions() {
     .join('');
 }
 
+function updateNtCurrency() {
+  const acctId = document.getElementById('ntAccount')?.value;
+  const acct = accounts.find(a => String(a.id)===String(acctId));
+  const sym = acct?.currency && acct.currency !== 'DOP' ? acct.currency : 'RD$';
+  const isDOP = !acct?.currency || acct.currency === 'DOP';
+  const symEl = document.getElementById('ntCurrSymbol');
+  const grp = document.getElementById('ntDopGroup');
+  const lbl = document.getElementById('ntMontoLabel');
+  if (symEl) symEl.textContent = sym;
+  if (lbl) lbl.textContent = isDOP ? 'Monto (RD$)' : `Monto (${acct.currency})`;
+  if (grp) grp.style.display = isDOP ? 'none' : 'block';
+}
+
+function updateNtDopEst() {
+  const acctId = document.getElementById('ntAccount')?.value;
+  const acct = accounts.find(a => String(a.id)===String(acctId));
+  if (!acct?.currency || acct.currency==='DOP') return;
+  const amt = parseFloat(document.getElementById('ntMonto')?.value)||0;
+  const dop = parseFloat(document.getElementById('ntDopAmount')?.value)||0;
+  const rateEl = document.getElementById('ntRateEst');
+  if (rateEl && amt>0 && dop>0) rateEl.textContent = `Tasa implícita: 1 ${acct.currency} = RD$${(dop/amt).toFixed(2)}`;
+}
+
 function saveNuevaTransaccion() {
   const type   = document.getElementById('ntType').value;
   const amount = parseFloat(document.getElementById('ntMonto').value);
@@ -10536,11 +10566,23 @@ function saveNuevaTransaccion() {
   const date   = document.getElementById('ntDate').value;
   if (!amount||amount<=0) { showToast('Monto inválido','error'); return; }
   const account = accounts.find(a=>String(a.id)===String(acctId));
+  const isDOP = !account?.currency || account.currency === 'DOP';
+  let dopAmount = amount;
+  if (!isDOP) {
+    dopAmount = parseFloat(document.getElementById('ntDopAmount')?.value)||0;
+    if (!dopAmount||dopAmount<=0) {
+      document.getElementById('ntDopGroup').style.display='block';
+      document.getElementById('ntDopAmount')?.focus();
+      showToast(`Ingresa el equivalente en RD$ para ${account.currency}`,'error');
+      return;
+    }
+  }
   if (account) {
     if (type==='income')  account.balance = Math.round((account.balance+amount)*100)/100;
     if (type==='expense') account.balance = Math.round((account.balance-amount)*100)/100;
   }
-  transactions.push({ id: generateId(), type, description: desc, amount, accountId: acctId, categoryId: catId, date });
+  const impliedRate = isDOP ? null : (dopAmount/amount);
+  transactions.push({ id: generateId(), type, description: desc, amount: isDOP ? amount : dopAmount, foreignAmount: isDOP ? null : amount, foreignCurrency: isDOP ? null : account.currency, impliedRate, accountId: acctId, categoryId: catId, date });
   debouncedSave();
   closeModal();
   renderContabTab('transacciones');
