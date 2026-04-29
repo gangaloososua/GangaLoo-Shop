@@ -13846,7 +13846,7 @@ function openRegistrarPagoLot(lotNumber) {
             <label class="field-label">Categoría de gasto</label>
             <select class="field" id="plCategory">
               <option value="">— Sin categoría —</option>
-              ${accountingCategories.filter(c=>c.type==='expense').map(c=>`<option value="${c.id}" ${c.id==='gas-compras'?'selected':''}>${c.name}</option>`).join('')}
+              ${accountingCategories.filter(c=>c.type==='expense').sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')||(a.subname||'').localeCompare(b.subname||'','es')).map(c=>`<option value="${c.id}" ${c.id==='gas-compras'?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('')}
             </select>
             <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">Se registrará como gasto en Contabilidad con esta categoría</div>
           </div>
