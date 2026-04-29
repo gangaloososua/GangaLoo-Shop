@@ -651,18 +651,18 @@
     font-size: 0.78rem; opacity: 0.35;
   }
 
-  /* Chat float */
+  /* Whatsapp float */
   .wa-float {
     position: fixed; bottom: 2rem; right: 2rem; z-index: 200;
-    background: linear-gradient(135deg, #6c3ff5, #00b4d8); color: white;
+    background: #25D366; color: white;
     width: 56px; height: 56px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     font-size: 1.6rem; text-decoration: none;
-    box-shadow: 0 4px 20px rgba(108,63,245,0.4);
+    box-shadow: 0 4px 20px rgba(37,211,102,0.4);
     transition: transform 0.2s, box-shadow 0.2s;
   }
 
-  .wa-float:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(108,63,245,0.5); }
+  .wa-float:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(37,211,102,0.5); }
 
   /* ─── RESPONSIVE ─── */
   @media (max-width: 900px) {
@@ -1292,7 +1292,7 @@ function switchPriceTab(btn, panelId) {
   <!-- Hidden fee inputs — values set dynamically by selStore() -->
   <input type="hidden" id="feeS" value="10" />
   <input type="hidden" id="feeB" value="0" />
-  <input type="hidden" id="fShip" value="250" />
+  <input type="hidden" id="fShip" value="100" />
 
   <div class="card" id="cargosCard">
     <div class="clabel">Cargos incluidos</div>
@@ -1365,8 +1365,8 @@ let totalDOP = 0;
 
 // Store rules: bank fee % and whether flete is "at delivery"
 const STORE_RULES = {
-  'Temu':       { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 250, minFee: 0,   minFeeThresholdUSD: 0  },
-  'Shein':      { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 250, minFee: 0,   minFeeThresholdUSD: 0  },
+  'Temu':       { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 100, minFee: 0,   minFeeThresholdUSD: 0  },
+  'Shein':      { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 100, minFee: 0,   minFeeThresholdUSD: 0  },
   'Amazon':     { bank: 0,   tax: 0,  fleteAtDelivery: true,  ship: 0,   minFee: 150, minFeeThresholdUSD: 35 },
   'eBay':       { bank: 3,   tax: 0,  fleteAtDelivery: true,  ship: 0,   minFee: 0,   minFeeThresholdUSD: 0  },
   'AliExpress': { bank: 3,   tax: 7,  fleteAtDelivery: true,  ship: 0,   minFee: 0,   minFeeThresholdUSD: 0  },
@@ -1453,7 +1453,7 @@ function selStore(el, name) {
     document.getElementById('lbsInput').value = '';
     document.getElementById('fleteResult').textContent = 'RD$ 0.00';
   } else {
-    document.getElementById('fleteDisplay').textContent = 'RD$ 250';
+    document.getElementById('fleteDisplay').textContent = 'RD$ ' + rules.ship;
     document.getElementById('fleteCalc').style.display = 'none';
   }
 
@@ -1739,7 +1739,7 @@ function sendWA() {
 </footer>
 
 <!-- WhatsApp Float -->
-<a href="https://gangaloo.netlify.app/chat.html" class="wa-float" target="_blank" title="Chat con GangaLoo Asistente">🤖</a>
+<a href="https://wa.me/18090000000" class="wa-float" target="_blank" title="Escríbenos por WhatsApp">💬</a>
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
   function selectOpt(el) {
