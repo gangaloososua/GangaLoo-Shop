@@ -12751,6 +12751,9 @@ function renderConfigPanel() {
               <input class="field" id="cfg_shippingZone2" value="${sc.shippingZone2||''}" placeholder="Ej: Interior del País"></div>
             <div class="form-group"><label class="field-label">Zona 2 — Costo (RD$)</label>
               <input class="field" type="number" id="cfg_shippingCost2" value="${sc.shippingCost2||''}" placeholder="0.00" step="0.01"></div>
+            <div class="form-group"><label class="field-label">🚐 Transfer Montellano→Maranatha (RD$)</label>
+              <input class="field" type="number" id="cfg_maranatha_fee" value="${sc.maranatha_fee||200}" placeholder="200" step="1">
+              <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">Cargo por transferir pedidos de Montellano a Maranatha para recogida</div></div>
           </div>
           <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="saveFullStoreConfig()">💾 Guardar</button>
         </div>
@@ -12977,6 +12980,7 @@ function saveFullStoreConfig() {
   storeConfig.shippingCost    = v('cfg_shippingCost');
   storeConfig.shippingZone2   = s('cfg_shippingZone2');
   storeConfig.shippingCost2   = v('cfg_shippingCost2');
+  storeConfig.maranatha_fee   = v('cfg_maranatha_fee');
   /* Payment fees */
   storeConfig.cash_discount       = v('cfg_cash_discount');
   storeConfig.cash_fee            = v('cfg_cash_fee');

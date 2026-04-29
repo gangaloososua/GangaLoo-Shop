@@ -1331,8 +1331,6 @@ async function loadData(){
   buildDealSection();
   // Restore active category button after rebuild
   if(wasLoaded) setActiveStripBtn(selectedCat);
-  // Handle URL hash navigation (runs once on first load)
-  if(!wasLoaded) handleHashNav();
 }
 
 /* ── WAREHOUSE ── */
@@ -1461,12 +1459,6 @@ function filterCat(id){
   selectedCat=id!=null?String(id):null;
   setActiveStripBtn(id);
   renderProducts();
-  // Update URL hash so link is shareable
-  if(id != null) {
-    history.replaceState(null,'','#cat-'+id);
-  } else {
-    history.replaceState(null,'',window.location.pathname + window.location.search);
-  }
   // show subcat container only when a category with subcats is selected
   const container=document.getElementById('subcatContainer');
   if(container){
@@ -1592,11 +1584,11 @@ function renderProducts(){
     else if(stk<=5){pc='sp-low';pt=`Últimas ${stk}`;}
     else{pc='sp-in';pt='Disponible';}
     return`<div class="pcard">
-      <div class="pcard-img" onclick="openProductModal(${p.id})" style="cursor:pointer;">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}
+      <div class="pcard-img">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}
         <span class="stock-pill ${pc}">${pt}</span>
         ${isClub?`<span class="club-disc-badge">-10%</span>`:(hasDisc?`<span class="disc-badge">-${discPct}%</span>`:(isGuest&&guestMarkup>0?`<span style="background:#002D62;color:white;border-radius:20px;padding:1px 5px;font-size:.55em;font-weight:700;position:absolute;top:6px;left:6px;">Regístrate</span>`:''))}
       </div>
-      <div class="pcard-body" onclick="openProductModal(${p.id})" style="cursor:pointer;">
+      <div class="pcard-body">
         ${cat?`<div class="pcard-cat">${cat.icon?cat.icon+' ':''}${cat.name}</div>`:''}
         <div class="pcard-name">${p.name}</div>
         <div style="display:flex;align-items:center;gap:6px;">
@@ -1623,115 +1615,6 @@ function renderProducts(){
 function openMobSearch(){document.getElementById('mobSearchOvl').classList.add('open');setTimeout(()=>document.getElementById('mobSearchInput').focus(),100);}
 function closeMobSearch(e){if(!e||e.target===document.getElementById('mobSearchOvl'))document.getElementById('mobSearchOvl').classList.remove('open');}
 function syncSearch(val){document.getElementById('searchInput').value=val;searchQuery=val.toLowerCase();renderProducts();}
-
-/* ── PRODUCT DETAIL MODAL ── */
-function handleHashNav() {
-  const hash = window.location.hash;
-  if (!hash) return;
-  if (hash.startsWith('#cat-')) {
-    const catId = hash.slice(5);
-    const cat = allCategories.find(c => String(c.id) === catId);
-    if (cat) { filterCat(catId); scrollToProd(); }
-  } else if (hash.startsWith('#prod-')) {
-    const prodId = hash.slice(6);
-    const p = allProducts.find(x => String(x.id) === prodId);
-    if (p) { setTimeout(() => openProductModal(prodId), 100); }
-  }
-}
-
-// Also handle hash changes (e.g. browser back)
-window.addEventListener('hashchange', () => {
-  if (_dataLoaded) handleHashNav();
-});
-
-function openProductModal(id) {
-  const p = allProducts.find(x => String(x.id) === String(id));
-  if (!p) return;
-  const origPrice = p.price || p.finalPrice || p.salePrice || 0;
-  const hasDisc = p.discountPrice && p.discountPrice > 0 && p.discountPrice < origPrice;
-  const basePrice = hasDisc ? p.discountPrice : origPrice;
-  const price = getDisplayPrice(basePrice);
-  const stk = selectedWH ? getStock(p.id, selectedWH) : getStock(p.id, null);
-  const cat = allCategories.find(c => (p.categoryIds||[p.categoryId]).map(String).includes(String(c.id)));
-
-  // Collect media: product imageUrl + posProduct photos + video
-  const posData = (typeof posProducts !== 'undefined' && posProducts[String(p.id)]) || {};
-  const photos = posData.photos?.length ? posData.photos : (p.imageUrl ? [p.imageUrl] : []);
-  const video  = posData.video || null;
-
-  // Build media carousel
-  let mediaHtml = '';
-  if (photos.length || video) {
-    const allMedia = photos.map(u => ({type:'img', url:u})).concat(video ? [{type:'video', url:video}] : []);
-    mediaHtml = `
-      <div id="pmCarousel" style="position:relative;width:100%;aspect-ratio:1/1;background:var(--warm);border-radius:12px;overflow:hidden;margin-bottom:10px;">
-        ${allMedia.map((m,i) => m.type === 'img'
-          ? `<img src="${m.url}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:${i===0?1:0};transition:opacity .3s;" class="pm-slide" data-idx="${i}">`
-          : `<video src="${m.url}" controls playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:${i===0?1:0};transition:opacity .3s;" class="pm-slide" data-idx="${i}"></video>`
-        ).join('')}
-        ${allMedia.length > 1 ? `
-          <button onclick="pmNav(-1)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.4);color:white;border:none;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">‹</button>
-          <button onclick="pmNav(1)"  style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.4);color:white;border:none;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">›</button>
-          <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;">
-            ${allMedia.map((_,i) => `<div class="pm-dot" data-idx="${i}" style="width:6px;height:6px;border-radius:50%;background:${i===0?'white':'rgba(255,255,255,.4)'};cursor:pointer;" onclick="pmGoTo(${i})"></div>`).join('')}
-          </div>` : ''}
-      </div>`;
-  } else if (p.imageUrl) {
-    mediaHtml = `<img src="${p.imageUrl}" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:12px;margin-bottom:10px;" onerror="this.style.display='none'">`;
-  }
-
-  const modal = document.getElementById('productModal');
-  document.getElementById('productModalBody').innerHTML = `
-    ${mediaHtml}
-    ${cat ? `<div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--gd);font-weight:700;margin-bottom:6px;">${cat.icon||''} ${cat.name}</div>` : ''}
-    <div style="font-family:'Cormorant Garamond',serif;font-size:1.4em;font-weight:700;line-height:1.3;margin-bottom:8px;">${p.name}</div>
-    ${p.sku ? `<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">SKU: ${p.sku}</div>` : ''}
-    ${posData.notes ? `<div style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:12px;padding:10px 12px;background:var(--cream);border-radius:8px;">${posData.notes}</div>` : ''}
-    ${posData.shelf ? `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">📍 ${posData.shelf}</div>` : ''}
-    <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:16px;">
-      ${hasDisc ? `<div style="font-size:13px;color:var(--muted);text-decoration:line-through;">RD$ ${fmt(origPrice)}</div>` : ''}
-      <div style="font-family:'Cormorant Garamond',serif;font-size:1.8em;font-weight:700;color:var(--text);">RD$ ${fmt(price)}</div>
-    </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button class="add-btn" style="flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;"
-        ${stk <= 0 ? 'disabled' : ''} onclick="addCart(${p.id},'${esc(p.name)}',${price},'${esc(p.sku||'')}',${basePrice});closeProductModal()">
-        ${stk <= 0 ? '🚫 Agotado' : '🛒 Agregar al carrito'}
-      </button>
-      <button onclick="shareProductWA(${p.id},${price});closeProductModal()" style="padding:12px 16px;background:#25D366;color:white;border:none;border-radius:10px;font-size:14px;cursor:pointer;font-weight:700;">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="white" style="vertical-align:middle;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-      </button>
-    </div>`;
-  modal.style.display = 'flex';
-  window._pmIdx = 0;
-  history.replaceState(null, '', '#prod-' + id);
-}
-
-function closeProductModal() {
-  document.getElementById('productModal').style.display = 'none';
-  history.replaceState(null, '', window.location.pathname + window.location.search);
-}
-
-function pmNav(dir) {
-  const slides = document.querySelectorAll('.pm-slide');
-  const dots = document.querySelectorAll('.pm-dot');
-  if (!slides.length) return;
-  slides[window._pmIdx].style.opacity = 0;
-  if (dots[window._pmIdx]) dots[window._pmIdx].style.background = 'rgba(255,255,255,.4)';
-  window._pmIdx = (window._pmIdx + dir + slides.length) % slides.length;
-  slides[window._pmIdx].style.opacity = 1;
-  if (dots[window._pmIdx]) dots[window._pmIdx].style.background = 'white';
-}
-
-function pmGoTo(idx) {
-  const slides = document.querySelectorAll('.pm-slide');
-  const dots = document.querySelectorAll('.pm-dot');
-  if (!slides.length) return;
-  slides[window._pmIdx].style.opacity = 0;
-  if (dots[window._pmIdx]) dots[window._pmIdx].style.background = 'rgba(255,255,255,.4)';
-  window._pmIdx = idx;
-  slides[window._pmIdx].style.opacity = 1;
-  if (dots[window._pmIdx]) dots[window._pmIdx].style.background = 'white';
-}
 
 /* ── CART ── */
 function shareProductWA(id, price) {
@@ -1832,10 +1715,11 @@ function getCheckoutTotal(){
   const bulkTier=getBulkDiscount();
   const bulkDiscAmt=bulkTier?rawSub*(bulkTier.disc/100):0;
   const sub=rawSub-bulkDiscAmt;
-  // shipping
+  // shipping / transfer fees
   let shipFee=0;
   if(del==='shipping') shipFee=isClubMember()?0:parseFloat(cfg.shippingCost||0);
   else if(del==='shipping2') shipFee=isClubMember()?0:parseFloat(cfg.shippingCost2||0);
+  else if(del==='pickup_maranatha') shipFee=parseFloat(cfg.maranatha_fee||200);
   // payment adjustment
   let payAdj=0;
   if(pay==='cash'){
@@ -1860,21 +1744,71 @@ function getCheckoutTotal(){
 function onDeliveryChange(){
   const del=document.querySelector('input[name="delivery"]:checked')?.value||'pickup';
   const addrField=document.getElementById('co_addr_field');
+  const deliveryDetails=document.getElementById('co_delivery_details');
   const feeRow=document.getElementById('co_shipping_fee');
   const isShipping=del==='shipping'||del==='shipping2';
+  const isMaranatha=del==='pickup_maranatha';
+  const needsDeliveryDetails=isShipping||isMaranatha;
+
   if(addrField) addrField.style.display=isShipping?'block':'none';
+  if(deliveryDetails){
+    deliveryDetails.style.display=needsDeliveryDetails?'block':'none';
+    if(needsDeliveryDetails) initCoMap();
+  }
+
   const {shipFee}=getCheckoutTotal();
   if(feeRow){
     if(isShipping && shipFee===0 && isClubMember()){
       feeRow.style.display='flex';
       feeRow.innerHTML='<span>🚚 Envío</span><span style="color:#27ae60;font-weight:700;">GRATIS 🏆</span>';
+    } else if(isMaranatha){
+      feeRow.style.display='flex';
+      feeRow.innerHTML='<span>🚐 Transfer Montellano→Maranatha</span><span id="co_fee_amt">RD$ '+fmt(storeConfig?.maranatha_fee||200)+'</span>';
     } else {
       feeRow.style.display=isShipping&&shipFee>0?'flex':'none';
-    const fa=document.getElementById('co_fee_amt');
-    if(fa) fa.textContent='RD$ '+fmt(shipFee);
+      const fa=document.getElementById('co_fee_amt');
+      if(fa) fa.textContent='RD$ '+fmt(shipFee);
     }
   }
   onPaymentChange();
+}
+
+let _coMap=null, _coMarker=null;
+function initCoMap(){
+  if(_coMap) return; // already initialized
+  if(!window.L){ // load leaflet if not loaded
+    const link=document.createElement('link');
+    link.rel='stylesheet';
+    link.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(link);
+    const script=document.createElement('script');
+    script.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload=()=>_initCoMapLeaflet();
+    document.head.appendChild(script);
+  } else {
+    _initCoMapLeaflet();
+  }
+}
+function _initCoMapLeaflet(){
+  const mapEl=document.getElementById('co_map');
+  if(!mapEl||_coMap) return;
+  _coMap=L.map('co_map').setView([19.4517,-70.6970],13); // Sosúa default
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(_coMap);
+  _coMap.on('click',function(e){
+    const {lat,lng}=e.latlng;
+    if(_coMarker) _coMarker.setLatLng([lat,lng]);
+    else _coMarker=L.marker([lat,lng]).addTo(_coMap);
+    document.getElementById('co_lat').value=lat.toFixed(6);
+    document.getElementById('co_lng').value=lng.toFixed(6);
+    document.getElementById('co_map_status').textContent='📍 Ubicación marcada: '+lat.toFixed(4)+', '+lng.toFixed(4);
+    document.getElementById('co_map_status').style.color='#166534';
+    document.getElementById('co_map_hint').classList.add('hidden');
+    document.getElementById('co_map_wrap').style.borderColor='#166534';
+  });
+  // Try geolocation
+  navigator.geolocation?.getCurrentPosition(pos=>{
+    _coMap.setView([pos.coords.latitude,pos.coords.longitude],15);
+  });
 }
 function onPaymentChange(){
   const pay=document.querySelector('input[name="payment"]:checked')?.value||'cash';
@@ -1979,12 +1913,18 @@ function openCheckout(){
         <label class="co-option selected">
           <input type="radio" name="delivery" value="pickup" checked onchange="onDeliveryChange()">
           <span class="co-option-ico">🏪</span>
-          <div><div style="font-weight:700">Recoger en tienda</div><div style="font-size:11px;color:var(--muted)">Sin costo adicional</div></div>
+          <div><div style="font-weight:700">Recoger en ${wh?.name||'tienda'}</div><div style="font-size:11px;color:var(--muted)">Sin costo adicional</div></div>
         </label>
+        ${(wh?.name||'').toLowerCase().includes('montellano') ? `
+        <label class="co-option">
+          <input type="radio" name="delivery" value="pickup_maranatha" onchange="onDeliveryChange()">
+          <span class="co-option-ico">🚐</span>
+          <div><div style="font-weight:700">Recoger en Maranatha</div><div style="font-size:11px;color:var(--muted)">Transferencia desde Montellano${cfg.maranatha_fee>0?' · +RD$ '+fmt(cfg.maranatha_fee||200):' · +RD$ 200'}</div></div>
+        </label>` : ''}
         <label class="co-option">
           <input type="radio" name="delivery" value="shipping" onchange="onDeliveryChange()">
           <span class="co-option-ico">🚚</span>
-          <div><div style="font-weight:700">${zone1||'Envío'}</div><div style="font-size:11px;color:${isClubMember()?'#27ae60':'var(--muted)'}">${isClubMember()?'✅ GRATIS — Beneficio Club 🏆':sc>0?'+ RD$ '+fmt(sc):'Costo por definir'}</div></div>
+          <div><div style="font-weight:700">${zone1||'Envío a domicilio'}</div><div style="font-size:11px;color:${isClubMember()?'#27ae60':'var(--muted)'}">${isClubMember()?'✅ GRATIS — Beneficio Club 🏆':sc>0?'+ RD$ '+fmt(sc):'Costo por definir'}</div></div>
         </label>
         ${zone2?`<label class="co-option">
           <input type="radio" name="delivery" value="shipping2" onchange="onDeliveryChange()">
@@ -1995,8 +1935,23 @@ function openCheckout(){
     </div>
 
     <div class="form-field" id="co_addr_field" style="display:none">
-      <label>Dirección de entrega *</label>
+      <label>📍 Dirección de entrega *</label>
       <input id="co_a" placeholder="Calle, número, sector, ciudad">
+    </div>
+
+    <div class="form-field" id="co_delivery_details" style="display:none">
+      <label>📅 Fecha preferida de entrega *</label>
+      <input type="date" id="co_delivery_date" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;" min="${new Date().toISOString().slice(0,10)}">
+      <div style="margin-top:12px;">
+        <label style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:block;margin-bottom:6px;">📌 Marca tu ubicación en el mapa</label>
+        <div id="co_map_wrap" style="border-radius:12px;overflow:hidden;border:2px solid var(--border);height:220px;position:relative;">
+          <div id="co_map" style="width:100%;height:100%;"></div>
+          <div id="co_map_hint" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;font-size:12px;padding:6px 14px;border-radius:20px;z-index:1000;pointer-events:none;">Toca el mapa para marcar tu ubicación</div>
+        </div>
+        <input type="hidden" id="co_lat" value="">
+        <input type="hidden" id="co_lng" value="">
+        <div id="co_map_status" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center;">Sin ubicación marcada</div>
+      </div>
     </div>
 
     <div class="form-field">
@@ -2226,8 +2181,15 @@ async function payWithPayPal(){
 async function submitOrder(){
   const del=document.querySelector('input[name="delivery"]:checked')?.value||'pickup';
   const isShipping=del==='shipping'||del==='shipping2';
+  const isMaranatha=del==='pickup_maranatha';
+  const needsDelivery=isShipping||isMaranatha;
   const n=document.getElementById('co_n').value.trim(),p=document.getElementById('co_p').value.trim(),e=document.getElementById('co_e').value.trim(),a=(isShipping?document.getElementById('co_a')?.value.trim():''),nt=document.getElementById('co_nt').value.trim();
+  const deliveryDate=document.getElementById('co_delivery_date')?.value||'';
+  const lat=document.getElementById('co_lat')?.value||'';
+  const lng=document.getElementById('co_lng')?.value||'';
   if(!n||!p||(isShipping&&!a)){toast('Completa los campos obligatorios','err');return;}
+  if(needsDelivery&&!deliveryDate){toast('Por favor elige una fecha de entrega','err');return;}
+  if(needsDelivery&&!lat){toast('Por favor marca tu ubicación en el mapa','err');return;}
   const btn=document.getElementById('subBtn');btn.disabled=true;btn.textContent='Enviando...';
   const payload={
     customer_name:n,
@@ -2235,8 +2197,12 @@ async function submitOrder(){
     customer_email:e||null,
     customer_address:a,
     notes:nt||null,
+    delivery_type:del,
+    delivery_date:deliveryDate||null,
+    delivery_lat:lat?parseFloat(lat):null,
+    delivery_lng:lng?parseFloat(lng):null,
     items:JSON.stringify(cart.map(i=>({product_id:i.id,name:i.name,sku:i.sku,qty:i.qty,price:i.price}))),
-    total:totalAfterBulk(),
+    total:getCheckoutTotal().total,
     currency:'DOP',
     status:'pending'
   };
@@ -2250,10 +2216,14 @@ async function submitOrder(){
   if(selectedWH){
     const wh=allWarehouses.find(w=>w.id==selectedWH);
     if(wh){
-      payload.warehouse_id = String(selectedWH); // store as string to avoid integer overflow
+      payload.warehouse_id = String(selectedWH);
       payload.notes = (payload.notes||'') + (payload.notes?'\n':'') + '📍 Tienda: '+wh.name;
     }
   }
+  // Add delivery details to notes
+  if(isMaranatha) payload.notes = (payload.notes||'') + '\n🚐 Recoge en Maranatha (desde Montellano)';
+  if(deliveryDate) payload.notes = (payload.notes||'') + '\n📅 Fecha preferida: '+deliveryDate;
+  if(lat&&lng) payload.notes = (payload.notes||'') + '\n📌 Ubicación: '+lat+', '+lng+' → https://maps.google.com/?q='+lat+','+lng;
   const{data,error}=await sb.from('online_orders').insert(payload).select();
   if(error){
     console.error('Order error:',error);
@@ -3225,235 +3195,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 if(sb){initAuth();}else{loadData();}
 </script>
-<!-- ═══ PRODUCT DETAIL MODAL ═══ -->
-<div id="productModal" onclick="if(event.target===this)closeProductModal()" style="display:none;position:fixed;inset:0;background:rgba(42,33,24,.6);z-index:450;align-items:flex-end;justify-content:center;padding:0;">
-  <div style="background:var(--white);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:92dvh;overflow-y:auto;padding:20px 20px 32px;position:relative;box-shadow:0 -8px 40px rgba(42,33,24,.18);">
-    <button onclick="closeProductModal()" style="position:absolute;top:14px;right:16px;background:var(--cream);border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center;z-index:1;">✕</button>
-    <div id="productModalBody"></div>
-  </div>
-</div>
-
-<!-- ═══ AI CHAT BOT ═══ -->
-<div id="chatBubble" onclick="toggleChat()" title="Chat con GangaLoo" style="
-  position:fixed;bottom:80px;right:20px;z-index:500;
-  width:54px;height:54px;border-radius:50%;
-  background:linear-gradient(135deg,#6c3ff5,#00b4d8);
-  box-shadow:0 4px 18px rgba(108,63,245,.45);
-  display:flex;align-items:center;justify-content:center;
-  cursor:pointer;transition:transform .2s;">
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
-  <span id="chatUnread" style="display:none;position:absolute;top:-4px;right:-4px;background:#ff4757;color:white;border-radius:99px;font-size:10px;padding:1px 6px;font-weight:700;">1</span>
-</div>
-
-<div id="chatBox" style="
-  display:none;position:fixed;bottom:145px;right:20px;z-index:500;
-  width:340px;max-width:calc(100vw - 32px);
-  background:#fff;border-radius:16px;
-  box-shadow:0 8px 40px rgba(0,0,0,.18);
-  overflow:hidden;font-family:'Syne',sans-serif;
-  flex-direction:column;">
-
-  <!-- Header -->
-  <div style="background:linear-gradient(135deg,#6c3ff5,#00b4d8);padding:14px 16px;display:flex;align-items:center;gap:10px;">
-    <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 8v4l3 3"/></svg>
-    </div>
-    <div style="flex:1;">
-      <div style="color:white;font-weight:700;font-size:14px;">GangaLoo Asistente</div>
-      <div style="color:rgba(255,255,255,.75);font-size:11px;">🟢 En línea · Responde al instante</div>
-    </div>
-    <button onclick="toggleChat()" style="background:none;border:none;color:white;cursor:pointer;font-size:20px;line-height:1;opacity:.8;">✕</button>
-  </div>
-
-  <!-- Messages -->
-  <div id="chatMessages" style="height:300px;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:10px;background:#f8f6ff;">
-    <div class="chat-msg bot" style="align-self:flex-start;max-width:85%;">
-      <div style="background:white;border-radius:12px 12px 12px 2px;padding:10px 13px;font-size:13px;color:#222;box-shadow:0 1px 4px rgba(0,0,0,.08);line-height:1.5;">
-        👋 ¡Hola! Soy el asistente de GangaLoo.<br><br>Puedo ayudarte con:<br>🛍️ Pedidos de Temu, Shein, Amazon, eBay<br>💆 Pelucas y extensiones online<br>👑 Club GangaLoo · 💰 Ganar dinero<br>📍 Ubicaciones y contacto<br><br>¿En qué te ayudo hoy? 😊
-      </div>
-    </div>
-  </div>
-
-  <!-- Quick replies -->
-  <div id="quickReplies" style="padding:8px 12px;display:flex;gap:6px;flex-wrap:wrap;background:#f8f6ff;border-top:1px solid #ede9fe;">
-    <button onclick="sendQuick('¿Cómo hago un pedido de Temu o Shein?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">🛍️ Pedir de Temu/Shein</button>
-    <button onclick="sendQuick('¿Qué es el Club GangaLoo y cuánto cuesta?')" style="background:#fff3cd;border:1px solid #f5c842;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#8a6200;font-weight:600;">👑 Club GangaLoo</button>
-    <button onclick="sendQuick('¿Cómo puedo ganar dinero con GangaLoo?')" style="background:#e8f5e9;border:1px solid #81c784;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#2e7d32;font-weight:600;">💰 Ganar dinero</button>
-    <button onclick="sendQuick('¿Qué pelucas tienen disponibles y a qué precio?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">💆 Ver pelucas</button>
-    <button onclick="sendQuick('¿Dónde están ubicados y cuál es el horario?')" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer;color:#6c3ff5;font-weight:600;">📍 Tiendas</button>
-  </div>
-
-  <!-- Input -->
-  <div style="padding:10px 12px;background:white;border-top:1px solid #eee;display:flex;gap:8px;align-items:flex-end;">
-    <textarea id="chatInput" placeholder="Escribe tu pregunta..." rows="1"
-      style="flex:1;border:1.5px solid #ede9fe;border-radius:10px;padding:8px 10px;font-size:13px;font-family:'Syne',sans-serif;resize:none;outline:none;max-height:80px;line-height:1.4;color:#222;background:#fafafa;"
-      oninput="autoResize(this)"
-      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
-    <button onclick="sendChat()" id="chatSendBtn" style="background:#6c3ff5;border:none;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-    </button>
-  </div>
-</div>
-
-<style>
-  @media(max-width:600px){
-    #chatBubble{bottom:90px;}
-    #chatBox{bottom:155px;right:12px;left:12px;width:auto;}
-  }
-  .chat-msg.user>div{background:#6c3ff5;color:white;border-radius:12px 12px 2px 12px;}
-  .chat-msg.bot>div{background:white;color:#222;border-radius:12px 12px 12px 2px;box-shadow:0 1px 4px rgba(0,0,0,.08);}
-  .chat-typing span{display:inline-block;width:7px;height:7px;background:#9e8fc7;border-radius:50%;animation:blink 1.2s infinite;}
-  .chat-typing span:nth-child(2){animation-delay:.2s;}
-  .chat-typing span:nth-child(3){animation-delay:.4s;}
-  @keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
-</style>
-
-<script>
-(function(){
-  let chatHistory = [];
-  let chatOpen = false;
-  let chatGreeted = false;
-
-  window.toggleChat = function() {
-    chatOpen = !chatOpen;
-    const box = document.getElementById('chatBox');
-    const unread = document.getElementById('chatUnread');
-    if(chatOpen){
-      box.style.display = 'flex';
-      box.style.flexDirection = 'column';
-      unread.style.display = 'none';
-      document.getElementById('chatInput').focus();
-    } else {
-      box.style.display = 'none';
-    }
-  };
-
-  window.autoResize = function(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 80) + 'px';
-  };
-
-  window.sendQuick = function(text) {
-    document.getElementById('chatInput').value = text;
-    document.getElementById('quickReplies').style.display = 'none';
-    sendChat();
-  };
-
-  window.sendChat = async function() {
-    const input = document.getElementById('chatInput');
-    const text = input.value.trim();
-    if(!text) return;
-    input.value = '';
-    input.style.height = 'auto';
-
-    appendMsg('user', text);
-    chatHistory.push({role:'user', content: text});
-
-    // Hide quick replies after first message
-    document.getElementById('quickReplies').style.display = 'none';
-
-    // Show typing
-    const typingId = showTyping();
-    const btn = document.getElementById('chatSendBtn');
-    btn.disabled = true;
-
-    // Build a compact product catalog to send with the request
-    function buildCatalog() {
-      try {
-        const prods = window.allProducts || [];
-        const catsData = window.allCategories || [];
-        if (!prods.length) {
-          console.warn('[GangaLoo chat] allProducts is empty — catalog null');
-          return null;
-        }
-        const cats = {};
-        prods.forEach(p => {
-          const price = p.salePrice || p.price || 0;
-          if (!price) return;
-          const catId = String((p.categoryIds && p.categoryIds[0]) || p.categoryId || '');
-          const cat = catsData.find(c => String(c.id) === catId);
-          const catName = cat ? cat.name : 'General';
-          if (!cats[catName]) cats[catName] = [];
-          cats[catName].push(`  - ${p.name}${p.sku?' (SKU:'+p.sku+')':''}: RD$ ${Number(price).toLocaleString('es-DO')} [id:${p.id}]`);
-        });
-        const result = Object.entries(cats).map(([cat, items]) => `${cat}:\n${items.join('\n')}`).join('\n\n');
-        console.log('[GangaLoo chat] catalog sent:', prods.length, 'products,', Object.keys(cats).length, 'cats,', result.length, 'chars');
-        return result;
-      } catch(e) { console.error('[GangaLoo chat] buildCatalog error:', e); return null; }
-    }
-
-    try {
-      const response = await fetch('/.netlify/functions/chat-proxy', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ messages: chatHistory, catalog: buildCatalog() })
-      });
-      const data = await response.json();
-      removeTyping(typingId);
-      const reply = data.content?.[0]?.text || 'Lo siento, tuve un problema. ¡Intenta de nuevo! 😊';
-      chatHistory.push({role:'assistant', content: reply});
-      appendMsg('bot', reply);
-    } catch(e) {
-      removeTyping(typingId);
-      appendMsg('bot', 'Tuve un problema técnico. Por favor intenta de nuevo en un momento 🙏');
-    }
-    btn.disabled = false;
-    scrollChat();
-  };
-
-  function appendMsg(role, text) {
-    const msgs = document.getElementById('chatMessages');
-    const div = document.createElement('div');
-    div.className = 'chat-msg ' + role;
-    div.style.cssText = 'align-self:' + (role==='user'?'flex-end':'flex-start') + ';max-width:85%';
-    // Convert URLs to links and line breaks
-    const safeText = text
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:#00b4d8;text-decoration:underline;word-break:break-all;">$1</a>')
-      .replace(/\n/g,'<br>');
-    div.innerHTML = `<div style="padding:10px 13px;font-size:13px;line-height:1.5;">${safeText}</div>`;
-    msgs.appendChild(div);
-    scrollChat();
-  }
-
-  function showTyping() {
-    const msgs = document.getElementById('chatMessages');
-    const div = document.createElement('div');
-    const id = 'typing_' + Date.now();
-    div.id = id;
-    div.className = 'chat-msg bot';
-    div.style.cssText = 'align-self:flex-start';
-    div.innerHTML = `<div class="chat-typing" style="padding:10px 13px;"><span></span><span></span><span></span></div>`;
-    msgs.appendChild(div);
-    scrollChat();
-    return id;
-  }
-
-  function removeTyping(id) {
-    const el = document.getElementById(id);
-    if(el) el.remove();
-  }
-
-  function scrollChat() {
-    const msgs = document.getElementById('chatMessages');
-    msgs.scrollTop = msgs.scrollHeight;
-  }
-
-  // Show unread badge after 3s if chat not opened
-  setTimeout(()=>{
-    if(!chatOpen){
-      document.getElementById('chatUnread').style.display='block';
-    }
-  }, 3000);
-
-  // Bubble pulse animation
-  const bubble = document.getElementById('chatBubble');
-  bubble.addEventListener('mouseover',()=>bubble.style.transform='scale(1.1)');
-  bubble.addEventListener('mouseout',()=>bubble.style.transform='scale(1)');
-})();
-</script>
-
 </body>
 </html>
