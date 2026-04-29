@@ -4003,6 +4003,33 @@ function saveRecibirPago() {
 
   const saldoMsg = saldo > 0.01 ? ` · Saldo libre: ${formatDOP(saldo)}` : '';
   showToast(`${toApply.length} pago${toApply.length!==1?'s':''} registrado${toApply.length!==1?'s':''} · ${formatDOP(total)} recibido${saldoMsg} ✅`, 'success');
+
+  // Show receipt options if single invoice
+  if (toApply.length === 1) {
+    const singleSaleId = toApply[0].saleId;
+    const singleSale = sales.find(s => String(s.id)===String(singleSaleId));
+    const singlePayment = payments.filter(p => String(p.saleId)===String(singleSaleId)).slice(-1)[0];
+    const singleCustomer = customers.find(c => String(c.id)===String(singleSale?.customerId));
+    const pendNow = Math.max(0, saleTotal(singleSale) - payments.filter(p=>String(p.saleId)===String(singleSaleId)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0));
+    openModal(`
+      <div class="modal" style="max-width:380px;">
+        <div class="modal-header"><div class="modal-title">✅ Pago Registrado</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+        <div class="modal-body" style="text-align:center;padding:24px;">
+          <div style="font-size:2em;margin-bottom:8px;">💵</div>
+          <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.8em;font-weight:900;color:var(--emerald);">${formatDOP(toApply[0].amount)}</div>
+          <div style="color:var(--ink-3);margin-top:4px;font-size:13px;">recibido · ${singleSale?.invoiceNum||'#'+singleSaleId}</div>
+          ${pendNow>0.01
+            ? `<div style="margin-top:10px;color:var(--amber);font-size:13px;font-weight:700;">Pendiente: ${formatDOP(pendNow)}</div>`
+            : `<div style="margin-top:10px;color:var(--emerald);font-size:13px;font-weight:700;">✓ Factura completamente pagada</div>`}
+          <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="closeModal();printReciboPDF('${singleSaleId}','${singlePayment?.id||''}')">📄 Ver Recibo PDF</button>
+            ${singleCustomer?.phone?`<button class="btn btn-teal" onclick="closeModal();sendReciboWA('${singleSaleId}','${singlePayment?.id||''}')">💬 Enviar por WhatsApp</button>`:''}
+            <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    `);
+  }
 }
 
 function openRegistrarPago(saleId) {
@@ -4093,7 +4120,7 @@ function saveRegistrarPago(saleId) {
 
   /* Offer receipt options */
   const customer = customers.find(c => String(c.id) === String(sale?.customerId));
-  const paidTotal = payments.filter(p => p.saleId === saleId).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+  const paidTotal = payments.filter(p => String(p.saleId) === String(saleId)).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
   const pendNow   = Math.max(0, saleTotal(sale) - paidTotal);
 
   openModal(`
