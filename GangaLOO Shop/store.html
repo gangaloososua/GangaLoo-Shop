@@ -1765,9 +1765,9 @@ function onDeliveryChange(){
       feeRow.style.display='flex';
       feeRow.innerHTML='<span>🚐 Transfer Montellano→Maranatha</span><span id="co_fee_amt">RD$ '+fmt(storeConfig?.maranatha_fee||200)+'</span>';
     } else {
+      // Reset label to shipping (in case Maranatha was previously selected)
       feeRow.style.display=isShipping&&shipFee>0?'flex':'none';
-      const fa=document.getElementById('co_fee_amt');
-      if(fa) fa.textContent='RD$ '+fmt(shipFee);
+      feeRow.innerHTML='<span>🚚 Envío</span><span id="co_fee_amt">RD$ '+fmt(shipFee)+'</span>';
     }
   }
   onPaymentChange();
