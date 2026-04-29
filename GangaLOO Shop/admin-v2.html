@@ -6573,6 +6573,7 @@ function renderClientesPanel() {
       <div><h1>Clientes</h1><p>Online (Supabase) + manuales — unificados por email</p></div>
       <div class="page-actions">
         <button class="btn btn-secondary btn-sm" onclick="loadOnlineClientes()">🔄 Sync Online</button>
+        <button class="btn btn-secondary btn-sm" onclick="mergeClientesDuplicates()">🔀 Unificar Duplicados</button>
         <button class="btn btn-primary" onclick="openNuevoCliente()">+ Nuevo Cliente</button>
       </div>
     </div>
@@ -6908,9 +6909,99 @@ function saveEditCliente(id) {
   showToast('Cliente actualizado ✅', 'success');
 }
 
+function mergeClientesDuplicates() {
+  // Find groups of customers with same email, name, or phone
+  const groups = {};
+  customers.forEach(c => {
+    const keys = [];
+    if (c.email && c.email.trim()) keys.push('email:' + c.email.toLowerCase().trim());
+    if (c.phone && c.phone.trim()) keys.push('phone:' + c.phone.replace(/\D/g,''));
+    if (!keys.length) keys.push('name:' + (c.name||'').toLowerCase().trim());
+    keys.forEach(k => {
+      if (!groups[k]) groups[k] = [];
+      groups[k].push(c);
+    });
+  });
+
+  // Find actual duplicates (groups with 2+ customers)
+  const toMerge = {};
+  Object.values(groups).forEach(group => {
+    if (group.length < 2) return;
+    // Use highest-role customer as primary
+    const roleRank = { distributor: 4, seller: 3, club_member: 2, customer: 1 };
+    group.sort((a,b) => (roleRank[b.type]||0) - (roleRank[a.type]||0));
+    const primary = group[0];
+    group.slice(1).forEach(dup => {
+      if (!toMerge[primary.id]) toMerge[primary.id] = { primary, duplicates: [] };
+      if (!toMerge[primary.id].duplicates.find(d => String(d.id) === String(dup.id))) {
+        toMerge[primary.id].duplicates.push(dup);
+      }
+    });
+  });
+
+  const mergeList = Object.values(toMerge);
+  if (!mergeList.length) {
+    showToast('No se encontraron duplicados ✅', 'success');
+    return;
+  }
+
+  // Show preview popup
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:white;border:2px solid var(--violet);border-radius:12px;padding:20px;width:520px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3);';
+
+  let html = '<div style="font-family:var(--font-head);font-size:1.1em;font-weight:900;margin-bottom:4px;">🔀 Unificar Duplicados</div>';
+  html += `<div style="font-size:12px;color:var(--ink-3);margin-bottom:16px;">Se encontraron ${mergeList.length} grupos de duplicados</div>`;
+
+  mergeList.forEach(({primary, duplicates}) => {
+    html += `<div style="background:var(--surface-2);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;">`;
+    html += `<div style="font-weight:700;color:var(--violet);">✓ Mantener: ${primary.name||primary.email||primary.id} <span style="opacity:.6;font-weight:400;">(${primary.type||'customer'})</span></div>`;
+    duplicates.forEach(d => {
+      html += `<div style="color:var(--rose);margin-top:4px;">✕ Eliminar: ${d.name||d.email||d.id} <span style="opacity:.6;">(${d.type||'customer'}) · ventas se reasignan al principal</span></div>`;
+    });
+    html += '</div>';
+  });
+
+  html += `<div style="display:flex;gap:10px;margin-top:16px;">
+    <button onclick="applyMergeClientes(${JSON.stringify(mergeList.map(m=>({primaryId:m.primary.id,dupIds:m.duplicates.map(d=>d.id)})))})" style="flex:1;padding:10px;background:var(--violet);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;">✅ Aplicar Unificación</button>
+    <button onclick="this.closest('div[style]').remove()" style="padding:10px 16px;background:var(--surface-2);border:none;border-radius:8px;cursor:pointer;">Cancelar</button>
+  </div>`;
+
+  div.innerHTML = html;
+  document.body.appendChild(div);
+}
+
+async function applyMergeClientes(mergeData) {
+  // Close popup
+  document.querySelector('div[style*="z-index:99999"]')?.remove();
+
+  let merged = 0;
+  mergeData.forEach(({primaryId, dupIds}) => {
+    dupIds.forEach(dupId => {
+      // Remap all sales and payments from dup to primary
+      sales.forEach(s => {
+        if (String(s.customerId) === String(dupId)) s.customerId = primaryId;
+        if (String(s.sellerId)   === String(dupId)) s.sellerId   = primaryId;
+      });
+      payments.forEach(p => {
+        if (String(p.customerId) === String(dupId)) p.customerId = primaryId;
+      });
+      commissionPayouts.forEach(p => {
+        if (String(p.sellerId) === String(dupId)) p.sellerId = primaryId;
+      });
+      // Remove duplicate customer
+      customers = customers.filter(c => String(c.id) !== String(dupId));
+      merged++;
+    });
+  });
+
+  await saveData();
+  renderClientesList();
+  showToast(`✅ ${merged} duplicados eliminados y unificados`, 'success');
+}
+
 function deleteCliente(id) {
   confirmDialog(`¿Eliminar este cliente? Sus ventas y pagos se conservarán.`, () => {
-    customers = customers.filter(c => c.id !== id);
+    customers = customers.filter(c => String(c.id) !== String(id));
     debouncedSave(); renderClientesList();
     showToast('Cliente eliminado', 'warning');
   }, { danger: true, confirmLabel: 'Eliminar', title: 'Eliminar Cliente' });
