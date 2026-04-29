@@ -152,9 +152,10 @@
         <label>Banco (%)</label>
         <input type="number" id="feeB" value="5" min="0" max="100" step="0.5" oninput="calc()" />
       </div>
-      <div class="fbox">
-        <label>Flete (RD$)</label>
+      <div class="fbox" id="fleteBox">
+        <label id="fleteLabel">Flete (RD$)</label>
         <input type="number" id="fShip" value="100" min="0" oninput="calc()" />
+        <span id="fleteSub" style="font-size:11px;color:var(--text3);margin-top:3px;display:block;"></span>
       </div>
     </div>
   </div>
@@ -192,18 +193,32 @@ function onRateChange() {
   else if (dop && parseFloat(dop) > 0) fromDOP();
 }
 
+const FLETE_PER_LB = 300; // RD$ per pound for weight-based stores
+
 function selStore(el, name) {
   store = name;
   document.querySelectorAll('.stab').forEach(t => t.classList.remove('on'));
   el.classList.add('on');
-  /* Auto-set flete based on store */
-  const shipEl = document.getElementById('fShip');
-  if (shipEl) {
-    if (name === 'Temu' || name === 'Shein') shipEl.value = 100;
-    else if (name === 'Amazon' || name === 'eBay') shipEl.value = 500;
-    else if (name === 'AliExpress') shipEl.value = 500;
-    else shipEl.value = 500;
-    calc();
+  updateFleteUI();
+  calc();
+}
+
+function updateFleteUI() {
+  const fleteEl  = document.getElementById('fShip');
+  const labelEl  = document.getElementById('fleteLabel');
+  const subEl    = document.getElementById('fleteSub');
+  const isFixed  = store === 'Temu' || store === 'Shein';
+  if (!fleteEl) return;
+  if (isFixed) {
+    labelEl.textContent = 'Flete (RD$)';
+    fleteEl.value = 100;
+    fleteEl.placeholder = '100';
+    if (subEl) subEl.textContent = 'Flete fijo incluido en pedido';
+  } else {
+    labelEl.textContent = 'Peso (lbs)';
+    fleteEl.value = fleteEl._lastLbs || 1;
+    fleteEl.placeholder = 'lbs';
+    if (subEl) subEl.textContent = `RD$${FLETE_PER_LB}/lb · total: RD$${((fleteEl._lastLbs||1)*FLETE_PER_LB).toLocaleString()}`;
   }
 }
 
@@ -232,7 +247,13 @@ function calc() {
 
   const fS   = parseFloat(document.getElementById('feeS').value) || 0;
   const fB   = parseFloat(document.getElementById('feeB').value) || 0;
-  const ship = parseFloat(document.getElementById('fShip').value) || 0;
+  const isFixed = store === 'Temu' || store === 'Shein';
+  const fShipVal = parseFloat(document.getElementById('fShip').value) || 0;
+  if (!isFixed) { document.getElementById('fShip')._lastLbs = fShipVal; }
+  const ship = isFixed ? fShipVal : fShipVal * FLETE_PER_LB;
+  // Update sublabel
+  const subEl = document.getElementById('fleteSub');
+  if (subEl && !isFixed && fShipVal>0) subEl.textContent = `RD$${FLETE_PER_LB}/lb · total: RD$${ship.toLocaleString()}`;
 
   const sAmt = subtotal * fS / 100;
   const bAmt = subtotal * fB / 100;
@@ -243,7 +264,7 @@ function calc() {
     <div class="br-row"><span>Subtotal carrito ($${(subtotal/getRate()).toFixed(2)} USD)</span><span class="br-val">${fmt(subtotal)}</span></div>
     <div class="br-row"><span>Comisión de servicio (${fS}%)</span><span class="br-val">${fmt(sAmt)}</span></div>
     <div class="br-row"><span>Cargo bancario (${fB}%)</span><span class="br-val">${fmt(bAmt)}</span></div>
-    <div class="br-row"><span>Flete / envío</span><span class="br-val">${fmt(ship)}</span></div>
+    <div class="br-row"><span>Flete / envío${!isFixed&&fShipVal>0?` (${fShipVal} lbs × RD$${FLETE_PER_LB})`:''}</span><span class="br-val">${fmt(ship)}</span></div>
     <div class="br-row total"><span>Total a pagar</span><span class="br-val">${fmt(total)}</span></div>
   `;
 
@@ -292,7 +313,9 @@ function sendWA() {
   const subtotal = dop > 0 ? dop : usd * rate;
   const fS     = parseFloat(document.getElementById('feeS').value) || 0;
   const fB     = parseFloat(document.getElementById('feeB').value) || 0;
-  const ship   = parseFloat(document.getElementById('fShip').value) || 0;
+  const fShipVal2 = parseFloat(document.getElementById('fShip').value) || 0;
+  const isFixed2  = store === 'Temu' || store === 'Shein';
+  const ship   = isFixed2 ? fShipVal2 : fShipVal2 * FLETE_PER_LB;
   const sAmt   = subtotal * fS / 100;
   const bAmt   = subtotal * fB / 100;
   const total  = subtotal + sAmt + bAmt + ship;
@@ -303,7 +326,7 @@ function sendWA() {
     `Subtotal: ${fmt(subtotal)} ($${(subtotal/rate).toFixed(2)} USD)`,
     `Comisión de servicio (${fS}%): ${fmt(sAmt)}`,
     `Cargo bancario (${fB}%): ${fmt(bAmt)}`,
-    `Flete / envío: ${fmt(ship)}`,
+    `Flete / envío${!isFixed2&&fShipVal2>0?` (${fShipVal2} lbs × RD$${FLETE_PER_LB})`:''}: ${fmt(ship)}`,
     `*TOTAL: ${fmt(total)}*`
   ];
 
