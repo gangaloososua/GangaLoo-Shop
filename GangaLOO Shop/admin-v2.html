@@ -6858,7 +6858,14 @@ function saveNuevoCliente() {
 }
 
 function editCliente(id) {
-  const c = customers.find(x => String(x.id) === String(id));
+  // Look in customers first, then online profiles
+  let c = customers.find(x => String(x.id) === String(id));
+  if (!c) {
+    const op = _onlineProfiles?.find(x => String(x.id) === String(id));
+    if (op) {
+      c = { id: op.id, name: op.full_name||op.email, email: op.email, phone: op.phone||'', type: op.role||'customer', _onlineOnly: true };
+    }
+  }
   if (!c) return;
   const whOpts = warehouses.map(w=>`<option value="${w.id}" ${w.id===c.warehouseId?'selected':''}>${w.name}</option>`).join('');
   openModal(`
@@ -6896,8 +6903,12 @@ function editCliente(id) {
 }
 
 function saveEditCliente(id) {
-  const c = customers.find(x => String(x.id) === String(id));
-  if (!c) return;
+  let c = customers.find(x => String(x.id) === String(id));
+  if (!c) {
+    // Online-only profile — create a manual record to save changes
+    c = { id, name: '', email: '', phone: '', type: 'customer' };
+    customers.push(c);
+  }
   c.name  = document.getElementById('ecName').value.trim() || c.name;
   c.email = document.getElementById('ecEmail').value.trim();
   c.phone = document.getElementById('ecPhone').value.trim();
@@ -7000,10 +7011,21 @@ async function applyMergeClientes(mergeData) {
 }
 
 function deleteCliente(id) {
-  confirmDialog(`¿Eliminar este cliente? Sus ventas y pagos se conservarán.`, () => {
+  const isOnline = !customers.find(c => String(c.id) === String(id));
+  const msg = isOnline
+    ? '⚠️ Este cliente solo existe en el sistema online (registro de tienda). ¿Eliminar su perfil?'
+    : '¿Eliminar este cliente? Sus ventas y pagos se conservarán.';
+  confirmDialog(msg, async () => {
     customers = customers.filter(c => String(c.id) !== String(id));
-    debouncedSave(); renderClientesList();
-    showToast('Cliente eliminado', 'warning');
+    // Also try to remove from online profiles if exists there
+    if (_onlineProfiles) {
+      const idx = _onlineProfiles.findIndex(p => String(p.id) === String(id));
+      if (idx > -1) _onlineProfiles.splice(idx, 1);
+    }
+    await debouncedSave();
+    renderClientesList();
+    closeModal();
+    showToast('Cliente eliminado ✅', 'warning');
   }, { danger: true, confirmLabel: 'Eliminar', title: 'Eliminar Cliente' });
 }
 
