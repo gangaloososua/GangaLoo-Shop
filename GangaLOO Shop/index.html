@@ -1576,14 +1576,15 @@ function renderPay(total) {
   if (payMode === 'full') { pd.innerHTML = ''; return; }
   // Use custom adelanto amount, fallback to 50%
   const adelantoInput = document.getElementById('adelantoInput');
-  const adelanto = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
-  const restante = total - adelanto;
+  const adelantoRaw = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
+  const adelanto = roundUp25(adelantoRaw);
+  const restante = total - adelantoRaw; // use raw for restante calculation
   // 20% financiero applies ONLY on the restante (what's not paid upfront)
   const fin = restante * 0.20;
   const alRecogerRaw = restante + fin;
   const alRecoger = roundUp25(alRecogerRaw);
   const totalAcum = adelanto + alRecoger;
-  const adelantoPct = total > 0 ? Math.round(adelanto / total * 100) : 0;
+  const adelantoPct = total > 0 ? Math.round(adelantoRaw / total * 100) : 0;
 
   pd.innerHTML = `
     <div class="split-grid">
@@ -1653,12 +1654,13 @@ function sendWA() {
 
   if (payMode === 'half') {
     const adelantoInput = document.getElementById('adelantoInput');
-    const adelanto = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
-    const restante = total - adelanto;
+    const adelantoRawWA = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
+    const adelantoWA = roundUp25(adelantoRawWA);
+    const restante = total - adelantoRawWA;
     const fin = restante * 0.20;
     const alRecoger = roundUp25(restante + fin);
     lines.push(`\n*Opción con financiero:*`);
-    lines.push(`Adelanto ahora: ${fmt(adelanto)}`);
+    lines.push(`Adelanto ahora: ${fmt(adelantoWA)}`);
     lines.push(`Al recoger: ${fmt(alRecoger)} (restante + 20% financiero ${fmt(fin)})`);
     lines.push(`Total acumulado: ${fmt(adelanto + alRecoger)}`);
   }
