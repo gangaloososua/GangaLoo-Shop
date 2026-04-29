@@ -9451,8 +9451,8 @@ function openCuentaMovements(accountId) {
     });
   });
 
-  /* 2. Expense & income transactions */
-  transactions.filter(t => String(t.accountId) === String(accountId)).forEach(t => {
+  /* 2. Expense & income transactions (exclude isReceiptEntry — already shown as Cobros) */
+  transactions.filter(t => String(t.accountId) === String(accountId) && !t.isReceiptEntry).forEach(t => {
     const cat    = accountingCategories.find(c => String(c.id) === String(t.categoryId));
     const catLabel = cat ? (cat.name + (cat.subname ? ' — ' + cat.subname : '')) : '—';
     movements.push({
@@ -9477,8 +9477,8 @@ function openCuentaMovements(accountId) {
     });
   });
 
-  /* 4. Purchase payments */
-  purchasePayments.filter(p => String(p.accountId) === String(accountId)).forEach(p => {
+  /* 4. Purchase payments (exclude skipBalance — account already debited by courier receipt transaction) */
+  purchasePayments.filter(p => String(p.accountId) === String(accountId) && !p.skipBalance).forEach(p => {
     movements.push({
       date:   p.date || '',
       type:   'out',
