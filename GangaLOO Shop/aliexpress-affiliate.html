@@ -520,6 +520,7 @@ function clearPreview() {
 async function saveProduct() {
   const name  = document.getElementById('fName').value.trim();
   const store = document.getElementById('fStore').value;
+  console.log('saveProduct called, store=', store, 'name=', name);
   let img = '', url = '';
 
   if (store === 'aliexpress') {
@@ -530,6 +531,7 @@ async function saveProduct() {
   } else {
     img = document.getElementById('fTemuImg').value.trim();
     url = document.getElementById('fTemuUrl').value.trim();
+    console.log('Temu img=', img, 'url=', url);
     if (!img) { toast('⚠️ URL de imagen obligatoria'); return; }
     if (!url) { toast('⚠️ Enlace afiliado obligatorio'); return; }
   }
@@ -558,6 +560,7 @@ async function saveProduct() {
     // Show full error in a visible way
     document.getElementById('saveError').textContent = 'Error: ' + error.message + (error.details ? ' — ' + error.details : '');
     document.getElementById('saveError').style.display = 'block';
+    document.getElementById('saveError').scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
   document.getElementById('saveError').style.display = 'none';
