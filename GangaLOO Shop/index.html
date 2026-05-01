@@ -1566,7 +1566,7 @@ function setPay(mode) {
   if (adelantoRow) adelantoRow.style.display = mode === 'half' ? 'block' : 'none';
   if (mode === 'half' && document.getElementById('adelantoInput').value === '') {
     // Default to 50%
-    document.getElementById('adelantoInput').value = Math.round(totalDOP / 2);
+    document.getElementById('adelantoInput').value = roundUp25(totalDOP / 2);
   }
   renderPay(totalDOP);
 }
@@ -1576,7 +1576,7 @@ function renderPay(total) {
   if (payMode === 'full') { pd.innerHTML = ''; return; }
   // Use custom adelanto amount, fallback to 50%
   const adelantoInput = document.getElementById('adelantoInput');
-  const adelanto = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
+  const adelanto = roundUp25(adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2);
   const restante = total - adelanto;
   // 20% financiero applies ONLY on the restante (what's not paid upfront)
   const fin = restante * 0.20;
@@ -1653,7 +1653,7 @@ function sendWA() {
 
   if (payMode === 'half') {
     const adelantoInput = document.getElementById('adelantoInput');
-    const adelanto = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
+    const adelanto = roundUp25(adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2);
     const restante = total - adelanto;
     const fin = restante * 0.20;
     const alRecoger = roundUp25(restante + fin);
