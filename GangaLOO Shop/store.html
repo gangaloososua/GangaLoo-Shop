@@ -1605,7 +1605,7 @@ function renderProducts(){
     if(stk===0){pc='sp-out';pt='Agotado';dis='disabled';}
     else if(stk<=5){pc='sp-low';pt=`Últimas ${stk}`;}
     else{pc='sp-in';pt='Disponible';}
-    return`<div class="pcard" onclick="openProduct(${p.id})">
+    return`<div class="pcard" data-pid="${p.id}" onclick="openProduct(this.dataset.pid)">
       <div class="pcard-img">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}
         <span class="stock-pill ${pc}">${pt}</span>
         ${isClub?`<span class="club-disc-badge">-10%</span>`:(hasDisc?`<span class="disc-badge">-${discPct}%</span>`:(isGuest&&guestMarkup>0?`<span style="background:#002D62;color:white;border-radius:20px;padding:1px 5px;font-size:.55em;font-weight:700;position:absolute;top:6px;left:6px;">Regístrate</span>`:''))}
@@ -1680,7 +1680,8 @@ function openProduct(id) {
       <div class="prod-modal-price">RD$ ${fmt(price)}</div>
       <div class="prod-modal-footer">
         <button class="prod-modal-add" ${outOfStock ? 'disabled' : ''}
-          onclick="addCart(${p.id},'${esc(p.name)}',${price},'${esc(p.sku||'')}',${basePrice});closeProdModal()">
+          data-pid="${p.id}" data-name="${esc(p.name)}" data-price="${price}" data-sku="${esc(p.sku||'')}" data-base="${basePrice}"
+          onclick="addCart(this.dataset.pid,this.dataset.name,parseFloat(this.dataset.price),this.dataset.sku,parseFloat(this.dataset.base));closeProdModal()">
           ${outOfStock ? '❌ Sin Stock' : '🛒 Agregar al carrito'}
         </button>
         <div class="prod-modal-stock" style="color:${stockColor}">${stockLabel}</div>
