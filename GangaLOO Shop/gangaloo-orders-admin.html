@@ -129,6 +129,17 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-he
 
 @media(max-width:900px){.layout{grid-template-columns:1fr}.sidebar{border-left:none;border-top:1px solid var(--border);position:static;max-height:none}.stats{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:500px){.form-grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}
+.nv-filter-btn{padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;background:var(--surface2);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+.nv-filter-btn.active,.nv-filter-btn:hover{background:var(--text);color:var(--bg);border-color:var(--text);}
+.nv-card{background:var(--surface2);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px;}
+.nv-card-hdr{padding:14px 16px;display:flex;gap:12px;align-items:flex-start;}
+.nv-card-body{padding:0 16px 14px;}
+.nv-photos{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.nv-photos img{width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;}
+.nv-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.btn-approve{background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-reject{background:#ef4444;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-add-inv{background:#6366f1;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -192,6 +203,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-he
     <button class="tab" onclick="filterTab('scheduled',this)">Scheduled</button>
     <button class="tab" onclick="filterTab('pickup',this)">Pickup</button>
     <button class="tab" onclick="filterTab('done',this)">Done</button>
+    <button class="tab" id="tabNuevos" onclick="showNuevos(this)" style="background:transparent;">🆕 Nuevos <span id="nuevosCount" style="background:#f59e0b;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:3px;display:none;"></span></button>
   </div>
 
   <div class="search-bar">
@@ -200,6 +212,21 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-he
   </div>
 
   <div id="orderList"></div>
+
+  <!-- NUEVOS PRODUCTOS PANEL -->
+  <div id="nuevosPanel" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+      <h2 style="font-size:16px;font-weight:700;">🆕 Nuevos Productos — Aprobación</h2>
+      <button onclick="loadNuevos()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;">↻ Actualizar</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+      <button class="nv-filter-btn active" onclick="filterNuevos('pendiente',this)">⏳ Pendientes</button>
+      <button class="nv-filter-btn" onclick="filterNuevos('aprobado',this)">✅ Aprobados</button>
+      <button class="nv-filter-btn" onclick="filterNuevos('rechazado',this)">❌ Rechazados</button>
+      <button class="nv-filter-btn" onclick="filterNuevos('all',this)">📋 Todos</button>
+    </div>
+    <div id="nuevosList"></div>
+  </div>
 </div>
 
 <div class="sidebar">
@@ -313,7 +340,20 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-he
 
 <script>
 // ── CONFIG ──
-let CFG = JSON.parse(localStorage.getItem('gl_cfg') || '{}');
+// Auto-populate from config.js if available, merge with localStorage
+(function() {
+  const stored = JSON.parse(localStorage.getItem('gl_cfg') || '{}');
+  const gc = window.GANGALOO_CONFIG || {};
+  // Pre-fill from config.js if not already stored
+  if (!stored.url && gc.supabaseUrl)  stored.url  = gc.supabaseUrl;
+  if (!stored.key && gc.supabaseKey)  stored.key  = gc.supabaseKey;
+  if (!stored.waphone && gc.waPhone)  stored.waphone = gc.waPhone;
+  if (!stored.baseurl)                stored.baseurl = window.location.origin;
+  // Save back so it persists
+  if (stored.url && stored.key) localStorage.setItem('gl_cfg', JSON.stringify(stored));
+  window._CFG_INIT = stored;
+})();
+let CFG = window._CFG_INIT || JSON.parse(localStorage.getItem('gl_cfg') || '{}');
 let orders = [];
 let selectedId = null;
 let filterMode = 'all';
@@ -448,9 +488,9 @@ const STATUS_CLASS = {
 
 function calcBalance(prefix) {
   const amount = parseFloat(document.getElementById(`${prefix}_amount`).value) || 0;
-  const paid   = parseFloat(document.getElementById(`${prefix}_paid`).value) || 0;
-  // Base balance excludes delivery — delivery is only added if client chooses it
-  document.getElementById(`${prefix}_balance`).value = Math.max(0, amount - paid).toFixed(2);
+  const paid = parseFloat(document.getElementById(`${prefix}_paid`).value) || 0;
+  const fee = parseFloat(document.getElementById(`${prefix}_deliveryFee`).value) || 0;
+  document.getElementById(`${prefix}_balance`).value = Math.max(0, amount + fee - paid).toFixed(2);
 }
 
 function clientFormLink(orderId) {
@@ -467,8 +507,7 @@ function buildWANotify(o) {
   if (o.desc) msg += `📋 ${o.desc}\n`;
   msg += `\n💰 Total del pedido: *${fmt(o.amount)}*`;
   if (paid > 0) msg += `\n✅ Ya pagado: *${fmt(paid)}*`;
-  msg += `\n⚡ Saldo pendiente: *${fmt(balance)}* _(recogida en tienda)_`;
-  if (o.deliveryFee > 0) msg += `\n🚚 Si prefieres envío a domicilio: *${fmt(balance + o.deliveryFee)}* (+${fmt(o.deliveryFee)} envío)`;
+  msg += `\n⚡ Saldo pendiente: *${fmt(balance)}*`;
   msg += `\n\n¿Cómo prefieres recibirlo?\n\n`;
   msg += `🏪 *1 — Recojo en tienda* (gratis)\n`;
   msg += `🚚 *2 — Envío a domicilio* (+${fmt(o.deliveryFee)})\n\n`;
@@ -479,7 +518,7 @@ function buildWANotify(o) {
 
 function buildWAConfirm(o) {
   const balance = Number(o.balance || 0);
-  const totalWithDelivery = balance + Number(o.deliveryFee || 0);
+  const totalWithDelivery = Number(o.amount || 0) + Number(o.deliveryFee || 0);
   let msg = `✅ *Confirmación de entrega — GangaLoo*\n\n`;
   msg += `Hola ${o.client}! Tu entrega está confirmada 🎉\n\n`;
   msg += `📦 *Pedido:* ${o.platform.charAt(0).toUpperCase()+o.platform.slice(1)}`;
@@ -491,7 +530,7 @@ function buildWAConfirm(o) {
   msg += `   Pedido: ${fmt(o.amount)}\n`;
   msg += `   Envío: ${fmt(o.deliveryFee)}\n`;
   if (Number(o.paid) > 0) msg += `   Ya pagado: -${fmt(o.paid)}\n`;
-  msg += `   ⚡ *A pagar al recibir: ${fmt(totalWithDelivery)}*\n\n`;
+  msg += `   ⚡ *A pagar al recibir: ${fmt(balance)}*\n\n`;
   msg += `Nos comunicamos contigo el día de la entrega. ¡Gracias! 🙏`;
   return msg;
 }
@@ -839,6 +878,162 @@ document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('cli
 
 // ── INIT ──
 initApp();
+
+/* ─── NUEVOS PRODUCTOS ─── */
+let nvFilter = 'pendiente';
+let nvData   = [];
+
+function showNuevos(btn) {
+  // Hide orders, show nuevos panel
+  document.getElementById('orderList').style.display = 'none';
+  document.getElementById('nuevosPanel').style.display = 'block';
+  document.getElementById('searchInput').style.display = 'none';
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  loadNuevos();
+}
+
+function hideNuevos() {
+  document.getElementById('orderList').style.display = 'block';
+  document.getElementById('nuevosPanel').style.display = 'none';
+  document.getElementById('searchInput').style.display = 'block';
+}
+
+// Hook into existing filterTab to hide nuevos panel when switching away
+const _origFilterTab = filterTab;
+function filterTab(mode, btn) {
+  hideNuevos();
+  _origFilterTab(mode, btn);
+}
+
+async function loadNuevos() {
+  const list = document.getElementById('nuevosList');
+  list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">Cargando...</div>';
+  try {
+    const SURL = document.getElementById('setup_key') ? 
+      (localStorage.getItem('gl_supabase_url') || '') : '';
+    const SKEY = localStorage.getItem('gl_supabase_key') || '';
+    
+    // Use the same sb() helper already in the file
+    const res = await sb('GET', 'pos_pending_products?select=*&order=created_at.desc');
+    if (!res || !Array.isArray(res)) throw new Error('No data returned');
+    nvData = res;
+    renderNuevosList();
+    // Update badge
+    const pending = res.filter(r => r.estado === 'pendiente').length;
+    const badge = document.getElementById('nuevosCount');
+    if (badge) { badge.textContent = pending; badge.style.display = pending ? 'inline' : 'none'; }
+  } catch(e) {
+    list.innerHTML = `<div style="padding:20px;color:#ef4444;font-size:13px;">Error: ${e.message}</div>`;
+  }
+}
+
+function filterNuevos(estado, btn) {
+  nvFilter = estado;
+  document.querySelectorAll('.nv-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderNuevosList();
+}
+
+function renderNuevosList() {
+  const list = document.getElementById('nuevosList');
+  const items = nvFilter === 'all' ? nvData : nvData.filter(p => p.estado === nvFilter);
+  if (!items.length) {
+    list.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted);font-size:13px;">No hay productos en esta categoría.</div>';
+    return;
+  }
+  const estadoColor = { pendiente:'#f59e0b', aprobado:'#10b981', rechazado:'#ef4444' };
+  const estadoLabel = { pendiente:'⏳ Pendiente', aprobado:'✅ Aprobado', rechazado:'❌ Rechazado' };
+  list.innerHTML = items.map(p => {
+    const fotos = (() => { try { return JSON.parse(p.fotos||'[]'); } catch { return []; } })();
+    const date  = new Date(p.created_at).toLocaleDateString('es-DO');
+    const color = estadoColor[p.estado] || '#6b7280';
+    const label = estadoLabel[p.estado] || p.estado;
+    return `
+    <div class="nv-card">
+      <div class="nv-card-hdr">
+        ${fotos[0] ? `<img src="${fotos[0]}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;flex-shrink:0;">` : '<div style="width:64px;height:64px;background:var(--surface3);border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px;">📦</div>'}
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <div style="font-weight:700;font-size:15px;">${p.nombre}</div>
+            <span style="background:${color}20;color:${color};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap;">${label}</span>
+          </div>
+          <div style="font-size:13px;color:var(--muted);margin-top:3px;">
+            RD$ ${parseFloat(p.precio||0).toLocaleString()} · Cant: ${p.cantidad||1} · ${p.categoria_name||'Sin categoría'}
+          </div>
+          ${p.sku ? `<div style="font-size:12px;color:var(--muted);">SKU: ${p.sku}</div>` : ''}
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Por: ${p.clerk_name||'Desconocido'} · ${date}</div>
+          ${p.descripcion ? `<div style="font-size:13px;margin-top:6px;color:var(--text);">${p.descripcion}</div>` : ''}
+        </div>
+      </div>
+      <div class="nv-card-body">
+        ${fotos.length > 1 ? `<div class="nv-photos">${fotos.map(f => `<img src="${f}" onclick="window.open('${f}','_blank')">`).join('')}</div>` : ''}
+        ${p.video ? `<div style="margin-bottom:10px;"><video src="${p.video}" controls style="max-width:100%;max-height:200px;border-radius:8px;"></video></div>` : ''}
+        ${p.estado === 'pendiente' ? `
+        <div class="nv-actions">
+          <button class="btn-approve" onclick="approveNuevo('${p.id}')">✅ Aprobar</button>
+          <button class="btn-reject"  onclick="rejectNuevo('${p.id}')">❌ Rechazar</button>
+          <button class="btn-add-inv" onclick="approveAndAddInventory('${p.id}')">✅ Aprobar + Agregar al Inventario</button>
+        </div>` : ''}
+        ${p.notas_admin ? `<div style="margin-top:8px;font-size:12px;color:var(--muted);padding:8px;background:var(--surface3);border-radius:6px;">Nota admin: ${p.notas_admin}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function approveNuevo(id) {
+  if (!confirm('¿Aprobar este producto?')) return;
+  await sb('PATCH', `pos_pending_products?id=eq.${id}`, { estado: 'aprobado', reviewed_at: new Date().toISOString() });
+  toast('✅ Producto aprobado');
+  loadNuevos();
+}
+
+async function rejectNuevo(id) {
+  const nota = prompt('Motivo del rechazo (opcional):') || '';
+  await sb('PATCH', `pos_pending_products?id=eq.${id}`, { estado: 'rechazado', notas_admin: nota, reviewed_at: new Date().toISOString() });
+  toast('❌ Producto rechazado');
+  loadNuevos();
+}
+
+async function approveAndAddInventory(id) {
+  const item = nvData.find(p => p.id === id);
+  if (!item) return;
+  if (!confirm(`¿Aprobar y agregar "${item.nombre}" al inventario?`)) return;
+  
+  // Add to inventory_data table
+  const invPayload = {
+    name:        item.nombre,
+    price:       item.precio,
+    stock:       item.cantidad || 1,
+    sku:         item.sku || null,
+    category_id: item.categoria_id || null,
+    active:      true,
+  };
+  const invRes = await sb('POST', 'inventory_data', invPayload);
+  
+  // Mark as approved
+  await sb('PATCH', `pos_pending_products?id=eq.${id}`, { 
+    estado: 'aprobado', 
+    notas_admin: 'Agregado al inventario',
+    reviewed_at: new Date().toISOString() 
+  });
+  toast('✅ Aprobado y agregado al inventario');
+  loadNuevos();
+}
+
+function toast(msg) {
+  let t = document.getElementById('adminToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'adminToast';
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 22px;border-radius:30px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  setTimeout(() => t.style.opacity = '0', 2500);
+}
+
 </script>
 </body>
 </html>
