@@ -520,8 +520,9 @@ function clearPreview() {
 // ── SAVE ──────────────────────────────────────────────────────────────────────
 async function saveProduct() {
   const name  = document.getElementById('fName').value.trim();
-  const store = document.getElementById('fStore').value;
-  console.log('saveProduct called, store=', store, 'name=', name);
+  // Read store directly from active button — more reliable than hidden input
+  const store = document.getElementById('swTemu').classList.contains('on') ? 'temu' : 'aliexpress';
+  console.log('saveProduct called, store=', store, 'swTemu.on=', document.getElementById('swTemu').classList.contains('on'), 'name=', name);
   let img = '', url = '';
 
   if (store === 'aliexpress') {
