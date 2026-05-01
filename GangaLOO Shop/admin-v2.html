@@ -4391,15 +4391,6 @@ function printVentaPDF(saleId) {
       ${storeName} · Generado el ${new Date().toLocaleString('es-DO')} · ${inv}
     </div>
   
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('SW registered:', reg.scope))
-      .catch(err => console.log('SW failed:', err));
-  });
-}
-</script>
 </body></html>`);
   win.document.close();
 }
@@ -14189,6 +14180,16 @@ function validateCoupon(code, orderTotal) {
 }
 
 
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW failed:', err));
+  });
+}
 </script>
 </body>
 </html>
