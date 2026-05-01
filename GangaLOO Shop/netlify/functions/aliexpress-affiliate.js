@@ -12,33 +12,44 @@ const headers = {
   'Content-Type': 'application/json',
 };
 
-// AliExpress standard HMAC-SHA256 signature
-// Format: HMAC_SHA256( SECRET + sorted_key_value_pairs + SECRET )
+// AliExpress SHA256 signature:
+// 1. Sort all params alphabetically (exclude 'sign' itself)
+// 2. Concatenate as key+value pairs
+// 3. Wrap: SECRET + concatenated + SECRET
+// 4. Hash with plain SHA256 (NOT HMAC)
 function signRequest(params) {
-  const sorted = Object.keys(params)
-    .filter(k => k !== 'sign' && params[k] !== '' && params[k] != null)
-    .sort()
-    .map(k => `${k}${params[k]}`)
-    .join('');
-  const str = APP_SECRET + sorted + APP_SECRET;
-  return crypto.createHmac('sha256', APP_SECRET).update(str, 'utf8').digest('hex').toUpperCase();
+  const str = APP_SECRET +
+    Object.keys(params)
+      .filter(k => k !== 'sign')
+      .sort()
+      .map(k => `${k}${params[k]}`)
+      .join('') +
+    APP_SECRET;
+  return crypto.createHash('sha256').update(str, 'utf8').digest('hex').toUpperCase();
+}
+
+// Timestamp format AliExpress expects: "2026-05-01 10:30:00"
+function getTimestamp() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${now.getUTCFullYear()}-${pad(now.getUTCMonth()+1)}-${pad(now.getUTCDate())} ` +
+         `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}`;
 }
 
 async function callApi(method, extra = {}) {
-  // Build params without sign first
   const params = {
     method,
     app_key:     APP_KEY,
-    timestamp:   new Date().toISOString().replace('T', ' ').replace(/\..+/, ''),
+    timestamp:   getTimestamp(),
     sign_method: 'sha256',
   };
 
-  // Add extra, skip empty values
   for (const [k, v] of Object.entries(extra)) {
-    if (v !== '' && v !== null && v !== undefined) params[k] = String(v);
+    if (v !== '' && v !== null && v !== undefined) {
+      params[k] = String(v);
+    }
   }
 
-  // Sign AFTER all params are set
   params.sign = signRequest(params);
 
   const res = await fetch('https://api-sg.aliexpress.com/sync', {
