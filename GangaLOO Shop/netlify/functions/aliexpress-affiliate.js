@@ -12,25 +12,33 @@ const headers = {
   'Content-Type': 'application/json',
 };
 
+// AliExpress standard HMAC-SHA256 signature
+// Format: HMAC_SHA256( SECRET + sorted_key_value_pairs + SECRET )
 function signRequest(params) {
-  const entries = Object.entries(params)
-    .filter(([, v]) => v !== '' && v !== null && v !== undefined)
-    .sort(([a], [b]) => a.localeCompare(b));
-  const str = APP_SECRET + entries.map(([k, v]) => `${k}${v}`).join('') + APP_SECRET;
-  return crypto.createHmac('sha256', APP_SECRET).update(str).digest('hex').toUpperCase();
+  const sorted = Object.keys(params)
+    .filter(k => k !== 'sign' && params[k] !== '' && params[k] != null)
+    .sort()
+    .map(k => `${k}${params[k]}`)
+    .join('');
+  const str = APP_SECRET + sorted + APP_SECRET;
+  return crypto.createHmac('sha256', APP_SECRET).update(str, 'utf8').digest('hex').toUpperCase();
 }
 
 async function callApi(method, extra = {}) {
-  const filtered = Object.fromEntries(
-    Object.entries(extra).filter(([, v]) => v !== '' && v !== null && v !== undefined)
-  );
+  // Build params without sign first
   const params = {
     method,
-    app_key: APP_KEY,
-    timestamp: new Date().toISOString().replace('T', ' ').replace(/\..+/, ''),
+    app_key:     APP_KEY,
+    timestamp:   new Date().toISOString().replace('T', ' ').replace(/\..+/, ''),
     sign_method: 'sha256',
-    ...filtered,
   };
+
+  // Add extra, skip empty values
+  for (const [k, v] of Object.entries(extra)) {
+    if (v !== '' && v !== null && v !== undefined) params[k] = String(v);
+  }
+
+  // Sign AFTER all params are set
   params.sign = signRequest(params);
 
   const res = await fetch('https://api-sg.aliexpress.com/sync', {
@@ -54,9 +62,9 @@ exports.handler = async (event) => {
   try {
     const result = await callApi('aliexpress.affiliate.product.query', {
       keywords,
-      tracking_id: TRACKING_ID,
-      page_no: page,
-      page_size: Math.min(pageSize, 50),
+      tracking_id:     TRACKING_ID,
+      page_no:         page,
+      page_size:       Math.min(pageSize, 50),
       target_currency: 'USD',
       target_language: 'EN',
       ship_to_country: 'DO',
