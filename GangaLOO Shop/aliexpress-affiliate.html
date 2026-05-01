@@ -430,6 +430,7 @@ nav {
            onkeydown="if(event.key==='Enter')doSearch()">
   </div>
   <button class="search-btn" onclick="doSearch()">Buscar</button>
+  <button class="search-btn" onclick="diagnose()" style="background:#666;">🔍 Diagnose</button>
 </div>
 
 <!-- Category chips -->
@@ -507,7 +508,9 @@ async function fetchProducts(keywords, page = 1, reset = true) {
     const data = await resp.json();
 
     if (data.error || !data.products) {
-      showError(data.error || 'No se encontraron productos');
+      const detail = data.resp_code ? ` (code: ${data.resp_code})` : '';
+      const raw = data.full_response ? '\n\nRespuesta completa:\n' + JSON.stringify(data.full_response, null, 2) : '';
+      showError((data.error || 'No se encontraron productos') + detail + raw);
       return;
     }
 
@@ -536,6 +539,18 @@ async function fetchProducts(keywords, page = 1, reset = true) {
   } finally {
     loading = false;
   }
+}
+
+// Show raw API error for diagnosis
+async function diagnose() {
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keywords: 'hair', page: 1, pageSize: 5 }),
+  });
+  const data = await res.json();
+  const grid = document.getElementById('productGrid');
+  grid.innerHTML = `<div style="grid-column:1/-1;background:#1e1e2e;color:#cdd6f4;padding:20px;border-radius:12px;font-family:monospace;font-size:.78em;white-space:pre-wrap;overflow:auto;max-height:400px;">${JSON.stringify(data, null, 2)}</div>`;
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
@@ -595,7 +610,7 @@ function showError(msg) {
     <div class="state-box" style="grid-column:1/-1;">
       <div class="state-icon">⚠️</div>
       <div class="state-title">No se pudieron cargar los productos</div>
-      <div class="state-sub">${escHtml(msg)}</div>
+      <pre style="font-size:.75em;text-align:left;background:#f5f5f5;padding:12px;border-radius:8px;overflow:auto;white-space:pre-wrap;max-height:300px;margin-top:12px;">${escHtml(msg)}</pre>
     </div>`;
 }
 
