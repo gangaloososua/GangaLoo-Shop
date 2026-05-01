@@ -285,6 +285,7 @@ select.field option { background:var(--surface2); }
     <div class="nav-tab" onclick="showTab('pos')" data-tab="pos">🛒 Vender <span class="nav-badge" id="cartCount">0</span></div>
     <div class="nav-tab" onclick="showTab('ventas')" data-tab="ventas">📊 Mis Ventas</div>
     <div class="nav-tab" onclick="showTab('ajustes')" data-tab="ajustes">⚙️ Ajustes</div>
+    <div class="nav-tab" onclick="showTab('nuevo')" data-tab="nuevo">➕ Nuevo Producto <span class="nav-badge" id="pendingCount" style="display:none;background:#f59e0b;"></span></div>
   </div>
 
   <div class="main">
@@ -422,6 +423,77 @@ select.field option { background:var(--surface2); }
       <h2 style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:16px;">📊 Ventas del POS</h2>
       <div class="kpi-strip" id="ventasKpi"></div>
       <div id="ventasList"></div>
+    </div>
+
+    <!-- ═══ TAB: NUEVO PRODUCTO ═══ -->
+    <div id="tab-nuevo" style="display:none;padding:16px 20px;">
+      <h2 style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:4px;">➕ Nuevo Producto</h2>
+      <p style="font-size:13px;color:var(--ink3);margin-bottom:20px;">Agrega un producto que no existe aún en el inventario. Se enviará para aprobación del administrador.</p>
+
+      <!-- FORM -->
+      <div id="nuevoForm" style="background:var(--surface2);border-radius:14px;padding:18px;margin-bottom:20px;">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div style="grid-column:1/-1;">
+            <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px;">Nombre del producto *</label>
+            <input class="field" id="nNombre" placeholder="Ej: Extensión de cabello 20 pulgadas" style="font-size:14px;">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px;">SKU / Código</label>
+            <input class="field" id="nSku" placeholder="Ej: EXT-001">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px;">Precio (RD$) *</label>
+            <input class="field" id="nPrecio" type="number" placeholder="0.00">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px;">Cantidad disponible</label>
+            <input class="field" id="nCantidad" type="number" placeholder="0" value="1">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px;">Categoría</label>
+            <select class="field" id="nCategoria">
+              <option value="">Sin categoría</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px;">Descripción / notas</label>
+          <textarea class="field" id="nDescripcion" placeholder="Describe el producto, color, tamaño, etc..." rows="3" style="resize:vertical;"></textarea>
+        </div>
+
+        <!-- PHOTOS -->
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:8px;">📷 Fotos (toma hasta 5)</label>
+          <div id="nFotosGrid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+          <label style="display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;">
+            <span>📷 Tomar / Subir foto</span>
+            <input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="handleNuevoPhotos(this)">
+          </label>
+        </div>
+
+        <!-- VIDEO -->
+        <div style="margin-bottom:16px;">
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:8px;">🎥 Video (opcional)</label>
+          <div id="nVideoPreview" style="margin-bottom:8px;"></div>
+          <label style="display:inline-flex;align-items:center;gap:6px;background:var(--surface3);color:var(--ink);border:1.5px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;">
+            <span>🎥 Grabar / Subir video</span>
+            <input type="file" accept="video/*" capture="environment" style="display:none;" onchange="handleNuevoVideo(this)">
+          </label>
+          <button id="nVideoRemoveBtn" onclick="removeNuevoVideo()" style="display:none;margin-left:8px;background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;">✕ Quitar video</button>
+        </div>
+
+        <!-- SUBMIT -->
+        <div id="nuevoError" style="display:none;background:#fee2e2;color:#dc2626;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:12px;"></div>
+        <button class="btn btn-primary" onclick="submitNuevoProducto()" id="nuevoSubmitBtn" style="width:100%;padding:12px;">
+          📤 Enviar para Aprobación
+        </button>
+      </div>
+
+      <!-- PENDING LIST -->
+      <h3 style="font-size:1rem;font-weight:700;margin-bottom:12px;">⏳ Mis envíos pendientes</h3>
+      <div id="pendingList" style="display:flex;flex-direction:column;gap:10px;"></div>
     </div>
 
   </div><!-- /main -->
@@ -606,6 +678,7 @@ function showTab(tab) {
   if (tab === 'ventas') renderVentas();
   if (tab === 'pos') renderPosProducts();
   if (tab === 'ajustes') renderLocationsList();
+  if (tab === 'nuevo') { renderNuevoCategorias(); renderPendingList(); }
 }
 
 /* ─── INVENTARIO TAB ─── */
