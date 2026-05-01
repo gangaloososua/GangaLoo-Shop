@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AliExpress × GangaLoo — Productos</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --black:   #0d0d0d;
+  --white:   #fafaf8;
+  --cream:   #f5f0e8;
+  --red:     #e8251a;
+  --orange:  #e8621a;
+  --gold:    #c9a246;
+  --muted:   #888;
+  --border:  #e2ddd6;
+  --card-bg: #ffffff;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--cream);
+  color: var(--black);
+  min-height: 100vh;
+}
+
+/* ── NAV ── */
+nav {
+  background: var(--black);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 5vw;
+  height: 60px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.nav-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.4rem;
+  color: var(--white);
+  letter-spacing: .04em;
+  text-decoration: none;
+}
+.nav-logo span { color: var(--red); }
+.nav-back {
+  font-size: .8rem;
+  color: rgba(255,255,255,.5);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color .2s;
+}
+.nav-back:hover { color: var(--white); }
+
+/* ── HERO ── */
+.hero {
+  background: var(--black);
+  color: var(--white);
+  padding: 52px 5vw 44px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 120%, rgba(232,98,26,.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-eyebrow {
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin-bottom: 14px;
+}
+.hero h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  font-weight: 400;
+  line-height: 1.1;
+  margin-bottom: 14px;
+}
+.hero h1 em { font-style: italic; color: var(--gold); }
+.hero-sub {
+  font-size: .88rem;
+  color: rgba(255,255,255,.55);
+  max-width: 460px;
+  margin: 0 auto 24px;
+  line-height: 1.6;
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 30px;
+  padding: 7px 16px;
+  font-size: .75rem;
+  color: rgba(255,255,255,.6);
+}
+.ali-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); display: inline-block; }
+
+/* ── SEARCH / FILTER BAR ── */
+.filter-wrap {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 5vw;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.search-box {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--cream);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0 14px;
+}
+.search-box input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: 'Outfit', sans-serif;
+  font-size: .9rem;
+  color: var(--black);
+  padding: 10px 0;
+  outline: none;
+}
+.search-box input::placeholder { color: var(--muted); }
+.search-btn {
+  background: var(--black);
+  color: var(--white);
+  border: none;
+  border-radius: 9px;
+  padding: 9px 18px;
+  font-family: 'Outfit', sans-serif;
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s;
+  white-space: nowrap;
+}
+.search-btn:hover { background: var(--red); }
+.sort-sel {
+  padding: 9px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: 'Outfit', sans-serif;
+  font-size: .85rem;
+  background: var(--cream);
+  color: var(--black);
+  cursor: pointer;
+}
+
+/* ── CHIP FILTERS ── */
+.chip-row {
+  background: var(--white);
+  padding: 10px 5vw;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+}
+.chip {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--cream);
+  font-size: .78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .18s;
+  color: var(--black);
+}
+.chip:hover, .chip.active {
+  background: var(--black);
+  border-color: var(--black);
+  color: var(--white);
+}
+
+/* ── GRID ── */
+.grid-section {
+  padding: 32px 5vw 60px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.grid-hdr {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.grid-hdr h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+.grid-count {
+  font-size: .8rem;
+  color: var(--muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* ── PRODUCT CARD ── */
+.pcard {
+  background: var(--card-bg);
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: transform .22s, box-shadow .22s;
+  border: 1px solid var(--border);
+  position: relative;
+}
+.pcard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0,0,0,.1);
+}
+.pcard-img {
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #f0ece4;
+  position: relative;
+}
+.pcard-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .4s ease;
+  display: block;
+}
+.pcard:hover .pcard-img img { transform: scale(1.06); }
+
+/* AliExpress badge */
+.ali-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: var(--red);
+  color: #fff;
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 6px;
+}
+
+/* Discount badge */
+.disc-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--orange);
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 6px;
+}
+
+/* Hover overlay */
+.pcard-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(13,13,13,.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity .22s;
+}
+.pcard:hover .pcard-overlay { opacity: 1; }
+.overlay-cta {
+  background: var(--white);
+  color: var(--black);
+  font-size: .78rem;
+  font-weight: 700;
+  padding: 9px 18px;
+  border-radius: 30px;
+  letter-spacing: .04em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Card body */
+.pcard-body {
+  padding: 12px 13px 14px;
+}
+.pcard-title {
+  font-size: .8rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #333;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pcard-meta {
+  margin-top: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.pcard-rating {
+  font-size: .7rem;
+  color: #f59e0b;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.pcard-sold {
+  font-size: .68rem;
+  color: var(--muted);
+}
+
+/* ── EMPTY / LOADING ── */
+.state-box {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--muted);
+}
+.state-icon { font-size: 3rem; margin-bottom: 14px; }
+.state-title { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: #444; margin-bottom: 8px; }
+.state-sub { font-size: .85rem; }
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(90deg, #ede8df 25%, #e2ddd6 50%, #ede8df 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 10px;
+}
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.skel-card { background: #fff; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); }
+.skel-img { aspect-ratio: 1; }
+.skel-body { padding: 12px 13px 14px; display: flex; flex-direction: column; gap: 8px; }
+.skel-line { height: 12px; border-radius: 6px; }
+.skel-line.short { width: 60%; }
+
+/* ── LOAD MORE ── */
+.load-more-wrap { text-align: center; margin-top: 40px; }
+.load-more-btn {
+  background: var(--black);
+  color: var(--white);
+  border: none;
+  border-radius: 30px;
+  padding: 12px 32px;
+  font-family: 'Outfit', sans-serif;
+  font-size: .88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.load-more-btn:hover { background: var(--red); }
+.load-more-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── FOOTER NOTE ── */
+.footer-note {
+  text-align: center;
+  padding: 32px 5vw;
+  font-size: .75rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  background: var(--white);
+  line-height: 1.6;
+}
+.footer-note a { color: var(--red); text-decoration: none; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .grid-section { padding: 20px 4vw 40px; }
+  .hero { padding: 36px 5vw 32px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="/index.html">Ganga<span>Loo</span></a>
+  <a class="nav-back" href="/store.html">← Tienda principal</a>
+</nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">Powered by AliExpress Affiliates</div>
+  <h1>Descubre productos <em>increíbles</em></h1>
+  <p class="hero-sub">Seleccionados para ti desde AliExpress. Haz clic en cualquier producto para comprarlo directamente.</p>
+  <div class="hero-badge">
+    <span class="ali-dot"></span>
+    gangaloopuertoplata@gmail.com — Affiliate Partner
+  </div>
+</div>
+
+<!-- Search -->
+<div class="filter-wrap">
+  <div class="search-box">
+    <span style="color:var(--muted);font-size:1rem;">🔍</span>
+    <input type="text" id="searchInput" placeholder="Buscar productos en AliExpress..." value="hair extension wig"
+           onkeydown="if(event.key==='Enter')doSearch()">
+  </div>
+  <button class="search-btn" onclick="doSearch()">Buscar</button>
+</div>
+
+<!-- Category chips -->
+<div class="chip-row" id="chipRow">
+  <div class="chip active" onclick="selectChip(this,'hair extension wig')">💇 Extensiones</div>
+  <div class="chip" onclick="selectChip(this,'lace front wig')">👸 Pelucas</div>
+  <div class="chip" onclick="selectChip(this,'hair care products')">✨ Cuidado capilar</div>
+  <div class="chip" onclick="selectChip(this,'clip in hair extensions')">📎 Clips</div>
+  <div class="chip" onclick="selectChip(this,'human hair bundles')">🌿 Mechones</div>
+  <div class="chip" onclick="selectChip(this,'hair accessories')">🎀 Accesorios</div>
+  <div class="chip" onclick="selectChip(this,'beauty skincare')">💄 Belleza</div>
+  <div class="chip" onclick="selectChip(this,'fashion jewelry')">💎 Joyería</div>
+</div>
+
+<!-- Product Grid -->
+<div class="grid-section">
+  <div class="grid-hdr">
+    <h2 id="gridTitle">Extensiones de cabello</h2>
+    <span class="grid-count" id="gridCount"></span>
+  </div>
+  <div class="grid" id="productGrid">
+    <!-- Skeletons on load -->
+  </div>
+  <div class="load-more-wrap" id="loadMoreWrap" style="display:none;">
+    <button class="load-more-btn" id="loadMoreBtn" onclick="loadMore()">
+      Ver más productos <span>↓</span>
+    </button>
+  </div>
+</div>
+
+<div class="footer-note">
+  ⚠️ Los precios y disponibilidad los determina AliExpress. GangaLoo puede ganar una comisión por las compras realizadas a través de estos enlaces.<br>
+  Cuenta afiliada: <a href="mailto:gangaloopuertoplata@gmail.com">gangaloopuertoplata@gmail.com</a> · 
+  <a href="/index.html">Inicio GangaLoo</a>
+</div>
+
+<script>
+const API = '/.netlify/functions/aliexpress-affiliate';
+let currentPage = 1;
+let currentKeyword = 'hair extension wig';
+let totalProducts = 0;
+let loading = false;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  showSkeletons(20);
+  fetchProducts(currentKeyword, 1, true);
+});
+
+// ── Skeleton placeholders ─────────────────────────────────────────────────────
+function showSkeletons(n) {
+  const grid = document.getElementById('productGrid');
+  grid.innerHTML = Array(n).fill(0).map(() => `
+    <div class="skel-card">
+      <div class="skel-img skeleton"></div>
+      <div class="skel-body">
+        <div class="skel-line skeleton"></div>
+        <div class="skel-line skeleton short"></div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+async function fetchProducts(keywords, page = 1, reset = true) {
+  if (loading) return;
+  loading = true;
+  if (reset) showSkeletons(20);
+
+  try {
+    const resp = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'search', keywords, page, pageSize: 20 }),
+    });
+    const data = await resp.json();
+
+    if (data.error || !data.products) {
+      showError(data.error || 'No se encontraron productos');
+      return;
+    }
+
+    totalProducts = data.total || 0;
+    document.getElementById('gridCount').textContent =
+      totalProducts ? `${totalProducts.toLocaleString()} productos encontrados` : '';
+
+    if (reset) {
+      renderProducts(data.products);
+    } else {
+      appendProducts(data.products);
+    }
+
+    // Show load more if there are more pages
+    const loadWrap = document.getElementById('loadMoreWrap');
+    const loaded = page * 20;
+    if (loaded < Math.min(totalProducts, 200)) {
+      loadWrap.style.display = 'block';
+      document.getElementById('loadMoreBtn').disabled = false;
+      document.getElementById('loadMoreBtn').innerHTML = 'Ver más productos <span>↓</span>';
+    } else {
+      loadWrap.style.display = 'none';
+    }
+  } catch (e) {
+    showError('Error de conexión: ' + e.message);
+  } finally {
+    loading = false;
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderProducts(products) {
+  const grid = document.getElementById('productGrid');
+  if (!products.length) {
+    grid.innerHTML = `<div class="state-box" style="grid-column:1/-1;">
+      <div class="state-icon">🔍</div>
+      <div class="state-title">Sin resultados</div>
+      <div class="state-sub">Intenta con otras palabras clave</div>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = products.map(productCard).join('');
+}
+
+function appendProducts(products) {
+  const grid = document.getElementById('productGrid');
+  const frag = document.createDocumentFragment();
+  products.forEach(p => {
+    const div = document.createElement('div');
+    div.innerHTML = productCard(p);
+    frag.appendChild(div.firstElementChild);
+  });
+  grid.appendChild(frag);
+}
+
+function productCard(p) {
+  const disc = p.discount ? parseInt(p.discount) : 0;
+  const stars = p.rating ? '★'.repeat(Math.round(parseFloat(p.rating) / 20)).padEnd(5,'☆') : '';
+  const sold = p.sold ? `${Number(p.sold).toLocaleString()} vendidos` : '';
+
+  return `
+    <a class="pcard" href="${escHtml(p.url)}" target="_blank" rel="noopener noreferrer" title="${escHtml(p.title)}">
+      <div class="pcard-img">
+        <img src="${escHtml(p.image)}" alt="${escHtml(p.title)}" loading="lazy"
+             onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%23f0ece4\' width=\'100\' height=\'100\'/%3E%3Ctext y=\'.9em\' font-size=\'70\' x=\'15\'%3E📦%3C/text%3E%3C/svg%3E'">
+        <div class="pcard-overlay">
+          <div class="overlay-cta">🛒 Ver en AliExpress</div>
+        </div>
+        <div class="ali-badge">AliExpress</div>
+        ${disc > 0 ? `<div class="disc-badge">-${disc}%</div>` : ''}
+      </div>
+      <div class="pcard-body">
+        <div class="pcard-title">${escHtml(p.title)}</div>
+        ${(stars || sold) ? `
+        <div class="pcard-meta">
+          ${stars ? `<span class="pcard-rating">${stars}</span>` : ''}
+          ${sold ? `<span class="pcard-sold">${sold}</span>` : ''}
+        </div>` : ''}
+      </div>
+    </a>`;
+}
+
+function showError(msg) {
+  document.getElementById('productGrid').innerHTML = `
+    <div class="state-box" style="grid-column:1/-1;">
+      <div class="state-icon">⚠️</div>
+      <div class="state-title">No se pudieron cargar los productos</div>
+      <div class="state-sub">${escHtml(msg)}</div>
+    </div>`;
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  currentKeyword = q;
+  currentPage = 1;
+  // Deactivate chips
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  // Update title
+  document.getElementById('gridTitle').textContent = `Resultados: "${q}"`;
+  fetchProducts(q, 1, true);
+}
+
+function selectChip(el, keyword) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  currentKeyword = keyword;
+  currentPage = 1;
+  document.getElementById('searchInput').value = keyword;
+  document.getElementById('gridTitle').textContent = el.textContent.replace(/^.{2}/,'').trim();
+  fetchProducts(keyword, 1, true);
+}
+
+function loadMore() {
+  currentPage++;
+  const btn = document.getElementById('loadMoreBtn');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Cargando...';
+  fetchProducts(currentKeyword, currentPage, false);
+}
+</script>
+</body>
+</html>
