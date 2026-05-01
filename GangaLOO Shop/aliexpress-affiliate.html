@@ -95,6 +95,16 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .footer{text-align:center;padding:28px 5vw;font-size:.73rem;color:var(--muted);border-top:1px solid var(--border);background:var(--surface);}
 .footer a{color:var(--red);text-decoration:none;}
+.seller-badge{position:absolute;top:8px;left:8px;background:var(--gold);color:#fff;font-size:.55rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:5px;z-index:2;}
+.seller-banner{background:linear-gradient(135deg,#111110,#2a2200);color:var(--gold);text-align:center;padding:10px 5vw;font-size:.8rem;font-weight:600;letter-spacing:.05em;display:none;}
+.seller-banner.show{display:block;}
+.seller-modal-ovl{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;}
+.seller-modal-ovl.open{display:flex;}
+.seller-modal{background:#fff;border-radius:18px;width:100%;max-width:360px;overflow:hidden;}
+.seller-modal-hdr{background:linear-gradient(135deg,#111110,#2a2200);color:var(--gold);padding:20px 22px;text-align:center;}
+.seller-modal-hdr h3{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:400;margin-bottom:4px;}
+.seller-modal-hdr p{font-size:.78rem;color:rgba(255,255,255,.5);}
+.seller-modal-body{padding:22px;}
 @media(max-width:580px){.grid{grid-template-columns:repeat(2,1fr);gap:10px;}.row2{grid-template-columns:1fr;}}
 </style>
 </head>
@@ -104,10 +114,14 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
   <a class="logo" href="/index.html">Ganga<em>Loo</em></a>
   <div class="nav-r">
     <a class="nav-link" href="/store.html">← Tienda</a>
+    <button class="admin-btn" id="sellerBtn" onclick="toggleSellerMode()" style="background:rgba(184,144,42,.15);border-color:rgba(184,144,42,.3);" title="Acceso vendedores">🔒</button>
     <button class="admin-btn" onclick="openAdmin()">⚙️ Admin</button>
   </div>
 </nav>
 
+<div class="seller-banner" id="sellerBanner">
+  🔓 Modo Vendedor activo — viendo productos exclusivos para vendedores
+</div>
 <div class="hero">
   <div class="hero-tag">AliExpress × GangaLoo — Affiliate</div>
   <h1>Productos <i>seleccionados</i> para ti</h1>
@@ -137,6 +151,37 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
   ⚠️ GangaLoo puede ganar una comisión por compras a través de estos enlaces. ·
   <a href="mailto:gangaloopuertoplata@gmail.com">gangaloopuertoplata@gmail.com</a> ·
   <a href="/index.html">Inicio</a>
+</div>
+
+<!-- SELLER LOGIN MODAL -->
+<div class="seller-modal-ovl" id="sellerOvl">
+  <div class="seller-modal">
+    <div class="seller-modal-hdr">
+      <h3>🔒 Acceso Vendedores</h3>
+      <p>Inicia sesión con tu cuenta GangaLoo</p>
+    </div>
+    <div class="seller-modal-body" id="sellerLoginView">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="sellerEmail" placeholder="tu@email.com">
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input type="password" id="sellerPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSellerLogin()">
+      </div>
+      <div id="sellerErr" style="font-size:.75rem;color:var(--red);min-height:16px;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-p" id="sellerLoginBtn" onclick="doSellerLogin()">Entrar →</button>
+        <button class="btn-s" onclick="document.getElementById('sellerOvl').classList.remove('open')">Cancelar</button>
+      </div>
+    </div>
+    <div class="seller-modal-body" id="sellerLoggedView" style="display:none;text-align:center;">
+      <div style="font-size:2rem;margin-bottom:10px;">🔓</div>
+      <div style="font-weight:600;margin-bottom:6px;" id="sellerWelcome">Bienvenido</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:16px;">Modo vendedor activo</div>
+      <button class="btn-s" onclick="doSellerLogout()" style="width:100%;">Cerrar sesión</button>
+    </div>
+  </div>
 </div>
 
 <!-- ADMIN -->
@@ -185,6 +230,12 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
               <input type="text" id="fDisc" placeholder="Ej: -30%">
             </div>
           </div>
+          <div class="field">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="checkbox" id="fSellerOnly" style="width:18px;height:18px;cursor:pointer;accent-color:var(--black);">
+              <span>🔒 Solo para vendedores (oculto para clientes)</span>
+            </label>
+          </div>
           <div style="display:flex;gap:10px;margin-top:6px;">
             <button class="btn-p" onclick="saveProduct()" id="saveBtn">💾 Guardar</button>
             <button class="btn-s" onclick="clearForm()">✕ Limpiar</button>
@@ -210,13 +261,49 @@ const SUPABASE_KEY = window.GANGALOO_CONFIG?.supabaseKey || '';
 const PASS  = 'gangaloo2026';
 const TABLE = 'aliexpress_affiliate_products';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-let allProducts = [], editingId = null;
+let allProducts = [], editingId = null, sellerMode = false, currentUser = null;
 
-document.addEventListener('DOMContentLoaded', load);
+document.addEventListener('DOMContentLoaded', async () => {
+  // Check if user is already signed in (seller/admin)
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) await onSignedIn(session.user);
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (session?.user) await onSignedIn(session.user);
+    else { currentUser = null; sellerMode = false; updateSellerUI(); }
+  });
+
+  load();
+});
+
+async function onSignedIn(user) {
+  currentUser = user;
+  const { data: prof } = await sb.from('profiles').select('role').eq('id', user.id).single();
+  const role = prof?.role || '';
+  sellerMode = (role === 'seller' || role === 'admin' || role === 'distributor');
+  updateSellerUI();
+  load(); // reload to show/hide seller products
+}
+
+function updateSellerUI() {
+  const btn = document.getElementById('sellerBtn');
+  const banner = document.getElementById('sellerBanner');
+  if (sellerMode) {
+    btn.textContent = '🔓';
+    btn.style.background = 'rgba(184,144,42,.35)';
+    banner.classList.add('show');
+  } else {
+    btn.textContent = '🔒';
+    btn.style.background = 'rgba(184,144,42,.15)';
+    banner.classList.remove('show');
+  }
+}
 
 async function load() {
   showSk(12);
-  const { data } = await sb.from(TABLE).select('*').eq('active', true).order('created_at', { ascending: false });
+  let query = sb.from(TABLE).select('*').eq('active', true).order('created_at', { ascending: false });
+  if (!sellerMode) query = query.eq('seller_only', false);
+  const { data } = await query;
   allProducts = data || [];
   buildFilters();
   render(allProducts);
@@ -240,7 +327,7 @@ function render(prods) {
       <div class="card-img">
         <img src="${e(p.image_url)}" alt="${e(p.name)}" loading="lazy" onerror="this.parentElement.style.background='#eee'">
         <div class="hover-ovl"><div class="ovl-cta">🛒 Ver en AliExpress</div></div>
-        <div class="ali-tag">AliExpress</div>
+        ${p.seller_only ? `<div class="seller-badge">👥 Vendedores</div>` : '<div class="ali-tag">AliExpress</div>'}
         ${p.discount ? `<div class="disc-tag">${e(p.discount)}</div>` : ''}
       </div>
       <div class="card-body">
@@ -352,6 +439,7 @@ async function saveProduct() {
     discount:      document.getElementById('fDisc').value.trim() || null,
     image_url:     img,
     affiliate_url: url,
+    seller_only:   document.getElementById('fSellerOnly').checked,
     active:        true,
   };
 
@@ -378,7 +466,7 @@ async function loadAdminList() {
       <img src="${e(p.image_url)}" onerror="this.style.display='none'" alt="">
       <div class="prod-row-info">
         <div class="prod-row-name">${e(p.name)}</div>
-        <div class="prod-row-cat">${e(p.category||'Sin categoría')} ${p.active?'✅':'⛔'}</div>
+        <div class="prod-row-cat">${e(p.category||'Sin categoría')} ${p.active?'✅':'⛔'} ${p.seller_only?'🔒':''}</div>
       </div>
       <div class="prod-row-actions">
         <button class="btn-edit" onclick="editProd('${p.id}')">✏️</button>
@@ -407,6 +495,7 @@ async function editProd(id) {
   document.getElementById('parsedUrl').textContent = p.affiliate_url ? '🔗 ' + p.affiliate_url : '';
   document.getElementById('embedStatus').innerHTML = '✅ Producto cargado para editar';
   document.getElementById('embedStatus').style.color = '#166534';
+  document.getElementById('fSellerOnly').checked = p.seller_only || false;
   document.getElementById('saveBtn').textContent = '💾 Actualizar';
   aTab('add');
   toast('✏️ Editando — modifica y guarda');
@@ -427,6 +516,7 @@ async function delProd(id) {
 
 function clearForm() {
   editingId = null;
+  document.getElementById('fSellerOnly').checked = false;
   ['fName','fCat','fDisc','fEmbed'].forEach(id => {
     const el = document.getElementById(id);
     el.value = '';
@@ -436,6 +526,49 @@ function clearForm() {
   document.getElementById('embedStatus').textContent = '';
   document.getElementById('parsedUrl').textContent = '';
   document.getElementById('saveBtn').textContent = '💾 Guardar';
+}
+
+// ── SELLER MODE ──
+function toggleSellerMode() {
+  if (currentUser) {
+    // Already logged in — show status modal
+    document.getElementById('sellerLoginView').style.display = 'none';
+    document.getElementById('sellerLoggedView').style.display = 'block';
+    document.getElementById('sellerWelcome').textContent = currentUser.email;
+  } else {
+    document.getElementById('sellerLoginView').style.display = 'block';
+    document.getElementById('sellerLoggedView').style.display = 'none';
+    document.getElementById('sellerEmail').value = '';
+    document.getElementById('sellerPass').value = '';
+    document.getElementById('sellerErr').textContent = '';
+  }
+  document.getElementById('sellerOvl').classList.add('open');
+  setTimeout(() => document.getElementById(currentUser ? 'sellerOvl' : 'sellerEmail').focus(), 100);
+}
+
+async function doSellerLogin() {
+  const email = document.getElementById('sellerEmail').value.trim();
+  const pass  = document.getElementById('sellerPass').value;
+  const err   = document.getElementById('sellerErr');
+  const btn   = document.getElementById('sellerLoginBtn');
+  if (!email || !pass) { err.textContent = 'Email y contraseña requeridos'; return; }
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  err.textContent = '';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Entrar →';
+  if (error) { err.textContent = '❌ ' + error.message; return; }
+  // onSignedIn will fire via onAuthStateChange
+  document.getElementById('sellerOvl').classList.remove('open');
+  toast('✅ Sesión iniciada');
+}
+
+async function doSellerLogout() {
+  await sb.auth.signOut();
+  currentUser = null; sellerMode = false;
+  updateSellerUI();
+  document.getElementById('sellerOvl').classList.remove('open');
+  toast('🔒 Sesión cerrada');
+  load();
 }
 
 function e(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
