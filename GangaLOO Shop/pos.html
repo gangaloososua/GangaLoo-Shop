@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<link rel="icon" type="image/png" href="/icon192.png">
+<link rel="apple-touch-icon" href="/icon192.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -751,17 +753,7 @@ function printBarcode(productId, sku, name, price) {
     + '</div>'
     + '<br><button onclick="window.print()">🖨️ Imprimir</button>'
     + '<script>JsBarcode("#bc","' + safeSku + '",{format:"CODE128",width:2,height:50,displayValue:true,fontSize:11,background:"#fff",lineColor:"#000"});<\/script>'
-    + '
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(r => console.log('SW ok:', r.scope))
-      .catch(e => console.log('SW error:', e));
-  });
-}
-</script>
-</body></html>');
+    + '</body></html>');
   win.document.close();
 }
 
@@ -1600,6 +1592,16 @@ function showToast(msg, type='info', duration=3000) {
   el.textContent = msg;
   document.getElementById('toastContainer').appendChild(el);
   setTimeout(() => el.remove(), duration);
+}
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(r => console.log('SW ok:', r.scope))
+      .catch(e => console.log('SW error:', e));
+  });
 }
 </script>
 </body>
