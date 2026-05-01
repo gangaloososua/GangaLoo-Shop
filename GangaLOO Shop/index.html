@@ -765,37 +765,44 @@
   <h2 class="section-title">Tienda <em>Online</em></h2>
   <p style="margin-top:1rem;opacity:0.6;max-width:560px;line-height:1.7">Explora nuestro catálogo completo. Miles de productos a precios de mayorista, directamente desde nuestros almacenes.</p>
 
-  <div class="shop-grid">
-    <div class="shop-cat">
-      <div class="shop-cat-icon">📱</div>
-      <h3>Electrónica</h3>
-      <p>Teléfonos, accesorios, cargadores</p>
-    </div>
-    <div class="shop-cat">
-      <div class="shop-cat-icon">👗</div>
-      <h3>Ropa & Moda</h3>
-      <p>Para toda la familia</p>
-    </div>
-    <div class="shop-cat">
-      <div class="shop-cat-icon">🏠</div>
-      <h3>Hogar</h3>
-      <p>Muebles, decoración, cocina</p>
-    </div>
-    <div class="shop-cat">
-      <div class="shop-cat-icon">🧴</div>
-      <h3>Belleza & Salud</h3>
-      <p>Cosméticos y cuidado personal</p>
-    </div>
-    <div class="shop-cat">
-      <div class="shop-cat-icon">🎮</div>
-      <h3>Juguetes</h3>
-      <p>Para niños de todas las edades</p>
-    </div>
-    <div class="shop-cat">
-      <div class="shop-cat-icon">🛠️</div>
-      <h3>Herramientas</h3>
-      <p>Para el hogar y profesionales</p>
-    </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;margin-top:2.5rem;">
+
+    <!-- GangaLoo Store card -->
+    <a href="https://gangaloo.netlify.app/store.html" style="text-decoration:none;display:flex;flex-direction:column;background:linear-gradient(135deg,#0d1f35 0%,#1a3a5c 100%);border:1px solid rgba(201,162,70,.25);border-radius:20px;overflow:hidden;transition:transform .25s,box-shadow .25s;" onmouseover="this.style.transform='translateY(-6px)';this.style.boxShadow='0 20px 48px rgba(0,0,0,.4)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+      <div style="padding:32px 28px 24px;">
+        <div style="font-size:2.6rem;margin-bottom:16px;">🛍️</div>
+        <h3 style="font-family:'Playfair Display',serif;font-size:1.45rem;font-weight:400;color:#fff;margin-bottom:10px;">Tienda GangaLoo</h3>
+        <p style="font-size:.86rem;color:rgba(255,255,255,.5);line-height:1.7;margin-bottom:20px;">Extensiones, pelucas y productos de belleza desde nuestros almacenes en República Dominicana. Entrega a domicilio.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:24px;">
+          <span style="background:rgba(201,162,70,.15);border:1px solid rgba(201,162,70,.3);color:var(--gold);border-radius:20px;padding:4px 12px;font-size:.72rem;font-weight:600;">💇 Extensiones</span>
+          <span style="background:rgba(201,162,70,.15);border:1px solid rgba(201,162,70,.3);color:var(--gold);border-radius:20px;padding:4px 12px;font-size:.72rem;font-weight:600;">👸 Pelucas</span>
+          <span style="background:rgba(201,162,70,.15);border:1px solid rgba(201,162,70,.3);color:var(--gold);border-radius:20px;padding:4px 12px;font-size:.72rem;font-weight:600;">✨ Belleza</span>
+        </div>
+      </div>
+      <div style="margin-top:auto;padding:16px 28px;background:rgba(0,0,0,.2);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:.8rem;color:rgba(255,255,255,.4);">Precios en RD$</span>
+        <span style="background:var(--gold);color:#000;border-radius:30px;padding:8px 18px;font-size:.8rem;font-weight:700;">Ver tienda →</span>
+      </div>
+    </a>
+
+    <!-- AliExpress Affiliate card -->
+    <a href="https://gangaloo.netlify.app/aliexpress-affiliate.html" style="text-decoration:none;display:flex;flex-direction:column;background:linear-gradient(135deg,#1a0a0a 0%,#3d0e0e 100%);border:1px solid rgba(232,37,26,.25);border-radius:20px;overflow:hidden;transition:transform .25s,box-shadow .25s;" onmouseover="this.style.transform='translateY(-6px)';this.style.boxShadow='0 20px 48px rgba(0,0,0,.4)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+      <div style="padding:32px 28px 24px;">
+        <div style="font-size:2.6rem;margin-bottom:16px;">🌐</div>
+        <h3 style="font-family:'Playfair Display',serif;font-size:1.45rem;font-weight:400;color:#fff;margin-bottom:10px;">Pedir desde AliExpress</h3>
+        <p style="font-size:.86rem;color:rgba(255,255,255,.5);line-height:1.7;margin-bottom:20px;">¿No encontraste lo que buscas? Explora millones de productos en AliExpress. Te lo importamos o compra directo con nuestro enlace.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:24px;">
+          <span style="background:rgba(232,37,26,.15);border:1px solid rgba(232,37,26,.3);color:#ff7a6e;border-radius:20px;padding:4px 12px;font-size:.72rem;font-weight:600;">📦 Importación</span>
+          <span style="background:rgba(232,37,26,.15);border:1px solid rgba(232,37,26,.3);color:#ff7a6e;border-radius:20px;padding:4px 12px;font-size:.72rem;font-weight:600;">🌍 Internacional</span>
+          <span style="background:rgba(232,37,26,.15);border:1px solid rgba(232,37,26,.3);color:#ff7a6e;border-radius:20px;padding:4px 12px;font-size:.72rem;font-weight:600;">💸 Precios bajos</span>
+        </div>
+      </div>
+      <div style="margin-top:auto;padding:16px 28px;background:rgba(0,0,0,.2);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:.8rem;color:rgba(255,255,255,.4);">Powered by AliExpress</span>
+        <span style="background:#e8251a;color:#fff;border-radius:30px;padding:8px 18px;font-size:.8rem;font-weight:700;">Ver productos →</span>
+      </div>
+    </a>
+
   </div>
 
   <div class="shop-cta-bar">
@@ -1292,7 +1299,7 @@ function switchPriceTab(btn, panelId) {
   <!-- Hidden fee inputs — values set dynamically by selStore() -->
   <input type="hidden" id="feeS" value="10" />
   <input type="hidden" id="feeB" value="0" />
-  <input type="hidden" id="fShip" value="100" />
+  <input type="hidden" id="fShip" value="250" />
 
   <div class="card" id="cargosCard">
     <div class="clabel">Cargos incluidos</div>
@@ -1365,8 +1372,8 @@ let totalDOP = 0;
 
 // Store rules: bank fee % and whether flete is "at delivery"
 const STORE_RULES = {
-  'Temu':       { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 100, minFee: 0,   minFeeThresholdUSD: 0  },
-  'Shein':      { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 100, minFee: 0,   minFeeThresholdUSD: 0  },
+  'Temu':       { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 250, minFee: 0,   minFeeThresholdUSD: 0  },
+  'Shein':      { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 250, minFee: 0,   minFeeThresholdUSD: 0  },
   'Amazon':     { bank: 0,   tax: 0,  fleteAtDelivery: true,  ship: 0,   minFee: 150, minFeeThresholdUSD: 35 },
   'eBay':       { bank: 3,   tax: 0,  fleteAtDelivery: true,  ship: 0,   minFee: 0,   minFeeThresholdUSD: 0  },
   'AliExpress': { bank: 3,   tax: 7,  fleteAtDelivery: true,  ship: 0,   minFee: 0,   minFeeThresholdUSD: 0  },
@@ -1453,7 +1460,7 @@ function selStore(el, name) {
     document.getElementById('lbsInput').value = '';
     document.getElementById('fleteResult').textContent = 'RD$ 0.00';
   } else {
-    document.getElementById('fleteDisplay').textContent = 'RD$ ' + rules.ship;
+    document.getElementById('fleteDisplay').textContent = 'RD$ 250';
     document.getElementById('fleteCalc').style.display = 'none';
   }
 
@@ -1502,7 +1509,7 @@ function calc() {
   const fS       = getCommission(subtotalUSD);
   const fB       = rules.bank;
   const fT       = rules.tax || 0;
-  const ship     = rules.fleteAtDelivery ? 0 : rules.ship;
+  const ship     = rules.fleteAtDelivery ? 0 : 250;
 
   // Update commission display
   const commEl = document.getElementById('commDisplay');
@@ -1576,15 +1583,14 @@ function renderPay(total) {
   if (payMode === 'full') { pd.innerHTML = ''; return; }
   // Use custom adelanto amount, fallback to 50%
   const adelantoInput = document.getElementById('adelantoInput');
-  const adelantoRaw = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
-  const adelanto = roundUp25(adelantoRaw);
-  const restante = total - adelantoRaw; // use raw for restante calculation
+  const adelanto = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
+  const restante = total - adelanto;
   // 20% financiero applies ONLY on the restante (what's not paid upfront)
   const fin = restante * 0.20;
   const alRecogerRaw = restante + fin;
   const alRecoger = roundUp25(alRecogerRaw);
   const totalAcum = adelanto + alRecoger;
-  const adelantoPct = total > 0 ? Math.round(adelantoRaw / total * 100) : 0;
+  const adelantoPct = total > 0 ? Math.round(adelanto / total * 100) : 0;
 
   pd.innerHTML = `
     <div class="split-grid">
@@ -1630,7 +1636,7 @@ function sendWA() {
   const fS       = getCommission(subtotalUSD2);
   const fB       = rules.bank;
   const fT       = rules.tax || 0;
-  const ship     = rules.fleteAtDelivery ? 0 : rules.ship;
+  const ship     = rules.fleteAtDelivery ? 0 : 250;
   const sAmt     = subtotal * fS / 100;
   const bAmt     = subtotal * fB / 100;
   const tAmt     = subtotal * fT / 100;
@@ -1654,13 +1660,12 @@ function sendWA() {
 
   if (payMode === 'half') {
     const adelantoInput = document.getElementById('adelantoInput');
-    const adelantoRawWA = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
-    const adelantoWA = roundUp25(adelantoRawWA);
-    const restante = total - adelantoRawWA;
+    const adelanto = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
+    const restante = total - adelanto;
     const fin = restante * 0.20;
     const alRecoger = roundUp25(restante + fin);
     lines.push(`\n*Opción con financiero:*`);
-    lines.push(`Adelanto ahora: ${fmt(adelantoWA)}`);
+    lines.push(`Adelanto ahora: ${fmt(adelanto)}`);
     lines.push(`Al recoger: ${fmt(alRecoger)} (restante + 20% financiero ${fmt(fin)})`);
     lines.push(`Total acumulado: ${fmt(adelanto + alRecoger)}`);
   }
