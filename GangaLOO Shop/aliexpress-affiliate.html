@@ -547,11 +547,22 @@ async function saveProduct() {
 
   const btn = document.getElementById('saveBtn');
   btn.disabled = true; btn.textContent = 'Guardando...';
-  const { error } = editingId
+  console.log('Saving payload:', JSON.stringify(payload));
+  const { data: saveData, error } = editingId
     ? await sb.from(TABLE).update(payload).eq('id', editingId)
     : await sb.from(TABLE).insert(payload);
   btn.disabled = false; btn.textContent = '💾 Guardar';
-  if (error) { toast('❌ ' + error.message); return; }
+  if (error) {
+    console.error('Save error:', error);
+    alert('❌ Error al guardar:
+
+' + error.message + '
+
+Código: ' + (error.code || 'N/A') + '
+Detalle: ' + (error.details || 'N/A'));
+    return;
+  }
+  console.log('Saved ok:', saveData);
   toast(editingId ? '✅ Actualizado' : '✅ Guardado');
   clearForm(); load();
 }
