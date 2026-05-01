@@ -1151,7 +1151,7 @@ async function exchangeOAuthCode() {
   try {
     const resp = await fetch(API_FN, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'exchangeToken', code })
+      body: JSON.stringify({ action: 'exchangeToken', code, redirect_uri: window.location.origin + '/aliexpress.html' })
     });
     const data = await resp.json();
     if (data.error) {
