@@ -915,7 +915,7 @@ async function loadNuevos() {
     const SKEY = localStorage.getItem('gl_supabase_key') || '';
     
     // Use the same sb() helper already in the file
-    const res = await sb('GET', 'pos_pending_products?select=*&order=created_at.desc');
+    const res = await sb('GET', 'pos_pending_products?select=id,nombre,precio,cantidad,sku,categoria_name,descripcion,estado,clerk_id,clerk_name,created_at,reviewed_at,notas_admin&order=created_at.desc');
     if (!res || !Array.isArray(res)) throw new Error('No data returned');
     nvData = res;
     renderNuevosList();
@@ -945,7 +945,7 @@ function renderNuevosList() {
   const estadoColor = { pendiente:'#f59e0b', aprobado:'#10b981', rechazado:'#ef4444' };
   const estadoLabel = { pendiente:'⏳ Pendiente', aprobado:'✅ Aprobado', rechazado:'❌ Rechazado' };
   list.innerHTML = items.map(p => {
-    const fotos = (() => { try { return JSON.parse(p.fotos||'[]'); } catch { return []; } })();
+    const fotos = []; // loaded on demand to avoid timeout
     const date  = new Date(p.created_at).toLocaleDateString('es-DO');
     const color = estadoColor[p.estado] || '#6b7280';
     const label = estadoLabel[p.estado] || p.estado;
@@ -967,8 +967,8 @@ function renderNuevosList() {
         </div>
       </div>
       <div class="nv-card-body">
-        ${fotos.length > 1 ? `<div class="nv-photos">${fotos.map(f => `<img src="${f}" onclick="window.open('${f}','_blank')">`).join('')}</div>` : ''}
-        ${p.video ? `<div style="margin-bottom:10px;"><video src="${p.video}" controls style="max-width:100%;max-height:200px;border-radius:8px;"></video></div>` : ''}
+        <div id="fotos_${p.id}" style="margin-bottom:8px;"></div>
+        <button onclick="loadFotos('${p.id}')" style="background:var(--surface3);border:1px solid var(--border);border-radius:7px;padding:5px 12px;font-size:12px;cursor:pointer;margin-bottom:8px;">📷 Ver fotos / video</button>
         ${p.estado === 'pendiente' ? `
         <div class="nv-actions">
           <button class="btn-approve" onclick="approveNuevo('${p.id}')">✅ Aprobar</button>
@@ -1016,6 +1016,13 @@ async function approveAndAddInventory(id) {
     try { products = JSON.parse(inv.products || '[]'); } catch { products = []; }
 
     // 3. Build new product object matching the POS format
+    // Fetch fotos separately (excluded from list query due to size)
+    let itemFotos = [];
+    try {
+      const full = await sb('GET', `pos_pending_products?select=fotos&id=eq.${id}`);
+      itemFotos = JSON.parse(full?.[0]?.fotos || '[]').slice(0, 3);
+    } catch {}
+
     const newProduct = {
       id:         'prod_' + Date.now(),
       name:       item.nombre,
@@ -1024,7 +1031,7 @@ async function approveAndAddInventory(id) {
       sku:        item.sku || '',
       categoryId: item.categoria_id || null,
       active:     true,
-      images:     (() => { try { return JSON.parse(item.fotos||'[]').slice(0,3); } catch { return []; } })(),
+      images:     itemFotos,
       createdAt:  new Date().toISOString(),
       notes:      item.descripcion || '',
     };
@@ -1049,6 +1056,27 @@ async function approveAndAddInventory(id) {
   } catch(e) {
     toast('❌ Error: ' + e.message);
     console.error(e);
+  }
+}
+
+async function loadFotos(id) {
+  const el = document.getElementById('fotos_' + id);
+  if (!el) return;
+  el.innerHTML = '<span style="font-size:12px;color:var(--muted);">Cargando...</span>';
+  try {
+    const res = await sb('GET', `pos_pending_products?select=fotos,video&id=eq.${id}`);
+    const item = res?.[0];
+    const fotos = (() => { try { return JSON.parse(item?.fotos||'[]'); } catch { return []; } })();
+    let html = '';
+    if (fotos.length) {
+      html += `<div class="nv-photos">${fotos.map(f => `<img src="${f}" onclick="window.open('${f}','_blank')" title="Click para ampliar">`).join('')}</div>`;
+    }
+    if (item?.video) {
+      html += `<video src="${item.video}" controls style="max-width:100%;max-height:200px;border-radius:8px;margin-bottom:8px;"></video>`;
+    }
+    el.innerHTML = html || '<span style="font-size:12px;color:var(--muted);">Sin fotos</span>';
+  } catch(e) {
+    el.innerHTML = `<span style="font-size:12px;color:#ef4444;">Error: ${e.message}</span>`;
   }
 }
 
