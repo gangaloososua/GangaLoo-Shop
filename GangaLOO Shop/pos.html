@@ -1800,20 +1800,25 @@ async function renderPendingList() {
   if (!el) return;
   el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:10px;">Cargando...</div>';
   try {
-    const { data, error } = await sb.from(PENDING_TABLE)
-      .select('id,nombre,precio,estado,created_at,fotos')
+    // Admin sees all, seller sees only their own
+    const { data: profile } = await sb.from('profiles').select('role').eq('id', currentUser.id).single();
+    const isAdmin = profile?.role === 'admin';
+    let query = sb.from(PENDING_TABLE)
+      .select('id,nombre,precio,estado,created_at,clerk_name,clerk_id')
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(50);
+    if (!isAdmin && currentUser) query = query.eq('clerk_id', currentUser.id);
+    const { data, error } = await query;
+    console.log('Pending list:', data?.length, 'items, isAdmin:', isAdmin, error);
     if (error) throw error;
     if (!data || !data.length) {
-      el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:10px;">No has enviado productos aún.</div>';
+      el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:10px;">No hay productos enviados aún.</div>';
       return;
     }
     const estadoColor = { pendiente:'#f59e0b', aprobado:'#10b981', rechazado:'#ef4444' };
     const estadoLabel = { pendiente:'⏳ Pendiente', aprobado:'✅ Aprobado', rechazado:'❌ Rechazado' };
     el.innerHTML = data.map(p => {
-      const fotos = (() => { try { return JSON.parse(p.fotos||'[]'); } catch { return []; } })();
-      const thumb = fotos[0] || '';
+      const thumb = ''; // fotos not loaded in list for performance
       const date  = new Date(p.created_at).toLocaleDateString('es-DO');
       const color = estadoColor[p.estado] || '#6b7280';
       const label = estadoLabel[p.estado] || p.estado;
