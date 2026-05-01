@@ -303,6 +303,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
             <button class="btn-p" onclick="saveProduct()" id="saveBtn">💾 Guardar</button>
             <button class="btn-s" onclick="clearForm()">✕ Limpiar</button>
           </div>
+          <div id="saveError" style="display:none;margin-top:10px;background:#fee2e2;color:#dc2626;border-radius:8px;padding:10px 14px;font-size:.82rem;font-weight:500;"></div>
         </div>
 
         <!-- PRODUCT LIST -->
@@ -548,31 +549,18 @@ async function saveProduct() {
   const btn = document.getElementById('saveBtn');
   btn.disabled = true; btn.textContent = 'Guardando...';
   console.log('Saving payload:', JSON.stringify(payload));
-  let saveResult;
-  if (editingId) {
-    saveResult = await sb.from(TABLE).update(payload).eq('id', editingId);
-  } else {
-    saveResult = await sb.from(TABLE).insert(payload);
-  }
-  console.log('Full result:', JSON.stringify(saveResult));
-
-  // If store column missing, retry without it
-  if (saveResult.error && (saveResult.error.message||'').includes('store')) {
-    console.warn('store column missing — retrying without it');
-    const { store: _s, ...payloadNoStore } = payload;
-    saveResult = editingId
-      ? await sb.from(TABLE).update(payloadNoStore).eq('id', editingId)
-      : await sb.from(TABLE).insert(payloadNoStore);
-    console.log('Retry result:', JSON.stringify(saveResult));
-  }
-
-  const { data: saveData, error } = saveResult;
+  const { error } = editingId
+    ? await sb.from(TABLE).update(payload).eq('id', editingId)
+    : await sb.from(TABLE).insert(payload);
   btn.disabled = false; btn.textContent = '💾 Guardar';
   if (error) {
-    console.error('Save error:', JSON.stringify(error));
-    alert('Error al guardar: ' + (error.message || JSON.stringify(error)));
+    console.error('SAVE ERROR:', JSON.stringify(error));
+    // Show full error in a visible way
+    document.getElementById('saveError').textContent = 'Error: ' + error.message + (error.details ? ' — ' + error.details : '');
+    document.getElementById('saveError').style.display = 'block';
     return;
   }
+  document.getElementById('saveError').style.display = 'none';
   console.log('Saved ok:', saveData);
   toast(editingId ? '✅ Actualizado' : '✅ Guardado');
   clearForm(); load();
@@ -652,6 +640,7 @@ function clearForm() {
   document.getElementById('fSellerOnly').checked = false;
   clearPreview();
   document.getElementById('saveBtn').textContent = '💾 Guardar';
+  document.getElementById('saveError').style.display = 'none';
 }
 
 // ── SELLER AUTH ───────────────────────────────────────────────────────────────
