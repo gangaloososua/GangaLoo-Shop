@@ -1676,6 +1676,165 @@ if ('serviceWorker' in navigator) {
       .catch(e => console.log('SW error:', e));
   });
 }
+
+/* ─── NUEVO PRODUCTO TAB ─── */
+let nuevoPhotos = [];
+let nuevoVideo  = null;
+const PENDING_TABLE = 'pos_pending_products';
+
+function renderNuevoCategorias() {
+  const sel = document.getElementById('nCategoria');
+  if (!sel) return;
+  const opts = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  sel.innerHTML = '<option value="">Sin categoría</option>' + opts;
+}
+
+function handleNuevoPhotos(input) {
+  const files = Array.from(input.files);
+  const remaining = 5 - nuevoPhotos.length;
+  files.slice(0, remaining).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      nuevoPhotos.push({ base64: e.target.result, type: file.type });
+      renderNuevoFotos();
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function renderNuevoFotos() {
+  const grid = document.getElementById('nFotosGrid');
+  if (!grid) return;
+  grid.innerHTML = nuevoPhotos.map((p, i) => `
+    <div style="position:relative;width:72px;height:72px;">
+      <img src="${p.base64}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border);">
+      <button onclick="removeNuevoFoto(${i})" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1;">✕</button>
+    </div>`).join('');
+}
+
+function removeNuevoFoto(idx) {
+  nuevoPhotos.splice(idx, 1);
+  renderNuevoFotos();
+}
+
+function handleNuevoVideo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 50 * 1024 * 1024) { alert('El video debe ser menor a 50MB'); input.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    nuevoVideo = { base64: e.target.result, type: file.type };
+    const prev = document.getElementById('nVideoPreview');
+    prev.innerHTML = `<video src="${e.target.result}" controls style="max-width:100%;border-radius:8px;max-height:200px;"></video>`;
+    document.getElementById('nVideoRemoveBtn').style.display = 'inline-flex';
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function removeNuevoVideo() {
+  nuevoVideo = null;
+  document.getElementById('nVideoPreview').innerHTML = '';
+  document.getElementById('nVideoRemoveBtn').style.display = 'none';
+}
+
+async function submitNuevoProducto() {
+  const nombre   = document.getElementById('nNombre').value.trim();
+  const precio   = parseFloat(document.getElementById('nPrecio').value) || 0;
+  const sku      = document.getElementById('nSku').value.trim();
+  const cantidad = parseInt(document.getElementById('nCantidad').value) || 1;
+  const catId    = document.getElementById('nCategoria').value;
+  const desc     = document.getElementById('nDescripcion').value.trim();
+  const errDiv   = document.getElementById('nuevoError');
+  const btn      = document.getElementById('nuevoSubmitBtn');
+
+  errDiv.style.display = 'none';
+  if (!nombre) { errDiv.textContent = 'El nombre del producto es obligatorio.'; errDiv.style.display = 'block'; return; }
+  if (!precio) { errDiv.textContent = 'El precio es obligatorio.'; errDiv.style.display = 'block'; return; }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando...';
+
+  try {
+    const catName = catId ? (categories.find(c => c.id == catId) || {}).name || '' : '';
+    const payload = {
+      nombre,
+      precio,
+      sku:            sku || null,
+      cantidad,
+      categoria_id:   catId || null,
+      categoria_name: catName || null,
+      descripcion:    desc || null,
+      fotos:          JSON.stringify(nuevoPhotos.map(p => p.base64)),
+      video:          nuevoVideo ? nuevoVideo.base64 : null,
+      estado:         'pendiente',
+      clerk_id:       currentUser ? currentUser.id : null,
+      clerk_name:     currentUser ? currentUser.email : null,
+    };
+
+    const { error } = await sb.from(PENDING_TABLE).insert(payload);
+    if (error) throw error;
+
+    nuevoPhotos = [];
+    nuevoVideo  = null;
+    ['nNombre','nSku','nPrecio','nDescripcion'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('nCantidad').value = '1';
+    document.getElementById('nCategoria').value = '';
+    document.getElementById('nFotosGrid').innerHTML = '';
+    document.getElementById('nVideoPreview').innerHTML = '';
+    document.getElementById('nVideoRemoveBtn').style.display = 'none';
+
+    alert('✅ Producto enviado. El administrador lo revisará.');
+    renderPendingList();
+  } catch(e) {
+    errDiv.textContent = 'Error: ' + e.message;
+    errDiv.style.display = 'block';
+  }
+  btn.disabled = false;
+  btn.textContent = '📤 Enviar para Aprobación';
+}
+
+async function renderPendingList() {
+  const el = document.getElementById('pendingList');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:10px;">Cargando...</div>';
+  try {
+    const { data, error } = await sb.from(PENDING_TABLE)
+      .select('id,nombre,precio,estado,created_at,fotos')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (error) throw error;
+    if (!data || !data.length) {
+      el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:10px;">No has enviado productos aún.</div>';
+      return;
+    }
+    const estadoColor = { pendiente:'#f59e0b', aprobado:'#10b981', rechazado:'#ef4444' };
+    const estadoLabel = { pendiente:'⏳ Pendiente', aprobado:'✅ Aprobado', rechazado:'❌ Rechazado' };
+    el.innerHTML = data.map(p => {
+      const fotos = (() => { try { return JSON.parse(p.fotos||'[]'); } catch { return []; } })();
+      const thumb = fotos[0] || '';
+      const date  = new Date(p.created_at).toLocaleDateString('es-DO');
+      const color = estadoColor[p.estado] || '#6b7280';
+      const label = estadoLabel[p.estado] || p.estado;
+      return `
+      <div style="background:var(--surface2);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+        ${thumb ? `<img src="${thumb}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;flex-shrink:0;">` : '<div style="width:52px;height:52px;background:var(--surface3);border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;">📦</div>'}
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.nombre}</div>
+          <div style="font-size:12px;color:var(--ink3);">RD$ ${parseFloat(p.precio||0).toLocaleString()} · ${date}</div>
+        </div>
+        <span style="background:${color}20;color:${color};border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;">${label}</span>
+      </div>`;
+    }).join('');
+    const pending = data.filter(p => p.estado === 'pendiente').length;
+    const badge = document.getElementById('pendingCount');
+    if (badge) { badge.textContent = pending; badge.style.display = pending ? 'inline-flex' : 'none'; }
+  } catch(e) {
+    el.innerHTML = `<div style="color:#dc2626;font-size:13px;padding:10px;">Error: ${e.message}</div>`;
+  }
+}
+
 </script>
 </body>
 </html>
