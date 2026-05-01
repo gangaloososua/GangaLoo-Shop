@@ -365,7 +365,8 @@ async function load() {
   showSk(12);
   let query = sb.from(TABLE).select('*').eq('active', true).order('created_at', { ascending: false });
   if (!sellerMode) query = query.eq('seller_only', false);
-  const { data } = await query;
+  const { data, error: loadErr } = await query;
+  console.log('Load result:', data?.length, 'items, error:', loadErr);
   allProducts = data || [];
   buildFilters();
   filterProducts();
