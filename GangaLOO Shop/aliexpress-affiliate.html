@@ -386,7 +386,7 @@ function render(prods) {
     return;
   }
   g.innerHTML = prods.map(p => {
-    const store = p.store || 'aliexpress';
+    const store = (p.store && p.store !== '') ? p.store : 'aliexpress';
     const storeLbl = store === 'temu' ? 'Temu' : 'AliExpress';
     return `
     <a class="card" href="${e(p.affiliate_url)}" target="_blank" rel="noopener noreferrer">
@@ -405,7 +405,7 @@ function render(prods) {
 }
 
 function buildFilters() {
-  const src = activeStore === 'all' ? allProducts : allProducts.filter(p => (p.store||'aliexpress') === activeStore);
+  const src = activeStore === 'all' ? allProducts : allProducts.filter(p => (p.store || 'aliexpress') === activeStore);
   const cats = [...new Set(src.map(p => p.category).filter(Boolean))];
   document.getElementById('catFilter').innerHTML = '<option value="">Todas las categorías</option>' +
     cats.map(c => `<option value="${e(c)}">${e(c)}</option>`).join('');
@@ -431,7 +431,7 @@ function setStore(store, el) {
 function filterProducts() {
   const q = document.getElementById('searchInput').value.toLowerCase();
   const cat = document.getElementById('catFilter').value;
-  let src = activeStore === 'all' ? allProducts : allProducts.filter(p => (p.store||'aliexpress') === activeStore);
+  let src = activeStore === 'all' ? allProducts : allProducts.filter(p => (p.store || 'aliexpress') === activeStore);
   render(src.filter(p =>
     (!q || p.name.toLowerCase().includes(q) || (p.category||'').toLowerCase().includes(q)) &&
     (!cat || p.category === cat)
