@@ -554,12 +554,7 @@ async function saveProduct() {
   btn.disabled = false; btn.textContent = '💾 Guardar';
   if (error) {
     console.error('Save error:', error);
-    alert('❌ Error al guardar:
-
-' + error.message + '
-
-Código: ' + (error.code || 'N/A') + '
-Detalle: ' + (error.details || 'N/A'));
+    alert('Error: ' + error.message + ' (code: ' + (error.code||'?') + ')');
     return;
   }
   console.log('Saved ok:', saveData);
