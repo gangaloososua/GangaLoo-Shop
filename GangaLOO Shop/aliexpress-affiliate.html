@@ -162,6 +162,16 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
         <!-- ADD -->
         <div id="aTabAdd">
           <div class="field">
+            <label>Código embed de AliExpress *</label>
+            <textarea id="fEmbed" rows="3" placeholder='Pega aquí el código de AliExpress:&#10;&lt;a href="https://s.click.aliexpress.com/e/_xxx"&gt;&lt;img src="//ae01.alicdn.com/...jpg" /&gt;&lt;/a&gt;' oninput="parseEmbed()"></textarea>
+            <div id="embedStatus" style="font-size:.75rem;margin-top:5px;color:var(--muted);"></div>
+          </div>
+          <div class="field">
+            <label>Vista previa</label>
+            <img id="imgPreview" class="img-preview" alt="Preview">
+            <div id="parsedUrl" style="font-size:.72rem;color:var(--muted);margin-top:5px;word-break:break-all;"></div>
+          </div>
+          <div class="field">
             <label>Nombre del producto *</label>
             <input type="text" id="fName" placeholder="Ej: Extensiones clip-in rubias 20 pulgadas">
           </div>
@@ -171,18 +181,9 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
               <input type="text" id="fCat" placeholder="Extensiones, Pelucas...">
             </div>
             <div class="field">
-              <label>Badge descuento (opcional)</label>
+              <label>Descuento (opcional)</label>
               <input type="text" id="fDisc" placeholder="Ej: -30%">
             </div>
-          </div>
-          <div class="field">
-            <label>URL de imagen *</label>
-            <input type="url" id="fImg" placeholder="https://ae01.alicdn.com/kf/..." oninput="previewImg()">
-            <img id="imgPreview" class="img-preview" alt="Preview">
-          </div>
-          <div class="field">
-            <label>Enlace afiliado AliExpress *</label>
-            <input type="url" id="fUrl" placeholder="https://s.click.aliexpress.com/e/...">
           </div>
           <div style="display:flex;gap:10px;margin-top:6px;">
             <button class="btn-p" onclick="saveProduct()" id="saveBtn">💾 Guardar</button>
@@ -294,20 +295,56 @@ function aTab(tab) {
   if (tab === 'list') loadAdminList();
 }
 
-function previewImg() {
-  const url = document.getElementById('fImg').value.trim();
+// Parse AliExpress embed code and extract link + image
+function parseEmbed() {
+  const raw = document.getElementById('fEmbed').value.trim();
+  const status = document.getElementById('embedStatus');
   const prev = document.getElementById('imgPreview');
-  prev.style.display = url ? 'block' : 'none';
-  if (url) prev.src = url;
+  const parsedUrl = document.getElementById('parsedUrl');
+
+  if (!raw) {
+    status.textContent = '';
+    prev.style.display = 'none';
+    parsedUrl.textContent = '';
+    return;
+  }
+
+  const hrefMatch = raw.match(/href="([^"]+)"/);
+  const srcMatch  = raw.match(/src="([^"]+)"/);
+
+  if (!hrefMatch || !srcMatch) {
+    status.innerHTML = '⚠️ No se pudo leer el código. Asegúrate de pegar el código completo.';
+    status.style.color = 'var(--red)';
+    return;
+  }
+
+  let imgUrl = srcMatch[1];
+  if (imgUrl.startsWith('//')) imgUrl = 'https:' + imgUrl;
+  // Strip size suffix like _80x80.jpg to get full image
+  imgUrl = imgUrl.replace(/_\d+x\d+\.\w+$/, '');
+
+  const affUrl = hrefMatch[1];
+
+  // Store parsed values
+  document.getElementById('fEmbed').dataset.imgUrl = imgUrl;
+  document.getElementById('fEmbed').dataset.affUrl = affUrl;
+
+  prev.src = imgUrl;
+  prev.style.display = 'block';
+  parsedUrl.textContent = '🔗 ' + affUrl;
+  status.innerHTML = '✅ Código leído correctamente';
+  status.style.color = '#166534';
 }
 
 async function saveProduct() {
-  const name = document.getElementById('fName').value.trim();
-  const img  = document.getElementById('fImg').value.trim();
-  const url  = document.getElementById('fUrl').value.trim();
+  const name  = document.getElementById('fName').value.trim();
+  const embed = document.getElementById('fEmbed');
+  const img   = embed.dataset.imgUrl || '';
+  const url   = embed.dataset.affUrl || '';
+
   if (!name) { toast('⚠️ Nombre obligatorio'); return; }
-  if (!img)  { toast('⚠️ URL de imagen obligatoria'); return; }
-  if (!url)  { toast('⚠️ Enlace afiliado obligatorio'); return; }
+  if (!img)  { toast('⚠️ Pega el código embed primero'); return; }
+  if (!url)  { toast('⚠️ No se encontró enlace afiliado'); return; }
 
   const payload = {
     name,
@@ -358,9 +395,18 @@ async function editProd(id) {
   document.getElementById('fName').value = p.name || '';
   document.getElementById('fCat').value  = p.category || '';
   document.getElementById('fDisc').value = p.discount || '';
-  document.getElementById('fImg').value  = p.image_url || '';
-  document.getElementById('fUrl').value  = p.affiliate_url || '';
-  previewImg();
+  // Reconstruct embed-like display
+  const embed = document.getElementById('fEmbed');
+  embed.value = `<a href="${p.affiliate_url}"><img src="${p.image_url}" /></a>`;
+  embed.dataset.imgUrl = p.image_url || '';
+  embed.dataset.affUrl = p.affiliate_url || '';
+  // Show preview
+  const prev = document.getElementById('imgPreview');
+  prev.src = p.image_url || '';
+  prev.style.display = p.image_url ? 'block' : 'none';
+  document.getElementById('parsedUrl').textContent = p.affiliate_url ? '🔗 ' + p.affiliate_url : '';
+  document.getElementById('embedStatus').innerHTML = '✅ Producto cargado para editar';
+  document.getElementById('embedStatus').style.color = '#166534';
   document.getElementById('saveBtn').textContent = '💾 Actualizar';
   aTab('add');
   toast('✏️ Editando — modifica y guarda');
@@ -381,8 +427,14 @@ async function delProd(id) {
 
 function clearForm() {
   editingId = null;
-  ['fName','fCat','fDisc','fImg','fUrl'].forEach(id => document.getElementById(id).value = '');
+  ['fName','fCat','fDisc','fEmbed'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = '';
+    if (el.dataset) { el.dataset.imgUrl = ''; el.dataset.affUrl = ''; }
+  });
   document.getElementById('imgPreview').style.display = 'none';
+  document.getElementById('embedStatus').textContent = '';
+  document.getElementById('parsedUrl').textContent = '';
   document.getElementById('saveBtn').textContent = '💾 Guardar';
 }
 
