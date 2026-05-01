@@ -999,26 +999,57 @@ async function approveAndAddInventory(id) {
   const item = nvData.find(p => p.id === id);
   if (!item) return;
   if (!confirm(`¿Aprobar y agregar "${item.nombre}" al inventario?`)) return;
-  
-  // Add to inventory_data table
-  const invPayload = {
-    name:        item.nombre,
-    price:       item.precio,
-    stock:       item.cantidad || 1,
-    sku:         item.sku || null,
-    category_id: item.categoria_id || null,
-    active:      true,
-  };
-  const invRes = await sb('POST', 'inventory_data', invPayload);
-  
-  // Mark as approved
-  await sb('PATCH', `pos_pending_products?id=eq.${id}`, { 
-    estado: 'aprobado', 
-    notas_admin: 'Agregado al inventario',
-    reviewed_at: new Date().toISOString() 
-  });
-  toast('✅ Aprobado y agregado al inventario');
-  loadNuevos();
+
+  try {
+    // 1. Get the current inventory_data row for this user
+    const rows = await sb('GET', `inventory_data?user_id=eq.${CFG.userId || ''}&limit=1`);
+    
+    // If no userId in CFG, get the first/only row
+    const allRows = await sb('GET', `inventory_data?limit=1&order=updated_at.desc`);
+    if (!allRows || !allRows.length) {
+      toast('❌ No se encontró el inventario'); return;
+    }
+    const inv = allRows[0];
+
+    // 2. Parse current products array
+    let products = [];
+    try { products = JSON.parse(inv.products || '[]'); } catch { products = []; }
+
+    // 3. Build new product object matching the POS format
+    const newProduct = {
+      id:         'prod_' + Date.now(),
+      name:       item.nombre,
+      price:      parseFloat(item.precio) || 0,
+      stock:      parseInt(item.cantidad) || 1,
+      sku:        item.sku || '',
+      categoryId: item.categoria_id || null,
+      active:     true,
+      images:     (() => { try { return JSON.parse(item.fotos||'[]').slice(0,3); } catch { return []; } })(),
+      createdAt:  new Date().toISOString(),
+      notes:      item.descripcion || '',
+    };
+
+    products.push(newProduct);
+
+    // 4. Save back
+    await sb('PATCH', `inventory_data?id=eq.${inv.id}`, {
+      products:   JSON.stringify(products),
+      updated_at: new Date().toISOString(),
+    });
+
+    // 5. Mark pending product as approved
+    await sb('PATCH', `pos_pending_products?id=eq.${id}`, {
+      estado:      'aprobado',
+      notas_admin: `Agregado al inventario (ID: ${newProduct.id})`,
+      reviewed_at: new Date().toISOString(),
+    });
+
+    toast('✅ Aprobado y agregado al inventario');
+    loadNuevos();
+  } catch(e) {
+    toast('❌ Error: ' + e.message);
+    console.error(e);
+  }
 }
 
 function toast(msg) {
