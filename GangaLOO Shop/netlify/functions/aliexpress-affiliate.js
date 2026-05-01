@@ -1,10 +1,11 @@
 // GangaLoo — AliExpress Affiliates API Function
 // Place at: GangaLOO Shop/netlify/functions/aliexpress-affiliate.js
+// Set in Netlify env vars: ALI_AFF_KEY, ALI_AFF_SECRET, ALI_TRACKING_ID
 
 const crypto = require('crypto');
 
-const APP_KEY     = process.env.ALI_AFF_KEY    || '531720';
-const APP_SECRET  = process.env.ALI_AFF_SECRET || '98Lm9UyKT81kSxaIy9BGj2ISZIHn7A0w';
+const APP_KEY     = process.env.ALI_AFF_KEY;
+const APP_SECRET  = process.env.ALI_AFF_SECRET;
 const TRACKING_ID = process.env.ALI_TRACKING_ID || 'gangaloo';
 
 const headers = {
@@ -12,44 +13,25 @@ const headers = {
   'Content-Type': 'application/json',
 };
 
-// AliExpress SHA256 signature:
-// 1. Sort all params alphabetically (exclude 'sign' itself)
-// 2. Concatenate as key+value pairs
-// 3. Wrap: SECRET + concatenated + SECRET
-// 4. Hash with plain SHA256 (NOT HMAC)
 function signRequest(params) {
-  const str = APP_SECRET +
-    Object.keys(params)
-      .filter(k => k !== 'sign')
-      .sort()
-      .map(k => `${k}${params[k]}`)
-      .join('') +
-    APP_SECRET;
+  const entries = Object.entries(params)
+    .filter(([, v]) => v !== '' && v !== null && v !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b));
+  const str = APP_SECRET + entries.map(([k, v]) => `${k}${v}`).join('') + APP_SECRET;
   return crypto.createHash('sha256').update(str, 'utf8').digest('hex').toUpperCase();
 }
 
-// Timestamp format AliExpress expects: "2026-05-01 10:30:00"
-function getTimestamp() {
-  const now = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  return `${now.getUTCFullYear()}-${pad(now.getUTCMonth()+1)}-${pad(now.getUTCDate())} ` +
-         `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}`;
-}
-
 async function callApi(method, extra = {}) {
+  const filtered = Object.fromEntries(
+    Object.entries(extra).filter(([, v]) => v !== '' && v !== null && v !== undefined)
+  );
   const params = {
     method,
     app_key:     APP_KEY,
-    timestamp:   getTimestamp(),
+    timestamp:   new Date().toISOString().replace('T', ' ').replace(/\..+/, ''),
     sign_method: 'sha256',
+    ...filtered,
   };
-
-  for (const [k, v] of Object.entries(extra)) {
-    if (v !== '' && v !== null && v !== undefined) {
-      params[k] = String(v);
-    }
-  }
-
   params.sign = signRequest(params);
 
   const res = await fetch('https://api-sg.aliexpress.com/sync', {
@@ -64,6 +46,10 @@ async function callApi(method, extra = {}) {
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+
+  if (!APP_KEY || !APP_SECRET) {
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Missing ALI_AFF_KEY or ALI_AFF_SECRET env vars' }) };
+  }
 
   let body;
   try { body = JSON.parse(event.body || '{}'); } catch { body = {}; }
