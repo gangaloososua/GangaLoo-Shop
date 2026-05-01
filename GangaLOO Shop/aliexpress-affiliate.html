@@ -548,13 +548,29 @@ async function saveProduct() {
   const btn = document.getElementById('saveBtn');
   btn.disabled = true; btn.textContent = 'Guardando...';
   console.log('Saving payload:', JSON.stringify(payload));
-  const { data: saveData, error } = editingId
-    ? await sb.from(TABLE).update(payload).eq('id', editingId)
-    : await sb.from(TABLE).insert(payload);
+  let saveResult;
+  if (editingId) {
+    saveResult = await sb.from(TABLE).update(payload).eq('id', editingId);
+  } else {
+    saveResult = await sb.from(TABLE).insert(payload);
+  }
+  console.log('Full result:', JSON.stringify(saveResult));
+
+  // If store column missing, retry without it
+  if (saveResult.error && (saveResult.error.message||'').includes('store')) {
+    console.warn('store column missing — retrying without it');
+    const { store: _s, ...payloadNoStore } = payload;
+    saveResult = editingId
+      ? await sb.from(TABLE).update(payloadNoStore).eq('id', editingId)
+      : await sb.from(TABLE).insert(payloadNoStore);
+    console.log('Retry result:', JSON.stringify(saveResult));
+  }
+
+  const { data: saveData, error } = saveResult;
   btn.disabled = false; btn.textContent = '💾 Guardar';
   if (error) {
-    console.error('Save error:', error);
-    alert('Error: ' + error.message + ' (code: ' + (error.code||'?') + ')');
+    console.error('Save error:', JSON.stringify(error));
+    alert('Error al guardar: ' + (error.message || JSON.stringify(error)));
     return;
   }
   console.log('Saved ok:', saveData);
