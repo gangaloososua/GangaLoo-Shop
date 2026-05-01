@@ -41,39 +41,41 @@ async function callDsApi(method, extraParams = {}, token = ACCESS_TOKEN) {
 }
 
 // ── OAuth: exchange auth code for access_token ───────────────────────────────
-async function exchangeToken(code) {
-  const url = `https://api-sg.aliexpress.com/rest/auth/token/create`;
-  const params = {
-    app_key:    APP_KEY,
+// Uses the correct official endpoint: https://oauth.aliexpress.com/token
+async function exchangeToken(code, redirectUri) {
+  const url = 'https://oauth.aliexpress.com/token';
+  const params = new URLSearchParams({
+    grant_type:    'authorization_code',
+    client_id:     APP_KEY,
+    client_secret: APP_SECRET,
     code,
-    sign_method: 'sha256',
-    timestamp:  new Date().toISOString().replace('T', ' ').replace(/\..+/, ''),
-  };
-  params.sign = signRequest(params);
+    sp:            'ae',
+    redirect_uri:  redirectUri || 'https://gangaloo.netlify.app/aliexpress.html',
+  });
 
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams(params).toString(),
+    body: params.toString(),
   });
   return res.json();
 }
 
 // ── OAuth: refresh access_token ──────────────────────────────────────────────
 async function refreshToken(refreshTk) {
-  const url = `https://api-sg.aliexpress.com/rest/auth/token/refresh`;
-  const params = {
-    app_key:       APP_KEY,
+  const url = 'https://oauth.aliexpress.com/token';
+  const params = new URLSearchParams({
+    grant_type:    'refresh_token',
+    client_id:     APP_KEY,
+    client_secret: APP_SECRET,
     refresh_token: refreshTk,
-    sign_method:   'sha256',
-    timestamp:     new Date().toISOString().replace('T', ' ').replace(/\..+/, ''),
-  };
-  params.sign = signRequest(params);
+    sp:            'ae',
+  });
 
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams(params).toString(),
+    body: params.toString(),
   });
   return res.json();
 }
@@ -118,22 +120,28 @@ exports.handler = async (event) => {
 
   // ── ACTION: exchangeToken ──────────────────────────────────────────────────
   if (action === 'exchangeToken') {
-    const { code } = body;
+    const { code, redirect_uri } = body;
     if (!code) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing auth code' }) };
 
     try {
-      const result = await exchangeToken(code);
-      if (result.error_response) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Token exchange failed', detail: result }) };
+      const result = await exchangeToken(code, redirect_uri);
+
+      // oauth.aliexpress.com returns error as { error, error_description }
+      if (result.error || result.error_response) {
+        return { statusCode: 400, headers, body: JSON.stringify({
+          error: result.error_description || result.error || 'Token exchange failed',
+          detail: result
+        }) };
       }
-      // Return tokens to frontend so they can be stored as env vars
+
+      // Successful response fields from oauth.aliexpress.com/token
       return { statusCode: 200, headers, body: JSON.stringify({
         ok: true,
         access_token:  result.access_token,
-        refresh_token: result.refresh_token,
+        refresh_token: result.refresh_token || null,
         expire_time:   result.expire_time,
-        user_nick:     result.user_nick,
-        message: '✅ Token obtained! Save these as Netlify env vars: ALI_ACCESS_TOKEN and ALI_REFRESH_TOKEN'
+        user_nick:     result.user_nick || result.taobao_user_nickname || 'OK',
+        message: '✅ Token obtained! Save as Netlify env vars: ALI_ACCESS_TOKEN and ALI_REFRESH_TOKEN'
       })};
     } catch (e) {
       return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
