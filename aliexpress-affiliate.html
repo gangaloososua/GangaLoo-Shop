@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Compras Online × GangaLoo</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/config.js"></script>
+<style>
+:root{--bg:#f7f4ef;--surface:#fff;--black:#111110;--red:#cc2200;--orange:#d4580a;--gold:#b8902a;--temu:#ff6034;--ali:#e62f01;--muted:#88887f;--border:#e4e0d8;--text:#222220;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+/* NAV */
+nav{background:var(--black);display:flex;align-items:center;justify-content:space-between;padding:0 5vw;height:58px;position:sticky;top:0;z-index:200;}
+.logo{font-family:'Cormorant Garamond',serif;font-size:1.35rem;color:#fff;text-decoration:none;}
+.logo em{color:var(--red);font-style:normal;}
+.nav-r{display:flex;align-items:center;gap:10px;}
+.nav-link{font-size:.78rem;color:rgba(255,255,255,.5);text-decoration:none;transition:color .2s;}
+.nav-link:hover{color:#fff;}
+.nav-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:6px 13px;font-size:.78rem;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .2s;}
+.nav-btn:hover{background:rgba(255,255,255,.18);}
+/* SELLER BANNER */
+.seller-banner{background:linear-gradient(135deg,#111110,#2a2200);color:var(--gold);text-align:center;padding:9px 5vw;font-size:.8rem;font-weight:600;letter-spacing:.04em;display:none;}
+.seller-banner.show{display:block;}
+/* HERO */
+.hero{background:var(--black);padding:48px 5vw 40px;text-align:center;}
+.hero-tag{font-size:.68rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--orange);margin-bottom:14px;}
+.hero h1{font-family:'Cormorant Garamond',serif;font-size:clamp(2rem,5vw,3.2rem);font-weight:400;color:#fff;line-height:1.1;margin-bottom:10px;}
+.hero h1 i{color:var(--gold);font-style:italic;}
+.hero p{font-size:.86rem;color:rgba(255,255,255,.45);max-width:420px;margin:0 auto;line-height:1.7;}
+/* STORE TABS */
+.store-tabs{background:var(--black);border-top:1px solid rgba(255,255,255,.07);display:flex;justify-content:center;gap:0;padding:0 5vw;}
+.store-tab{display:flex;align-items:center;gap:8px;padding:14px 28px;font-size:.85rem;font-weight:600;cursor:pointer;color:rgba(255,255,255,.4);border-bottom:3px solid transparent;transition:all .2s;white-space:nowrap;}
+.store-tab:hover{color:rgba(255,255,255,.75);}
+.store-tab.on{color:#fff;border-bottom-color:var(--gold);}
+.store-tab .tab-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.tab-dot.ali{background:var(--ali);}
+.tab-dot.temu{background:var(--temu);}
+.tab-dot.all{background:var(--gold);}
+/* FILTER */
+.filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 5vw;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.search-wrap{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;border:1.5px solid var(--border);border-radius:10px;padding:0 12px;background:var(--bg);}
+.search-wrap input{flex:1;border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:.88rem;color:var(--text);padding:9px 0;outline:none;}
+.search-wrap input::placeholder{color:var(--muted);}
+.cat-sel{padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.84rem;background:var(--bg);color:var(--text);cursor:pointer;}
+/* CHIPS */
+.chips{background:var(--surface);padding:10px 5vw;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border);}
+.chip{padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--bg);font-size:.76rem;font-weight:500;cursor:pointer;transition:all .15s;color:var(--text);}
+.chip.on,.chip:hover{background:var(--black);border-color:var(--black);color:#fff;}
+/* GRID */
+.main{padding:28px 5vw 72px;max-width:1360px;margin:0 auto;}
+.grid-hdr{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:6px;}
+.grid-hdr h2{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:400;}
+.gcount{font-size:.78rem;color:var(--muted);}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;}
+/* CARD */
+.card{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:transform .22s,box-shadow .22s;position:relative;}
+.card:hover{transform:translateY(-5px);box-shadow:0 14px 36px rgba(0,0,0,.09);}
+.card-img{aspect-ratio:1;overflow:hidden;background:#eee8de;position:relative;}
+.card-img img{width:100%;height:100%;object-fit:cover;transition:transform .4s ease;display:block;}
+.card:hover .card-img img{transform:scale(1.07);}
+.store-badge{position:absolute;bottom:8px;left:8px;color:#fff;font-size:.55rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:5px;}
+.store-badge.ali{background:var(--ali);}
+.store-badge.temu{background:var(--temu);}
+.seller-badge{position:absolute;top:8px;left:8px;background:var(--gold);color:#fff;font-size:.55rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:5px;z-index:2;}
+.disc-badge{position:absolute;top:8px;right:8px;background:var(--orange);color:#fff;font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:5px;}
+.hover-ovl{position:absolute;inset:0;background:rgba(17,17,16,.52);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .22s;}
+.card:hover .hover-ovl{opacity:1;}
+.ovl-cta{background:#fff;color:var(--black);font-size:.76rem;font-weight:700;padding:8px 18px;border-radius:30px;}
+.card-body{padding:10px 12px 12px;}
+.card-title{font-size:.79rem;font-weight:500;line-height:1.4;color:#333;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.card-cat{font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:3px;}
+/* EMPTY / SKELETON */
+.placeholder{text-align:center;padding:70px 20px;color:var(--muted);grid-column:1/-1;}
+.placeholder-icon{font-size:2.8rem;margin-bottom:12px;}
+.placeholder-title{font-family:'Cormorant Garamond',serif;font-size:1.2rem;color:#555;margin-bottom:6px;}
+.sk{background:linear-gradient(90deg,#ede8df 25%,#e2dcd2 50%,#ede8df 75%);background-size:200% 100%;animation:sh 1.3s infinite;border-radius:8px;}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.sk-card{background:#fff;border-radius:14px;overflow:hidden;border:1px solid var(--border);}
+.sk-img{aspect-ratio:1;}
+.sk-body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:7px;}
+.sk-line{height:11px;border-radius:5px;}
+.sk-line.s{width:55%;}
+/* ADMIN */
+.admin-ovl{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:400;display:none;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;}
+.admin-ovl.open{display:flex;}
+.admin-box{background:#fff;border-radius:20px;width:100%;max-width:680px;overflow:hidden;margin:auto;}
+.admin-hdr{background:var(--black);color:#fff;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;}
+.admin-hdr h3{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:400;}
+.admin-close{background:rgba(255,255,255,.12);border:none;color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:1rem;}
+.admin-body{padding:20px;}
+.field{margin-bottom:13px;}
+.field label{display:block;font-size:.71rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:5px;}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'DM Sans',sans-serif;font-size:.88rem;color:var(--text);background:var(--bg);}
+.field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--black);}
+.field textarea{resize:vertical;min-height:56px;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.btn-p{background:var(--black);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;cursor:pointer;width:100%;}
+.btn-p:hover{background:var(--red);}
+.btn-s{background:var(--bg);color:var(--text);border:1.5px solid var(--border);border-radius:10px;padding:9px 14px;font-family:'DM Sans',sans-serif;font-size:.84rem;cursor:pointer;}
+.btn-s:hover{border-color:var(--black);}
+.a-tabs{display:flex;border-bottom:1.5px solid var(--border);margin-bottom:16px;gap:0;overflow-x:auto;}
+.a-tab{padding:9px 16px;font-size:.81rem;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2.5px solid transparent;margin-bottom:-1.5px;white-space:nowrap;}
+.a-tab.on{color:var(--black);border-bottom-color:var(--black);}
+/* Store switcher in admin */
+.store-switch{display:flex;gap:8px;margin-bottom:16px;}
+.store-sw-btn{flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--bg);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.83rem;font-weight:600;transition:all .2s;text-align:center;}
+.store-sw-btn.ali.on{border-color:var(--ali);background:#fff0ee;color:var(--ali);}
+.store-sw-btn.temu.on{border-color:var(--temu);background:#fff3ee;color:var(--temu);}
+/* Product list */
+.prod-list{display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto;}
+.prod-row{display:flex;gap:10px;align-items:center;padding:9px;border:1px solid var(--border);border-radius:10px;background:var(--bg);}
+.prod-row img{width:50px;height:50px;object-fit:cover;border-radius:8px;flex-shrink:0;}
+.prod-row-info{flex:1;min-width:0;}
+.prod-row-name{font-size:.81rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.prod-row-cat{font-size:.69rem;color:var(--muted);}
+.prod-row-actions{display:flex;gap:5px;flex-shrink:0;}
+.btn-edit{background:#e0f2fe;color:#0369a1;border:none;border-radius:7px;padding:5px 9px;font-size:.73rem;cursor:pointer;}
+.btn-del{background:#fee2e2;color:#dc2626;border:none;border-radius:7px;padding:5px 9px;font-size:.73rem;cursor:pointer;}
+.img-preview{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:10px;border:1.5px solid var(--border);margin-top:8px;display:none;}
+/* Store indicator pill */
+.store-pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:.65rem;font-weight:700;text-transform:uppercase;margin-left:5px;}
+.store-pill.ali{background:#fff0ee;color:var(--ali);}
+.store-pill.temu{background:#fff3ee;color:var(--temu);}
+/* SELLER MODAL */
+.seller-modal-ovl{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;}
+.seller-modal-ovl.open{display:flex;}
+.seller-modal{background:#fff;border-radius:18px;width:100%;max-width:360px;overflow:hidden;}
+.seller-modal-hdr{background:linear-gradient(135deg,#111110,#2a2200);color:var(--gold);padding:20px 22px;text-align:center;}
+.seller-modal-hdr h3{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:400;margin-bottom:4px;}
+.seller-modal-hdr p{font-size:.78rem;color:rgba(255,255,255,.5);}
+.seller-modal-body{padding:20px;}
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--black);color:#fff;padding:10px 22px;border-radius:30px;font-size:.83rem;font-weight:500;z-index:999;opacity:0;transition:all .3s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.footer{text-align:center;padding:26px 5vw;font-size:.73rem;color:var(--muted);border-top:1px solid var(--border);background:var(--surface);}
+.footer a{color:var(--red);text-decoration:none;}
+@media(max-width:580px){.grid{grid-template-columns:repeat(2,1fr);gap:10px;}.row2,.row3{grid-template-columns:1fr;}.store-tab{padding:12px 16px;font-size:.78rem;}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="/index.html">Ganga<em>Loo</em></a>
+  <div class="nav-r">
+    <a class="nav-link" href="/store.html">← Tienda</a>
+    <button class="nav-btn" id="sellerBtn" onclick="toggleSellerMode()" style="background:rgba(184,144,42,.15);border-color:rgba(184,144,42,.3);" title="Vendedores">🔒</button>
+    <button class="nav-btn" onclick="openAdmin()">⚙️ Admin</button>
+  </div>
+</nav>
+
+<div class="seller-banner" id="sellerBanner">
+  🔓 Modo Vendedor activo — viendo productos exclusivos para vendedores
+</div>
+
+<div class="hero">
+  <div class="hero-tag">Compras Internacionales × GangaLoo</div>
+  <h1>Productos <i>seleccionados</i> para ti</h1>
+  <p>Haz clic en cualquier producto para comprarlo directamente. AliExpress y Temu con nuestros enlaces afiliados.</p>
+</div>
+
+<!-- STORE TABS -->
+<div class="store-tabs">
+  <div class="store-tab on" onclick="setStore('all',this)"><span class="tab-dot all"></span> Todos</div>
+  <div class="store-tab" onclick="setStore('aliexpress',this)"><span class="tab-dot ali"></span> AliExpress</div>
+  <div class="store-tab" onclick="setStore('temu',this)"><span class="tab-dot temu"></span> Temu</div>
+</div>
+
+<div class="filter-bar">
+  <div class="search-wrap">
+    <span style="color:var(--muted)">🔍</span>
+    <input type="text" id="searchInput" placeholder="Buscar productos..." oninput="filterProducts()">
+  </div>
+  <select class="cat-sel" id="catFilter" onchange="filterProducts()">
+    <option value="">Todas las categorías</option>
+  </select>
+</div>
+<div class="chips" id="chipRow"></div>
+
+<div class="main">
+  <div class="grid-hdr">
+    <h2 id="gridTitle">Todos los productos</h2>
+    <span class="gcount" id="gridCount"></span>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="footer">
+  ⚠️ GangaLoo puede ganar una comisión por compras a través de estos enlaces. ·
+  <a href="mailto:gangaloopuertoplata@gmail.com">gangaloopuertoplata@gmail.com</a> ·
+  <a href="/index.html">Inicio</a>
+</div>
+
+<!-- SELLER LOGIN MODAL -->
+<div class="seller-modal-ovl" id="sellerOvl">
+  <div class="seller-modal">
+    <div class="seller-modal-hdr">
+      <h3>🔒 Acceso Vendedores</h3>
+      <p>Inicia sesión con tu cuenta GangaLoo</p>
+    </div>
+    <div class="seller-modal-body" id="sellerLoginView">
+      <div class="field"><label>Email</label><input type="email" id="sellerEmail" placeholder="tu@email.com"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="sellerPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSellerLogin()"></div>
+      <div id="sellerErr" style="font-size:.75rem;color:var(--red);min-height:16px;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-p" id="sellerLoginBtn" onclick="doSellerLogin()">Entrar →</button>
+        <button class="btn-s" onclick="document.getElementById('sellerOvl').classList.remove('open')">Cancelar</button>
+      </div>
+    </div>
+    <div class="seller-modal-body" id="sellerLoggedView" style="display:none;text-align:center;">
+      <div style="font-size:2rem;margin-bottom:10px;">🔓</div>
+      <div style="font-weight:600;margin-bottom:6px;" id="sellerWelcome"></div>
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:16px;">Modo vendedor activo</div>
+      <button class="btn-s" onclick="doSellerLogout()" style="width:100%;">Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="admin-ovl" id="adminOvl">
+  <div class="admin-box">
+    <div class="admin-hdr">
+      <h3>⚙️ Admin — Productos Afiliados</h3>
+      <button class="admin-close" onclick="closeAdmin()">✕</button>
+    </div>
+    <div class="admin-body">
+      <!-- Login -->
+      <div id="adminLogin">
+        <div class="field"><label>Contraseña</label><input type="password" id="adminPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')checkPass()"></div>
+        <button class="btn-p" onclick="checkPass()">Entrar</button>
+      </div>
+      <!-- Content -->
+      <div id="adminContent" style="display:none;">
+        <div class="a-tabs">
+          <div class="a-tab on" id="tab1" onclick="aTab('add')">➕ Agregar</div>
+          <div class="a-tab" id="tab2" onclick="aTab('list')">📦 Productos</div>
+        </div>
+
+        <!-- ADD FORM -->
+        <div id="aTabAdd">
+          <!-- Store selector -->
+          <div class="field">
+            <label>Tienda</label>
+            <div class="store-switch">
+              <button class="store-sw-btn ali on" id="swAli" onclick="switchStore('aliexpress')">🟠 AliExpress</button>
+              <button class="store-sw-btn temu" id="swTemu" onclick="switchStore('temu')">🟠 Temu</button>
+            </div>
+            <input type="hidden" id="fStore" value="aliexpress">
+          </div>
+
+          <!-- AliExpress: embed code -->
+          <div id="aliFields">
+            <div class="field">
+              <label>Código embed AliExpress *</label>
+              <textarea id="fEmbed" rows="3" placeholder='Pega el código de AliExpress:&#10;&lt;a href="https://s.click.aliexpress.com/e/_xxx"&gt;&lt;img src="//ae01.alicdn.com/...jpg" /&gt;&lt;/a&gt;' oninput="parseEmbed()"></textarea>
+              <div id="embedStatus" style="font-size:.75rem;margin-top:5px;color:var(--muted);"></div>
+            </div>
+          </div>
+
+          <!-- Temu: separate fields -->
+          <div id="temuFields" style="display:none;">
+            <div class="field">
+              <label>Enlace afiliado Temu *</label>
+              <input type="url" id="fTemuUrl" placeholder="https://www.temu.com/...share_link...">
+            </div>
+            <div class="field">
+              <label>URL de imagen *</label>
+              <input type="url" id="fTemuImg" placeholder="https://img.kwcdn.com/..." oninput="previewTemuImg()">
+            </div>
+          </div>
+
+          <!-- Shared preview -->
+          <div class="field">
+            <label>Vista previa imagen</label>
+            <img id="imgPreview" class="img-preview" alt="Preview">
+            <div id="parsedUrl" style="font-size:.72rem;color:var(--muted);margin-top:5px;word-break:break-all;"></div>
+          </div>
+
+          <!-- Shared fields -->
+          <div class="field">
+            <label>Nombre del producto *</label>
+            <input type="text" id="fName" placeholder="Ej: Extensiones clip-in rubias 20 pulgadas">
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>Categoría</label>
+              <input type="text" id="fCat" placeholder="Extensiones, Pelucas...">
+            </div>
+            <div class="field">
+              <label>Descuento (badge)</label>
+              <input type="text" id="fDisc" placeholder="Ej: -30%">
+            </div>
+          </div>
+          <div class="field">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="checkbox" id="fSellerOnly" style="width:18px;height:18px;cursor:pointer;accent-color:var(--black);">
+              <span>🔒 Solo para vendedores</span>
+            </label>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:4px;">
+            <button class="btn-p" onclick="saveProduct()" id="saveBtn">💾 Guardar</button>
+            <button class="btn-s" onclick="clearForm()">✕ Limpiar</button>
+          </div>
+        </div>
+
+        <!-- PRODUCT LIST -->
+        <div id="aTabList" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <span style="font-size:.82rem;color:var(--muted);" id="listCount"></span>
+            <button class="btn-s" style="font-size:.75rem;padding:6px 10px;" onclick="loadAdminList()">↻</button>
+          </div>
+          <div class="prod-list" id="prodList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = window.GANGALOO_CONFIG?.supabaseUrl || '';
+const SUPABASE_KEY = window.GANGALOO_CONFIG?.supabaseKey || '';
+const PASS  = 'gangaloo2026';
+const TABLE = 'aliexpress_affiliate_products';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let allProducts = [], editingId = null, sellerMode = false, currentUser = null;
+let activeStore = 'all'; // 'all' | 'aliexpress' | 'temu'
+let adminStore  = 'aliexpress'; // which store we're adding to
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) await onSignedIn(session.user);
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (session?.user) await onSignedIn(session.user);
+    else { currentUser = null; sellerMode = false; updateSellerUI(); }
+  });
+  load();
+});
+
+async function onSignedIn(user) {
+  currentUser = user;
+  const { data: prof } = await sb.from('profiles').select('role').eq('id', user.id).single();
+  const role = prof?.role || '';
+  sellerMode = ['seller','admin','distributor'].includes(role);
+  updateSellerUI();
+  load();
+}
+
+function updateSellerUI() {
+  const btn = document.getElementById('sellerBtn');
+  const banner = document.getElementById('sellerBanner');
+  btn.textContent = sellerMode ? '🔓' : '🔒';
+  btn.style.background = sellerMode ? 'rgba(184,144,42,.35)' : 'rgba(184,144,42,.15)';
+  sellerMode ? banner.classList.add('show') : banner.classList.remove('show');
+}
+
+// ── LOAD & RENDER ─────────────────────────────────────────────────────────────
+async function load() {
+  showSk(12);
+  let query = sb.from(TABLE).select('*').eq('active', true).order('created_at', { ascending: false });
+  if (!sellerMode) query = query.eq('seller_only', false);
+  const { data } = await query;
+  allProducts = data || [];
+  buildFilters();
+  filterProducts();
+}
+
+function showSk(n) {
+  document.getElementById('grid').innerHTML = Array(n).fill(0).map(() =>
+    `<div class="sk-card"><div class="sk-img sk"></div><div class="sk-body"><div class="sk-line sk"></div><div class="sk-line sk s"></div></div></div>`
+  ).join('');
+}
+
+function render(prods) {
+  const g = document.getElementById('grid');
+  document.getElementById('gridCount').textContent = prods.length ? prods.length + ' productos' : '';
+  if (!prods.length) {
+    g.innerHTML = `<div class="placeholder"><div class="placeholder-icon">🔍</div><div class="placeholder-title">Sin resultados</div><p style="font-size:.82rem">Prueba otra búsqueda o categoría</p></div>`;
+    return;
+  }
+  g.innerHTML = prods.map(p => {
+    const store = p.store || 'aliexpress';
+    const storeLbl = store === 'temu' ? 'Temu' : 'AliExpress';
+    return `
+    <a class="card" href="${e(p.affiliate_url)}" target="_blank" rel="noopener noreferrer">
+      <div class="card-img">
+        <img src="${e(p.image_url)}" alt="${e(p.name)}" loading="lazy" onerror="this.parentElement.style.background='#eee'">
+        <div class="hover-ovl"><div class="ovl-cta">🛒 Ver en ${storeLbl}</div></div>
+        ${p.seller_only ? `<div class="seller-badge">👥 Vendedores</div>` : `<div class="store-badge ${store}">${storeLbl}</div>`}
+        ${p.discount ? `<div class="disc-badge">${e(p.discount)}</div>` : ''}
+      </div>
+      <div class="card-body">
+        ${p.category ? `<div class="card-cat">${e(p.category)}</div>` : ''}
+        <div class="card-title">${e(p.name)}</div>
+      </div>
+    </a>`;
+  }).join('');
+}
+
+function buildFilters() {
+  const src = activeStore === 'all' ? allProducts : allProducts.filter(p => (p.store||'aliexpress') === activeStore);
+  const cats = [...new Set(src.map(p => p.category).filter(Boolean))];
+  document.getElementById('catFilter').innerHTML = '<option value="">Todas las categorías</option>' +
+    cats.map(c => `<option value="${e(c)}">${e(c)}</option>`).join('');
+  document.getElementById('chipRow').innerHTML =
+    `<div class="chip on" onclick="chipClick(this,'')">✨ Todos</div>` +
+    cats.map(c => `<div class="chip" onclick="chipClick(this,'${e(c)}')">${e(c)}</div>`).join('');
+}
+
+// ── STORE TABS ────────────────────────────────────────────────────────────────
+function setStore(store, el) {
+  activeStore = store;
+  document.querySelectorAll('.store-tab').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  const labels = { all: 'Todos los productos', aliexpress: 'AliExpress', temu: 'Temu' };
+  document.getElementById('gridTitle').textContent = labels[store];
+  document.getElementById('searchInput').value = '';
+  document.getElementById('catFilter').value = '';
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  buildFilters();
+  filterProducts();
+}
+
+function filterProducts() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const cat = document.getElementById('catFilter').value;
+  let src = activeStore === 'all' ? allProducts : allProducts.filter(p => (p.store||'aliexpress') === activeStore);
+  render(src.filter(p =>
+    (!q || p.name.toLowerCase().includes(q) || (p.category||'').toLowerCase().includes(q)) &&
+    (!cat || p.category === cat)
+  ));
+}
+
+function chipClick(el, cat) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('catFilter').value = cat;
+  filterProducts();
+}
+
+// ── ADMIN ─────────────────────────────────────────────────────────────────────
+function openAdmin() { document.getElementById('adminOvl').classList.add('open'); }
+function closeAdmin() { document.getElementById('adminOvl').classList.remove('open'); }
+
+function checkPass() {
+  if (document.getElementById('adminPass').value === PASS) {
+    document.getElementById('adminLogin').style.display = 'none';
+    document.getElementById('adminContent').style.display = 'block';
+  } else toast('❌ Contraseña incorrecta');
+}
+
+function aTab(tab) {
+  document.getElementById('tab1').classList.toggle('on', tab === 'add');
+  document.getElementById('tab2').classList.toggle('on', tab === 'list');
+  document.getElementById('aTabAdd').style.display  = tab === 'add'  ? 'block' : 'none';
+  document.getElementById('aTabList').style.display = tab === 'list' ? 'block' : 'none';
+  if (tab === 'list') loadAdminList();
+}
+
+// ── STORE SWITCHER IN ADMIN ───────────────────────────────────────────────────
+function switchStore(store) {
+  adminStore = store;
+  document.getElementById('fStore').value = store;
+  document.getElementById('swAli').classList.toggle('on', store === 'aliexpress');
+  document.getElementById('swTemu').classList.toggle('on', store === 'temu');
+  document.getElementById('aliFields').style.display  = store === 'aliexpress' ? 'block' : 'none';
+  document.getElementById('temuFields').style.display = store === 'temu'       ? 'block' : 'none';
+  clearPreview();
+}
+
+// ── ALIEXPRESS EMBED PARSER ───────────────────────────────────────────────────
+function parseEmbed() {
+  const raw = document.getElementById('fEmbed').value.trim();
+  const status = document.getElementById('embedStatus');
+  clearPreview();
+  if (!raw) return;
+  const hrefMatch = raw.match(/href="([^"]+)"/);
+  const srcMatch  = raw.match(/src="([^"]+)"/);
+  if (!hrefMatch || !srcMatch) {
+    status.innerHTML = '⚠️ Código inválido — pega el código completo';
+    status.style.color = 'var(--red)'; return;
+  }
+  let imgUrl = srcMatch[1];
+  if (imgUrl.startsWith('//')) imgUrl = 'https:' + imgUrl;
+  imgUrl = imgUrl.replace(/_\d+x\d+\.\w+$/, '');
+  const affUrl = hrefMatch[1];
+  document.getElementById('fEmbed').dataset.imgUrl = imgUrl;
+  document.getElementById('fEmbed').dataset.affUrl = affUrl;
+  showPreview(imgUrl, affUrl);
+  status.innerHTML = '✅ Código leído correctamente';
+  status.style.color = '#166534';
+}
+
+// ── TEMU IMAGE PREVIEW ────────────────────────────────────────────────────────
+function previewTemuImg() {
+  const url = document.getElementById('fTemuImg').value.trim();
+  const affUrl = document.getElementById('fTemuUrl').value.trim();
+  if (url) showPreview(url, affUrl);
+  else clearPreview();
+}
+
+function showPreview(imgUrl, affUrl) {
+  const prev = document.getElementById('imgPreview');
+  prev.src = imgUrl; prev.style.display = 'block';
+  document.getElementById('parsedUrl').textContent = affUrl ? '🔗 ' + affUrl : '';
+}
+function clearPreview() {
+  document.getElementById('imgPreview').style.display = 'none';
+  document.getElementById('parsedUrl').textContent = '';
+  if (document.getElementById('embedStatus')) document.getElementById('embedStatus').textContent = '';
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────────────────
+async function saveProduct() {
+  const name  = document.getElementById('fName').value.trim();
+  const store = document.getElementById('fStore').value;
+  let img = '', url = '';
+
+  if (store === 'aliexpress') {
+    const embed = document.getElementById('fEmbed');
+    img = embed.dataset.imgUrl || '';
+    url = embed.dataset.affUrl || '';
+    if (!img) { toast('⚠️ Pega el código embed primero'); return; }
+  } else {
+    img = document.getElementById('fTemuImg').value.trim();
+    url = document.getElementById('fTemuUrl').value.trim();
+    if (!img) { toast('⚠️ URL de imagen obligatoria'); return; }
+    if (!url) { toast('⚠️ Enlace afiliado obligatorio'); return; }
+  }
+
+  if (!name) { toast('⚠️ Nombre obligatorio'); return; }
+
+  const payload = {
+    name, store,
+    category:      document.getElementById('fCat').value.trim() || null,
+    discount:      document.getElementById('fDisc').value.trim() || null,
+    image_url:     img,
+    affiliate_url: url,
+    seller_only:   document.getElementById('fSellerOnly').checked,
+    active:        true,
+  };
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  const { error } = editingId
+    ? await sb.from(TABLE).update(payload).eq('id', editingId)
+    : await sb.from(TABLE).insert(payload);
+  btn.disabled = false; btn.textContent = '💾 Guardar';
+  if (error) { toast('❌ ' + error.message); return; }
+  toast(editingId ? '✅ Actualizado' : '✅ Guardado');
+  clearForm(); load();
+}
+
+async function loadAdminList() {
+  const list = document.getElementById('prodList');
+  list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82em;">Cargando...</div>';
+  const { data } = await sb.from(TABLE).select('*').order('created_at', { ascending: false });
+  document.getElementById('listCount').textContent = (data||[]).length + ' productos';
+  if (!data?.length) { list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82em;">No hay productos. Agrega el primero ➕</div>'; return; }
+  list.innerHTML = data.map(p => {
+    const store = p.store || 'aliexpress';
+    return `
+    <div class="prod-row">
+      <img src="${e(p.image_url)}" onerror="this.style.display='none'" alt="">
+      <div class="prod-row-info">
+        <div class="prod-row-name">${e(p.name)}<span class="store-pill ${store}">${store==='temu'?'Temu':'Ali'}</span></div>
+        <div class="prod-row-cat">${e(p.category||'Sin categoría')} ${p.active?'✅':'⛔'} ${p.seller_only?'🔒':''}</div>
+      </div>
+      <div class="prod-row-actions">
+        <button class="btn-edit" onclick="editProd('${p.id}')">✏️</button>
+        <button class="btn-del" onclick="toggleProd('${p.id}',${p.active})">${p.active?'⛔':'✅'}</button>
+        <button class="btn-del" onclick="delProd('${p.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function editProd(id) {
+  const { data: p } = await sb.from(TABLE).select('*').eq('id', id).single();
+  if (!p) return;
+  editingId = id;
+  const store = p.store || 'aliexpress';
+  switchStore(store);
+  document.getElementById('fName').value = p.name || '';
+  document.getElementById('fCat').value  = p.category || '';
+  document.getElementById('fDisc').value = p.discount || '';
+  document.getElementById('fSellerOnly').checked = p.seller_only || false;
+  if (store === 'aliexpress') {
+    const embed = document.getElementById('fEmbed');
+    embed.value = `<a href="${p.affiliate_url}"><img src="${p.image_url}" /></a>`;
+    embed.dataset.imgUrl = p.image_url || '';
+    embed.dataset.affUrl = p.affiliate_url || '';
+    document.getElementById('embedStatus').innerHTML = '✅ Cargado para editar';
+    document.getElementById('embedStatus').style.color = '#166534';
+  } else {
+    document.getElementById('fTemuUrl').value = p.affiliate_url || '';
+    document.getElementById('fTemuImg').value = p.image_url || '';
+  }
+  showPreview(p.image_url, p.affiliate_url);
+  document.getElementById('saveBtn').textContent = '💾 Actualizar';
+  aTab('add');
+  toast('✏️ Editando — modifica y guarda');
+}
+
+async function toggleProd(id, active) {
+  await sb.from(TABLE).update({ active: !active }).eq('id', id);
+  toast(active ? '⛔ Desactivado' : '✅ Activado');
+  loadAdminList(); load();
+}
+
+async function delProd(id) {
+  if (!confirm('¿Eliminar?')) return;
+  await sb.from(TABLE).delete().eq('id', id);
+  toast('🗑️ Eliminado');
+  loadAdminList(); load();
+}
+
+function clearForm() {
+  editingId = null;
+  ['fName','fCat','fDisc','fEmbed','fTemuUrl','fTemuImg'].forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    el.value = '';
+    if (el.dataset) { el.dataset.imgUrl = ''; el.dataset.affUrl = ''; }
+  });
+  document.getElementById('fSellerOnly').checked = false;
+  clearPreview();
+  document.getElementById('saveBtn').textContent = '💾 Guardar';
+}
+
+// ── SELLER AUTH ───────────────────────────────────────────────────────────────
+function toggleSellerMode() {
+  if (currentUser) {
+    document.getElementById('sellerLoginView').style.display = 'none';
+    document.getElementById('sellerLoggedView').style.display = 'block';
+    document.getElementById('sellerWelcome').textContent = currentUser.email;
+  } else {
+    document.getElementById('sellerLoginView').style.display = 'block';
+    document.getElementById('sellerLoggedView').style.display = 'none';
+    document.getElementById('sellerEmail').value = '';
+    document.getElementById('sellerPass').value = '';
+    document.getElementById('sellerErr').textContent = '';
+  }
+  document.getElementById('sellerOvl').classList.add('open');
+}
+
+async function doSellerLogin() {
+  const email = document.getElementById('sellerEmail').value.trim();
+  const pass  = document.getElementById('sellerPass').value;
+  const err   = document.getElementById('sellerErr');
+  const btn   = document.getElementById('sellerLoginBtn');
+  if (!email || !pass) { err.textContent = 'Email y contraseña requeridos'; return; }
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  err.textContent = '';
+  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Entrar →';
+  if (error) { err.textContent = '❌ ' + error.message; return; }
+  document.getElementById('sellerOvl').classList.remove('open');
+  toast('✅ Sesión iniciada');
+}
+
+async function doSellerLogout() {
+  await sb.auth.signOut();
+  currentUser = null; sellerMode = false;
+  updateSellerUI();
+  document.getElementById('sellerOvl').classList.remove('open');
+  toast('🔒 Sesión cerrada');
+  load();
+}
+
+function e(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
