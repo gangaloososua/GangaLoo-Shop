@@ -1,0 +1,25 @@
+{
+  "name": "GangaLoo Tienda",
+  "short_name": "GL Tienda",
+  "description": "GangaLoo POS — Tienda Física",
+  "start_url": "/pos.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0f",
+  "theme_color": "#7c5cfc",
+  "icons": [
+    {
+      "src": "/icon192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

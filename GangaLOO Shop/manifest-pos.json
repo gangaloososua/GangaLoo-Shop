@@ -1,0 +1,25 @@
+{
+  "name": "GangaLoo POS",
+  "short_name": "GL POS",
+  "description": "GangaLoo Point of Sale & ERP",
+  "start_url": "/admin-v2.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f0e1a",
+  "theme_color": "#6c5ce7",
+  "icons": [
+    {
+      "src": "/icon192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

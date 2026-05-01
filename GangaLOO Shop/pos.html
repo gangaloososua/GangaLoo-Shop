@@ -2,7 +2,13 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GL Tienda">
+<meta name="theme-color" content="#7c5cfc">
+<link rel="manifest" href="/manifest-pos-store.json">
 <title>GangaLoo POS — Tienda Física</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="/config.js"></script>
@@ -745,7 +751,17 @@ function printBarcode(productId, sku, name, price) {
     + '</div>'
     + '<br><button onclick="window.print()">🖨️ Imprimir</button>'
     + '<script>JsBarcode("#bc","' + safeSku + '",{format:"CODE128",width:2,height:50,displayValue:true,fontSize:11,background:"#fff",lineColor:"#000"});<\/script>'
-    + '</body></html>');
+    + '
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(r => console.log('SW ok:', r.scope))
+      .catch(e => console.log('SW error:', e));
+  });
+}
+</script>
+</body></html>');
   win.document.close();
 }
 
