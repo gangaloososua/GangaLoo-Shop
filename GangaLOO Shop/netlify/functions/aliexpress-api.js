@@ -1,175 +1,253 @@
-// netlify/functions/aliexpress-api.js
-// AliExpress Dropshipping API — bernhardperkins@gmail.com
-// AppKey: 531948 | Drop Shipping permission: Active
+// GangaLoo — AliExpress API Function (OAuth2 + DS API)
+// Place at: GangaLOO Shop/netlify/functions/aliexpress-api.js
+
+const crypto = require('crypto');
 
 const APP_KEY    = process.env.ALI_APP_KEY    || '531948';
 const APP_SECRET = process.env.ALI_APP_SECRET || 'TruXWPwvEwcYsOVyqXYTJ2tvjhKg42Bs';
-const API_URL    = 'https://api-sg.aliexpress.com/sync';
 
-const CORS = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+// These are stored as Netlify env vars after first OAuth exchange
+let ACCESS_TOKEN  = process.env.ALI_ACCESS_TOKEN  || '';
+let REFRESH_TOKEN = process.env.ALI_REFRESH_TOKEN || '';
 
-// ── MD5 (no external deps) ──
-function md5(str) {
-  function safeAdd(x,y){const lsw=(x&0xffff)+(y&0xffff);const msw=(x>>16)+(y>>16)+(lsw>>16);return(msw<<16)|(lsw&0xffff);}
-  function bitRotateLeft(num,cnt){return(num<<cnt)|(num>>>(32-cnt));}
-  function md5cmn(q,a,b,x,s,t){return safeAdd(bitRotateLeft(safeAdd(safeAdd(a,q),safeAdd(x,t)),s),b);}
-  function md5ff(a,b,c,d,x,s,t){return md5cmn((b&c)|((~b)&d),a,b,x,s,t);}
-  function md5gg(a,b,c,d,x,s,t){return md5cmn((b&d)|(c&(~d)),a,b,x,s,t);}
-  function md5hh(a,b,c,d,x,s,t){return md5cmn(b^c^d,a,b,x,s,t);}
-  function md5ii(a,b,c,d,x,s,t){return md5cmn(c^(b|(~d)),a,b,x,s,t);}
-  function strToUTF8Arr(str){const arr=[];for(let i=0;i<str.length;i++){let c=str.charCodeAt(i);if(c<128)arr.push(c);else if(c<2048){arr.push(192+(c>>6));arr.push(128+(c&63));}else{arr.push(224+(c>>12));arr.push(128+((c>>6)&63));arr.push(128+(c&63));}}return arr;}
-  const bytes=strToUTF8Arr(str);const len8=bytes.length;const len32=Math.ceil((len8+9)/64)*16;
-  const M=new Array(len32).fill(0);
-  for(let i=0;i<len8;i++)M[i>>2]|=bytes[i]<<((i%4)*8);
-  M[len8>>2]|=0x80<<((len8%4)*8);M[len32-2]=len8*8;
-  let a=1732584193,b=-271733879,c=-1732584194,d=271733878;
-  for(let i=0;i<len32;i+=16){
-    const [oa,ob,oc,od]=[a,b,c,d];
-    a=md5ff(a,b,c,d,M[i],7,-680876936);d=md5ff(d,a,b,c,M[i+1],12,-389564586);c=md5ff(c,d,a,b,M[i+2],17,606105819);b=md5ff(b,c,d,a,M[i+3],22,-1044525330);
-    a=md5ff(a,b,c,d,M[i+4],7,-176418897);d=md5ff(d,a,b,c,M[i+5],12,1200080426);c=md5ff(c,d,a,b,M[i+6],17,-1473231341);b=md5ff(b,c,d,a,M[i+7],22,-45705983);
-    a=md5ff(a,b,c,d,M[i+8],7,1770035416);d=md5ff(d,a,b,c,M[i+9],12,-1958414417);c=md5ff(c,d,a,b,M[i+10],17,-42063);b=md5ff(b,c,d,a,M[i+11],22,-1990404162);
-    a=md5ff(a,b,c,d,M[i+12],7,1804603682);d=md5ff(d,a,b,c,M[i+13],12,-40341101);c=md5ff(c,d,a,b,M[i+14],17,-1502002290);b=md5ff(b,c,d,a,M[i+15],22,1236535329);
-    a=md5gg(a,b,c,d,M[i+1],5,-165796510);d=md5gg(d,a,b,c,M[i+6],9,-1069501632);c=md5gg(c,d,a,b,M[i+11],14,643717713);b=md5gg(b,c,d,a,M[i],20,-373897302);
-    a=md5gg(a,b,c,d,M[i+5],5,-701558691);d=md5gg(d,a,b,c,M[i+10],9,38016083);c=md5gg(c,d,a,b,M[i+15],14,-660478335);b=md5gg(b,c,d,a,M[i+4],20,-405537848);
-    a=md5gg(a,b,c,d,M[i+9],5,568446438);d=md5gg(d,a,b,c,M[i+14],9,-1019803690);c=md5gg(c,d,a,b,M[i+3],14,-187363961);b=md5gg(b,c,d,a,M[i+8],20,1163531501);
-    a=md5gg(a,b,c,d,M[i+13],5,-1444681467);d=md5gg(d,a,b,c,M[i+2],9,-51403784);c=md5gg(c,d,a,b,M[i+7],14,1735328473);b=md5gg(b,c,d,a,M[i+12],20,-1926607734);
-    a=md5hh(a,b,c,d,M[i+5],4,-378558);d=md5hh(d,a,b,c,M[i+8],11,-2022574463);c=md5hh(c,d,a,b,M[i+11],16,1839030562);b=md5hh(b,c,d,a,M[i+14],23,-35309556);
-    a=md5hh(a,b,c,d,M[i+1],4,-1530992060);d=md5hh(d,a,b,c,M[i+4],11,1272893353);c=md5hh(c,d,a,b,M[i+7],16,-155497632);b=md5hh(b,c,d,a,M[i+10],23,-1094730640);
-    a=md5hh(a,b,c,d,M[i+13],4,681279174);d=md5hh(d,a,b,c,M[i],11,-358537222);c=md5hh(c,d,a,b,M[i+3],16,-722521979);b=md5hh(b,c,d,a,M[i+6],23,76029189);
-    a=md5hh(a,b,c,d,M[i+9],4,-640364487);d=md5hh(d,a,b,c,M[i+12],11,-421815835);c=md5hh(c,d,a,b,M[i+15],16,530742520);b=md5hh(b,c,d,a,M[i+2],23,-995338651);
-    a=md5ii(a,b,c,d,M[i],6,-198630844);d=md5ii(d,a,b,c,M[i+7],10,1126891415);c=md5ii(c,d,a,b,M[i+14],15,-1416354905);b=md5ii(b,c,d,a,M[i+5],21,-57434055);
-    a=md5ii(a,b,c,d,M[i+12],6,1700485571);d=md5ii(d,a,b,c,M[i+3],10,-1894986606);c=md5ii(c,d,a,b,M[i+10],15,-1051523);b=md5ii(b,c,d,a,M[i+1],21,-2054922799);
-    a=md5ii(a,b,c,d,M[i+8],6,1873313359);d=md5ii(d,a,b,c,M[i+15],10,-30611744);c=md5ii(c,d,a,b,M[i+6],15,-1560198380);b=md5ii(b,c,d,a,M[i+13],21,1309151649);
-    a=md5ii(a,b,c,d,M[i+4],6,-145523070);d=md5ii(d,a,b,c,M[i+11],10,-1120210379);c=md5ii(c,d,a,b,M[i+2],15,718787259);b=md5ii(b,c,d,a,M[i+9],21,-343485551);
-    a=safeAdd(a,oa);b=safeAdd(b,ob);c=safeAdd(c,oc);d=safeAdd(d,od);
-  }
-  return [a,b,c,d].map(n=>(n<0?n+4294967296:n).toString(16).padStart(8,'0').match(/../g).reverse().join('')).join('');
-}
-
-function getTimestamp() {
-  return new Date().toISOString().replace('T',' ').substring(0,19);
-}
-
-function extractProductId(url) {
-  // Handle various AliExpress URL formats
-  const patterns = [
-    /\/item\/(\d+)\.html/,
-    /\/item\/(\d+)/,
-    /itemId=(\d+)/,
-    /productId=(\d+)/,
-    /\/(\d{10,})\./,
-  ];
-  for (const p of patterns) {
-    const m = url.match(p);
-    if (m) return m[1];
-  }
-  return null;
-}
-
+// ── Signature helper (HMAC-SHA256) ──────────────────────────────────────────
 function signRequest(params) {
   const sorted = Object.keys(params).sort().map(k => `${k}${params[k]}`).join('');
-  return md5(APP_SECRET + sorted + APP_SECRET).toUpperCase();
+  const toSign = APP_SECRET + sorted + APP_SECRET;
+  return crypto.createHmac('sha256', APP_SECRET).update(toSign).digest('hex').toUpperCase();
 }
 
+// ── Generic DS API caller ────────────────────────────────────────────────────
+async function callDsApi(method, extraParams = {}, token = ACCESS_TOKEN) {
+  const params = {
+    method,
+    app_key:    APP_KEY,
+    access_token: token,
+    timestamp:  new Date().toISOString().replace('T', ' ').replace(/\..+/, ''),
+    sign_method: 'sha256',
+    ...extraParams,
+  };
+  params.sign = signRequest(params);
+
+  const url = 'https://api-sg.aliexpress.com/sync';
+  const body = new URLSearchParams(params).toString();
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  return res.json();
+}
+
+// ── OAuth: exchange auth code for access_token ───────────────────────────────
+async function exchangeToken(code) {
+  const url = `https://api-sg.aliexpress.com/rest/auth/token/create`;
+  const params = {
+    app_key:    APP_KEY,
+    code,
+    sign_method: 'sha256',
+    timestamp:  new Date().toISOString().replace('T', ' ').replace(/\..+/, ''),
+  };
+  params.sign = signRequest(params);
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(params).toString(),
+  });
+  return res.json();
+}
+
+// ── OAuth: refresh access_token ──────────────────────────────────────────────
+async function refreshToken(refreshTk) {
+  const url = `https://api-sg.aliexpress.com/rest/auth/token/refresh`;
+  const params = {
+    app_key:       APP_KEY,
+    refresh_token: refreshTk,
+    sign_method:   'sha256',
+    timestamp:     new Date().toISOString().replace('T', ' ').replace(/\..+/, ''),
+  };
+  params.sign = signRequest(params);
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(params).toString(),
+  });
+  return res.json();
+}
+
+// ── Extract product ID from URL ───────────────────────────────────────────────
+function extractProductId(url) {
+  const m = url.match(/\/(\d{10,})[_.]/) || url.match(/item\/(\d+)/) || url.match(/productId=(\d+)/) || url.match(/\/(\d{10,})/);
+  return m ? m[1] : null;
+}
+
+// ── DS: get product details ───────────────────────────────────────────────────
+async function getProductDS(productId, token) {
+  return callDsApi('aliexpress.ds.product.get', {
+    product_id: productId,
+    ship_to_country: 'DO',
+    target_currency: 'USD',
+    target_language: 'ES',
+  }, token);
+}
+
+// ── Lambda handler ─────────────────────────────────────────────────────────
 exports.handler = async (event) => {
+  // CORS preflight
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: CORS, body: '' };
+    return { statusCode: 200, headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    }, body: '' };
   }
 
-  try {
-    const body = JSON.parse(event.body || '{}');
-    const { action, url } = body;
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Content-Type': 'application/json'
+  };
 
-    if (action === 'getProduct') {
-      if (!url) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'URL requerida' }) };
+  let body;
+  try { body = JSON.parse(event.body || '{}'); }
+  catch { body = {}; }
 
-      const productId = extractProductId(url);
-      if (!productId) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'No se pudo extraer el ID del producto de la URL' }) };
+  const { action } = body;
 
-      console.log('[DS] Fetching product ID:', productId);
+  // ── ACTION: exchangeToken ──────────────────────────────────────────────────
+  if (action === 'exchangeToken') {
+    const { code } = body;
+    if (!code) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing auth code' }) };
 
-      const params = {
-        app_key:      APP_KEY,
-        method:       'aliexpress.ds.product.get',
-        sign_method:  'md5',
-        timestamp:    getTimestamp(),
-        v:            '2.0',
-        product_id:   productId,
-        ship_to_country: 'DO',
-        target_currency: 'USD',
-        target_language: 'EN',
-      };
-      params.sign = signRequest(params);
-
-      const resp = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
-        body: new URLSearchParams(params).toString(),
-      });
-      const data = await resp.json();
-      console.log('[DS] Response:', JSON.stringify(data).substring(0, 500));
-
-      const result = data?.aliexpress_ds_product_get_response?.result;
-      if (!result) {
-        return {
-          statusCode: 400, headers: CORS,
-          body: JSON.stringify({ error: 'DS API error', raw: data })
-        };
+    try {
+      const result = await exchangeToken(code);
+      if (result.error_response) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Token exchange failed', detail: result }) };
       }
+      // Return tokens to frontend so they can be stored as env vars
+      return { statusCode: 200, headers, body: JSON.stringify({
+        ok: true,
+        access_token:  result.access_token,
+        refresh_token: result.refresh_token,
+        expire_time:   result.expire_time,
+        user_nick:     result.user_nick,
+        message: '✅ Token obtained! Save these as Netlify env vars: ALI_ACCESS_TOKEN and ALI_REFRESH_TOKEN'
+      })};
+    } catch (e) {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
+    }
+  }
 
-      if (result.rsp_code && result.rsp_code !== 200) {
-        return {
-          statusCode: 400, headers: CORS,
-          body: JSON.stringify({ error: result.rsp_msg || 'Error de API DS', code: result.rsp_code })
-        };
+  // ── ACTION: refreshToken ───────────────────────────────────────────────────
+  if (action === 'refreshToken') {
+    const refreshTk = body.refresh_token || REFRESH_TOKEN;
+    if (!refreshTk) return { statusCode: 400, headers, body: JSON.stringify({ error: 'No refresh token' }) };
+
+    try {
+      const result = await refreshToken(refreshTk);
+      if (result.error_response) {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'Refresh failed', detail: result }) };
       }
+      return { statusCode: 200, headers, body: JSON.stringify({
+        ok: true,
+        access_token:  result.access_token,
+        refresh_token: result.refresh_token,
+        expire_time:   result.expire_time,
+        message: '✅ Token refreshed! Update Netlify env var ALI_ACCESS_TOKEN with new value.'
+      })};
+    } catch (e) {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
+    }
+  }
 
-      const p = result.result || result;
-
-      // Extract variants/SKUs
-      const skuProps = p.ae_item_sku_info_dtos?.ae_item_sku_info_d_t_o || [];
-      const variants = {};
-      skuProps.forEach(sku => {
-        const props = sku.ae_sku_property_dtos?.ae_sku_property_d_t_o || [];
-        props.forEach(prop => {
-          if (!variants[prop.sku_property_name]) variants[prop.sku_property_name] = [];
-          if (!variants[prop.sku_property_name].includes(prop.property_value_definition_name)) {
-            variants[prop.sku_property_name].push(prop.property_value_definition_name);
-          }
-        });
-      });
-
-      return {
-        statusCode: 200, headers: CORS,
-        body: JSON.stringify({
-          product: {
-            product_id:             p.ae_item_base_info_dto?.product_id || productId,
-            product_title:          p.ae_item_base_info_dto?.subject || '',
-            product_main_image_url: p.ae_multimedia_info_dto?.image_urls?.split(';')[0] || '',
-            product_images:         (p.ae_multimedia_info_dto?.image_urls || '').split(';').filter(Boolean),
-            target_sale_price:      p.ae_item_base_info_dto?.sale_price || '',
-            target_original_price:  p.ae_item_base_info_dto?.original_price || '',
-            product_detail_url:     `https://www.aliexpress.com/item/${productId}.html`,
-            category_id:            p.ae_item_base_info_dto?.first_level_category_id || '',
-            avg_star:               p.ae_item_base_info_dto?.avg_evaluation_rating || '',
-          },
-          variants: Object.keys(variants).length ? variants : null,
-        })
-      };
+  // ── ACTION: getProduct ─────────────────────────────────────────────────────
+  if (action === 'getProduct') {
+    const token = body.access_token || ACCESS_TOKEN;
+    if (!token) {
+      return { statusCode: 400, headers, body: JSON.stringify({
+        error: 'No access_token. Complete OAuth setup first.',
+        oauth_needed: true,
+        auth_url: `https://api-sg.aliexpress.com/oauth/authorize?response_type=code&force_auth=true&client_id=${APP_KEY}&redirect_uri=https://gangaloo.netlify.app/aliexpress.html`
+      })};
     }
 
-    return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Acción desconocida' }) };
+    const { url, productId: directId } = body;
+    let productId = directId;
+    if (!productId && url) productId = extractProductId(url);
+    if (!productId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Cannot extract product ID from URL' }) };
 
-  } catch (err) {
-    console.error('[aliexpress-api] Error:', err);
-    return {
-      statusCode: 500, headers: CORS,
-      body: JSON.stringify({ error: err.message })
-    };
+    try {
+      const result = await getProductDS(productId, token);
+
+      if (result.error_response) {
+        // Token expired? Try refresh
+        const errCode = result.error_response.code;
+        if (errCode === 'invalid-sessionkey' || errCode === 'token-expired') {
+          return { statusCode: 401, headers, body: JSON.stringify({
+            error: 'Access token expired',
+            token_expired: true,
+            detail: result
+          })};
+        }
+        return { statusCode: 400, headers, body: JSON.stringify({
+          error: result.error_response.msg || 'DS API error',
+          detail: result
+        })};
+      }
+
+      const p = result.aliexpress_ds_product_get_response?.result;
+      if (!p) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Product not found', raw: result }) };
+
+      // Normalize variants
+      const variants = {};
+      const skus = p.ae_item_sku_info_dtos?.ae_item_sku_info_d_t_o || [];
+      for (const sku of skus) {
+        const props = sku.ae_sku_property_dtos?.ae_sku_property_d_t_o || [];
+        for (const prop of props) {
+          const key = prop.sku_property_name;
+          if (!variants[key]) variants[key] = [];
+          const exists = variants[key].find(v => v.value === prop.property_value_definition_name);
+          if (!exists) variants[key].push({
+            value: prop.property_value_definition_name || prop.property_value_id_long?.toString(),
+            img:   prop.sku_image || null
+          });
+        }
+      }
+
+      return { statusCode: 200, headers, body: JSON.stringify({
+        product: {
+          product_id:            p.ae_item_base_info_dto?.product_id,
+          product_title:         p.ae_item_base_info_dto?.subject,
+          product_main_image_url: p.ae_multimedia_info_dto?.image_urls?.split(';')[0] || '',
+          product_detail_url:    `https://www.aliexpress.com/item/${productId}.html`,
+          target_sale_price:     p.ae_item_sku_info_dtos?.ae_item_sku_info_d_t_o?.[0]?.sku_price || '',
+          target_original_price: p.ae_item_sku_info_dtos?.ae_item_sku_info_d_t_o?.[0]?.sku_price || '',
+          category_name:         p.ae_item_base_info_dto?.category_id || '',
+          images:                (p.ae_multimedia_info_dto?.image_urls || '').split(';').filter(Boolean),
+        },
+        variants: Object.keys(variants).length ? variants : null,
+      })};
+    } catch (e) {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
+    }
   }
+
+  // ── ACTION: testToken ──────────────────────────────────────────────────────
+  if (action === 'testToken') {
+    const token = body.access_token || ACCESS_TOKEN;
+    if (!token) return { statusCode: 400, headers, body: JSON.stringify({ error: 'No token to test' }) };
+    // Test with a known product ID
+    const result = await getProductDS('1005005673680888', token);
+    const ok = !result.error_response;
+    return { statusCode: 200, headers, body: JSON.stringify({
+      ok,
+      token_works: ok,
+      has_token: !!token,
+      detail: result.error_response || 'Token is valid ✅'
+    })};
+  }
+
+  return { statusCode: 400, headers, body: JSON.stringify({ error: `Unknown action: ${action}` }) };
 };
