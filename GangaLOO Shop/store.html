@@ -943,7 +943,27 @@ button{font-family:'Jost',sans-serif;}
 .club-badge{background:linear-gradient(135deg,#002D62,#CF142B);color:white;border-radius:20px;padding:3px 10px;font-size:.7em;font-weight:700;letter-spacing:.05em;display:inline-block;}
 .club-price{color:#CF142B;font-weight:800;}
 .club-orig{text-decoration:line-through;color:#aaa;font-size:.82em;margin-right:4px;}
-.club-disc-badge{position:absolute;top:6px;left:6px;background:linear-gradient(135deg,#002D62,#CF142B);color:white;border-radius:20px;padding:2px 6px;font-size:.62em;font-weight:700;}</style>
+.club-disc-badge{position:absolute;top:6px;left:6px;background:linear-gradient(135deg,#002D62,#CF142B);color:white;border-radius:20px;padding:2px 6px;font-size:.62em;font-weight:700;}
+/* ── PRODUCT MODAL ── */
+.prod-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:center;justify-content:center;padding:16px;}
+.prod-modal-bg.open{display:flex;}
+.prod-modal{background:#fff;border-radius:20px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+.prod-modal-close{position:sticky;top:12px;float:right;margin:12px 12px 0 0;background:rgba(0,0,0,.08);border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;z-index:1;display:flex;align-items:center;justify-content:center;}
+.prod-modal-img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px 16px 0 0;display:block;}
+.prod-modal-img-placeholder{width:100%;aspect-ratio:1;background:#f5f4fb;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:center;font-size:80px;}
+.prod-modal-body{padding:20px;}
+.prod-modal-cat{font-size:11px;font-weight:800;text-transform:uppercase;color:var(--violet);letter-spacing:.05em;margin-bottom:6px;}
+.prod-modal-name{font-size:1.3em;font-weight:900;color:var(--ink);margin-bottom:8px;font-family:'Cabinet Grotesk',sans-serif;}
+.prod-modal-sku{font-size:12px;color:var(--ink-3);margin-bottom:12px;}
+.prod-modal-desc{font-size:14px;color:var(--ink-2);line-height:1.6;margin-bottom:16px;}
+.prod-modal-price{font-size:1.8em;font-weight:900;color:var(--violet);margin-bottom:4px;}
+.prod-modal-orig{font-size:13px;color:var(--ink-3);text-decoration:line-through;margin-bottom:16px;}
+.prod-modal-video{width:100%;border-radius:12px;margin-bottom:16px;max-height:260px;}
+.prod-modal-add{width:100%;padding:14px;background:var(--violet);color:#fff;border:none;border-radius:14px;font-size:1em;font-weight:800;cursor:pointer;font-family:'Cabinet Grotesk',sans-serif;}
+.prod-modal-add:disabled{background:#ccc;cursor:not-allowed;}
+.prod-modal-stock{font-size:12px;text-align:center;margin-top:8px;}
+@media(max-width:480px){.prod-modal{border-radius:20px 20px 0 0;max-height:95vh;}.prod-modal-bg{align-items:flex-end;padding:0;}}
+</style>
 </head>
 <body>
 
@@ -1583,7 +1603,7 @@ function renderProducts(){
     if(stk===0){pc='sp-out';pt='Agotado';dis='disabled';}
     else if(stk<=5){pc='sp-low';pt=`Últimas ${stk}`;}
     else{pc='sp-in';pt='Disponible';}
-    return`<div class="pcard">
+    return`<div class="pcard" onclick="openProduct(${p.id})">
       <div class="pcard-img">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}
         <span class="stock-pill ${pc}">${pt}</span>
         ${isClub?`<span class="club-disc-badge">-10%</span>`:(hasDisc?`<span class="disc-badge">-${discPct}%</span>`:(isGuest&&guestMarkup>0?`<span style="background:#002D62;color:white;border-radius:20px;padding:1px 5px;font-size:.55em;font-weight:700;position:absolute;top:6px;left:6px;">Regístrate</span>`:''))}
@@ -1593,7 +1613,7 @@ function renderProducts(){
         <div class="pcard-name">${p.name}</div>
         <div style="display:flex;align-items:center;gap:6px;">
           <div class="pcard-sku">SKU: ${p.sku||'—'}</div>
-          <button class="wa-share-btn" onclick="shareProductWA(${p.id},${price})" title="Compartir por WhatsApp">
+          <button class="wa-share-btn" onclick="event.stopPropagation();shareProductWA(${p.id},${price})" title="Compartir por WhatsApp">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
           </button>
         </div>
@@ -1605,7 +1625,7 @@ function renderProducts(){
           ${isClub?'<span class="club-badge">Club -10%</span>':''}
           ${isGuest&&guestMarkup>0?'<span style="font-size:.68em;color:#888;display:block;margin-top:2px;">Inicia sesión para precio especial</span>':''}
         </div>
-        <button class="add-btn" ${dis} onclick="addCart(${p.id},'${esc(p.name)}',${price},'${esc(p.sku||'')}',${basePrice})" title="Agregar">+</button>
+        <button class="add-btn" ${dis} onclick="event.stopPropagation();addCart(${p.id},'${esc(p.name)}',${price},'${esc(p.sku||'')}',${basePrice})" title="Agregar">+</button>
       </div>
     </div>`;
   }).join('');
@@ -1615,6 +1635,62 @@ function renderProducts(){
 function openMobSearch(){document.getElementById('mobSearchOvl').classList.add('open');setTimeout(()=>document.getElementById('mobSearchInput').focus(),100);}
 function closeMobSearch(e){if(!e||e.target===document.getElementById('mobSearchOvl'))document.getElementById('mobSearchOvl').classList.remove('open');}
 function syncSearch(val){document.getElementById('searchInput').value=val;searchQuery=val.toLowerCase();renderProducts();}
+
+
+/* ── PRODUCT DETAIL MODAL ── */
+function openProduct(id) {
+  const p = allProducts.find(x => String(x.id) === String(id));
+  if (!p) return;
+  const cat = allCategories.find(c => (p.categoryIds||[p.categoryId]).map(String).includes(String(c.id)));
+  const stk = selectedWH ? getStock(p.id, selectedWH) : getStock(p.id, null);
+  const origPrice = p.price || p.finalPrice || p.salePrice || 0;
+  const hasDisc = p.discountPrice && p.discountPrice > 0 && p.discountPrice < origPrice;
+  const basePrice = hasDisc ? p.discountPrice : origPrice;
+  const price = getDisplayPrice(basePrice);
+  const origToShow = isClubMember() ? basePrice : origPrice;
+  const showOrig = isClubMember() || hasDisc;
+  const outOfStock = stk === 0;
+
+  const imgHtml = p.imageUrl
+    ? `<img class="prod-modal-img" src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`
+    : `<div class="prod-modal-img-placeholder">${cat?.icon || '💇'}</div>`;
+
+  const videoHtml = p.videoUrl
+    ? `<video class="prod-modal-video" controls playsinline><source src="${p.videoUrl}"></video>`
+    : '';
+
+  const descHtml = p.description
+    ? `<div class="prod-modal-desc">${p.description}</div>`
+    : '';
+
+  const stockLabel = outOfStock ? 'Sin stock' : stk <= 5 ? `Últimas ${stk} unidades` : 'Disponible';
+  const stockColor = outOfStock ? '#f43f5e' : stk <= 5 ? '#f59e0b' : '#10b981';
+
+  document.getElementById('prodModalInner').innerHTML = `
+    ${imgHtml}
+    <div class="prod-modal-body">
+      ${cat ? `<div class="prod-modal-cat">${cat.icon ? cat.icon + ' ' : ''}${cat.name}</div>` : ''}
+      <div class="prod-modal-name">${p.name}</div>
+      ${p.sku ? `<div class="prod-modal-sku">SKU: ${p.sku}</div>` : ''}
+      ${descHtml}
+      ${videoHtml}
+      ${showOrig ? `<div class="prod-modal-orig">RD$ ${fmt(origToShow)}</div>` : ''}
+      <div class="prod-modal-price">RD$ ${fmt(price)}</div>
+      <button class="prod-modal-add" ${outOfStock ? 'disabled' : ''}
+        onclick="addCart(${p.id},'${esc(p.name)}',${price},'${esc(p.sku||'')}',${basePrice});closeProdModal()">
+        ${outOfStock ? 'Sin Stock' : '🛒 Agregar al carrito'}
+      </button>
+      <div class="prod-modal-stock" style="color:${stockColor}">${stockLabel}</div>
+    </div>
+  `;
+  document.getElementById('prodModalBg').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeProdModal() {
+  document.getElementById('prodModalBg').classList.remove('open');
+  document.body.style.overflow = '';
+}
 
 /* ── CART ── */
 function shareProductWA(id, price) {
@@ -1715,11 +1791,10 @@ function getCheckoutTotal(){
   const bulkTier=getBulkDiscount();
   const bulkDiscAmt=bulkTier?rawSub*(bulkTier.disc/100):0;
   const sub=rawSub-bulkDiscAmt;
-  // shipping / transfer fees
+  // shipping
   let shipFee=0;
   if(del==='shipping') shipFee=isClubMember()?0:parseFloat(cfg.shippingCost||0);
   else if(del==='shipping2') shipFee=isClubMember()?0:parseFloat(cfg.shippingCost2||0);
-  else if(del==='pickup_maranatha') shipFee=parseFloat(cfg.maranatha_fee||200);
   // payment adjustment
   let payAdj=0;
   if(pay==='cash'){
@@ -1744,71 +1819,21 @@ function getCheckoutTotal(){
 function onDeliveryChange(){
   const del=document.querySelector('input[name="delivery"]:checked')?.value||'pickup';
   const addrField=document.getElementById('co_addr_field');
-  const deliveryDetails=document.getElementById('co_delivery_details');
   const feeRow=document.getElementById('co_shipping_fee');
   const isShipping=del==='shipping'||del==='shipping2';
-  const isMaranatha=del==='pickup_maranatha';
-  const needsDeliveryDetails=isShipping||isMaranatha;
-
   if(addrField) addrField.style.display=isShipping?'block':'none';
-  if(deliveryDetails){
-    deliveryDetails.style.display=needsDeliveryDetails?'block':'none';
-    if(needsDeliveryDetails) initCoMap();
-  }
-
   const {shipFee}=getCheckoutTotal();
   if(feeRow){
     if(isShipping && shipFee===0 && isClubMember()){
       feeRow.style.display='flex';
       feeRow.innerHTML='<span>🚚 Envío</span><span style="color:#27ae60;font-weight:700;">GRATIS 🏆</span>';
-    } else if(isMaranatha){
-      feeRow.style.display='flex';
-      feeRow.innerHTML='<span>🚐 Transfer Montellano→Maranatha</span><span id="co_fee_amt">RD$ '+fmt(storeConfig?.maranatha_fee||200)+'</span>';
     } else {
-      // Reset label to shipping (in case Maranatha was previously selected)
       feeRow.style.display=isShipping&&shipFee>0?'flex':'none';
-      feeRow.innerHTML='<span>🚚 Envío</span><span id="co_fee_amt">RD$ '+fmt(shipFee)+'</span>';
+    const fa=document.getElementById('co_fee_amt');
+    if(fa) fa.textContent='RD$ '+fmt(shipFee);
     }
   }
   onPaymentChange();
-}
-
-let _coMap=null, _coMarker=null;
-function initCoMap(){
-  if(_coMap) return; // already initialized
-  if(!window.L){ // load leaflet if not loaded
-    const link=document.createElement('link');
-    link.rel='stylesheet';
-    link.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    document.head.appendChild(link);
-    const script=document.createElement('script');
-    script.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload=()=>_initCoMapLeaflet();
-    document.head.appendChild(script);
-  } else {
-    _initCoMapLeaflet();
-  }
-}
-function _initCoMapLeaflet(){
-  const mapEl=document.getElementById('co_map');
-  if(!mapEl||_coMap) return;
-  _coMap=L.map('co_map').setView([19.4517,-70.6970],13); // Sosúa default
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(_coMap);
-  _coMap.on('click',function(e){
-    const {lat,lng}=e.latlng;
-    if(_coMarker) _coMarker.setLatLng([lat,lng]);
-    else _coMarker=L.marker([lat,lng]).addTo(_coMap);
-    document.getElementById('co_lat').value=lat.toFixed(6);
-    document.getElementById('co_lng').value=lng.toFixed(6);
-    document.getElementById('co_map_status').textContent='📍 Ubicación marcada: '+lat.toFixed(4)+', '+lng.toFixed(4);
-    document.getElementById('co_map_status').style.color='#166534';
-    document.getElementById('co_map_hint').classList.add('hidden');
-    document.getElementById('co_map_wrap').style.borderColor='#166534';
-  });
-  // Try geolocation
-  navigator.geolocation?.getCurrentPosition(pos=>{
-    _coMap.setView([pos.coords.latitude,pos.coords.longitude],15);
-  });
 }
 function onPaymentChange(){
   const pay=document.querySelector('input[name="payment"]:checked')?.value||'cash';
@@ -1913,18 +1938,12 @@ function openCheckout(){
         <label class="co-option selected">
           <input type="radio" name="delivery" value="pickup" checked onchange="onDeliveryChange()">
           <span class="co-option-ico">🏪</span>
-          <div><div style="font-weight:700">Recoger en ${wh?.name||'tienda'}</div><div style="font-size:11px;color:var(--muted)">Sin costo adicional</div></div>
+          <div><div style="font-weight:700">Recoger en tienda</div><div style="font-size:11px;color:var(--muted)">Sin costo adicional</div></div>
         </label>
-        ${(wh?.name||'').toLowerCase().includes('montellano') ? `
-        <label class="co-option">
-          <input type="radio" name="delivery" value="pickup_maranatha" onchange="onDeliveryChange()">
-          <span class="co-option-ico">🚐</span>
-          <div><div style="font-weight:700">Recoger en Maranatha</div><div style="font-size:11px;color:var(--muted)">Transferencia desde Montellano${cfg.maranatha_fee>0?' · +RD$ '+fmt(cfg.maranatha_fee||200):' · +RD$ 200'}</div></div>
-        </label>` : ''}
         <label class="co-option">
           <input type="radio" name="delivery" value="shipping" onchange="onDeliveryChange()">
           <span class="co-option-ico">🚚</span>
-          <div><div style="font-weight:700">${zone1||'Envío a domicilio'}</div><div style="font-size:11px;color:${isClubMember()?'#27ae60':'var(--muted)'}">${isClubMember()?'✅ GRATIS — Beneficio Club 🏆':sc>0?'+ RD$ '+fmt(sc):'Costo por definir'}</div></div>
+          <div><div style="font-weight:700">${zone1||'Envío'}</div><div style="font-size:11px;color:${isClubMember()?'#27ae60':'var(--muted)'}">${isClubMember()?'✅ GRATIS — Beneficio Club 🏆':sc>0?'+ RD$ '+fmt(sc):'Costo por definir'}</div></div>
         </label>
         ${zone2?`<label class="co-option">
           <input type="radio" name="delivery" value="shipping2" onchange="onDeliveryChange()">
@@ -1935,23 +1954,8 @@ function openCheckout(){
     </div>
 
     <div class="form-field" id="co_addr_field" style="display:none">
-      <label>📍 Dirección de entrega *</label>
+      <label>Dirección de entrega *</label>
       <input id="co_a" placeholder="Calle, número, sector, ciudad">
-    </div>
-
-    <div class="form-field" id="co_delivery_details" style="display:none">
-      <label>📅 Fecha preferida de entrega *</label>
-      <input type="date" id="co_delivery_date" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;" min="${new Date().toISOString().slice(0,10)}">
-      <div style="margin-top:12px;">
-        <label style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:block;margin-bottom:6px;">📌 Marca tu ubicación en el mapa</label>
-        <div id="co_map_wrap" style="border-radius:12px;overflow:hidden;border:2px solid var(--border);height:220px;position:relative;">
-          <div id="co_map" style="width:100%;height:100%;"></div>
-          <div id="co_map_hint" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;font-size:12px;padding:6px 14px;border-radius:20px;z-index:1000;pointer-events:none;">Toca el mapa para marcar tu ubicación</div>
-        </div>
-        <input type="hidden" id="co_lat" value="">
-        <input type="hidden" id="co_lng" value="">
-        <div id="co_map_status" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center;">Sin ubicación marcada</div>
-      </div>
     </div>
 
     <div class="form-field">
@@ -2181,15 +2185,8 @@ async function payWithPayPal(){
 async function submitOrder(){
   const del=document.querySelector('input[name="delivery"]:checked')?.value||'pickup';
   const isShipping=del==='shipping'||del==='shipping2';
-  const isMaranatha=del==='pickup_maranatha';
-  const needsDelivery=isShipping||isMaranatha;
   const n=document.getElementById('co_n').value.trim(),p=document.getElementById('co_p').value.trim(),e=document.getElementById('co_e').value.trim(),a=(isShipping?document.getElementById('co_a')?.value.trim():''),nt=document.getElementById('co_nt').value.trim();
-  const deliveryDate=document.getElementById('co_delivery_date')?.value||'';
-  const lat=document.getElementById('co_lat')?.value||'';
-  const lng=document.getElementById('co_lng')?.value||'';
   if(!n||!p||(isShipping&&!a)){toast('Completa los campos obligatorios','err');return;}
-  if(needsDelivery&&!deliveryDate){toast('Por favor elige una fecha de entrega','err');return;}
-  if(needsDelivery&&!lat){toast('Por favor marca tu ubicación en el mapa','err');return;}
   const btn=document.getElementById('subBtn');btn.disabled=true;btn.textContent='Enviando...';
   const payload={
     customer_name:n,
@@ -2197,12 +2194,8 @@ async function submitOrder(){
     customer_email:e||null,
     customer_address:a,
     notes:nt||null,
-    delivery_type:del,
-    delivery_date:deliveryDate||null,
-    delivery_lat:lat?parseFloat(lat):null,
-    delivery_lng:lng?parseFloat(lng):null,
     items:JSON.stringify(cart.map(i=>({product_id:i.id,name:i.name,sku:i.sku,qty:i.qty,price:i.price}))),
-    total:getCheckoutTotal().total,
+    total:totalAfterBulk(),
     currency:'DOP',
     status:'pending'
   };
@@ -2216,14 +2209,10 @@ async function submitOrder(){
   if(selectedWH){
     const wh=allWarehouses.find(w=>w.id==selectedWH);
     if(wh){
-      payload.warehouse_id = String(selectedWH);
+      payload.warehouse_id = String(selectedWH); // store as string to avoid integer overflow
       payload.notes = (payload.notes||'') + (payload.notes?'\n':'') + '📍 Tienda: '+wh.name;
     }
   }
-  // Add delivery details to notes
-  if(isMaranatha) payload.notes = (payload.notes||'') + '\n🚐 Recoge en Maranatha (desde Montellano)';
-  if(deliveryDate) payload.notes = (payload.notes||'') + '\n📅 Fecha preferida: '+deliveryDate;
-  if(lat&&lng) payload.notes = (payload.notes||'') + '\n📌 Ubicación: '+lat+', '+lng+' → https://maps.google.com/?q='+lat+','+lng;
   const{data,error}=await sb.from('online_orders').insert(payload).select();
   if(error){
     console.error('Order error:',error);
@@ -2361,7 +2350,7 @@ function buildDealSection() {
           <div class="dcb-block"><span class="dcb-num" id="dealCd_0_S">--</span><span class="dcb-lbl">seg</span></div>
         </div>
         <button class="deal-add-btn" ${stk===0?'disabled':''}
-          onclick="addCart(${deal.id},'${esc(deal.name)}',${saleP},'${esc(deal.sku||'')}',${deal.price||deal.finalPrice||saleP})">
+          onclick="event.stopPropagation();addCart(${deal.id},'${esc(deal.name)}',${saleP},'${esc(deal.sku||'')}',${deal.price||deal.finalPrice||saleP})">
           ${stk===0?'❌ Agotado':'🛍 Agregar al Carrito'}
         </button>
       </div>
@@ -2401,7 +2390,7 @@ function buildDealSection() {
             <span class="cdv" id="${cdId}_S">--</span>s
           </div>
           <button class="deal-chip-add" ${stk===0?'disabled':''}
-            onclick="addCart(${deal.id},'${esc(deal.name)}',${saleP},'${esc(deal.sku||'')}',${deal.price||deal.finalPrice||saleP})">
+            onclick="event.stopPropagation();addCart(${deal.id},'${esc(deal.name)}',${saleP},'${esc(deal.sku||'')}',${deal.price||deal.finalPrice||saleP})">
             ${stk===0?'Agotado':'🛍 Agregar'}
           </button>
         </div>
@@ -3195,5 +3184,13 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 if(sb){initAuth();}else{loadData();}
 </script>
+
+<!-- ── PRODUCT DETAIL MODAL ── -->
+<div class="prod-modal-bg" id="prodModalBg" onclick="if(event.target===this)closeProdModal()">
+  <div class="prod-modal" id="prodModal">
+    <button class="prod-modal-close" onclick="closeProdModal()">✕</button>
+    <div id="prodModalInner"></div>
+  </div>
+</div>
 </body>
 </html>
