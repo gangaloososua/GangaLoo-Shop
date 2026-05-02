@@ -611,7 +611,35 @@ async function loadAllData() {
     renderInvCatPills();
     document.getElementById('invSubtitle').textContent =
       `${products.length} productos · ${getMaranathaTotal()} unidades en 1-Maranatha`;
+    // Check if redirected here after admin approval
+    checkNewProductParam();
   } catch(e) { showToast('Error: '+e.message,'error'); setSyncState('error'); }
+}
+
+// Called after admin approves + adds to inventory
+// Opens Tienda tab and the Add to Store modal for the new product
+function openTiendaForNewProduct(productId) {
+  showTab('tienda');
+  setTimeout(() => openAddToStoreModal(String(productId)), 400);
+}
+
+// Check URL params — admin redirects here with ?newProduct=ID after approval
+function checkNewProductParam() {
+  const params = new URLSearchParams(window.location.search);
+  const newProdId = params.get('newProduct');
+  if (!newProdId) return;
+  window.history.replaceState({}, '', window.location.pathname);
+  // Try to find the product (may need a moment to exist)
+  const tryOpen = (attempts=0) => {
+    const p = products.find(x => String(x.id) === String(newProdId));
+    if (p) {
+      showToast('✅ Producto aprobado — agrega su ubicación en tienda', 'success', 4000);
+      openTiendaForNewProduct(newProdId);
+    } else if (attempts < 8) {
+      setTimeout(() => tryOpen(attempts+1), 600);
+    }
+  };
+  tryOpen();
 }
 
 function setSyncState(state) {

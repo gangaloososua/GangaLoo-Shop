@@ -140,6 +140,9 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-he
 .btn-approve{background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;}
 .btn-reject{background:#ef4444;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;}
 .btn-add-inv{background:#6366f1;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;}
+.comm-stat{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
+.comm-stat-val{font-size:1.3rem;font-weight:800;margin-bottom:3px;}
+.comm-stat-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
 </style>
 </head>
 <body>
@@ -203,6 +206,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-he
     <button class="tab" onclick="filterTab('scheduled',this)">Scheduled</button>
     <button class="tab" onclick="filterTab('pickup',this)">Pickup</button>
     <button class="tab" onclick="filterTab('done',this)">Done</button>
+    <button class="tab" id="tabComisiones" onclick="showComisiones(this)" style="background:transparent;">💰 Comisiones</button>
     <button class="tab" id="tabNuevos" onclick="showNuevos(this)" style="background:transparent;">🆕 Nuevos <span id="nuevosCount" style="background:#f59e0b;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:3px;display:none;"></span></button>
   </div>
 
@@ -1053,6 +1057,14 @@ async function approveAndAddInventory(id) {
 
     toast('✅ Aprobado y agregado al inventario');
     loadNuevos();
+
+    // Offer to open POS to set location
+    setTimeout(() => {
+      if (confirm('¿Abrir el POS para agregar la ubicación en tienda?')) {
+        const posUrl = '/pos.html?newProduct=' + encodeURIComponent(newProduct.id);
+        window.open(posUrl, '_blank');
+      }
+    }, 500);
   } catch(e) {
     toast('❌ Error: ' + e.message);
     console.error(e);
