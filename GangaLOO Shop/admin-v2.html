@@ -10863,7 +10863,7 @@ function renderComisionesCards() {
   }
 
   const acctOpts = accounts.filter(a=>a.active!==false&&a.currency==='DOP').map(a=>`<option value="${a.id}">${a.name} (${formatDOP(a.balance)})</option>`).join('');
-  const catOpts  = accountingCategories.filter(c=>c.type==='expense').map(c=>`<option value="${c.id}" ${c.id==='gas-comis'?'selected':''}>${c.name}</option>`).join('');
+  const catOpts  = accountingCategories.filter(c=>c.type==='expense').sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')||(a.subname||'').localeCompare(b.subname||'','es')).map(c=>`<option value="${c.id}" ${c.id==='gas-comis'?'selected':''}>${c.name}${c.subname?' — '+c.subname:''}</option>`).join('');
 
   /* Build per-seller data */
   const sellerData = allSellers.map(seller => {
