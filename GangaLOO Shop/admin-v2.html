@@ -7083,9 +7083,15 @@ function openClienteDetail(id) {
   const paidMap = {};
   payments.forEach(p => { paidMap[String(p.saleId)]=(paidMap[String(p.saleId)]||0)+(parseFloat(p.amount)||0); });
 
-  /* All sales — as customer AND as seller */
-  const asCust   = sales.filter(s => String(s.customerId)===String(id) && s.status!=='cancelled');
-  const asSeller = sales.filter(s => String(s.sellerId)===String(id) && s.status!=='cancelled' && String(s.customerId)!==String(id));
+  /* Merge all IDs for this person (manual + online records with same email/name) */
+  const personKey = (c.email || c.name || String(c.id)).toLowerCase();
+  const personIds = customers
+    .filter(x => (x.email||x.name||String(x.id)).toLowerCase() === personKey)
+    .map(x => String(x.id));
+
+  /* All sales — as customer AND as seller, across all merged IDs */
+  const asCust   = sales.filter(s => personIds.includes(String(s.customerId)) && s.status!=='cancelled');
+  const asSeller = sales.filter(s => personIds.includes(String(s.sellerId)) && s.status!=='cancelled' && !personIds.includes(String(s.customerId)));
   const allSales = [...asCust, ...asSeller];
   const sortedSales = [...allSales].sort((a,b)=>(b.date||'')<(a.date||'')?-1:1);
 
