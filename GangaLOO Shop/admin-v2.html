@@ -2404,7 +2404,7 @@ function renderDashComisiones() {
 
   sellers.forEach(seller => {
     allMonths.forEach(mk => {
-      const alreadyPaid = commissionPayouts.find(p=>p.sellerId===seller.id&&p.monthKey===mk);
+      const alreadyPaid = commissionPayouts.find(p=>String(p.sellerId)===String(seller.id)&&p.monthKey===mk);
       if (alreadyPaid) return;
       const mSales = sales.filter(s=>(s.date||'').startsWith(mk)&&(String(s.customerId)===String(seller.id)||String(s.sellerId)===String(seller.id))&&s.status!=='cancelled');
       const total  = mSales.reduce((t,v)=>t+saleTotal(v),0);
@@ -10935,7 +10935,7 @@ function renderComisionesCards() {
         byMonth[m].comm  = Math.round(byMonth[m].total*0.15*100)/100;
       });
       /* Mark paid months */
-      commissionPayouts.filter(p=>p.sellerId===seller.id).forEach(p => {
+      commissionPayouts.filter(p=>String(p.sellerId)===String(seller.id)).forEach(p => {
         if (byMonth[p.monthKey]) byMonth[p.monthKey].paid = p;
       });
       const sortedMonths = Object.keys(byMonth).sort().reverse();
