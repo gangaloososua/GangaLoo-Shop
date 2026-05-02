@@ -12001,83 +12001,82 @@ function rptContabilidad(el) {
   const totalExp    = expenses + purchPayExp;  // true egresos = manual expenses + purchase payments
   const net         = totalIn - totalExp;
 
-  /* By accounting category — store txns per category for drill-down */
+  /* By accounting category — same logic as renderCatCard in Categorías tab */
   const inCats={}, exCats={};
-  filtTx.filter(t=>t.type==='income'
-    && !t.isInternalTransfer
-    && !t.isReceiptEntry
-    && !((t.reference||'').toLowerCase()==='transferencia')
-    && !((t.description||'').toLowerCase().startsWith('transferencia'))
-  ).forEach(t=>{
-    let catName = 'Sin cat.';
-    const directCat = accountingCategories.find(x=>String(x.id)===String(t.categoryId));
-    if (directCat) {
-      catName = directCat.name;
-    } else {
-      for (const parent of accountingCategories) {
-        const sub = (parent.subcategories||[]).find(s=>String(s.id||s)===String(t.categoryId));
-        if (sub) { catName = parent.name + (sub.name ? ' — ' + sub.name : ''); break; }
+
+  // Helper: resolve accounting category name from ID (handles subcategories)
+  function resolveCatName(catId) {
+    if (!catId) return 'Sin cat.';
+    const direct = accountingCategories.find(x=>String(x.id)===String(catId));
+    if (direct) return direct.name;
+    for (const parent of accountingCategories) {
+      const sub = (parent.subcategories||[]).find(s=>String(s.id||s)===String(catId));
+      if (sub) return parent.name + (sub.name ? ' — ' + sub.name : '');
+    }
+    return 'Sin cat.';
+  }
+
+  // INCOME: transactions + payments (same as renderCatCard)
+  accountingCategories.filter(c=>c.type==='income').forEach(cat => {
+    const _catAllIds = new Set([String(cat.id), ...(cat.subcategories||[]).map(s=>String(s.id||s))]);
+    // Transactions
+    const txns = transactions.filter(t => _catAllIds.has(String(t.categoryId))
+      && rptInPeriod(t.date) && t.type==='income'
+      && !t.isInternalTransfer && !t.isReceiptEntry);
+    // Payments
+    const pays = payments.filter(p => {
+      if (!rptInPeriod(p.date)) return false;
+      const rid = p.categoryId || sales.find(s=>String(s.id)===String(p.saleId))?.categoryId || '';
+      return rid && _catAllIds.has(String(rid));
+    });
+    const total = txns.reduce((s,t)=>s+(parseFloat(t.amount)||0),0)
+                + pays.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+    if (total > 0.01 || txns.length || pays.length) {
+      if (!inCats[cat.name]) inCats[cat.name]={a:0,n:0,txns:[],pays:[]};
+      inCats[cat.name].a += total;
+      inCats[cat.name].n += txns.length + pays.length;
+      inCats[cat.name].txns.push(...txns);
+      inCats[cat.name].pays.push(...pays);
+    }
+  });
+
+  // EXPENSE: transactions + purchasePayments (same as renderCatCard)
+  accountingCategories.filter(c=>c.type==='expense').forEach(cat => {
+    const _catAllIds = new Set([String(cat.id), ...(cat.subcategories||[]).map(s=>String(s.id||s))]);
+    // Expense transactions (excluding internal/commission/transfer noise)
+    const txns = transactions.filter(t => _catAllIds.has(String(t.categoryId))
+      && rptInPeriod(t.date) && t.type==='expense'
+      && !t.isPurchasePayment && !t.isInternalTransfer
+      && !(t.reference||'').startsWith('commission-payout')
+      && !(t.reference&&/^LOT-|^ORD-/i.test(t.reference)&&!t.isTransportPayment)
+      && !((t.description||'').toLowerCase().startsWith('pago compra'))
+      && !((t.reference||'').toLowerCase()==='transferencia')
+      && !((t.description||'').toLowerCase().startsWith('transferencia')));
+    // Purchase payments (dedup same as renderCatCard)
+    const rawPays = purchasePayments.filter(p => {
+      if (!rptInPeriod(p.date)) return false;
+      if (p.categoryId && _catAllIds.has(String(p.categoryId))) return true;
+      if (!p.categoryId) {
+        const lot = purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));
+        if (lot && _catAllIds.has(String(lot.categoryId))) return true;
       }
+      return false;
+    });
+    const seen = new Set();
+    const pays = rawPays.filter(p => {
+      const key = `${p.lotNumber}|${Math.round((parseFloat(p.dopAmount||p.amount)||0)*100)}|${p.accountId}`;
+      if (seen.has(key)) return false; seen.add(key); return true;
+    });
+    const total = txns.reduce((s,t)=>s+(parseFloat(t.amount)||0),0)
+                + pays.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
+    if (total > 0.01 || txns.length || pays.length) {
+      if (!exCats[cat.name]) exCats[cat.name]={a:0,n:0,txns:[],pays:[]};
+      exCats[cat.name].a += total;
+      exCats[cat.name].n += txns.length + pays.length;
+      exCats[cat.name].txns.push(...txns);
+      exCats[cat.name].pays.push(...pays);
     }
-    if(!inCats[catName])inCats[catName]={a:0,n:0,txns:[],pays:[]};
-    inCats[catName].a+=parseFloat(t.amount)||0; inCats[catName].n++; inCats[catName].txns.push(t);
   });
-  // Include payments in income categories (resolve category from payment → sale)
-  filtPay.forEach(p=>{
-    const amt = parseFloat(p.amount)||0;
-    if (!amt) return;
-    const resolvedCatId = p.categoryId || sales.find(s=>String(s.id)===String(p.saleId))?.categoryId || '';
-    const catName = resolvedCatId
-      ? (accountingCategories.find(c=>String(c.id)===String(resolvedCatId))?.name || '💳 Cobros de Ventas')
-      : '💳 Cobros de Ventas';
-    if(!inCats[catName])inCats[catName]={a:0,n:0,txns:[],pays:[]};
-    inCats[catName].a+=amt; inCats[catName].n++; inCats[catName].pays.push(p);
-  });
-  filtTx.filter(t=>t.type==='expense'
-    && !t.isPurchasePayment
-    && !t.isInternalTransfer
-    && !(t.reference||'').startsWith('commission-payout')
-    && !(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
-    && !((t.description||'').toLowerCase().startsWith('pago compra'))
-    && !((t.reference||'').toLowerCase()==='transferencia')
-    && !((t.description||'').toLowerCase().startsWith('transferencia'))
-    // NOTE: isReceiptEntry included here so courier/transport costs appear correctly
-  ).forEach(t=>{
-    // Resolve category name — check parent categories too (for subcategory IDs)
-    let catName = 'Sin cat.';
-    const directCat = accountingCategories.find(x=>String(x.id)===String(t.categoryId));
-    if (directCat) {
-      catName = directCat.name;
-    } else {
-      // Check if it's a subcategory ID inside any parent
-      for (const parent of accountingCategories) {
-        const sub = (parent.subcategories||[]).find(s=>String(s.id||s)===String(t.categoryId));
-        if (sub) { catName = parent.name + (sub.name ? ' — ' + sub.name : ''); break; }
-      }
-    }
-    if(!exCats[catName])exCats[catName]={a:0,n:0,txns:[],pays:[]};
-    exCats[catName].a+=parseFloat(t.amount)||0; exCats[catName].n++; exCats[catName].txns.push(t);
-  });
-  filtPurchPay.forEach(p=>{
-    const amt = parseFloat(p.dopAmount||p.amount)||0;
-    if (!amt) return;
-    let catName;
-    // Resolve categoryId: from payment itself, or fall back to lot's categoryId
-    const resolvedCatId = p.categoryId || (() => {
-      const lot = purchases.find(x=>(x.lotNumber||x.lotNum||String(x.id))===(p.lotNumber||p.purchaseId));
-      return lot?.categoryId || '';
-    })();
-    if (resolvedCatId) {
-      const cat = accountingCategories.find(c=>String(c.id)===String(resolvedCatId))
-               || accountingCategories.find(c=>(c.name||'').toLowerCase()===String(resolvedCatId).toLowerCase());
-      catName = cat ? cat.name : '📦 Pagos Compras (sin cat.)';
-    } else {
-      catName = '📦 Pagos Compras (sin cat.)';
-    }
-    if(!exCats[catName])exCats[catName]={a:0,n:0,txns:[],pays:[]};
-    exCats[catName].a+=amt; exCats[catName].n++; exCats[catName].pays.push(p);
-  });
-  // payments now included in inCats above with proper category resolution
 
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
