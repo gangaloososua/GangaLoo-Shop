@@ -1716,7 +1716,7 @@ function renderNuevoCategorias() {
   if (shelfSel) {
     const locs = getPosLocations();
     shelfSel.innerHTML = '<option value="">— Sin ubicación —</option>' +
-      locs.map(l => `<option value="${l.name}">${l.name}</option>`).join('');
+      locs.map(l => `<option value="${l}">${l}</option>`).join('');
   }
 }
 
