@@ -11992,6 +11992,8 @@ function rptContabilidad(el) {
     && !(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
     && !((t.description||'').toLowerCase().startsWith('pago compra'))
     && !((t.reference||'').toLowerCase().startsWith('commission-payout'))
+    // isReceiptEntry included: courier receipt transactions are the real expense
+    // their paired purchasePayments have skipBalance=true so no double-count
   ).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
   const purchPayExp = filtPurchPay.reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
   const salesColl   = filtPay.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
@@ -12022,12 +12024,15 @@ function rptContabilidad(el) {
     if(!inCats[catName])inCats[catName]={a:0,n:0,txns:[],pays:[]};
     inCats[catName].a+=amt; inCats[catName].n++; inCats[catName].pays.push(p);
   });
-  filtTx.filter(t=>t.type==='expense'&&!t.isPurchasePayment&&!t.isReceiptEntry&&!t.isInternalTransfer
-    &&!(t.reference||'').startsWith('commission-payout')
-    &&!(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
-    &&!((t.description||'').toLowerCase().startsWith('pago compra'))
-    &&!((t.reference||'').toLowerCase()==='transferencia')
-    &&!((t.description||'').toLowerCase().startsWith('transferencia'))
+  filtTx.filter(t=>t.type==='expense'
+    && !t.isPurchasePayment
+    && !t.isInternalTransfer
+    && !(t.reference||'').startsWith('commission-payout')
+    && !(t.reference&&/^LOT-|^ORD-/i.test(t.reference))
+    && !((t.description||'').toLowerCase().startsWith('pago compra'))
+    && !((t.reference||'').toLowerCase()==='transferencia')
+    && !((t.description||'').toLowerCase().startsWith('transferencia'))
+    // NOTE: isReceiptEntry included here so courier/transport costs appear correctly
   ).forEach(t=>{
     const c=accountingCategories.find(x=>String(x.id)===String(t.categoryId))?.name||'Sin cat.';
     if(!exCats[c])exCats[c]={a:0,n:0,txns:[],pays:[]};
