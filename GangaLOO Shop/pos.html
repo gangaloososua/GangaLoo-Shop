@@ -624,22 +624,20 @@ function openTiendaForNewProduct(productId) {
 }
 
 // Check URL params — admin redirects here with ?newProduct=ID after approval
-function checkNewProductParam() {
+async function checkNewProductParam() {
   const params = new URLSearchParams(window.location.search);
   const newProdId = params.get('newProduct');
   if (!newProdId) return;
   window.history.replaceState({}, '', window.location.pathname);
-  // Try to find the product (may need a moment to exist)
-  const tryOpen = (attempts=0) => {
-    const p = products.find(x => String(x.id) === String(newProdId));
-    if (p) {
-      showToast('✅ Producto aprobado — agrega su ubicación en tienda', 'success', 4000);
-      openTiendaForNewProduct(newProdId);
-    } else if (attempts < 8) {
-      setTimeout(() => tryOpen(attempts+1), 600);
-    }
-  };
-  tryOpen();
+  // Force reload fresh data from Supabase so new product is visible
+  await loadAllData();
+  const p = products.find(x => String(x.id) === String(newProdId));
+  if (p) {
+    showToast('✅ Producto aprobado — agrega su ubicación en tienda', 'success', 4000);
+    openTiendaForNewProduct(newProdId);
+  } else {
+    showToast('⚠️ Producto aprobado pero no encontrado — recarga la página', 'error', 5000);
+  }
 }
 
 function setSyncState(state) {

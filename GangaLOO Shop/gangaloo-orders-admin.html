@@ -1039,11 +1039,15 @@ async function approveAndAddInventory(id) {
 
     products.push(newProduct);
 
-    // 4. Save back
+    // 4. Save back — use Prefer:return=minimal for PATCH
     await sb('PATCH', `inventory_data?id=eq.${inv.id}`, {
       products:   JSON.stringify(products),
       updated_at: new Date().toISOString(),
-    });
+    }, { 'Prefer': 'return=minimal' });
+
+    // Verify save by re-reading
+    const verify = await sb('GET', `inventory_data?id=eq.${inv.id}&select=id,updated_at`);
+    console.log('Inventory saved:', verify?.[0]);
 
     // 5. Mark pending product as approved
     await sb('PATCH', `pos_pending_products?id=eq.${id}`, {
