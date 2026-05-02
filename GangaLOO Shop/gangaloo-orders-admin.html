@@ -1046,8 +1046,9 @@ async function approveAndAddInventory(id) {
     }, { 'Prefer': 'return=minimal' });
 
     // Verify save by re-reading
-    const verify = await sb('GET', `inventory_data?id=eq.${inv.id}&select=id,updated_at`);
-    console.log('Inventory saved:', verify?.[0]);
+    const verify = await sb('GET', `inventory_data?id=eq.${inv.id}&select=id,updated_at,products`);
+    const savedProds = JSON.parse(verify?.[0]?.products || '[]');
+    console.log('Inventory saved OK. Total products now:', savedProds.length, '| Last product:', savedProds[savedProds.length-1]?.name);
 
     // 5. Mark pending product as approved
     await sb('PATCH', `pos_pending_products?id=eq.${id}`, {

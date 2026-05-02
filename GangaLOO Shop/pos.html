@@ -629,14 +629,17 @@ async function checkNewProductParam() {
   const newProdId = params.get('newProduct');
   if (!newProdId) return;
   window.history.replaceState({}, '', window.location.pathname);
-  // Force reload fresh data from Supabase so new product is visible
-  await loadAllData();
+  console.log('Looking for new product:', newProdId);
+  console.log('Current products:', products.map(p=>p.id+':'+p.name));
+  // Product should already be loaded (checkNewProductParam runs after loadAllData)
   const p = products.find(x => String(x.id) === String(newProdId));
+  console.log('Found:', p);
   if (p) {
     showToast('✅ Producto aprobado — agrega su ubicación en tienda', 'success', 4000);
     openTiendaForNewProduct(newProdId);
   } else {
-    showToast('⚠️ Producto aprobado pero no encontrado — recarga la página', 'error', 5000);
+    showToast('⚠️ Producto no encontrado (ID: ' + newProdId + ')', 'error', 5000);
+    console.warn('Product not found. Products in inventory:', products.length);
   }
 }
 
