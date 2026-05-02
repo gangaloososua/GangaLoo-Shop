@@ -459,8 +459,12 @@ select.field option { background:var(--surface2); }
         <!-- Location -->
         <div style="margin-bottom:12px;">
           <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px;">📍 Ubicación en tienda</label>
-          <input class="field" id="nShelf" placeholder="Ej: Pasillo A, Estante 2">
-          <div id="nShelfChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+          <div style="display:flex;gap:8px;">
+            <select class="field" id="nShelfSel" onchange="document.getElementById('nShelf').value=this.value" style="flex:1;">
+              <option value="">— Sin ubicación —</option>
+            </select>
+            <input class="field" id="nShelf" placeholder="O escribe una nueva..." style="flex:1;">
+          </div>
         </div>
 
         <!-- Notes -->
@@ -1707,8 +1711,13 @@ function renderNuevoCategorias() {
   if (!sel) return;
   const opts = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   sel.innerHTML = '<option value="">Sin categoría</option>' + opts;
-  // Populate shelf chips from existing locations
-  renderShelfChips('n');
+  // Populate shelf location dropdown
+  const shelfSel = document.getElementById('nShelfSel');
+  if (shelfSel) {
+    const locs = getPosLocations();
+    shelfSel.innerHTML = '<option value="">— Sin ubicación —</option>' +
+      locs.map(l => `<option value="${l.name}">${l.name}</option>`).join('');
+  }
 }
 
 function handleNuevoPhotos(input) {
@@ -1768,7 +1777,7 @@ async function addProductoDirecto() {
   const cantidad = parseInt(document.getElementById('nCantidad').value) || 1;
   const catId    = document.getElementById('nCategoria').value;
   const desc     = document.getElementById('nDescripcion').value.trim();
-  const shelf    = document.getElementById('nShelf').value.trim();
+  const shelf    = document.getElementById('nShelf').value.trim() || document.getElementById('nShelfSel').value || '';
   const errDiv   = document.getElementById('nuevoError');
   const btn      = document.getElementById('nuevoSubmitBtn');
 
