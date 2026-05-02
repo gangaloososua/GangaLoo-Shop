@@ -1005,10 +1005,7 @@ async function approveAndAddInventory(id) {
   if (!confirm(`¿Aprobar y agregar "${item.nombre}" al inventario?`)) return;
 
   try {
-    // 1. Get the current inventory_data row for this user
-    const rows = await sb('GET', `inventory_data?user_id=eq.${CFG.userId || ''}&limit=1`);
-    
-    // If no userId in CFG, get the first/only row
+    // 1. Get the most recently updated inventory row
     const allRows = await sb('GET', `inventory_data?limit=1&order=updated_at.desc`);
     if (!allRows || !allRows.length) {
       toast('❌ No se encontró el inventario'); return;
