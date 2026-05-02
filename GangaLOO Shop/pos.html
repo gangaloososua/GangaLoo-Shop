@@ -1807,16 +1807,15 @@ async function addProductoDirecto() {
     };
     products.push(newProduct);
 
-    // 2. Add stock to warehouse
-    const whIdx = purchases.findIndex(p => p.warehouseId == whId && p.productId == newId);
-    // Add as a purchase lot for stock tracking
+    // 2. Add stock to warehouse — must match getStock() expectations
     purchases.push({
       id: 'lot_' + Date.now(),
       productId: newId,
       warehouseId: whId,
       qty: cantidad,
-      remaining: cantidad,
+      remainingQty: cantidad,
       costDOP: 0,
+      status: 'delivered',
       date: new Date().toISOString().slice(0,10),
       notes: 'Entrada manual',
     });
