@@ -12009,9 +12009,18 @@ function rptContabilidad(el) {
     && !((t.reference||'').toLowerCase()==='transferencia')
     && !((t.description||'').toLowerCase().startsWith('transferencia'))
   ).forEach(t=>{
-    const c=accountingCategories.find(x=>String(x.id)===String(t.categoryId))?.name||'Sin cat.';
-    if(!inCats[c])inCats[c]={a:0,n:0,txns:[],pays:[]};
-    inCats[c].a+=parseFloat(t.amount)||0; inCats[c].n++; inCats[c].txns.push(t);
+    let catName = 'Sin cat.';
+    const directCat = accountingCategories.find(x=>String(x.id)===String(t.categoryId));
+    if (directCat) {
+      catName = directCat.name;
+    } else {
+      for (const parent of accountingCategories) {
+        const sub = (parent.subcategories||[]).find(s=>String(s.id||s)===String(t.categoryId));
+        if (sub) { catName = parent.name + (sub.name ? ' — ' + sub.name : ''); break; }
+      }
+    }
+    if(!inCats[catName])inCats[catName]={a:0,n:0,txns:[],pays:[]};
+    inCats[catName].a+=parseFloat(t.amount)||0; inCats[catName].n++; inCats[catName].txns.push(t);
   });
   // Include payments in income categories (resolve category from payment → sale)
   filtPay.forEach(p=>{
@@ -12034,9 +12043,20 @@ function rptContabilidad(el) {
     && !((t.description||'').toLowerCase().startsWith('transferencia'))
     // NOTE: isReceiptEntry included here so courier/transport costs appear correctly
   ).forEach(t=>{
-    const c=accountingCategories.find(x=>String(x.id)===String(t.categoryId))?.name||'Sin cat.';
-    if(!exCats[c])exCats[c]={a:0,n:0,txns:[],pays:[]};
-    exCats[c].a+=parseFloat(t.amount)||0; exCats[c].n++; exCats[c].txns.push(t);
+    // Resolve category name — check parent categories too (for subcategory IDs)
+    let catName = 'Sin cat.';
+    const directCat = accountingCategories.find(x=>String(x.id)===String(t.categoryId));
+    if (directCat) {
+      catName = directCat.name;
+    } else {
+      // Check if it's a subcategory ID inside any parent
+      for (const parent of accountingCategories) {
+        const sub = (parent.subcategories||[]).find(s=>String(s.id||s)===String(t.categoryId));
+        if (sub) { catName = parent.name + (sub.name ? ' — ' + sub.name : ''); break; }
+      }
+    }
+    if(!exCats[catName])exCats[catName]={a:0,n:0,txns:[],pays:[]};
+    exCats[catName].a+=parseFloat(t.amount)||0; exCats[catName].n++; exCats[catName].txns.push(t);
   });
   filtPurchPay.forEach(p=>{
     const amt = parseFloat(p.dopAmount||p.amount)||0;
