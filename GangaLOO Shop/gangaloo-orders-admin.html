@@ -1097,6 +1097,18 @@ async function loadFotos(id) {
   }
 }
 
+
+function openLightbox(imgEl) {
+  document.getElementById('lightbox-img').src = imgEl.src;
+  document.getElementById('lightbox').style.display = 'flex';
+  document.addEventListener('keydown', _lbKey);
+}
+function closeLightbox() {
+  document.getElementById('lightbox').style.display = 'none';
+  document.removeEventListener('keydown', _lbKey);
+}
+function _lbKey(e) { if (e.key === 'Escape') closeLightbox(); }
+
 function toast(msg) {
   let t = document.getElementById('adminToast');
   if (!t) {
