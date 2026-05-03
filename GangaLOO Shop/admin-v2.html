@@ -9521,17 +9521,18 @@ function openCuentaMovements(accountId) {
   /* Collect ALL movements for this account */
   const movements = [];
 
-  /* 1. Sale payments (cobros) */
-  payments.filter(p => String(p.accountId) === String(accountId) && !p.skipBalance).forEach(p => {
+  /* 1. Sale payments (cobros) — include all, skipBalance ones shown but don't affect running balance */
+  payments.filter(p => String(p.accountId) === String(accountId)).forEach(p => {
     const sale = sales.find(s => String(s.id) === String(p.saleId));
     const inv  = sale ? (sale.invoiceNum||sale.invoiceNumber||'#'+sale.id) : '—';
     movements.push({
-      date:    p.date || '',
-      type:    'in',
-      label:   `Cobro — ${inv}`,
-      ref:     p.reference || inv,
-      amount:  parseFloat(p.amount) || 0,
-      source:  'cobro',
+      date:       p.date || '',
+      type:       'in',
+      label:      `Cobro — ${inv}`,
+      ref:        p.reference || inv,
+      amount:     parseFloat(p.amount) || 0,
+      source:     'cobro',
+      skipBalance: !!p.skipBalance,  // won't affect running balance
     });
   });
 
@@ -9598,8 +9599,10 @@ function openCuentaMovements(accountId) {
   let runningBal = parseFloat(account.balance) || 0;
   const withBalance = movements.map(m => {
     const entry = { ...m, balance: runningBal };
-    if (m.type === 'in')  runningBal -= m.amount;
-    else                  runningBal += m.amount;
+    if (!m.skipBalance) {
+      if (m.type === 'in')  runningBal -= m.amount;
+      else                  runningBal += m.amount;
+    }
     return entry;
   });
 
