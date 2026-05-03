@@ -1665,33 +1665,52 @@ async function saveData() {
     }
     if (!rowId) throw new Error('No row ID');
 
-    // Split into two saves to stay under Supabase payload limit
-    // Chunk 1: high-frequency transactional data
-    const { error: e1 } = await sb.from('inventory_data').update({
-      sales:             JSON.stringify(sales),
-      payments:          JSON.stringify(payments),
-      transactions:      JSON.stringify(transactions),
-      purchase_payments: JSON.stringify(purchasePayments),
-      account_transfers: JSON.stringify(accountTransfers),
-      commission_payouts: JSON.stringify(commissionPayouts),
-      updated_at:        new Date().toISOString(),
-    }).eq('id', rowId);
-    if (e1) throw e1;
+    // Log sizes to identify what's large
+    const sizes = {
+      sales: JSON.stringify(sales).length,
+      payments: JSON.stringify(payments).length,
+      transactions: JSON.stringify(transactions).length,
+      purchase_payments: JSON.stringify(purchasePayments).length,
+      purchases: JSON.stringify(purchases).length,
+      customers: JSON.stringify(customers).length,
+      products: JSON.stringify(products).length,
+    };
+    console.log('Data sizes (chars):', sizes);
+    const total = Object.values(sizes).reduce((a,b)=>a+b,0);
+    console.log('Total chars:', total, '≈', Math.round(total/1024), 'KB');
 
-    // Chunk 2: catalog / config data
-    const { error: e2 } = await sb.from('inventory_data').update({
-      warehouses:            JSON.stringify(warehouses),
-      categories:            JSON.stringify(categories),
-      products:              JSON.stringify(products),
-      purchases:             JSON.stringify(purchases),
-      transfers:             JSON.stringify(transfers),
-      accounts:              JSON.stringify(accounts),
-      accounting_categories: JSON.stringify(accountingCategories),
-      customers:             JSON.stringify(customers),
-      monthly_rates:         JSON.stringify(monthlyRates),
-      store_config:          JSON.stringify(storeConfig),
-    }).eq('id', rowId);
-    if (e2) throw e2;
+    // Split into 4 small saves to stay under timeout/size limits
+    const chunks = [
+      {
+        sales:              JSON.stringify(sales),
+        payments:           JSON.stringify(payments),
+        updated_at:         new Date().toISOString(),
+      },
+      {
+        transactions:       JSON.stringify(transactions),
+        account_transfers:  JSON.stringify(accountTransfers),
+        commission_payouts: JSON.stringify(commissionPayouts),
+      },
+      {
+        purchase_payments:  JSON.stringify(purchasePayments),
+        purchases:          JSON.stringify(purchases),
+      },
+      {
+        products:              JSON.stringify(products),
+        customers:             JSON.stringify(customers),
+        warehouses:            JSON.stringify(warehouses),
+        categories:            JSON.stringify(categories),
+        transfers:             JSON.stringify(transfers),
+        accounts:              JSON.stringify(accounts),
+        accounting_categories: JSON.stringify(accountingCategories),
+        monthly_rates:         JSON.stringify(monthlyRates),
+        store_config:          JSON.stringify(storeConfig),
+      },
+    ];
+    for (const chunk of chunks) {
+      const { error } = await sb.from('inventory_data').update(chunk).eq('id', rowId);
+      if (error) throw error;
+    }
 
     setSaveState('saved');
   } catch(err) {
