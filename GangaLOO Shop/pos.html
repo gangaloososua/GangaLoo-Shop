@@ -608,7 +608,14 @@ async function loadAllData() {
     payments    = JSON.parse(row.payments    || '[]');
     customers   = JSON.parse(row.customers   || '[]');
     storeConfig = JSON.parse(row.store_config|| '{}');
-    posProducts = JSON.parse(row.pos_products|| '{}');
+    // Load posProducts from dedicated pos_tienda table
+    try {
+      const { data: tiendaRow } = await sb.from('pos_tienda').select('data').eq('id','main').single();
+      posProducts = tiendaRow?.data || JSON.parse(row.pos_products || '{}');
+    } catch {
+      posProducts = JSON.parse(row.pos_products || '{}');
+    }
+    console.log('Loaded posProducts — keys:', Object.keys(posProducts).length, Object.keys(posProducts));
     setSyncState('ok');
     renderInventario();
     renderTienda();
@@ -691,18 +698,47 @@ async function saveData() {
 }
 
 async function saveTiendaImmediate() {
-  // Save pos_products immediately without debounce
   try {
-    const { data } = await sb.from('inventory_data').select('id').limit(1);
-    if (!data?.length) return;
-    const { error } = await sb.from('inventory_data').update({
-      pos_products: JSON.stringify(posProducts),
-      products:     JSON.stringify(products),
-      updated_at:   new Date().toISOString()
-    }).eq('id', data[0].id);
-    if (error) { showToast('Error guardando tienda: ' + error.message, 'error'); console.error(error); }
-    else setSyncState('ok');
-  } catch(e) { showToast('Error: '+e.message,'error'); }
+    // Strip base64 photos
+    const cleanPosProducts = {};
+    for (const [id, sd] of Object.entries(posProducts)) {
+      cleanPosProducts[id] = {
+        ...sd,
+        photos: (sd.photos||[]).filter(p => !String(p).startsWith('data:')),
+        video:  (sd.video && !String(sd.video).startsWith('data:')) ? sd.video : null,
+      };
+    }
+    const itemCount = Object.keys(cleanPosProducts).length;
+    console.log('Saving tienda:', itemCount, 'items');
+
+    // Save to dedicated pos_tienda table — never overwritten by admin-v2
+    const { error } = await sb.from('pos_tienda').upsert({
+      id:         'main',
+      data:       cleanPosProducts,
+      updated_at: new Date().toISOString()
+    });
+
+    if (error) {
+      console.error('saveTiendaImmediate error:', error);
+      showToast('❌ Error guardando tienda: ' + error.message, 'error');
+      // Fallback: also try inventory_data
+      const { data: inv } = await sb.from('inventory_data').select('id').limit(1);
+      if (inv?.length) {
+        await sb.from('inventory_data').update({ pos_products: JSON.stringify(cleanPosProducts) }).eq('id', inv[0].id);
+      }
+    } else {
+      console.log('Tienda saved OK:', itemCount, 'items');
+      setSyncState('ok');
+      // Also save products for discounts
+      const { data: inv } = await sb.from('inventory_data').select('id').limit(1);
+      if (inv?.length) {
+        await sb.from('inventory_data').update({ products: JSON.stringify(products) }).eq('id', inv[0].id);
+      }
+    }
+  } catch(e) {
+    console.error('saveTiendaImmediate exception:', e);
+    showToast('Error: '+e.message,'error');
+  }
 }
 
 function debouncedSave() {
