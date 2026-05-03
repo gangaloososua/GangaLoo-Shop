@@ -1666,18 +1666,21 @@ async function saveData() {
     if (!rowId) throw new Error('No row ID');
 
     // Log sizes to identify what's large
-    const sizes = {
-      sales: JSON.stringify(sales).length,
-      payments: JSON.stringify(payments).length,
-      transactions: JSON.stringify(transactions).length,
-      purchase_payments: JSON.stringify(purchasePayments).length,
-      purchases: JSON.stringify(purchases).length,
-      customers: JSON.stringify(customers).length,
-      products: JSON.stringify(products).length,
+    const allArrays = {
+      sales, payments, transactions, purchasePayments, purchases,
+      customers, products, warehouses, categories, transfers,
+      accounts, accountingCategories, commissionPayouts,
+      accountTransfers, monthlyRates
     };
-    console.log('Data sizes (chars):', sizes);
-    const total = Object.values(sizes).reduce((a,b)=>a+b,0);
-    console.log('Total chars:', total, '≈', Math.round(total/1024), 'KB');
+    const sizes = {};
+    let total = 0;
+    for (const [k,v] of Object.entries(allArrays)) {
+      const s = JSON.stringify(v).length;
+      sizes[k] = Math.round(s/1024) + 'KB';
+      total += s;
+    }
+    console.log('Data sizes:', sizes);
+    console.log('Total:', Math.round(total/1024), 'KB');
 
     // Split into 4 small saves to stay under timeout/size limits
     const chunks = [
