@@ -871,10 +871,10 @@ function printBarcode(productId, sku, name, price) {
 
   // Load JsBarcode dynamically then draw to canvas
   function doRender() {
-    // 50mm x 30mm at 8px/mm = 400 x 240px
-    const PX_MM = 8;
-    const W = 50 * PX_MM; // 400
-    const H = 30 * PX_MM; // 240
+    // 50mm x 30mm at 12px/mm = 600 x 360px (higher DPI for sharper print)
+    const PX_MM = 12;
+    const W = 50 * PX_MM; // 600
+    const H = 30 * PX_MM; // 360
 
     const canvas = document.createElement('canvas');
     canvas.width  = W;
@@ -885,24 +885,46 @@ function printBarcode(productId, sku, name, price) {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, W, H);
 
-    // Store name
+    // Store name — small top
     ctx.fillStyle = '#000';
-    ctx.font = 'bold 14px Arial';
+    ctx.font = 'bold 18px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('GangaLoo', W/2, 18);
+    ctx.fillText('GangaLoo', W/2, 22);
 
-    // Product name (truncate)
-    ctx.font = 'bold 13px Arial';
-    ctx.fillText(safeName, W/2, 34);
+    // Product name — larger, word wrap if needed
+    ctx.font = 'bold 20px Arial';
+    const maxW = W - 20;
+    let nameLines = [];
+    const words = safeName.split(' ');
+    let line = '';
+    for (const word of words) {
+      const test = line ? line + ' ' + word : word;
+      if (ctx.measureText(test).width > maxW && line) {
+        nameLines.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+    }
+    if (line) nameLines.push(line);
+    nameLines = nameLines.slice(0,2); // max 2 lines
+    nameLines.forEach((l, i) => ctx.fillText(l, W/2, 46 + i*22));
 
-    // Draw barcode onto a temp SVG → image
+    const nameBottom = 46 + nameLines.length * 22;
+
+    // Draw barcode — large, full width
     const svgEl = document.createElementNS('http://www.w3.org/2000/svg','svg');
     document.body.appendChild(svgEl);
     try {
       JsBarcode(svgEl, safeSku, {
-        format: 'CODE128', width: 2, height: 70,
-        displayValue: true, fontSize: 12,
-        margin: 4, background: '#ffffff', lineColor: '#000000'
+        format: 'CODE128',
+        width: 2.8,
+        height: 110,
+        displayValue: true,
+        fontSize: 16,
+        margin: 2,
+        background: '#ffffff',
+        lineColor: '#000000'
       });
     } catch(e) {
       document.body.removeChild(svgEl);
@@ -910,23 +932,25 @@ function printBarcode(productId, sku, name, price) {
       return;
     }
 
-    // Convert SVG to image and draw on canvas
     const svgData = new XMLSerializer().serializeToString(svgEl);
     document.body.removeChild(svgEl);
     const svgBlob = new Blob([svgData], {type:'image/svg+xml;charset=utf-8'});
     const url = URL.createObjectURL(svgBlob);
     const img = new Image();
     img.onload = () => {
-      // Center barcode
-      const bx = (W - img.width) / 2;
-      ctx.drawImage(img, bx < 0 ? 0 : bx, 42, Math.min(img.width, W), 80);
+      // Draw barcode scaled to full width
+      const bcY = nameBottom + 4;
+      const scale = W / img.naturalWidth;
+      const bcH = img.naturalHeight * scale;
+      ctx.drawImage(img, 0, bcY, W, bcH);
       URL.revokeObjectURL(url);
 
-      // Price
+      // Price — large bold at bottom
+      const priceY = bcY + bcH + 4;
       ctx.fillStyle = '#000';
-      ctx.font = 'bold 16px Arial';
+      ctx.font = 'bold 28px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText(priceStr, W/2, H - 8);
+      ctx.fillText(priceStr, W/2, Math.min(priceY + 24, H - 4));
 
       // Download as PNG
       canvas.toBlob(blob => {
