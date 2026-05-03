@@ -377,6 +377,8 @@ select.field option { background:var(--surface2); }
             <span class="search-icon">🔍</span>
             <input class="field" id="posSearch" placeholder="Buscar producto o escanear SKU..." oninput="renderPosProducts()">
           </div>
+          <!-- Location filter chips -->
+          <div id="posLocationChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
           <div class="product-grid" id="posGrid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));"></div>
         </div>
         <!-- Cart side -->
@@ -934,9 +936,8 @@ function printBarcode(productId, sku, name, price) {
         format: 'CODE128',
         width: 1.8,
         height: 80,
-        displayValue: true,
-        fontSize: 14,
-        margin: 6,
+        displayValue: false,
+        margin: 4,
         background: '#ffffff',
         lineColor: '#000000'
       });
@@ -960,12 +961,17 @@ function printBarcode(productId, sku, name, price) {
       ctx.drawImage(img, pad, bcY, W - pad*2, bcH);
       URL.revokeObjectURL(url);
 
-      // Price — large bold at bottom
-      const priceY = bcY + bcH + 4;
+      // SKU below barcode
+      const skuY = bcY + bcH + 16;
       ctx.fillStyle = '#000';
-      ctx.font = 'bold 28px Arial';
+      ctx.font = '14px "Courier New", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(priceStr, W/2, Math.min(priceY + 24, H - 4));
+      ctx.fillText(safeSku, W/2, skuY);
+
+      // Price — large bold at bottom
+      const priceY = skuY + 6;
+      ctx.font = 'bold 26px Arial';
+      ctx.fillText(priceStr, W/2, Math.min(priceY + 22, H - 4));
 
       // Download as PNG
       canvas.toBlob(blob => {
@@ -1488,10 +1494,38 @@ function showScanResult(code) {
 }
 
 /* ─── POS / CART ─── */
+function renderPosLocationChips() {
+  const el = document.getElementById('posLocationChips');
+  if (!el) return;
+  // Collect all unique locations from tienda products
+  const locs = new Set();
+  Object.values(posProducts).forEach(sd => {
+    if (!sd.active) return;
+    if (sd.locations?.length) sd.locations.forEach(l => l.shelf && locs.add(l.shelf));
+    else if (sd.shelf) locs.add(sd.shelf);
+  });
+  if (!locs.size) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <button onclick="setPosLocation('')" class="pos-loc-chip ${_posLocationFilter===''?'active':''}" style="padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:${_posLocationFilter===''?'var(--accent)':'var(--surface2)'};color:${_posLocationFilter===''?'#fff':'var(--ink)'};font-size:12px;font-weight:600;cursor:pointer;">
+      ✨ Todos
+    </button>
+    ${[...locs].sort().map(l => `
+    <button onclick="setPosLocation('${l.replace(/'/g,"\'")}'')" class="pos-loc-chip ${_posLocationFilter===l?'active':''}" style="padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:${_posLocationFilter===l?'var(--accent)':'var(--surface2)'};color:${_posLocationFilter===l?'#fff':'var(--ink)'};font-size:12px;font-weight:600;cursor:pointer;">
+      📍 ${l}
+    </button>`).join('')}`;
+}
+
+function setPosLocation(loc) {
+  _posLocationFilter = loc;
+  renderPosLocationChips();
+  renderPosProducts();
+}
+
 function renderPosProducts() {
   const q    = document.getElementById('posSearch')?.value.toLowerCase() || '';
   const grid = document.getElementById('posGrid');
   const whId = getMaranathaWhId();
+  renderPosLocationChips();
 
   // Only show products that are in Tienda (have active posProducts entry)
   const list = products.filter(p => {
@@ -1500,6 +1534,11 @@ function renderPosProducts() {
     const stock = getStock(p.id, whId);
     if (stock <= 0) return false;
     if (q && !(p.name||'').toLowerCase().includes(q) && !(p.sku||'').toLowerCase().includes(q)) return false;
+    // Location filter
+    if (_posLocationFilter) {
+      const locs = sd.locations?.filter(l=>l.shelf) || (sd.shelf ? [{shelf:sd.shelf}] : []);
+      if (!locs.some(l => l.shelf === _posLocationFilter)) return false;
+    }
     return true;
   });
 
@@ -2061,6 +2100,7 @@ function closeModal() { document.getElementById('modalBackdrop').style.display =
 /* ─── TOAST ─── */
 /* ─── MULTI-LOCATION SLOTS ─── */
 let _currentSlotProductId = null;
+let _posLocationFilter = ''; // active location filter in POS
 
 function initLocationSlots(productId) {
   _currentSlotProductId = productId;
