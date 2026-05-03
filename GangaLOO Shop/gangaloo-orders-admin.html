@@ -662,8 +662,19 @@ function renderSidebar() {
 
   // Done button
   let doneBtn = '';
-  if (['scheduled','pickup'].includes(o.status)) {
-    doneBtn = `<button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:12px" onclick="markDone('${o.id}')">✅ Mark as Completed</button>`;
+  if (o.status === 'done') {
+    doneBtn = `<div style="text-align:center;padding:12px;background:#dcfce7;border-radius:10px;color:#166534;font-weight:700;margin-bottom:12px;">✅ Orden completada</div>`;
+  } else {
+    doneBtn = `
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+      ${!['scheduled','pickup'].includes(o.status) ? `
+      <button class="btn" style="width:100%;justify-content:center;background:#f59e0b;color:#fff;" onclick="markPickup('${o.id}')">
+        📦 Marcar como Listo para Recoger
+      </button>` : ''}
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="markDoneWithPayment('${o.id}')">
+        ✅ Completar — Recogido y Pagado
+      </button>
+    </div>`;
   }
 
   // Timeline
@@ -783,6 +794,39 @@ async function markDone(id) {
   addTimeline(o, '✅ Order completed');
   await upsertOrder(o);
   renderOrders(); renderSidebar();
+}
+
+async function markPickup(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+  o.status = 'pickup';
+  addTimeline(o, '📦 Listo para recoger');
+  await upsertOrder(o);
+  renderOrders(); renderSidebar(id);
+  toast('📦 Marcado como listo para recoger');
+}
+
+async function markDoneWithPayment(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+
+  // If balance > 0, ask for final payment amount
+  const bal = parseFloat(o.balance) || 0;
+  if (bal > 0) {
+    const input = prompt(`💰 Balance pendiente: RD$ ${bal.toLocaleString()}
+
+¿Cuánto pagó el cliente ahora? (Enter para confirmar monto completo)`, bal);
+    if (input === null) return; // cancelled
+    const paid = parseFloat(input) || bal;
+    o.paid = (parseFloat(o.paid) || 0) + paid;
+    o.balance = Math.max(0, bal - paid);
+  }
+
+  o.status = 'done';
+  addTimeline(o, `✅ Recogido y pagado — balance cobrado: RD$ ${bal.toLocaleString()}`);
+  await upsertOrder(o);
+  renderOrders(); renderSidebar(id);
+  toast('✅ ¡Orden completada!');
 }
 
 function copyLink(link) {
