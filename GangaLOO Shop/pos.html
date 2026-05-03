@@ -945,7 +945,7 @@ function printBarcode(productId, sku, name, price) {
   const priceStr = 'RD$ ' + (parseFloat(price)||0).toLocaleString('es-DO',{minimumFractionDigits:2});
 
   // Load JsBarcode dynamically then draw to canvas
-  function doRender() {
+  async function doRender() {
     // 50mm x 30mm at 12px/mm = 600 x 360px (higher DPI for sharper print)
     const PX_MM = 12;
     const W = 50 * PX_MM; // 600
@@ -988,17 +988,14 @@ function printBarcode(productId, sku, name, price) {
     const nameBottom = 46 + nameLines.length * 22;
 
     // Draw barcode — large, full width
-    const svgEl = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    const svgEl = document.createElement('canvas');
+    svgEl.style.display = 'none';
     document.body.appendChild(svgEl);
     try {
-      JsBarcode(svgEl, safeSku, {
-        format: 'CODE128',
-        width: 1.8,
-        height: 80,
-        displayValue: false,
-        margin: 4,
-        background: '#ffffff',
-        lineColor: '#000000'
+      await QRCode.toCanvas(svgEl, safeSku, {
+        width: 140,
+        margin: 1,
+        color: { dark: '#000000', light: '#ffffff' }
       });
     } catch(e) {
       document.body.removeChild(svgEl);
@@ -1006,51 +1003,41 @@ function printBarcode(productId, sku, name, price) {
       return;
     }
 
-    const svgData = new XMLSerializer().serializeToString(svgEl);
+    // svgEl was actually used as QR canvas target — draw it onto label
+    const qrSize = 150;
+    const qrX = (W - qrSize) / 2;
+    const bcY = nameBottom + 4;
+    ctx.drawImage(svgEl, qrX, bcY, qrSize, qrSize);
     document.body.removeChild(svgEl);
-    const svgBlob = new Blob([svgData], {type:'image/svg+xml;charset=utf-8'});
-    const url = URL.createObjectURL(svgBlob);
-    const img = new Image();
-    img.onload = () => {
-      // Draw barcode scaled to full width
-      const bcY = nameBottom + 4;
-      const scale = W / img.naturalWidth;
-      const bcH = img.naturalHeight * scale;
-      const pad = 10;
-      ctx.drawImage(img, pad, bcY, W - pad*2, bcH);
-      URL.revokeObjectURL(url);
 
-      // SKU below barcode
-      const skuY = bcY + bcH + 16;
-      ctx.fillStyle = '#000';
-      ctx.font = '14px "Courier New", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(safeSku, W/2, skuY);
+    // SKU below QR
+    const skuY = bcY + qrSize + 14;
+    ctx.fillStyle = '#000';
+    ctx.font = '13px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(safeSku, W/2, skuY);
 
-      // Price — large bold at bottom
-      const priceY = skuY + 6;
-      ctx.font = 'bold 26px Arial';
-      ctx.fillText(priceStr, W/2, Math.min(priceY + 22, H - 4));
+    // Price
+    ctx.font = 'bold 26px Arial';
+    ctx.fillText(priceStr, W/2, Math.min(skuY + 28, H - 4));
 
-      // Download as PNG
-      canvas.toBlob(blob => {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = (safeSku || 'etiqueta') + '_50x30.png';
-        a.click();
-        URL.revokeObjectURL(a.href);
-        showToast('✅ Imagen guardada — ábrela en Niimbot', 'success', 4000);
-      }, 'image/png');
-    };
-    img.src = url;
+    // Download
+    canvas.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = (safeSku || 'etiqueta') + '_50x30.png';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast('✅ Imagen guardada — ábrela en Niimbot', 'success', 4000);
+    }, 'image/png');
   }
 
   // Load JsBarcode if not already loaded
-  if (typeof JsBarcode !== 'undefined') {
+  if (typeof QRCode !== 'undefined') {
     doRender();
   } else {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js';
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
     s.onload = doRender;
     document.head.appendChild(s);
   }
@@ -1465,28 +1452,39 @@ function stopScanner() {
 
 function scanFrame(video) {
   if (!_scanning) return;
-  if (!window.BarcodeDetector) {
-    showToast('Este navegador no soporta detección de códigos. Usa Chrome/Android.','error');
-    stopScanner();
-    return;
-  }
-  const detector = new window.BarcodeDetector({ formats: ['code_128','code_39','ean_13','ean_8','qr_code'] });
   const canvas = document.createElement('canvas');
+
   function detect() {
     if (!_scanning) return;
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0);
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) { requestAnimationFrame(detect); return; }
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+
+    // Try BarcodeDetector first (Chrome/Android - fast, handles all formats)
+    if (window.BarcodeDetector) {
+      const detector = new BarcodeDetector({ formats: ['qr_code','code_128','code_39','ean_13','ean_8'] });
       detector.detect(canvas).then(codes => {
-        if (codes.length) {
-          const code = codes[0].rawValue;
-          stopScanner();
-          showScanResult(code);
-          return;
-        }
-      }).catch(()=>{});
+        if (codes.length) { stopScanner(); showScanResult(codes[0].rawValue); return; }
+        requestAnimationFrame(detect);
+      }).catch(() => requestAnimationFrame(detect));
+      return;
     }
-    requestAnimationFrame(detect);
+
+    // Fallback: jsQR for QR codes (works on all browsers)
+    if (window.jsQR) {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+      if (code) { stopScanner(); showScanResult(code.data); return; }
+      requestAnimationFrame(detect);
+      return;
+    }
+
+    // Load jsQR then retry
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+    s.onload = () => requestAnimationFrame(detect);
+    document.head.appendChild(s);
   }
   detect();
 }
