@@ -662,18 +662,23 @@ async function saveData() {
     if (!existing?.length) return;
     const rowId = existing[0].id;
 
-    // Chunk 1: transactional + tienda data
+    // Chunk 1: pos_products FIRST — always save tienda data
+    const { error: e0 } = await sb.from('inventory_data').update({
+      pos_products: JSON.stringify(posProducts),
+      updated_at:   new Date().toISOString()
+    }).eq('id', rowId);
+    if (e0) { console.error('pos_products save failed:', e0); throw e0; }
+
+    // Chunk 2: transactional data
     const { error: e1 } = await sb.from('inventory_data').update({
       sales:        JSON.stringify(sales),
       payments:     JSON.stringify(payments),
-      pos_products: JSON.stringify(posProducts),
       transactions: JSON.stringify(transactions),
       accounts:     JSON.stringify(accounts),
-      updated_at:   new Date().toISOString()
     }).eq('id', rowId);
     if (e1) throw e1;
 
-    // Chunk 2: catalog (products + purchases for stock/discounts)
+    // Chunk 3: catalog (products + purchases for stock/discounts)
     const { error: e2 } = await sb.from('inventory_data').update({
       products:  JSON.stringify(products),
       purchases: JSON.stringify(purchases),
@@ -683,6 +688,21 @@ async function saveData() {
 
     setSyncState('ok');
   } catch(e) { showToast('Error guardando: '+e.message,'error'); setSyncState('error'); }
+}
+
+async function saveTiendaImmediate() {
+  // Save pos_products immediately without debounce
+  try {
+    const { data } = await sb.from('inventory_data').select('id').limit(1);
+    if (!data?.length) return;
+    const { error } = await sb.from('inventory_data').update({
+      pos_products: JSON.stringify(posProducts),
+      products:     JSON.stringify(products),
+      updated_at:   new Date().toISOString()
+    }).eq('id', data[0].id);
+    if (error) { showToast('Error guardando tienda: ' + error.message, 'error'); console.error(error); }
+    else setSyncState('ok');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 function debouncedSave() {
@@ -1298,7 +1318,7 @@ function saveAddToStore(productId) {
     addedAt: posProducts[String(productId)]?.addedAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  debouncedSave();
+  saveTiendaImmediate();
   closeModal();
   renderInventario();
   renderTienda();
@@ -1309,7 +1329,7 @@ function saveAddToStore(productId) {
 function removeFromStore(productId) {
   if (!confirm('¿Quitar este producto de la tienda física?')) return;
   if (posProducts[String(productId)]) posProducts[String(productId)].active = false;
-  debouncedSave();
+  saveTiendaImmediate();
   closeModal();
   renderTienda();
   renderInventario();
