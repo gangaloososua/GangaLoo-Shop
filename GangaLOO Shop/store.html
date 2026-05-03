@@ -1271,7 +1271,7 @@ async function loadData(){
     </div>`;
   }
   let data,error;
-  try{({data,error}=await sb.from('inventory_data').select('products,purchases,warehouses,categories,store_config').limit(1));
+  try{({data,error}=await sb.from('inventory_data').select('products,purchases,warehouses,categories,store_config,pos_products').limit(1));
     if(data && data[0]){
     }}
   catch(e){console.warn('[store] fetch error:',e.message);return;}
@@ -1286,6 +1286,16 @@ async function loadData(){
   try{ allWarehouses=JSON.parse(row.warehouses||'[]'); }catch(e){ console.warn('[PARSE] warehouses:',e.message); allWarehouses=[]; }
   try{ allCategories=JSON.parse(row.categories||'[]'); }catch(e){ console.warn('[PARSE] categories:',e.message); allCategories=[]; }
   try{ storeConfig=JSON.parse(row.store_config||'{}'); }catch(e){ storeConfig={}; }
+  // Merge pos_products photos into products that have no imageUrl (stripped base64)
+  try {
+    const posProds = JSON.parse(row.pos_products || '{}');
+    allProducts = allProducts.map(p => {
+      if (!p.imageUrl && posProds[String(p.id)]?.photos?.[0]) {
+        return { ...p, imageUrl: posProds[String(p.id)].photos[0] };
+      }
+      return p;
+    });
+  } catch(e) { console.warn('[store] pos_products merge:', e.message); }
   // Detect data issues and log clearly
   console.log('[store] loaded products:'+allProducts.length+' purchases:'+allPurchases.length+' warehouses:'+allWarehouses.length);
   // Log if products empty
@@ -1567,20 +1577,13 @@ function renderProducts(){
   grid.innerHTML=filtered.map(p=>{
     const stk=selectedWH?getStock(p.id,selectedWH):getStock(p.id,null);
     const origPrice=p.price||p.finalPrice||p.salePrice||0;
-    const effectivePrice=(()=>{
-      if(p.discountType==='fixed'&&p.discountValue>0) return Math.max(0,origPrice-p.discountValue);
-      if(p.discountType==='percent'&&p.discountValue>0) return origPrice*(1-p.discountValue/100);
-      if(p.dealDiscount>0) return origPrice*(1-p.dealDiscount/100);
-      if(p.discountPrice>0&&p.discountPrice<origPrice) return p.discountPrice;
-      return origPrice;
-    })();
-    const hasDisc=effectivePrice<origPrice;
-    const basePrice=hasDisc?effectivePrice:origPrice;
+    const hasDisc=p.discountPrice&&p.discountPrice>0&&p.discountPrice<origPrice;
+    const basePrice=hasDisc?p.discountPrice:origPrice;
     const isClub=isClubMember();
     const guestMarkup=parseFloat(storeConfig?.guest_markup||0);
     const isGuest=!isLoggedIn();
     const price=getDisplayPrice(basePrice);
-    const discPct=isClub?10:(hasDisc?Math.round((1-effectivePrice/origPrice)*100):0);
+    const discPct=isClub?10:(hasDisc?Math.round((1-p.discountPrice/origPrice)*100):0);
     // Show original price strikethrough for: club (vs base), guest (base is cheaper), product discount
     const showOrig=isClub||hasDisc||(isGuest&&guestMarkup>0);
     const origToShow=isGuest&&guestMarkup>0?basePrice:(isClub?basePrice:origPrice);
@@ -1590,7 +1593,7 @@ function renderProducts(){
     if(stk===0){pc='sp-out';pt='Agotado';dis='disabled';}
     else if(stk<=5){pc='sp-low';pt=`Últimas ${stk}`;}
     else{pc='sp-in';pt='Disponible';}
-    return`<div class="pcard">
+    return`<div class="pcard" onclick="openProductModal(${p.id})" style="cursor:pointer;">
       <div class="pcard-img">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}
         <span class="stock-pill ${pc}">${pt}</span>
         ${isClub?`<span class="club-disc-badge">-10%</span>`:(hasDisc?`<span class="disc-badge">-${discPct}%</span>`:(isGuest&&guestMarkup>0?`<span style="background:#002D62;color:white;border-radius:20px;padding:1px 5px;font-size:.55em;font-weight:700;position:absolute;top:6px;left:6px;">Regístrate</span>`:''))}
@@ -1616,6 +1619,89 @@ function renderProducts(){
       </div>
     </div>`;
   }).join('');
+}
+
+/* ── PRODUCT MODAL ── */
+let _modalProductId = null;
+function openProductModal(id) {
+  const p = allProducts.find(x => String(x.id) === String(id));
+  if (!p) return;
+  _modalProductId = id;
+  const stk = selectedWH ? getStock(p.id, selectedWH) : getStock(p.id, null);
+  const origPrice = p.price || p.finalPrice || p.salePrice || 0;
+  const effectivePrice = (()=>{
+    if(p.discountType==='fixed'&&p.discountValue>0) return Math.max(0,origPrice-p.discountValue);
+    if(p.discountType==='percent'&&p.discountValue>0) return origPrice*(1-p.discountValue/100);
+    if(p.dealDiscount>0) return origPrice*(1-p.dealDiscount/100);
+    if(p.discountPrice>0&&p.discountPrice<origPrice) return p.discountPrice;
+    return origPrice;
+  })();
+  const hasDisc = effectivePrice < origPrice;
+  const price = getDisplayPrice(effectivePrice);
+  const pCatIds = (p.categoryIds&&p.categoryIds.length ? p.categoryIds : [p.categoryId]);
+  const cat = allCategories.find(c => pCatIds.map(String).includes(String(c.id)));
+
+  // Image
+  const imgEl = document.getElementById('prodModalImg');
+  imgEl.innerHTML = p.imageUrl
+    ? `<img src="${p.imageUrl}" alt="${esc(p.name)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">`
+    : `<div style="display:flex;align-items:center;justify-content:center;height:200px;font-size:4rem;">${cat?.icon||'🛍'}</div>`;
+
+  // Details
+  document.getElementById('prodModalCat').textContent = cat ? (cat.icon||'') + ' ' + cat.name : '';
+  document.getElementById('prodModalName').textContent = p.name;
+  document.getElementById('prodModalSku').textContent = p.sku ? 'SKU: ' + p.sku : '';
+  document.getElementById('prodModalDesc').textContent = p.description || p.notes || '';
+
+  // Price
+  const priceEl = document.getElementById('prodModalPrice');
+  priceEl.innerHTML = hasDisc
+    ? `<div style="display:flex;align-items:baseline;gap:8px;">
+        <span style="font-size:1.5rem;font-weight:800;color:#002D62;">RD$ ${fmt(price)}</span>
+        <span style="font-size:.9rem;color:#aaa;text-decoration:line-through;">RD$ ${fmt(origPrice)}</span>
+        <span style="background:#e63946;color:#fff;border-radius:6px;padding:2px 7px;font-size:.7rem;font-weight:700;">${Math.round((1-effectivePrice/origPrice)*100)}% OFF</span>
+      </div>`
+    : `<span style="font-size:1.5rem;font-weight:800;color:#002D62;">RD$ ${fmt(price)}</span>`;
+
+  // Stock
+  const stockEl = document.getElementById('prodModalStock');
+  if (stk === 0) stockEl.innerHTML = '<span style="color:#e63946;font-weight:600;font-size:.85rem;">⚠️ Agotado</span>';
+  else if (stk <= 5) stockEl.innerHTML = `<span style="color:#f59e0b;font-weight:600;font-size:.85rem;">⚡ Últimas ${stk} unidades</span>`;
+  else stockEl.innerHTML = '<span style="color:#10b981;font-weight:600;font-size:.85rem;">✅ Disponible</span>';
+
+  // Buttons
+  const addBtn = document.getElementById('prodModalAddBtn');
+  addBtn.disabled = stk === 0;
+  addBtn.style.opacity = stk === 0 ? '.5' : '1';
+  document.getElementById('prodModalWABtn').onclick = () => shareProductWA(id, price);
+
+  // Show modal
+  const modal = document.getElementById('prodModal');
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeProdModal() {
+  document.getElementById('prodModal').style.display = 'none';
+  document.body.style.overflow = '';
+  _modalProductId = null;
+}
+
+function addFromModal() {
+  if (!_modalProductId) return;
+  const p = allProducts.find(x => String(x.id) === String(_modalProductId));
+  if (!p) return;
+  const origPrice = p.price || p.finalPrice || p.salePrice || 0;
+  const effectivePrice = (()=>{
+    if(p.discountType==='fixed'&&p.discountValue>0) return Math.max(0,origPrice-p.discountValue);
+    if(p.discountType==='percent'&&p.discountValue>0) return origPrice*(1-p.discountValue/100);
+    if(p.dealDiscount>0) return origPrice*(1-p.dealDiscount/100);
+    if(p.discountPrice>0&&p.discountPrice<origPrice) return p.discountPrice;
+    return origPrice;
+  })();
+  const price = getDisplayPrice(effectivePrice);
+  addCart(p.id, p.name, price, p.sku||'', effectivePrice);
+  closeProdModal();
 }
 
 /* ── MOBILE SEARCH ── */
@@ -2176,8 +2262,6 @@ function getActiveDeal() { return getActiveDeals()[0] || null; }
 
 function dealSalePrice(p) {
   const base = p.price || p.finalPrice || 0;
-  if (p.discountType === 'fixed'   && p.discountValue > 0) return Math.max(0, base - p.discountValue);
-  if (p.discountType === 'percent' && p.discountValue > 0) return base * (1 - p.discountValue / 100);
   if (p.dealDiscount > 0) return base * (1 - p.dealDiscount / 100);
   if (p.discountPrice > 0) return p.discountPrice;
   return base;
@@ -3117,5 +3201,26 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 if(sb){initAuth();}else{loadData();}
 </script>
+<!-- PRODUCT MODAL -->
+<div id="prodModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:800;align-items:center;justify-content:center;padding:16px;overflow-y:auto;" onclick="if(event.target===this)closeProdModal()">
+  <div style="background:#fff;border-radius:20px;width:100%;max-width:520px;margin:auto;overflow:hidden;position:relative;">
+    <button onclick="closeProdModal()" style="position:absolute;top:12px;right:14px;background:rgba(0,0,0,.08);border:none;border-radius:50%;width:32px;height:32px;font-size:1.1rem;cursor:pointer;z-index:2;">✕</button>
+    <div id="prodModalImg" style="aspect-ratio:1;overflow:hidden;background:#f5f0e8;max-height:280px;"></div>
+    <div style="padding:20px 22px 24px;">
+      <div id="prodModalCat" style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:6px;"></div>
+      <div id="prodModalName" style="font-size:1.2rem;font-weight:700;margin-bottom:6px;line-height:1.3;"></div>
+      <div id="prodModalSku" style="font-size:.75rem;color:#aaa;margin-bottom:12px;"></div>
+      <div id="prodModalPrice" style="margin-bottom:14px;"></div>
+      <div id="prodModalStock" style="margin-bottom:16px;"></div>
+      <div id="prodModalDesc" style="font-size:.85rem;color:#555;line-height:1.6;margin-bottom:18px;"></div>
+      <div style="display:flex;gap:10px;">
+        <button id="prodModalAddBtn" style="flex:1;background:#002D62;color:#fff;border:none;border-radius:12px;padding:13px;font-size:.95rem;font-weight:700;cursor:pointer;" onclick="addFromModal()">🛒 Agregar al carrito</button>
+        <button id="prodModalWABtn" style="background:#25D366;color:#fff;border:none;border-radius:12px;padding:13px 16px;font-size:.95rem;cursor:pointer;" title="Compartir por WhatsApp">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>

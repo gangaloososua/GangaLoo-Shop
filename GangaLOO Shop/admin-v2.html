@@ -1684,29 +1684,33 @@ async function saveData() {
     sorted.forEach(([k,v]) => console.log(' ', k + ':', v));
     console.log('Total:', Math.round(total/1024), 'KB');
 
-    // Split into 4 small saves to stay under timeout/size limits
+    // Split into chunks — accounts FIRST so balance updates always save
     const chunks = [
       {
+        // Chunk 1: Financial critical — accounts + payments + sales
+        accounts:           JSON.stringify(accounts),
         sales:              JSON.stringify(sales),
         payments:           JSON.stringify(payments),
         updated_at:         new Date().toISOString(),
       },
       {
+        // Chunk 2: Transactions
         transactions:       JSON.stringify(transactions),
         account_transfers:  JSON.stringify(accountTransfers),
         commission_payouts: JSON.stringify(commissionPayouts),
       },
       {
+        // Chunk 3: Purchases
         purchase_payments:  JSON.stringify(purchasePayments),
         purchases:          JSON.stringify(purchases),
       },
       {
+        // Chunk 4: Catalog (products may be large but less critical)
         products:              JSON.stringify(products),
         customers:             JSON.stringify(customers),
         warehouses:            JSON.stringify(warehouses),
         categories:            JSON.stringify(categories),
         transfers:             JSON.stringify(transfers),
-        accounts:              JSON.stringify(accounts),
         accounting_categories: JSON.stringify(accountingCategories),
         monthly_rates:         JSON.stringify(monthlyRates),
         store_config:          JSON.stringify(storeConfig),
@@ -4522,7 +4526,7 @@ function printReciboPDF(saleId, paymentId) {
 function sendReciboWA(saleId, paymentId) {
   const sale     = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
-  const allPay   = payments.filter(p => p.saleId === saleId);
+  const allPay   = payments.filter(p => String(p.saleId) === String(saleId));
   const thisPay  = paymentId ? allPay.find(p => String(p.id) === String(paymentId)) : allPay[allPay.length-1];
   const paidTotal= allPay.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const pending  = Math.max(0, Math.round((saleTotal(sale)-paidTotal)*100)/100);
