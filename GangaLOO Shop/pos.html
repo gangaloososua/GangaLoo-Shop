@@ -2265,8 +2265,15 @@ function showToast(msg, type='info', duration=3000) {
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    // Unregister old SW to force fresh load of updated files
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      regs.forEach(r => r.unregister());
+    });
     navigator.serviceWorker.register('/sw.js')
-      .then(r => console.log('SW ok:', r.scope))
+      .then(r => {
+        console.log('SW ok:', r.scope);
+        r.update(); // force check for new version
+      })
       .catch(e => console.log('SW error:', e));
   });
 }
