@@ -682,7 +682,16 @@ function getMaranathaTotal() {
   return products.reduce((s,p) => s+getStock(p.id, getMaranathaWhId()), 0);
 }
 function getProductPrice(p) {
+  const base = parseFloat(p.salePrice || p.price || p.retailPrice || 0);
+  if (p.dealDiscount > 0) return Math.round(base * (1 - p.dealDiscount / 100));
+  if (p.discountPrice > 0 && p.discountPrice < base) return p.discountPrice;
+  return base;
+}
+function getOriginalPrice(p) {
   return parseFloat(p.salePrice || p.price || p.retailPrice || 0);
+}
+function hasDiscount(p) {
+  return (p.dealDiscount > 0) || (p.discountPrice > 0 && p.discountPrice < getOriginalPrice(p));
 }
 function getCategoryName(catIds) {
   if (!catIds) return '';
@@ -915,6 +924,20 @@ function openEditStoreProduct(productId) {
         <input type="file" id="as_videoInput" accept="video/*" style="display:none;" onchange="handleVideoUpload(this,'as')">
       </div>
       <div class="form-group">
+        <label class="form-label">🏷️ Descuento</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div>
+            <label style="font-size:11px;color:var(--ink3);">% Descuento (ej: 20)</label>
+            <input class="field" id="as_dealDiscount" type="number" min="0" max="100" placeholder="0" value="${p.dealDiscount||''}">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--ink3);">Precio fijo (RD$)</label>
+            <input class="field" id="as_discount" type="number" placeholder="Ej: 1500" value="${p.discountPrice||''}">
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px;">Precio actual: ${formatDOP(getOriginalPrice(p))} → con descuento: <strong>${formatDOP(getProductPrice(p))}</strong></div>
+      </div>
+      <div class="form-group">
         <label class="form-label">📝 Notas</label>
         <textarea class="field" id="as_notes" rows="2" placeholder="...">${existing.notes||''}</textarea>
       </div>
@@ -1108,10 +1131,27 @@ function saveAddToStore(productId) {
     showToast('Espera — el video todavía se está subiendo', 'error');
     return;
   }
-  const shelf  = document.getElementById('as_shelf')?.value.trim() || '';
-  const notes  = document.getElementById('as_notes')?.value.trim() || '';
-  const photos = window._storePhotos || [];
-  const video  = window._storeVideo?.url || null;
+  const shelf    = document.getElementById('as_shelf')?.value.trim() || '';
+  const notes    = document.getElementById('as_notes')?.value.trim() || '';
+  const photos   = window._storePhotos || [];
+  const video    = window._storeVideo?.url || null;
+  const discVal     = parseFloat(document.getElementById('as_discount')?.value) || 0;
+  const dealDiscVal = parseFloat(document.getElementById('as_dealDiscount')?.value) || 0;
+  // Apply discount to product object
+  const prodIdx  = products.findIndex(x => String(x.id) === String(productId));
+  if (prodIdx >= 0) {
+    const basePrice = getOriginalPrice(products[prodIdx]);
+    if (dealDiscVal > 0 && dealDiscVal <= 100) {
+      products[prodIdx].dealDiscount = dealDiscVal;
+      delete products[prodIdx].discountPrice;
+    } else if (discVal > 0 && discVal < basePrice) {
+      products[prodIdx].discountPrice = discVal;
+      delete products[prodIdx].dealDiscount;
+    } else {
+      delete products[prodIdx].discountPrice;
+      delete products[prodIdx].dealDiscount;
+    }
+  }
   posProducts[String(productId)] = {
     active: true, shelf, notes, photos,
     video: video || posProducts[String(productId)]?.video || null,
@@ -1171,7 +1211,13 @@ function renderTienda() {
         </div>
         <div class="store-card-body">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.1em;color:var(--accent2);">${price>0?formatDOP(price):'—'}</span>
+            <div>
+              ${hasDiscount(p) ? `
+                <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.1em;color:var(--rose);">${formatDOP(price)}</span>
+                <span style="font-size:10px;color:var(--ink3);text-decoration:line-through;margin-left:4px;">${formatDOP(getOriginalPrice(p))}</span>
+                ${p.dealDiscount>0?`<span style="font-size:10px;background:var(--rose);color:#fff;border-radius:4px;padding:1px 5px;margin-left:4px;">-${p.dealDiscount}%</span>`:''}
+              ` : `<span style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.1em;color:var(--accent2);">${price>0?formatDOP(price):'—'}</span>`}
+            </div>
             <span style="font-size:11px;" class="${stock>0?stock<=3?'stock-low':'stock-ok':'stock-zero'}">${stock} uds</span>
           </div>
           ${sd.shelf ? `<div class="shelf-badge">📍 ${sd.shelf}</div>` : ''}
