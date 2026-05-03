@@ -727,7 +727,16 @@ function showTab(tab) {
   if (tab === 'scanner') startScanner();
   else stopScanner();
   if (tab === 'ventas') renderVentas();
-  if (tab === 'pos') renderPosProducts();
+  if (tab === 'pos') {
+    // Remove any cart items not in tienda
+    cart = cart.filter(item => {
+      const sd = posProducts[String(item.productId)];
+      return sd && sd.active;
+    });
+    renderCart();
+    updateCartBadge();
+    renderPosProducts();
+  }
   if (tab === 'ajustes') renderLocationsList();
   if (tab === 'nuevo') { renderNuevoCategorias(); renderPendingList(); }
 }
@@ -1408,22 +1417,33 @@ function showScanResult(code) {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
         <div style="background:var(--surface3);border-radius:8px;padding:10px;text-align:center;">
-          <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;">Stock</div>
-          <div style="font-weight:800;font-size:1.2em;color:${stock>0?'var(--emerald)':'var(--rose)'};">${stock}</div>
+          <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;">Stock total</div>
+          <div style="font-weight:800;font-size:1.2em;color:${stock>0?'var(--emerald)':'var(--rose)'};">${stock} uds</div>
         </div>
         <div style="background:var(--surface3);border-radius:8px;padding:10px;text-align:center;">
-          <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;">Ubicación</div>
-          <div style="font-weight:600;font-size:.85em;">${sd.shelf||'—'}</div>
+          <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;">Precio</div>
+          <div style="font-weight:800;font-size:.95em;color:var(--accent2);">${price>0?formatDOP(price):'—'}</div>
         </div>
       </div>
       ${sd.notes ? `<div style="font-size:12px;color:var(--ink2);font-style:italic;margin-bottom:10px;">${sd.notes}</div>` : ''}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="btn btn-success" onclick="addToCart('${p.id}');showToast('Agregado ✓','success')" style="padding:13px;font-size:15px;font-weight:700;">
-          🛒 Agregar
-        </button>
-        <button class="btn btn-primary" onclick="addToCart('${p.id}');showTab('pos')" style="padding:13px;font-size:15px;font-weight:700;">
-          → Al carrito
-        </button>
+      <!-- Per-location slots -->
+      <div style="margin-bottom:12px;">
+        <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;font-weight:700;margin-bottom:6px;">📍 Ubicaciones</div>
+        ${(() => {
+          const locs = sd.locations?.filter(l=>l.shelf) || (sd.shelf ? [{shelf:sd.shelf, qty:1}] : []);
+          if (!locs.length) return '<div style="font-size:13px;color:var(--ink3);">Sin ubicación registrada</div>';
+          return locs.map(l => `
+            <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface3);border-radius:8px;padding:9px 12px;margin-bottom:6px;">
+              <div>
+                <span style="font-weight:700;font-size:14px;">📍 ${l.shelf}</span>
+                <span style="font-size:11px;color:var(--ink3);margin-left:8px;">${l.qty||1} ud${(l.qty||1)>1?'s':''}</span>
+              </div>
+              <button onclick="addToCartFromLocation('${p.id}','${(l.shelf||'').replace(/'/g,"\'")}',event);showToast('✓ Agregado','success',1500)"
+                style="background:var(--accent);color:#fff;border:none;border-radius:7px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">
+                + Agregar
+              </button>
+            </div>`).join('');
+        })()}
       </div>
     </div>`;
 }
@@ -1505,17 +1525,24 @@ function addToCartFromLocation(productId, shelf, event) {
   showToast(`✓ Agregado desde ${shelf}`, 'success', 1500);
 }
 
-function addToCart(productId) {
+function addToCart(productId, shelfOverride) {
   const p = products.find(x => String(x.id) === String(productId));
   if (!p) return;
+  // Only allow products that are in Tienda
+  const sd = posProducts[String(productId)];
+  if (!sd || !sd.active) {
+    showToast('Este producto no está en tienda — agrégalo primero en Tienda', 'error');
+    return;
+  }
   const stock = getStock(p.id, getMaranathaWhId());
-  const existing = cart.find(c => String(c.productId) === String(productId));
+  const shelf = shelfOverride || sd.shelf || '';
+  const existing = cart.find(c => String(c.productId) === String(productId) && (c.shelf||'') === shelf);
   if (existing) {
     if (existing.qty >= stock) { showToast('Sin más stock disponible','error'); return; }
     existing.qty++;
   } else {
     if (stock <= 0) { showToast('Sin stock disponible','error'); return; }
-    cart.push({ productId, qty:1, price: getProductPrice(p), name: p.name, sku: p.sku });
+    cart.push({ productId, qty:1, price: getProductPrice(p), name: p.name, sku: p.sku||'', shelf });
   }
   renderCart();
   updateCartBadge();
