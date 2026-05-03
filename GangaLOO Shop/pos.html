@@ -1237,7 +1237,7 @@ function renderTienda() {
             <span style="font-size:11px;" class="${stock>0?stock<=3?'stock-low':'stock-ok':'stock-zero'}">${stock} uds</span>
           </div>
           ${sd.locations?.length > 0
-            ? sd.locations.map(l => `<div class="shelf-badge">📍 ${l.shelf}${sd.locations.length>1?' ('+l.qty+')'':''}</div>`).join('')
+            ? sd.locations.map(l => `<div class="shelf-badge">📍 ${l.shelf}${sd.locations.length>1?' ('+l.qty+')':''}</div>`).join('')
             : sd.shelf ? `<div class="shelf-badge">📍 ${sd.shelf}</div>` : ''}
           ${sd.photos?.length > 1 ? `<div style="margin-top:6px;font-size:11px;color:var(--ink3);">📸 ${sd.photos.length} fotos</div>` : ''}
           ${sd.notes ? `<div style="margin-top:6px;font-size:11px;color:var(--ink2);font-style:italic;">${sd.notes}</div>` : ''}
@@ -1947,7 +1947,7 @@ async function addProductoDirecto() {
 
     const costDOP = parseFloat(document.getElementById('nCostoDOP').value) || 0;
     const costUSD = parseFloat(document.getElementById('nCostoUSD').value) || 0;
-    const fotos = []; // photos not stored in POS
+    // photos not stored in POS - fotos = []
 
     // 2. Add stock — skipBalance=true so cost is recorded for margins
     //    but does NOT create a financial transaction (already paid outside system)
