@@ -1368,31 +1368,79 @@ function showScanResult(code) {
 
 /* ─── POS / CART ─── */
 function renderPosProducts() {
-  const q = document.getElementById('posSearch')?.value.toLowerCase() || '';
+  const q    = document.getElementById('posSearch')?.value.toLowerCase() || '';
   const grid = document.getElementById('posGrid');
+  const whId = getMaranathaWhId();
+
+  // Only show products that are in Tienda (have active posProducts entry)
   const list = products.filter(p => {
-    const stock = getStock(p.id, getMaranathaWhId());
+    const sd = posProducts[String(p.id)];
+    if (!sd || !sd.active) return false;
+    const stock = getStock(p.id, whId);
     if (stock <= 0) return false;
     if (q && !(p.name||'').toLowerCase().includes(q) && !(p.sku||'').toLowerCase().includes(q)) return false;
     return true;
-  }).slice(0, 60);
+  });
 
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1;padding:40px 20px;">
+      <div class="empty-icon">🏪</div>
+      <h3>No hay productos en tienda</h3>
+      <p style="font-size:13px;">Agrega productos desde la pestaña Tienda primero</p>
+    </div>`;
+    return;
+  }
+
+  // Render each product with location slots as separate add buttons
   grid.innerHTML = list.map(p => {
+    const sd    = posProducts[String(p.id)] || {};
     const price = getProductPrice(p);
-    const stock = getStock(p.id, getMaranathaWhId());
-    const img   = posProducts[String(p.id)]?.photos?.[0] || p.imageUrl || '';
+    const stock = getStock(p.id, whId);
+    const img   = sd.photos?.[0] || p.imageUrl || '';
+    const locs  = sd.locations?.filter(l=>l.shelf) || (sd.shelf ? [{shelf:sd.shelf, qty:1}] : []);
+
+    const locButtons = locs.length > 1
+      ? locs.map(l => `
+          <button onclick="addToCartFromLocation('${p.id}','${l.shelf.replace(/'/g,"\'")}',event)"
+            style="width:100%;background:var(--surface3);border:1.5px solid var(--border);border-radius:7px;padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;text-align:left;margin-top:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>📍 ${l.shelf}</span>
+            <span style="background:var(--accent);color:#fff;border-radius:4px;padding:1px 6px;">+ Agregar</span>
+          </button>`).join('')
+      : `<button onclick="addToCart('${p.id}')" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:7px;font-size:12px;font-weight:700;cursor:pointer;margin-top:4px;">
+          🛒 ${locs[0]?.shelf ? '📍 '+locs[0].shelf : 'Agregar al carrito'}
+        </button>`;
+
     return `
-      <div class="product-card" onclick="addToCart('${p.id}')">
-        <div class="product-thumb" style="height:100px;">
-          ${img ? `<img src="${img}" alt="${p.name}" loading="lazy">` : `<span>💆</span>`}
+      <div class="product-card" style="cursor:default;">
+        <div class="product-thumb" style="height:90px;" onclick="addToCart('${p.id}')">
+          ${img ? `<img src="${img}" alt="${p.name}" loading="lazy">` : `<span>🛍</span>`}
         </div>
         <div class="product-info">
           <div class="product-name" style="font-size:12px;">${p.name}</div>
           <div class="product-price" style="font-size:13px;">${price>0?formatDOP(price):'—'}</div>
           <div class="product-stock ${stock<=3?'stock-low':'stock-ok'}" style="font-size:10px;">${stock} uds</div>
+          ${locButtons}
         </div>
       </div>`;
   }).join('');
+}
+
+function addToCartFromLocation(productId, shelf, event) {
+  event?.stopPropagation();
+  const p = products.find(x => String(x.id) === String(productId));
+  if (!p) return;
+  const stock = getStock(p.id, getMaranathaWhId());
+  const existing = cart.find(c => String(c.productId) === String(productId) && c.shelf === shelf);
+  if (existing) {
+    if (existing.qty >= stock) { showToast('Sin más stock','error'); return; }
+    existing.qty++;
+  } else {
+    if (stock <= 0) { showToast('Sin stock disponible','error'); return; }
+    cart.push({ productId, qty:1, price: getProductPrice(p), name: p.name, sku: p.sku||'', shelf });
+  }
+  renderCart();
+  updateCartBadge();
+  showToast(`✓ Agregado desde ${shelf}`, 'success', 1500);
 }
 
 function addToCart(productId) {
@@ -1423,7 +1471,7 @@ function renderCart() {
   badge.textContent = `${cart.reduce((s,i)=>s+i.qty,0)} items`;
   el.innerHTML = cart.map((item,i) => `
     <div class="cart-item">
-      <div class="cart-item-name">${item.name}<div style="font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace;">${item.sku||''}</div></div>
+      <div class="cart-item-name">${item.name}<div style="font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace;">${item.shelf?'📍 '+item.shelf+' · ':''} ${item.sku||''}</div></div>
       <div class="qty-ctrl">
         <button class="qty-btn" onclick="changeQty(${i},-1)">−</button>
         <div class="qty-val">${item.qty}</div>
