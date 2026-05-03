@@ -902,9 +902,9 @@ function openInvProductModal(productId) {
       </div>
       ${p.sku ? `
         <div style="margin-bottom:16px;">
-          <div class="form-label">Código de barras (SKU)</div>
-          <div class="barcode-wrap" id="barcodeWrap_${p.id}">
-            <svg id="barcode_${p.id}"></svg>
+          <div class="form-label">📱 Código QR (SKU)</div>
+          <div class="barcode-wrap" id="barcodeWrap_${p.id}" style="display:flex;align-items:center;justify-content:center;padding:8px;">
+            <canvas id="barcode_${p.id}" style="border-radius:6px;"></canvas>
           </div>
           <button class="btn btn-ghost btn-xs" style="margin-top:8px;" id="printBarcodeBtn_${p.id}" onclick="printBarcodeForProduct('${p.id}')">🖨️ Imprimir etiqueta</button>
         </div>
@@ -920,15 +920,25 @@ function openInvProductModal(productId) {
     </div>
   `);
 
-  // Render barcode after modal opens
+  // Render QR code after modal opens
   setTimeout(() => {
     if (p.sku) {
-      try {
-        JsBarcode(`#barcode_${p.id}`, p.sku, {
-          format:'CODE128', width:2, height:60, displayValue:true,
-          font:'DM Mono', fontSize:12, background:'#fff', lineColor:'#000'
-        });
-      } catch(e) {}
+      const canvas = document.getElementById(`barcode_${p.id}`);
+      if (!canvas) return;
+      const renderQR = () => {
+        try {
+          QRCode.toCanvas(canvas, p.sku, { width: 120, margin: 1,
+            color: { dark: '#000000', light: '#ffffff' } });
+        } catch(e) { console.warn('QR render:', e); }
+      };
+      if (typeof QRCode !== 'undefined') {
+        renderQR();
+      } else {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js';
+        s.onload = renderQR;
+        document.head.appendChild(s);
+      }
     }
   }, 100);
 }
@@ -1037,7 +1047,7 @@ function printBarcode(productId, sku, name, price) {
     doRender();
   } else {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js';
     s.onload = doRender;
     document.head.appendChild(s);
   }
