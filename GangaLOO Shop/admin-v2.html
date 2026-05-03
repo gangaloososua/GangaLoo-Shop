@@ -1870,7 +1870,9 @@ function getCustomerName(id) {
 }
 
 function getAccountName(id) {
-  return accounts.find(a => String(a.id) === String(id))?.name || id || '—';
+  if (!id) return '—';
+  if (String(id) === 'cash-pos') return '💵 Caja POS';
+  return accounts.find(a => String(a.id) === String(id))?.name || String(id) || '—';
 }
 
 function getProductName(id) {
@@ -2359,7 +2361,7 @@ function renderDashboard() {
     rsEl.innerHTML = '<div class="empty-state"><div class="empty-icon">🧾</div><p>Sin ventas aún</p></div>';
   } else {
     rsEl.innerHTML = recentSales.map(s => {
-      const inv    = s.invoiceNum || s.invoiceNumber || '#'+s.id;
+      const inv    = (s.isPosSale ? '🏪 ' : '') + (s.invoiceNum || s.invoiceNumber || '#'+s.id);
       const total  = saleTotal(s);
       const paid   = paidMap2[s.id] || 0;
       const pend   = Math.max(0, total - paid);

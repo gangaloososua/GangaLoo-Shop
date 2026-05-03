@@ -1630,6 +1630,12 @@ function openCheckout(type) {
           </datalist>
         </div>
         <div class="form-group">
+          <label class="form-label">💳 Cuenta que recibe el pago</label>
+          <select class="field" id="chkAccount">
+            ${accounts.filter(a=>a.active!==false&&a.currency==='DOP').map(a=>`<option value="${a.id}">${a.name} (${formatDOP(a.balance)})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
           <label class="form-label">Referencia / Nota</label>
           <input class="field" id="chkRef" placeholder="Efectivo · venta directa...">
         </div>
@@ -1765,15 +1771,35 @@ async function completeSale(type, total) {
   };
   sales.push(newSale);
 
-  /* Register payment */
-  if (type === 'cash' || deposit > 0) {
+  /* Register payment with selected account */
+  const acctId = document.getElementById('chkAccount')?.value || accounts.find(a=>a.active!==false&&a.currency==='DOP')?.id || '';
+  const payAmt = type === 'cash' ? total : deposit;
+  if (payAmt > 0) {
+    // Payment record
     payments.push({
       id:        generateId(),
       saleId:    newSale.id,
-      amount:    type === 'cash' ? total : deposit,
-      accountId: 'cash-pos',
+      amount:    payAmt,
+      accountId: acctId,
       date,
-      reference: type === 'cash' ? (ref||'Efectivo POS') : `Abono reserva · ${customerName}`,
+      reference: type === 'cash' ? (ref||'Venta POS') : `Abono reserva · ${customerName}`,
+    });
+    // Update account balance
+    const acct = accounts.find(a => String(a.id) === String(acctId));
+    if (acct) acct.balance = Math.round((acct.balance + payAmt)*100)/100;
+    // Accounting transaction
+    const revCat = accountingCategories.find(c => (c.type==='income') && (c.name||'').toLowerCase().includes('revenue'));
+    transactions.push({
+      id:          generateId(),
+      type:        'income',
+      description: `Venta POS — ${invoiceNum}${customerName && customerName!=='Tienda Física GangaLoo' ? ' · '+customerName : ''}`,
+      amount:      payAmt,
+      accountId:   acctId,
+      categoryId:  revCat?.id || '',
+      date,
+      reference:   invoiceNum,
+      isPosSale:   true,
+      saleId:      newSale.id,
     });
   }
 
@@ -1866,6 +1892,7 @@ function renderVentas() {
         <th style="padding:10px 14px;text-align:right;font-weight:700;font-size:12px;color:var(--ink2);">Total</th>
         <th style="padding:10px 14px;text-align:right;font-weight:700;font-size:12px;color:var(--ink2);">Pagado</th>
         <th style="padding:10px 14px;text-align:center;font-weight:700;font-size:12px;color:var(--ink2);">Estado</th>
+        <th style="padding:10px 14px;text-align:center;font-weight:700;font-size:12px;color:var(--ink2);"></th>
       </tr></thead>
       <tbody>
         ${posSales.map((s,i) => {
@@ -1882,10 +1909,107 @@ function renderVentas() {
                 ${pending<=0?'✓ Pagada':'⏳ '+formatDOP(pending)}
               </span>
             </td>
+            <td style="padding:10px 14px;text-align:center;">
+              <button onclick="openEditPosSale('${s.id}')" style="background:var(--surface3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;">✏️</button>
+            </td>
           </tr>`;
         }).join('')}
       </tbody>
     </table>`;
+}
+
+/* ─── EDIT POS SALE ─── */
+function openEditPosSale(saleId) {
+  const s = sales.find(x => String(x.id) === String(saleId));
+  if (!s) return;
+  const pmt = payments.find(p => String(p.saleId) === String(saleId));
+  const txn = transactions.find(t => t.isPosSale && String(t.saleId) === String(saleId));
+  const acctOpts = accounts.filter(a=>a.active!==false&&a.currency==='DOP')
+    .map(a=>`<option value="${a.id}" ${String(a.id)===String(pmt?.accountId)?'selected':''}>${a.name} (${formatDOP(a.balance)})</option>`).join('');
+
+  openModal(`
+    <div class="modal-head">
+      <div class="modal-title">✏️ Editar Venta POS — ${s.invoiceNum||'#'+s.id}</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px;">
+        <div style="font-weight:700;">${s.customer||'Tienda Física'}</div>
+        <div style="color:var(--ink3);">${s.date} · Total: ${formatDOP(s.total||0)}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">💳 Cuenta (corregir si está mal)</label>
+        <select class="field" id="editSaleAcct">${acctOpts}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Monto pagado (RD$)</label>
+        <input class="field" type="number" id="editSaleAmt" value="${pmt?.amount||s.total||0}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Referencia / Nota</label>
+        <input class="field" id="editSaleRef" value="${pmt?.reference||s.notes||''}">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEditPosSale('${saleId}')">💾 Guardar corrección</button>
+    </div>
+  `);
+}
+
+async function saveEditPosSale(saleId) {
+  const s       = sales.find(x => String(x.id) === String(saleId));
+  if (!s) return;
+  const newAcct = document.getElementById('editSaleAcct').value;
+  const newAmt  = parseFloat(document.getElementById('editSaleAmt').value) || 0;
+  const newRef  = document.getElementById('editSaleRef').value.trim();
+
+  // Find existing payment
+  const pmtIdx = payments.findIndex(p => String(p.saleId) === String(saleId));
+  const oldAcctId = pmtIdx >= 0 ? payments[pmtIdx].accountId : null;
+  const oldAmt    = pmtIdx >= 0 ? payments[pmtIdx].amount    : 0;
+
+  // Reverse old account balance
+  if (oldAcctId) {
+    const oldAcct = accounts.find(a => String(a.id) === String(oldAcctId));
+    if (oldAcct) oldAcct.balance = Math.round((oldAcct.balance - oldAmt)*100)/100;
+  }
+
+  // Apply new account balance
+  const newAcctObj = accounts.find(a => String(a.id) === String(newAcct));
+  if (newAcctObj) newAcctObj.balance = Math.round((newAcctObj.balance + newAmt)*100)/100;
+
+  // Update payment
+  if (pmtIdx >= 0) {
+    payments[pmtIdx].accountId = newAcct;
+    payments[pmtIdx].amount    = newAmt;
+    payments[pmtIdx].reference = newRef;
+  } else {
+    payments.push({ id: generateId(), saleId, amount: newAmt, accountId: newAcct, date: s.date, reference: newRef });
+  }
+
+  // Update or create accounting transaction
+  const txnIdx = transactions.findIndex(t => t.isPosSale && String(t.saleId) === String(saleId));
+  if (txnIdx >= 0) {
+    transactions[txnIdx].accountId = newAcct;
+    transactions[txnIdx].amount    = newAmt;
+    transactions[txnIdx].description = `Venta POS — ${s.invoiceNum||saleId}${newRef?' · '+newRef:''}`;
+  } else {
+    const revCat = accountingCategories.find(c => c.type==='income' && (c.name||'').toLowerCase().includes('revenue'));
+    transactions.push({
+      id: generateId(), type: 'income',
+      description: `Venta POS — ${s.invoiceNum||saleId}`,
+      amount: newAmt, accountId: newAcct,
+      categoryId: revCat?.id || '',
+      date: s.date, reference: s.invoiceNum,
+      isPosSale: true, saleId,
+    });
+  }
+
+  await saveData();
+  closeModal();
+  renderVentas();
+  showToast('✅ Venta corregida', 'success');
 }
 
 /* ─── MODAL ─── */
