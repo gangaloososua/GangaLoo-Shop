@@ -1653,38 +1653,51 @@ async function loadAllData() {
 /* ─── DATA SAVE ─── */
 async function saveData() {
   setSaveState('saving');
-  const payload = {
-    warehouses:           JSON.stringify(warehouses),
-    categories:           JSON.stringify(categories),
-    products:             JSON.stringify(products),
-    purchases:            JSON.stringify(purchases),
-    transfers:            JSON.stringify(transfers),
-    sales:                JSON.stringify(sales),
-    accounts:             JSON.stringify(accounts),
-    accounting_categories: JSON.stringify(accountingCategories),
-    transactions:         JSON.stringify(transactions),
-    customers:            JSON.stringify(customers),
-    payments:             JSON.stringify(payments),
-    commission_payouts:   JSON.stringify(commissionPayouts),
-    account_transfers:    JSON.stringify(accountTransfers),
-    purchase_payments:    JSON.stringify(purchasePayments),
-    monthly_rates:        JSON.stringify(monthlyRates),
-    store_config:         JSON.stringify(storeConfig),
-    updated_at:           new Date().toISOString()
-  };
-  /* We need a row identifier — use a fixed constant row approach */
-  const { data: existing } = await sb.from('inventory_data').select('id').limit(1);
-  let err;
-  if (existing && existing[0]) {
-    ({ error: err } = await sb.from('inventory_data').update(payload).eq('id', existing[0].id));
-  } else {
-    ({ error: err } = await sb.from('inventory_data').insert(payload));
-  }
-  if (err) {
-    setSaveState('error');
-    showToast('Error al guardar: ' + err.message, 'error');
-  } else {
+  try {
+    const { data: existing } = await sb.from('inventory_data').select('id').limit(1);
+    let rowId;
+    if (!existing || !existing[0]) {
+      // Insert minimal row first
+      const { data: ins } = await sb.from('inventory_data').insert({ updated_at: new Date().toISOString() }).select('id');
+      rowId = ins?.[0]?.id;
+    } else {
+      rowId = existing[0].id;
+    }
+    if (!rowId) throw new Error('No row ID');
+
+    // Split into two saves to stay under Supabase payload limit
+    // Chunk 1: high-frequency transactional data
+    const { error: e1 } = await sb.from('inventory_data').update({
+      sales:             JSON.stringify(sales),
+      payments:          JSON.stringify(payments),
+      transactions:      JSON.stringify(transactions),
+      purchase_payments: JSON.stringify(purchasePayments),
+      account_transfers: JSON.stringify(accountTransfers),
+      commission_payouts: JSON.stringify(commissionPayouts),
+      updated_at:        new Date().toISOString(),
+    }).eq('id', rowId);
+    if (e1) throw e1;
+
+    // Chunk 2: catalog / config data
+    const { error: e2 } = await sb.from('inventory_data').update({
+      warehouses:            JSON.stringify(warehouses),
+      categories:            JSON.stringify(categories),
+      products:              JSON.stringify(products),
+      purchases:             JSON.stringify(purchases),
+      transfers:             JSON.stringify(transfers),
+      accounts:              JSON.stringify(accounts),
+      accounting_categories: JSON.stringify(accountingCategories),
+      customers:             JSON.stringify(customers),
+      monthly_rates:         JSON.stringify(monthlyRates),
+      store_config:          JSON.stringify(storeConfig),
+    }).eq('id', rowId);
+    if (e2) throw e2;
+
     setSaveState('saved');
+  } catch(err) {
+    setSaveState('error');
+    console.error('Save error:', err);
+    showToast('Error al guardar: ' + (err.message || JSON.stringify(err)), 'error');
   }
 }
 
