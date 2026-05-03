@@ -887,9 +887,11 @@ function openAddToStoreModal(productId) {
     <div class="modal-body">
       <div style="font-weight:600;margin-bottom:16px;">${p.name}</div>
       <div class="form-group">
-        <label class="form-label">📍 Ubicación en tienda</label>
-        <input class="field" id="as_shelf" placeholder="Ej: Pasillo A, Estante 2, Lado derecho" value="${existing.shelf||''}">
-        <div id="as_shelfChips" style="display:none;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+        <label class="form-label">📍 Ubicaciones en tienda</label>
+        <div id="as_locationSlots" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+        <button class="btn btn-ghost btn-sm" onclick="addLocationSlot()" style="width:100%;">+ Agregar ubicación</button>
+        <div id="as_stockHint" style="font-size:11px;color:var(--ink3);margin-top:4px;"></div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px;">Puedes poner unidades en diferentes ubicaciones</div>
       </div>
       <div class="form-group">
         <label class="form-label">📸 Fotos &amp; 🎥 Video del producto</label>
@@ -910,7 +912,7 @@ function openAddToStoreModal(productId) {
   window._storePhotos = [...(existing.photos||[])];
   window._storeVideo = existing.video ? { type: 'url', url: existing.video } : null;
   renderPhotoGrid('as');
-  setTimeout(() => renderShelfChips('as'), 50);
+  setTimeout(() => initLocationSlots(String(p.id)), 50);
 }
 
 function openEditStoreProduct(productId) {
@@ -964,7 +966,7 @@ function openEditStoreProduct(productId) {
   window._storePhotos = [...(existing.photos||[])];
   window._storeVideo = existing.video ? { type: 'url', url: existing.video } : null;
   renderPhotoGrid('as');
-  setTimeout(() => renderShelfChips('as'), 50);
+  setTimeout(() => initLocationSlots(String(productId)), 50);
 }
 
 function renderPhotoGrid(prefix) {
@@ -1164,7 +1166,10 @@ function saveAddToStore(productId) {
     }
   }
   posProducts[String(productId)] = {
-    active: true, shelf, notes, photos,
+    active: true,
+    shelf,                  // primary shelf (first slot)
+    locations: locationSlots, // all slots
+    notes, photos,
     video: video || posProducts[String(productId)]?.video || null,
     addedAt: posProducts[String(productId)]?.addedAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -1231,7 +1236,9 @@ function renderTienda() {
             </div>
             <span style="font-size:11px;" class="${stock>0?stock<=3?'stock-low':'stock-ok':'stock-zero'}">${stock} uds</span>
           </div>
-          ${sd.shelf ? `<div class="shelf-badge">📍 ${sd.shelf}</div>` : ''}
+          ${sd.locations?.length > 0
+            ? sd.locations.map(l => `<div class="shelf-badge">📍 ${l.shelf}${sd.locations.length>1?' ('+l.qty+')'':''}</div>`).join('')
+            : sd.shelf ? `<div class="shelf-badge">📍 ${sd.shelf}</div>` : ''}
           ${sd.photos?.length > 1 ? `<div style="margin-top:6px;font-size:11px;color:var(--ink3);">📸 ${sd.photos.length} fotos</div>` : ''}
           ${sd.notes ? `<div style="margin-top:6px;font-size:11px;color:var(--ink2);font-style:italic;">${sd.notes}</div>` : ''}
         </div>
@@ -1740,6 +1747,82 @@ function openModal(html) {
 function closeModal() { document.getElementById('modalBackdrop').style.display = 'none'; }
 
 /* ─── TOAST ─── */
+/* ─── MULTI-LOCATION SLOTS ─── */
+let _currentSlotProductId = null;
+
+function initLocationSlots(productId) {
+  _currentSlotProductId = productId;
+  const existing = posProducts[productId] || {};
+  const slots = existing.locations?.length ? existing.locations
+    : existing.shelf ? [{ shelf: existing.shelf, qty: 1 }]
+    : [{ shelf: '', qty: 1 }];
+  renderLocationSlots(slots, productId);
+}
+
+function renderLocationSlots(slots, productId) {
+  const container = document.getElementById('as_locationSlots');
+  if (!container) return;
+  const stock = getStock(productId, getMaranathaWhId());
+  const locs = getPosLocations();
+  const locOptions = locs.map(l => `<option value="${l}">${l}</option>`).join('');
+
+  container.innerHTML = slots.map((slot, i) => `
+    <div class="loc-slot" style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;background:var(--surface3);border-radius:8px;padding:8px;">
+      <div>
+        <select class="field loc-shelf" style="margin-bottom:4px;" onchange="this.nextElementSibling.value=this.value">
+          <option value="">— Seleccionar ubicación —</option>
+          ${locOptions}
+          ${slot.shelf && !locs.includes(slot.shelf) ? `<option value="${slot.shelf}" selected>${slot.shelf}</option>` : ''}
+        </select>
+        <input class="field loc-shelf" placeholder="O escribir nueva..." value="${slot.shelf||''}" style="font-size:12px;">
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+        <label style="font-size:10px;color:var(--ink3);">Uds</label>
+        <input class="field loc-qty" type="number" min="1" max="${stock}" value="${slot.qty||1}" style="width:52px;text-align:center;">
+      </div>
+      ${slots.length > 1 ? `<button onclick="removeLocationSlot(${i})" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;">✕</button>` : '<div></div>'}
+    </div>
+  `).join('');
+
+  // Set select values
+  container.querySelectorAll('.loc-slot').forEach((slot, i) => {
+    const sel = slot.querySelector('select.loc-shelf');
+    const inp = slot.querySelectorAll('.loc-shelf')[1];
+    if (sel && slots[i]?.shelf) sel.value = slots[i].shelf;
+    // sync select → input
+    sel?.addEventListener('change', () => { if (sel.value) inp.value = sel.value; });
+  });
+
+  // Show stock hint
+  const hint = document.getElementById('as_stockHint');
+  if (hint) hint.textContent = `${stock} unidades disponibles en almacén`;
+}
+
+function addLocationSlot() {
+  const container = document.getElementById('as_locationSlots');
+  if (!container) return;
+  const currentSlots = getCurrentSlots();
+  currentSlots.push({ shelf: '', qty: 1 });
+  renderLocationSlots(currentSlots, _currentSlotProductId);
+}
+
+function removeLocationSlot(idx) {
+  const currentSlots = getCurrentSlots();
+  currentSlots.splice(idx, 1);
+  renderLocationSlots(currentSlots, _currentSlotProductId);
+}
+
+function getCurrentSlots() {
+  const slots = [];
+  document.querySelectorAll('.loc-slot').forEach(slot => {
+    const inputs = slot.querySelectorAll('.loc-shelf');
+    const shelf = inputs[1]?.value.trim() || inputs[0]?.value.trim() || '';
+    const qty   = parseInt(slot.querySelector('.loc-qty')?.value) || 1;
+    slots.push({ shelf, qty });
+  });
+  return slots;
+}
+
 function showToast(msg, type='info', duration=3000) {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
