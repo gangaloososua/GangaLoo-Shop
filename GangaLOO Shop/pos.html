@@ -481,15 +481,7 @@ select.field option { background:var(--surface2); }
           <textarea class="field" id="nDescripcion" placeholder="Color, tamaño, detalles..." rows="2" style="resize:vertical;"></textarea>
         </div>
 
-        <!-- Photos -->
-        <div style="margin-bottom:12px;">
-          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:8px;">📷 Fotos del producto</label>
-          <div id="nFotosGrid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
-          <label style="display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;">
-            <span>📷 Tomar / Subir foto</span>
-            <input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="handleNuevoPhotos(this)">
-          </label>
-        </div>
+
 
         <!-- Error + Submit -->
         <div style="background:rgba(124,92,252,.08);border:1px solid rgba(124,92,252,.2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--ink2);margin-bottom:10px;">
@@ -1855,7 +1847,7 @@ async function addProductoDirecto() {
   try {
     const newId = 'prod_' + Date.now();
     const whId  = getMaranathaWhId();
-    const fotos = nuevoPhotos.map(p => p.base64);
+    const fotos = []; // photos disabled in POS
 
     // 1. Add to products array
     const newProduct = {
@@ -1865,8 +1857,6 @@ async function addProductoDirecto() {
       sku: sku || '',
       categoryId: catId || null,
       active: true,
-      imageUrl: '',   // no base64 in products array — stored in posProducts only
-      images: [],
       notes: desc || '',
       createdAt: new Date().toISOString(),
     };
@@ -1874,6 +1864,7 @@ async function addProductoDirecto() {
 
     const costDOP = parseFloat(document.getElementById('nCostoDOP').value) || 0;
     const costUSD = parseFloat(document.getElementById('nCostoUSD').value) || 0;
+    const fotos = []; // photos not stored in POS
 
     // 2. Add stock — skipBalance=true so cost is recorded for margins
     //    but does NOT create a financial transaction (already paid outside system)
@@ -1893,12 +1884,11 @@ async function addProductoDirecto() {
     });
 
     // 3. Add to posProducts (tienda) with location
-    // Store max 1 photo to keep payload small
     posProducts[newId] = {
       active: true,
       shelf: shelf || '',
       notes: desc || '',
-      photos: fotos.slice(0, 1),
+      photos: [],
       addedAt: new Date().toISOString(),
     };
 
@@ -1922,11 +1912,9 @@ async function addProductoDirecto() {
     if (e2) throw e2;
 
     // 5. Reset form
-    nuevoPhotos = [];
     ['nNombre','nSku','nPrecio','nDescripcion','nShelf','nCostoDOP','nCostoUSD'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('nCantidad').value = '1';
     document.getElementById('nCategoria').value = '';
-    document.getElementById('nFotosGrid').innerHTML = '';
 
     // 6. Refresh views
     renderInventario();
