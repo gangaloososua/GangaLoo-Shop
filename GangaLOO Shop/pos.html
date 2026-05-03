@@ -976,26 +976,36 @@ function printBarcode(productId, sku, name, price) {
     ctx.textAlign = 'center';
     ctx.fillText('GangaLoo', W/2, 24);
 
-    // Product name — larger, word wrap if needed
-    ctx.font = 'bold 24px Arial';
+    // Product name — word wrap into 2 lines, auto-shrink if too long
     const maxW = W - 20;
     let nameLines = [];
     const words = safeName.split(' ');
     let line = '';
     for (const word of words) {
       const test = line ? line + ' ' + word : word;
+      ctx.font = 'bold 26px Arial';
       if (ctx.measureText(test).width > maxW && line) {
-        nameLines.push(line);
-        line = word;
-      } else {
-        line = test;
-      }
+        nameLines.push(line); line = word;
+      } else { line = test; }
     }
     if (line) nameLines.push(line);
-    nameLines = nameLines.slice(0,2); // max 2 lines
-    nameLines.forEach((l, i) => ctx.fillText(l, W/2, 46 + i*22));
+    // Force split at midpoint if single long line
+    if (nameLines.length === 1 && ctx.measureText(nameLines[0]).width > maxW) {
+      const mid = safeName.indexOf(' ', Math.floor(safeName.length/2));
+      if (mid > 0) nameLines = [safeName.slice(0, mid), safeName.slice(mid+1)];
+    }
+    nameLines = nameLines.slice(0, 2);
+    nameLines.forEach((l, i) => {
+      // Shrink font until it fits
+      let fs = 26;
+      ctx.font = `bold ${fs}px Arial`;
+      while (ctx.measureText(l).width > maxW && fs > 13) {
+        fs--; ctx.font = `bold ${fs}px Arial`;
+      }
+      ctx.fillText(l, W/2, 50 + i*30);
+    });
 
-    const nameBottom = 46 + nameLines.length * 22;
+    const nameBottom = 50 + nameLines.length * 30;
 
     // Draw barcode — large, full width
     const svgEl = document.createElement('canvas');
