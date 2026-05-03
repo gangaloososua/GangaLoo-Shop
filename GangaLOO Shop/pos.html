@@ -1151,7 +1151,8 @@ function saveAddToStore(productId) {
     showToast('Espera — el video todavía se está subiendo', 'error');
     return;
   }
-  const shelf    = document.getElementById('as_shelf')?.value.trim() || '';
+  const _locSlots2 = typeof getCurrentSlots === 'function' ? getCurrentSlots() : [];
+  const shelf    = _locSlots2[0]?.shelf || document.getElementById('as_shelf')?.value.trim() || '';
   const notes    = document.getElementById('as_notes')?.value.trim() || '';
   const photos   = window._storePhotos || [];
   const video    = window._storeVideo?.url || null;
@@ -1175,7 +1176,7 @@ function saveAddToStore(productId) {
   posProducts[String(productId)] = {
     active: true,
     shelf,                  // primary shelf (first slot)
-    locations: locationSlots, // all slots
+    locations: _locSlots2.length ? _locSlots2 : (shelf ? [{shelf, qty:1}] : []), // all slots
     notes, photos,
     video: video || posProducts[String(productId)]?.video || null,
     addedAt: posProducts[String(productId)]?.addedAt || new Date().toISOString(),
