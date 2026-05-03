@@ -943,29 +943,7 @@ button{font-family:'Jost',sans-serif;}
 .club-badge{background:linear-gradient(135deg,#002D62,#CF142B);color:white;border-radius:20px;padding:3px 10px;font-size:.7em;font-weight:700;letter-spacing:.05em;display:inline-block;}
 .club-price{color:#CF142B;font-weight:800;}
 .club-orig{text-decoration:line-through;color:#aaa;font-size:.82em;margin-right:4px;}
-.club-disc-badge{position:absolute;top:6px;left:6px;background:linear-gradient(135deg,#002D62,#CF142B);color:white;border-radius:20px;padding:2px 6px;font-size:.62em;font-weight:700;}
-/* ── PRODUCT MODAL ── */
-.prod-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:center;justify-content:center;padding:16px;}
-.prod-modal-bg.open{display:flex;}
-.prod-modal{background:#fff;border-radius:20px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3);}
-.prod-modal-close{position:sticky;top:12px;float:right;margin:12px 12px 0 0;background:rgba(0,0,0,.08);border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;z-index:1;display:flex;align-items:center;justify-content:center;}
-.prod-modal-img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px 16px 0 0;display:block;}
-.prod-modal-img-placeholder{width:100%;aspect-ratio:1;background:#f5f4fb;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:center;font-size:80px;}
-.prod-modal-body{padding:20px;}
-.prod-modal-cat{font-size:11px;font-weight:800;text-transform:uppercase;color:var(--violet);letter-spacing:.05em;margin-bottom:6px;}
-.prod-modal-name{font-size:1.3em;font-weight:900;color:var(--ink);margin-bottom:8px;font-family:'Cabinet Grotesk',sans-serif;}
-.prod-modal-sku{font-size:12px;color:var(--ink-3);margin-bottom:12px;}
-.prod-modal-desc{font-size:14px;color:var(--ink-2);line-height:1.7;margin-bottom:16px;white-space:pre-line;}
-.prod-modal-price{font-size:2em;font-weight:900;color:var(--violet);margin-bottom:4px;}
-.prod-modal-orig{font-size:13px;color:var(--ink-3);text-decoration:line-through;margin-bottom:4px;}
-.prod-modal-video{width:100%;border-radius:12px;margin-bottom:16px;max-height:260px;}
-.prod-modal-footer{position:sticky;bottom:0;background:#fff;padding:16px 20px 20px;border-top:1px solid #f0eeff;margin:0 -20px -20px;border-radius:0 0 20px 20px;}
-.prod-modal-add{width:100%;padding:18px;background:var(--violet);color:#fff;border:none;border-radius:16px;font-size:1.1em;font-weight:900;cursor:pointer;font-family:'Cabinet Grotesk',sans-serif;letter-spacing:-.01em;box-shadow:0 4px 20px rgba(108,92,231,.4);transition:transform .1s,box-shadow .1s;}
-.prod-modal-add:active{transform:scale(.98);box-shadow:0 2px 10px rgba(108,92,231,.3);}
-.prod-modal-add:disabled{background:#ccc;cursor:not-allowed;box-shadow:none;}
-.prod-modal-stock{font-size:12px;text-align:center;margin-top:10px;font-weight:600;}
-@media(max-width:480px){.prod-modal{border-radius:20px 20px 0 0;max-height:95vh;}.prod-modal-bg{align-items:flex-end;padding:0;}.prod-modal-footer{padding:14px 16px 28px;}}
-</style>
+.club-disc-badge{position:absolute;top:6px;left:6px;background:linear-gradient(135deg,#002D62,#CF142B);color:white;border-radius:20px;padding:2px 6px;font-size:.62em;font-weight:700;}</style>
 </head>
 <body>
 
@@ -1589,13 +1567,20 @@ function renderProducts(){
   grid.innerHTML=filtered.map(p=>{
     const stk=selectedWH?getStock(p.id,selectedWH):getStock(p.id,null);
     const origPrice=p.price||p.finalPrice||p.salePrice||0;
-    const hasDisc=p.discountPrice&&p.discountPrice>0&&p.discountPrice<origPrice;
-    const basePrice=hasDisc?p.discountPrice:origPrice;
+    const effectivePrice=(()=>{
+      if(p.discountType==='fixed'&&p.discountValue>0) return Math.max(0,origPrice-p.discountValue);
+      if(p.discountType==='percent'&&p.discountValue>0) return origPrice*(1-p.discountValue/100);
+      if(p.dealDiscount>0) return origPrice*(1-p.dealDiscount/100);
+      if(p.discountPrice>0&&p.discountPrice<origPrice) return p.discountPrice;
+      return origPrice;
+    })();
+    const hasDisc=effectivePrice<origPrice;
+    const basePrice=hasDisc?effectivePrice:origPrice;
     const isClub=isClubMember();
     const guestMarkup=parseFloat(storeConfig?.guest_markup||0);
     const isGuest=!isLoggedIn();
     const price=getDisplayPrice(basePrice);
-    const discPct=isClub?10:(hasDisc?Math.round((1-p.discountPrice/origPrice)*100):0);
+    const discPct=isClub?10:(hasDisc?Math.round((1-effectivePrice/origPrice)*100):0);
     // Show original price strikethrough for: club (vs base), guest (base is cheaper), product discount
     const showOrig=isClub||hasDisc||(isGuest&&guestMarkup>0);
     const origToShow=isGuest&&guestMarkup>0?basePrice:(isClub?basePrice:origPrice);
@@ -1605,7 +1590,7 @@ function renderProducts(){
     if(stk===0){pc='sp-out';pt='Agotado';dis='disabled';}
     else if(stk<=5){pc='sp-low';pt=`Últimas ${stk}`;}
     else{pc='sp-in';pt='Disponible';}
-    return`<div class="pcard" data-pid="${p.id}" onclick="openProduct(this.dataset.pid)">
+    return`<div class="pcard">
       <div class="pcard-img">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}
         <span class="stock-pill ${pc}">${pt}</span>
         ${isClub?`<span class="club-disc-badge">-10%</span>`:(hasDisc?`<span class="disc-badge">-${discPct}%</span>`:(isGuest&&guestMarkup>0?`<span style="background:#002D62;color:white;border-radius:20px;padding:1px 5px;font-size:.55em;font-weight:700;position:absolute;top:6px;left:6px;">Regístrate</span>`:''))}
@@ -1615,7 +1600,7 @@ function renderProducts(){
         <div class="pcard-name">${p.name}</div>
         <div style="display:flex;align-items:center;gap:6px;">
           <div class="pcard-sku">SKU: ${p.sku||'—'}</div>
-          <button class="wa-share-btn" onclick="event.stopPropagation();shareProductWA(${p.id},${price})" title="Compartir por WhatsApp">
+          <button class="wa-share-btn" onclick="shareProductWA(${p.id},${price})" title="Compartir por WhatsApp">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
           </button>
         </div>
@@ -1627,7 +1612,7 @@ function renderProducts(){
           ${isClub?'<span class="club-badge">Club -10%</span>':''}
           ${isGuest&&guestMarkup>0?'<span style="font-size:.68em;color:#888;display:block;margin-top:2px;">Inicia sesión para precio especial</span>':''}
         </div>
-        <button class="add-btn" ${dis} onclick="event.stopPropagation();addCart(${p.id},'${esc(p.name)}',${price},'${esc(p.sku||'')}',${basePrice})" title="Agregar">+</button>
+        <button class="add-btn" ${dis} onclick="addCart(${p.id},'${esc(p.name)}',${price},'${esc(p.sku||'')}',${basePrice})" title="Agregar">+</button>
       </div>
     </div>`;
   }).join('');
@@ -1637,65 +1622,6 @@ function renderProducts(){
 function openMobSearch(){document.getElementById('mobSearchOvl').classList.add('open');setTimeout(()=>document.getElementById('mobSearchInput').focus(),100);}
 function closeMobSearch(e){if(!e||e.target===document.getElementById('mobSearchOvl'))document.getElementById('mobSearchOvl').classList.remove('open');}
 function syncSearch(val){document.getElementById('searchInput').value=val;searchQuery=val.toLowerCase();renderProducts();}
-
-
-/* ── PRODUCT DETAIL MODAL ── */
-function openProduct(id) {
-  const p = allProducts.find(x => String(x.id) === String(id));
-  if (!p) return;
-  const cat = allCategories.find(c => (p.categoryIds||[p.categoryId]).map(String).includes(String(c.id)));
-  const stk = selectedWH ? getStock(p.id, selectedWH) : getStock(p.id, null);
-  const origPrice = p.price || p.finalPrice || p.salePrice || 0;
-  const hasDisc = p.discountPrice && p.discountPrice > 0 && p.discountPrice < origPrice;
-  const basePrice = hasDisc ? p.discountPrice : origPrice;
-  const price = getDisplayPrice(basePrice);
-  const origToShow = isClubMember() ? basePrice : origPrice;
-  const showOrig = isClubMember() || hasDisc;
-  const outOfStock = stk === 0;
-
-  const imgHtml = p.imageUrl
-    ? `<img class="prod-modal-img" src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`
-    : `<div class="prod-modal-img-placeholder">${cat?.icon || '💇'}</div>`;
-
-  const videoHtml = p.videoUrl
-    ? `<video class="prod-modal-video" controls playsinline><source src="${p.videoUrl}"></video>`
-    : '';
-
-  const descHtml = p.description
-    ? `<div class="prod-modal-desc">${p.description}</div>`
-    : '';
-
-  const stockLabel = outOfStock ? 'Sin stock' : stk <= 5 ? `Últimas ${stk} unidades` : 'Disponible';
-  const stockColor = outOfStock ? '#f43f5e' : stk <= 5 ? '#f59e0b' : '#10b981';
-
-  document.getElementById('prodModalInner').innerHTML = `
-    ${imgHtml}
-    <div class="prod-modal-body">
-      ${cat ? `<div class="prod-modal-cat">${cat.icon ? cat.icon + ' ' : ''}${cat.name}</div>` : ''}
-      <div class="prod-modal-name">${p.name}</div>
-      ${p.sku ? `<div class="prod-modal-sku">SKU: ${p.sku}</div>` : ''}
-      ${descHtml}
-      ${videoHtml}
-      ${showOrig ? `<div class="prod-modal-orig">RD$ ${fmt(origToShow)}</div>` : ''}
-      <div class="prod-modal-price">RD$ ${fmt(price)}</div>
-      <div class="prod-modal-footer">
-        <button class="prod-modal-add" ${outOfStock ? 'disabled' : ''}
-          data-pid="${p.id}" data-name="${esc(p.name)}" data-price="${price}" data-sku="${esc(p.sku||'')}" data-base="${basePrice}"
-          onclick="addCart(this.dataset.pid,this.dataset.name,parseFloat(this.dataset.price),this.dataset.sku,parseFloat(this.dataset.base));closeProdModal()">
-          ${outOfStock ? '❌ Sin Stock' : '🛒 Agregar al carrito'}
-        </button>
-        <div class="prod-modal-stock" style="color:${stockColor}">${stockLabel}</div>
-      </div>
-    </div>
-  `;
-  document.getElementById('prodModalBg').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeProdModal() {
-  document.getElementById('prodModalBg').classList.remove('open');
-  document.body.style.overflow = '';
-}
 
 /* ── CART ── */
 function shareProductWA(id, price) {
@@ -2250,6 +2176,8 @@ function getActiveDeal() { return getActiveDeals()[0] || null; }
 
 function dealSalePrice(p) {
   const base = p.price || p.finalPrice || 0;
+  if (p.discountType === 'fixed'   && p.discountValue > 0) return Math.max(0, base - p.discountValue);
+  if (p.discountType === 'percent' && p.discountValue > 0) return base * (1 - p.discountValue / 100);
   if (p.dealDiscount > 0) return base * (1 - p.dealDiscount / 100);
   if (p.discountPrice > 0) return p.discountPrice;
   return base;
@@ -2355,7 +2283,7 @@ function buildDealSection() {
           <div class="dcb-block"><span class="dcb-num" id="dealCd_0_S">--</span><span class="dcb-lbl">seg</span></div>
         </div>
         <button class="deal-add-btn" ${stk===0?'disabled':''}
-          onclick="event.stopPropagation();addCart(${deal.id},'${esc(deal.name)}',${saleP},'${esc(deal.sku||'')}',${deal.price||deal.finalPrice||saleP})">
+          onclick="addCart(${deal.id},'${esc(deal.name)}',${saleP},'${esc(deal.sku||'')}',${deal.price||deal.finalPrice||saleP})">
           ${stk===0?'❌ Agotado':'🛍 Agregar al Carrito'}
         </button>
       </div>
@@ -2395,7 +2323,7 @@ function buildDealSection() {
             <span class="cdv" id="${cdId}_S">--</span>s
           </div>
           <button class="deal-chip-add" ${stk===0?'disabled':''}
-            onclick="event.stopPropagation();addCart(${deal.id},'${esc(deal.name)}',${saleP},'${esc(deal.sku||'')}',${deal.price||deal.finalPrice||saleP})">
+            onclick="addCart(${deal.id},'${esc(deal.name)}',${saleP},'${esc(deal.sku||'')}',${deal.price||deal.finalPrice||saleP})">
             ${stk===0?'Agotado':'🛍 Agregar'}
           </button>
         </div>
@@ -3189,13 +3117,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 if(sb){initAuth();}else{loadData();}
 </script>
-
-<!-- ── PRODUCT DETAIL MODAL ── -->
-<div class="prod-modal-bg" id="prodModalBg" onclick="if(event.target===this)closeProdModal()">
-  <div class="prod-modal" id="prodModal">
-    <button class="prod-modal-close" onclick="closeProdModal()">✕</button>
-    <div id="prodModalInner"></div>
-  </div>
-</div>
 </body>
 </html>

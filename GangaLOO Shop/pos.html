@@ -681,17 +681,25 @@ function getStock(productId, warehouseId) {
 function getMaranathaTotal() {
   return products.reduce((s,p) => s+getStock(p.id, getMaranathaWhId()), 0);
 }
+function getOriginalPrice(p) {
+  return parseFloat(p.salePrice || p.price || p.retailPrice || 0);
+}
 function getProductPrice(p) {
-  const base = parseFloat(p.salePrice || p.price || p.retailPrice || 0);
+  const base = getOriginalPrice(p);
+  // admin-v2 discountType/discountValue
+  if (p.discountType === 'fixed' && p.discountValue > 0) return Math.max(0, base - p.discountValue);
+  if (p.discountType === 'percent' && p.discountValue > 0) return Math.round(base * (1 - p.discountValue / 100));
+  // legacy fields
   if (p.dealDiscount > 0) return Math.round(base * (1 - p.dealDiscount / 100));
   if (p.discountPrice > 0 && p.discountPrice < base) return p.discountPrice;
   return base;
 }
-function getOriginalPrice(p) {
-  return parseFloat(p.salePrice || p.price || p.retailPrice || 0);
-}
 function hasDiscount(p) {
-  return (p.dealDiscount > 0) || (p.discountPrice > 0 && p.discountPrice < getOriginalPrice(p));
+  const base = getOriginalPrice(p);
+  return (p.discountType === 'fixed' && p.discountValue > 0)
+      || (p.discountType === 'percent' && p.discountValue > 0)
+      || (p.dealDiscount > 0)
+      || (p.discountPrice > 0 && p.discountPrice < base);
 }
 function getCategoryName(catIds) {
   if (!catIds) return '';
