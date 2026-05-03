@@ -454,6 +454,14 @@ select.field option { background:var(--surface2); }
             <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px;">Categoría</label>
             <select class="field" id="nCategoria"><option value="">Sin categoría</option></select>
           </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px;">Costo unitario DOP (opcional)</label>
+            <input class="field" id="nCostoDOP" type="number" placeholder="0.00" min="0">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px;">Costo unitario USD (opcional)</label>
+            <input class="field" id="nCostoUSD" type="number" placeholder="0.00" min="0">
+          </div>
         </div>
 
         <!-- Location -->
@@ -484,6 +492,9 @@ select.field option { background:var(--surface2); }
         </div>
 
         <!-- Error + Submit -->
+        <div style="background:rgba(124,92,252,.08);border:1px solid rgba(124,92,252,.2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--ink2);margin-bottom:10px;">
+          💡 Si el costo ya fue pagado fuera del sistema, ingrésalo igual — se registrará para calcular márgenes <strong>sin afectar tus cuentas bancarias</strong>.
+        </div>
         <div id="nuevoError" style="display:none;background:#fee2e2;color:#dc2626;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:12px;"></div>
         <button class="btn btn-primary" onclick="addProductoDirecto()" id="nuevoSubmitBtn" style="width:100%;padding:13px;font-size:15px;">
           ✅ Agregar al Inventario y Tienda
@@ -1861,17 +1872,24 @@ async function addProductoDirecto() {
     };
     products.push(newProduct);
 
-    // 2. Add stock to warehouse — must match getStock() expectations
+    const costDOP = parseFloat(document.getElementById('nCostoDOP').value) || 0;
+    const costUSD = parseFloat(document.getElementById('nCostoUSD').value) || 0;
+
+    // 2. Add stock — skipBalance=true so cost is recorded for margins
+    //    but does NOT create a financial transaction (already paid outside system)
     purchases.push({
       id: 'lot_' + Date.now(),
       productId: newId,
       warehouseId: whId,
       qty: cantidad,
       remainingQty: cantidad,
-      costDOP: 0,
+      costDOP: costDOP,
+      costUSD: costUSD,
+      skipBalance: true,   // ← already paid, don't touch accounts
+      manualEntry: true,
       status: 'delivered',
       date: new Date().toISOString().slice(0,10),
-      notes: 'Entrada manual',
+      notes: 'Entrada manual — costo ya pagado',
     });
 
     // 3. Add to posProducts (tienda) with location
@@ -1905,7 +1923,7 @@ async function addProductoDirecto() {
 
     // 5. Reset form
     nuevoPhotos = [];
-    ['nNombre','nSku','nPrecio','nDescripcion','nShelf'].forEach(id => document.getElementById(id).value = '');
+    ['nNombre','nSku','nPrecio','nDescripcion','nShelf','nCostoDOP','nCostoUSD'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('nCantidad').value = '1';
     document.getElementById('nCategoria').value = '';
     document.getElementById('nFotosGrid').innerHTML = '';
