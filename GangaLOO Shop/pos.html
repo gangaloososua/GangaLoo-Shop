@@ -2,6 +2,13 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<script>
+// Kill service worker cache immediately
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(r=>r.forEach(sw=>sw.unregister()));
+  if('caches' in window) caches.keys().then(ks=>ks.forEach(k=>caches.delete(k)));
+}
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <link rel="icon" type="image/png" href="/icon192.png">
 <link rel="apple-touch-icon" href="/icon192.png">
