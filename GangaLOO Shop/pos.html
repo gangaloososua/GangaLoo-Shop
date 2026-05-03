@@ -856,98 +856,94 @@ function printBarcodeForProduct(productId) {
 }
 
 function printBarcode(productId, sku, name, price) {
-  const safeName = (name||'').replace(/'/g,"'").replace(/"/g,'"');
-  const safeSku  = (sku||'').replace(/'/g,"'") || String(productId);
-  const priceStr = (parseFloat(price)||0).toLocaleString('es-DO',{minimumFractionDigits:2});
+  const safeName = (name||'').substring(0, 30);
+  const safeSku  = (sku||'') || String(productId);
+  const priceStr = 'RD$ ' + (parseFloat(price)||0).toLocaleString('es-DO',{minimumFractionDigits:2});
 
-  // 50mm x 30mm label — optimized for Niimbot and similar thermal printers
-  // @page sets exact label size; auto-prints on load
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  @page {
-    size: 50mm 30mm;
-    margin: 0;
-  }
-  html, body {
-    width: 50mm;
-    height: 30mm;
-    overflow: hidden;
-  }
-  .label {
-    width: 50mm;
-    height: 30mm;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 1.5mm 2mm;
-    font-family: 'Arial', sans-serif;
-    background: #fff;
-  }
-  .store-name {
-    font-size: 6pt;
-    font-weight: 700;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    margin-bottom: 0.5mm;
-  }
-  .prod-name {
-    font-size: 6.5pt;
-    font-weight: 700;
-    text-align: center;
-    max-width: 46mm;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    margin-bottom: 0.8mm;
-    line-height: 1.2;
-  }
-  svg#bc {
-    max-width: 46mm;
-  }
-  .price-row {
-    font-size: 8pt;
-    font-weight: 900;
-    margin-top: 0.5mm;
-  }
-  @media print { button { display:none; } }
-</style>
-</head>
-<body>
-<div class="label">
-  <div class="store-name">GangaLoo</div>
-  <div class="prod-name">${safeName}</div>
-  <svg id="bc"></svg>
-  <div class="price-row">RD$ ${priceStr}</div>
-</div>
-<button onclick="window.print()" style="position:fixed;bottom:8px;right:8px;padding:8px 16px;background:#6c3ff5;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">🖨️ Imprimir</button>
-<script>
-  JsBarcode('#bc', '${safeSku}', {
-    format: 'CODE128',
-    width: 1.5,
-    height: 28,
-    displayValue: true,
-    fontSize: 7,
-    margin: 1,
-    background: '#fff',
-    lineColor: '#000'
-  });
-  window.onload = () => window.print();
-<\/script>
-</body>
-</html>`;
+  // Load JsBarcode dynamically then draw to canvas
+  function doRender() {
+    // 50mm x 30mm at 8px/mm = 400 x 240px
+    const PX_MM = 8;
+    const W = 50 * PX_MM; // 400
+    const H = 30 * PX_MM; // 240
 
-  const win = window.open('', '_blank', 'width=300,height=250');
-  win.document.write(html);
-  win.document.close();
+    const canvas = document.createElement('canvas');
+    canvas.width  = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // White background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+
+    // Store name
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('GangaLoo', W/2, 18);
+
+    // Product name (truncate)
+    ctx.font = 'bold 13px Arial';
+    ctx.fillText(safeName, W/2, 34);
+
+    // Draw barcode onto a temp SVG → image
+    const svgEl = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    document.body.appendChild(svgEl);
+    try {
+      JsBarcode(svgEl, safeSku, {
+        format: 'CODE128', width: 2, height: 70,
+        displayValue: true, fontSize: 12,
+        margin: 4, background: '#ffffff', lineColor: '#000000'
+      });
+    } catch(e) {
+      document.body.removeChild(svgEl);
+      showToast('Error generando código: ' + e.message, 'error');
+      return;
+    }
+
+    // Convert SVG to image and draw on canvas
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    document.body.removeChild(svgEl);
+    const svgBlob = new Blob([svgData], {type:'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onload = () => {
+      // Center barcode
+      const bx = (W - img.width) / 2;
+      ctx.drawImage(img, bx < 0 ? 0 : bx, 42, Math.min(img.width, W), 80);
+      URL.revokeObjectURL(url);
+
+      // Price
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(priceStr, W/2, H - 8);
+
+      // Download as PNG
+      canvas.toBlob(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (safeSku || 'etiqueta') + '_50x30.png';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showToast('✅ Imagen guardada — ábrela en Niimbot', 'success', 4000);
+      }, 'image/png');
+    };
+    img.src = url;
+  }
+
+  // Load JsBarcode if not already loaded
+  if (typeof JsBarcode !== 'undefined') {
+    doRender();
+  } else {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js';
+    s.onload = doRender;
+    document.head.appendChild(s);
+  }
 }
 
-/* ─── ADD TO STORE MODAL ─── */
+
 function openAddToStoreModal(productId) {
   const p = products.find(x => String(x.id) === String(productId));
   if (!p) return;
