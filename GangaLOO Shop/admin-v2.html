@@ -1679,7 +1679,9 @@ async function saveData() {
       sizes[k] = Math.round(s/1024) + 'KB';
       total += s;
     }
-    console.log('Data sizes:', sizes);
+    const sorted = Object.entries(sizes).sort((a,b) => parseInt(b[1]) - parseInt(a[1]));
+    console.log('ALL data sizes (sorted):');
+    sorted.forEach(([k,v]) => console.log(' ', k + ':', v));
     console.log('Total:', Math.round(total/1024), 'KB');
 
     // Split into 4 small saves to stay under timeout/size limits
