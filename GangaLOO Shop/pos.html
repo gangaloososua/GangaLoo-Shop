@@ -658,13 +658,27 @@ async function saveData() {
   try {
     const { data: existing } = await sb.from('inventory_data').select('id').limit(1);
     if (!existing?.length) return;
-    const { error } = await sb.from('inventory_data').update({
+    const rowId = existing[0].id;
+
+    // Chunk 1: transactional + tienda data
+    const { error: e1 } = await sb.from('inventory_data').update({
       sales:        JSON.stringify(sales),
       payments:     JSON.stringify(payments),
       pos_products: JSON.stringify(posProducts),
+      transactions: JSON.stringify(transactions),
+      accounts:     JSON.stringify(accounts),
       updated_at:   new Date().toISOString()
-    }).eq('id', existing[0].id);
-    if (error) throw error;
+    }).eq('id', rowId);
+    if (e1) throw e1;
+
+    // Chunk 2: catalog (products + purchases for stock/discounts)
+    const { error: e2 } = await sb.from('inventory_data').update({
+      products:  JSON.stringify(products),
+      purchases: JSON.stringify(purchases),
+      customers: JSON.stringify(customers),
+    }).eq('id', rowId);
+    if (e2) throw e2;
+
     setSyncState('ok');
   } catch(e) { showToast('Error guardando: '+e.message,'error'); setSyncState('error'); }
 }
