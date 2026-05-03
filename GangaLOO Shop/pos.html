@@ -1003,7 +1003,7 @@ function printBarcode(productId, sku, name, price) {
     document.body.appendChild(svgEl);
     try {
       await QRCode.toCanvas(svgEl, safeSku, {
-        width: 140,
+        width: 200,
         margin: 1,
         color: { dark: '#000000', light: '#ffffff' }
       });
