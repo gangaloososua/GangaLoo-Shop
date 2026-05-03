@@ -5016,7 +5016,8 @@ function renderCompraDetail(lotNumber) {
                 <span style="font-weight:800;color:${transportPaid2>=transportShare-0.01?'var(--emerald)':transportPaid2>0?'var(--amber)':'var(--ink-3)'};">${transportPaid2>0?formatDOP(transportPaid2):'No registrado'}</span>
                 ${transportShare>0 && transportPending>0.01
                   ? `<span style="font-size:11px;color:var(--rose);">Pendiente: ${formatDOP(transportPending)}</span>
-                     <button class="btn btn-secondary btn-xs" onclick="openRegistrarTransportGasto('${lotNumber}',0)">+ Pagar</button>`
+                     <button class="btn btn-secondary btn-xs" onclick="openRegistrarTransportGasto('${lotNumber}',0)">+ Pagar</button>
+                     <button class="btn btn-xs" style="background:rgba(16,185,129,.12);color:var(--emerald);border:1px solid var(--emerald);" onclick="marcarTransportePagadoSinTransaccion('${lotNumber}',${transportPending})">✓ Ya pagado</button>`
                   : transportPaid2>0
                     ? `<span style="font-size:11px;font-weight:700;color:var(--emerald);">✓ Pagado</span>`
                     : `<button class="btn btn-secondary btn-xs" onclick="openRegistrarTransportGasto('${lotNumber}',0)">+ Pagar</button>`}
@@ -13872,6 +13873,34 @@ Esto registrará el pago sin crear una transacción bancaria (el dinero ya sali�
   renderCompraDetail(lotNumber);
   renderComprasList();
   showToast('✓ Marcado como pagado (sin transacción)', 'success');
+}
+
+async function marcarTransportePagadoSinTransaccion(lotNumber, pendAmount) {
+  const pend = parseFloat(pendAmount) || 0;
+  if (pend <= 0.01) { showToast('El transporte ya está pagado', 'info'); return; }
+  if (!confirm(`¿Marcar transporte RD$ ${pend.toLocaleString('es-DO')} como pagado?
+
+Sin transacción bancaria (ya fue pagado fuera del sistema).`)) return;
+
+  const pp = {
+    id:              generateId(),
+    lotNumber,
+    amount:          Math.round(pend * 100) / 100,
+    dopAmount:       Math.round(pend * 100) / 100,
+    accountId:       null,
+    categoryId:      null,
+    date:            todayDR(),
+    reference:       'Transporte externo — sin transacción',
+    isTransportPayment: true,
+    skipBalance:     true,
+    externalPayment: true,
+    note:            'Transporte pagado fuera del sistema',
+  };
+  purchasePayments.push(pp);
+  debouncedSave();
+  renderCompraDetail(lotNumber);
+  renderComprasList();
+  showToast('✓ Transporte marcado como pagado (sin transacción)', 'success');
 }
 
 function openRegistrarPagoLot(lotNumber) {
