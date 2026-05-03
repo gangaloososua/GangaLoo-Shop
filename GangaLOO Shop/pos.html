@@ -1033,6 +1033,16 @@ function printBarcode(productId, sku, name, price) {
       URL.revokeObjectURL(a.href);
       showToast('✅ Imagen guardada — ábrela en Niimbot', 'success', 4000);
     }, 'image/png');
-  }
+  } // end doRender
 
+  // Load QR library then render
+  if (typeof QRCode !== 'undefined') {
+    doRender();
+  } else {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js';
+    s.onload = doRender;
+    document.head.appendChild(s);
+  }
+} // end printBarcode
 
