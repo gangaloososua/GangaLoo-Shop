@@ -887,12 +887,12 @@ function printBarcode(productId, sku, name, price) {
 
     // Store name — small top
     ctx.fillStyle = '#000';
-    ctx.font = 'bold 18px Arial';
+    ctx.font = 'bold 22px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('GangaLoo', W/2, 22);
+    ctx.fillText('GangaLoo', W/2, 24);
 
     // Product name — larger, word wrap if needed
-    ctx.font = 'bold 20px Arial';
+    ctx.font = 'bold 24px Arial';
     const maxW = W - 20;
     let nameLines = [];
     const words = safeName.split(' ');
@@ -918,11 +918,11 @@ function printBarcode(productId, sku, name, price) {
     try {
       JsBarcode(svgEl, safeSku, {
         format: 'CODE128',
-        width: 2.8,
-        height: 110,
+        width: 1.8,
+        height: 80,
         displayValue: true,
-        fontSize: 16,
-        margin: 2,
+        fontSize: 14,
+        margin: 6,
         background: '#ffffff',
         lineColor: '#000000'
       });
@@ -942,7 +942,8 @@ function printBarcode(productId, sku, name, price) {
       const bcY = nameBottom + 4;
       const scale = W / img.naturalWidth;
       const bcH = img.naturalHeight * scale;
-      ctx.drawImage(img, 0, bcY, W, bcH);
+      const pad = 10;
+      ctx.drawImage(img, pad, bcY, W - pad*2, bcH);
       URL.revokeObjectURL(url);
 
       // Price — large bold at bottom
