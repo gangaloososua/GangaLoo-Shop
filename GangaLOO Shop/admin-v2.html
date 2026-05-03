@@ -5000,7 +5000,8 @@ function renderCompraDetail(lotNumber) {
                 <span style="font-weight:800;color:${productPaid2>=productCost-0.01?'var(--emerald)':'var(--ink)'};">${formatDOP(productPaid2)}</span>
                 ${productPending>0.01
                   ? `<span style="font-size:11px;color:var(--rose);">Pendiente: ${formatDOP(productPending)}</span>
-                     <button class="btn btn-primary btn-xs" onclick="openRegistrarPagoLot('${lotNumber}')">+ Pagar</button>`
+                     <button class="btn btn-primary btn-xs" onclick="openRegistrarPagoLot('${lotNumber}')">+ Pagar</button>
+                     <button class="btn btn-xs" style="background:rgba(16,185,129,.12);color:var(--emerald);border:1px solid var(--emerald);" onclick="marcarPagadoSinTransaccion('${lotNumber}')">✓ Ya pagado</button>`
                   : `<span style="font-size:11px;font-weight:700;color:var(--emerald);">✓ Pagado</span>`}
               </div>
             </div>
@@ -13838,6 +13839,41 @@ function deleteTransferencia(id) {
 
 
 /* ─── REGISTRAR PAGO DE COMPRA ─── */
+// Mark lot as paid WITHOUT creating a financial transaction
+// Use when payment was made outside the system
+async function marcarPagadoSinTransaccion(lotNumber) {
+  const order = getCompraOrders().find(o => o.lotNumber === lotNumber);
+  if (!order) return;
+  const total = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
+  const paid  = getOrderPaid(lotNumber);
+  const pend  = Math.max(0, total - paid);
+  if (pend <= 0.01) { showToast('Esta orden ya está pagada', 'info'); return; }
+
+  if (!confirm(`¿Marcar RD$ ${pend.toLocaleString('es-DO')} como pagado?
+
+Esto registrará el pago sin crear una transacción bancaria (el dinero ya salió fuera del sistema).`)) return;
+
+  // Create a purchasePayment with skipBalance=true
+  const pp = {
+    id:           generateId(),
+    lotNumber,
+    amount:       Math.round(pend * 100) / 100,
+    dopAmount:    Math.round(pend * 100) / 100,
+    accountId:    null,       // no account affected
+    categoryId:   null,
+    date:         todayDR(),
+    reference:    'Pago externo — sin transacción',
+    skipBalance:  true,       // ← does NOT touch account balances
+    externalPayment: true,
+    note:         'Pagado fuera del sistema',
+  };
+  purchasePayments.push(pp);
+  debouncedSave();
+  renderCompraDetail(lotNumber);
+  renderComprasList();
+  showToast('✓ Marcado como pagado (sin transacción)', 'success');
+}
+
 function openRegistrarPagoLot(lotNumber) {
   const acctOpts = accounts.filter(a=>a.active!==false)
     .map(a=>`<option value="${a.id}">${a.name} (${a.currency||'DOP'}) — ${a.currency==='USD'?formatUSD(a.balance):a.currency==='EUR'?formatEUR(a.balance):formatDOP(a.balance)}</option>`).join('');
