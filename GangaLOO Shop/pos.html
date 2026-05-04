@@ -815,14 +815,34 @@ function printBarcode(productId, sku, name, price) {
       const mid = safeName.indexOf(' ', Math.floor(safeName.length/2));
       if (mid > 0) lines = [safeName.slice(0, mid), safeName.slice(mid+1)];
     }
-    lines = lines.slice(0, 2);
+    // If 3 lines needed, try to fit all 3 by reducing font size
+    if (lines.length > 2) {
+      // Try smaller font to fit in 2 lines
+      let fs2 = 22;
+      ctx.font = `bold ${fs2}px Arial`;
+      let lines2 = [], cur2 = '';
+      for (const w of safeName.split(' ')) {
+        const test = cur2 ? cur2 + ' ' + w : w;
+        if (ctx.measureText(test).width > maxW && cur2) { lines2.push(cur2); cur2 = w; }
+        else cur2 = test;
+      }
+      if (cur2) lines2.push(cur2);
+      lines = lines2.slice(0, 2);
+      // If still 3+, truncate last with ellipsis
+      if (lines2.length > 2) {
+        let last = lines2.slice(1).join(' ');
+        while (ctx.measureText(last + '…').width > maxW && last.length > 3)
+          last = last.slice(0, last.lastIndexOf(' '));
+        lines[1] = last + '…';
+      }
+    }
     lines.forEach((l, i) => {
-      let fs = 26;
+      let fs = lines.length > 1 ? 22 : 26;
       ctx.font = `bold ${fs}px Arial`;
-      while (ctx.measureText(l).width > maxW && fs > 13) { fs--; ctx.font = `bold ${fs}px Arial`; }
-      ctx.fillText(l, W/2, 62 + i * 32);
+      while (ctx.measureText(l).width > maxW && fs > 12) { fs--; ctx.font = `bold ${fs}px Arial`; }
+      ctx.fillText(l, W/2, 62 + i * 30);
     });
-    const nameBottom = 62 + lines.length * 32;
+    const nameBottom = 62 + lines.length * 30;
 
     // QR code
     const qrCanvas = document.createElement('canvas');
