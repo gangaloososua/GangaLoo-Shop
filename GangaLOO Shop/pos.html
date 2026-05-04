@@ -799,50 +799,31 @@ function printBarcode(productId, sku, name, price) {
     ctx.textAlign = 'center';
     ctx.fillText('GangaLoo', W/2, 32);
 
-    // Product name - 2 lines with auto-shrink
+    // Product name — try decreasing font sizes until it fits in exactly 2 lines
     const maxW = W - 20;
-    let lines = [];
-    const words = safeName.split(' ');
-    let cur = '';
-    ctx.font = 'bold 26px Arial';
-    for (const w of words) {
-      const test = cur ? cur + ' ' + w : w;
-      if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
-      else cur = test;
-    }
-    if (cur) lines.push(cur);
-    if (lines.length === 1 && ctx.measureText(lines[0]).width > maxW) {
-      const mid = safeName.indexOf(' ', Math.floor(safeName.length/2));
-      if (mid > 0) lines = [safeName.slice(0, mid), safeName.slice(mid+1)];
-    }
-    // If 3 lines needed, try to fit all 3 by reducing font size
-    if (lines.length > 2) {
-      // Try smaller font to fit in 2 lines
-      let fs2 = 22;
-      ctx.font = `bold ${fs2}px Arial`;
-      let lines2 = [], cur2 = '';
-      for (const w of safeName.split(' ')) {
-        const test = cur2 ? cur2 + ' ' + w : w;
-        if (ctx.measureText(test).width > maxW && cur2) { lines2.push(cur2); cur2 = w; }
-        else cur2 = test;
-      }
-      if (cur2) lines2.push(cur2);
-      lines = lines2.slice(0, 2);
-      // If still 3+, truncate last with ellipsis
-      if (lines2.length > 2) {
-        let last = lines2.slice(1).join(' ');
-        while (ctx.measureText(last + '…').width > maxW && last.length > 3)
-          last = last.slice(0, last.lastIndexOf(' '));
-        lines[1] = last + '…';
-      }
-    }
-    lines.forEach((l, i) => {
-      let fs = lines.length > 1 ? 22 : 26;
+    let lines = [], usedFs = 20;
+    for (let fs = 26; fs >= 12; fs--) {
       ctx.font = `bold ${fs}px Arial`;
-      while (ctx.measureText(l).width > maxW && fs > 12) { fs--; ctx.font = `bold ${fs}px Arial`; }
-      ctx.fillText(l, W/2, 62 + i * 30);
-    });
-    const nameBottom = 62 + lines.length * 30;
+      const tryLines = [];
+      let cur = '';
+      for (const w of safeName.split(' ')) {
+        const test = cur ? cur + ' ' + w : w;
+        if (ctx.measureText(test).width > maxW && cur) { tryLines.push(cur); cur = w; }
+        else cur = test;
+      }
+      if (cur) tryLines.push(cur);
+      if (tryLines.length <= 2) { lines = tryLines; usedFs = fs; break; }
+    }
+    // Fallback: if still > 2 lines at 12px, force split at midpoint
+    if (lines.length > 2 || lines.length === 0) {
+      ctx.font = 'bold 12px Arial';
+      usedFs = 12;
+      const mid = safeName.lastIndexOf(' ', Math.floor(safeName.length / 2));
+      lines = mid > 0 ? [safeName.slice(0, mid), safeName.slice(mid + 1)] : [safeName];
+    }
+    ctx.font = `bold ${usedFs}px Arial`;
+    lines.forEach((l, i) => ctx.fillText(l, W/2, 62 + i * (usedFs + 8)));
+    const nameBottom = 62 + lines.length * (usedFs + 8);
 
     // QR code
     const qrCanvas = document.createElement('canvas');
