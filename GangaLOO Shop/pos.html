@@ -781,95 +781,50 @@ function printBarcodeForProduct(productId) {
 }
 
 function printBarcode(productId, sku, name, price) {
-  const safeName = (name||'').substring(0, 40);
+  const safeName = (name||'');
   const safeSku  = (sku||'') || String(productId);
   const priceStr = 'RD$ ' + (parseFloat(price)||0).toLocaleString('es-DO',{minimumFractionDigits:2});
 
-  async function doRender() {
-    const W = 700, H = 420; // 50x30mm at 14px/mm
-    const canvas = document.createElement('canvas');
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, W, H);
-
-    // GangaLoo title
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 28px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('GangaLoo', W/2, 32);
-
-    // Product name — try decreasing font sizes until it fits in exactly 2 lines
-    const maxW = W - 20;
-    let lines = [], usedFs = 20;
-    for (let fs = 26; fs >= 12; fs--) {
-      ctx.font = `bold ${fs}px Arial`;
-      const tryLines = [];
-      let cur = '';
-      for (const w of safeName.split(' ')) {
-        const test = cur ? cur + ' ' + w : w;
-        if (ctx.measureText(test).width > maxW && cur) { tryLines.push(cur); cur = w; }
-        else cur = test;
-      }
-      if (cur) tryLines.push(cur);
-      if (tryLines.length <= 2) { lines = tryLines; usedFs = fs; break; }
-    }
-    // Fallback: if still > 2 lines at 12px, force split at midpoint
-    if (lines.length > 2 || lines.length === 0) {
-      ctx.font = 'bold 12px Arial';
-      usedFs = 12;
-      const mid = safeName.lastIndexOf(' ', Math.floor(safeName.length / 2));
-      lines = mid > 0 ? [safeName.slice(0, mid), safeName.slice(mid + 1)] : [safeName];
-    }
-    ctx.font = `bold ${usedFs}px Arial`;
-    lines.forEach((l, i) => ctx.fillText(l, W/2, 62 + i * (usedFs + 8)));
-    const nameBottom = 62 + lines.length * (usedFs + 8);
-
-    // QR code
-    const qrCanvas = document.createElement('canvas');
-    qrCanvas.style.display = 'none';
-    document.body.appendChild(qrCanvas);
-    try {
-      await QRCode.toCanvas(qrCanvas, safeSku, { width: 200, margin: 1, color: { dark: '#000', light: '#fff' } });
-    } catch(e) {
-      document.body.removeChild(qrCanvas);
-      showToast('Error QR: ' + e.message, 'error');
-      return;
-    }
-    const qrSize = 190;
-    const qrX = (W - qrSize) / 2;
-    const qrY = nameBottom + 8;
-    ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
-    document.body.removeChild(qrCanvas);
-
-    // SKU
-    ctx.font = 'bold 14px "Courier New", monospace';
-    ctx.fillText(safeSku, W/2, qrY + qrSize + 18);
-
-    // Price
-    ctx.font = 'bold 32px Arial';
-    ctx.fillText(priceStr, W/2, Math.min(qrY + qrSize + 52, H - 6));
-
-    // Download PNG
-    canvas.toBlob(blob => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = (safeSku || 'label') + '_50x30.png';
-      a.click();
-      URL.revokeObjectURL(a.href);
-      showToast('✅ Imagen guardada — ábrela en Niimbot', 'success', 4000);
-    }, 'image/png');
-  }
-
-  if (typeof QRCode !== 'undefined') {
-    doRender();
-  } else {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js';
-    s.onload = doRender;
-    document.head.appendChild(s);
-  }
+  // Open HTML page — much easier layout control than canvas
+  const win = window.open('', '_blank', 'width=500,height=400');
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"><\/script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Arial, sans-serif; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:10px; }
+  .label { width:500px; border:2px solid #000; border-radius:8px; padding:12px; text-align:center; background:#fff; }
+  .store { font-size:18px; font-weight:900; margin-bottom:6px; }
+  .name  { font-size:15px; font-weight:700; line-height:1.3; margin-bottom:8px; word-wrap:break-word; white-space:normal; }
+  .qr    { display:flex; justify-content:center; margin:8px 0; }
+  .sku   { font-family:monospace; font-size:12px; color:#333; margin-bottom:4px; }
+  .price { font-size:22px; font-weight:900; }
+  .btn   { margin-top:16px; padding:10px 30px; background:#6c3ff5; color:#fff; border:none; border-radius:8px; font-size:16px; cursor:pointer; }
+  @media print { .btn { display:none; } }
+</style>
+</head>
+<body>
+<div class="label">
+  <div class="store">GangaLoo</div>
+  <div class="name">${safeName}</div>
+  <div class="qr"><canvas id="qr"></canvas></div>
+  <div class="sku">${safeSku}</div>
+  <div class="price">${priceStr}</div>
+</div>
+<button class="btn" onclick="window.print()">🖨️ Guardar / Imprimir</button>
+<script>
+  QRCode.toCanvas(document.getElementById('qr'), '${safeSku}', {
+    width: 160, margin: 1, color: { dark: '#000', light: '#fff' }
+  });
+<\/script>
+</body>
+</html>`;
+  win.document.write(html);
+  win.document.close();
 }
+
 
 /* ─── ADD TO STORE MODAL ─── */
 function openAddToStoreModal(productId) {
