@@ -762,7 +762,15 @@ function renderInventario() {
           <div class="product-name">${p.name}</div>
           <div class="product-sku">${p.sku||'—'}</div>
           <div class="product-price">${price>0?formatDOP(price):'—'}</div>
-          <div class="product-stock ${stockClass}">${stock} en stock${inStore?' · ✓ En tienda':''}</div>
+          <div class="product-stock ${stockClass}">${stock} en stock</div>
+          ${inStore ? (() => {
+            const sd = posProducts[String(p.id)];
+            const locs = sd.locations?.filter(l=>l.shelf) || (sd.shelf ? [{shelf:sd.shelf,qty:1}] : []);
+            const tiendaTotal = locs.reduce((s,l)=>s+(l.qty||1),0);
+            return locs.length > 1
+              ? `<div style="font-size:10px;color:var(--accent);margin-top:2px;">🏪 ${locs.map(l=>'📍'+l.shelf+' ('+l.qty+')').join(' ')}</div>`
+              : `<div style="font-size:10px;color:var(--accent);margin-top:2px;">🏪 En tienda · ${locs[0]?.shelf||'—'}</div>`;
+          })() : ''}
         </div>
       </div>`;
   }).join('');
