@@ -929,9 +929,10 @@ function openAddToStoreModal(productId) {
     <div class="modal-body">
       <div style="font-weight:600;margin-bottom:16px;">${p.name}</div>
       <div class="form-group">
-        <label class="form-label">📍 Ubicación en tienda</label>
-        <input class="field" id="as_shelf" placeholder="Ej: Pasillo A, Estante 2, Lado derecho" value="${existing.shelf||''}">
-        <div id="as_shelfChips" style="display:none;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+        <label class="form-label">📍 Ubicaciones en tienda</label>
+        <div id="as_locationSlots" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+        <button class="btn btn-ghost btn-sm" onclick="addLocationSlot()" style="width:100%;">+ Agregar ubicación</button>
+        <div id="as_stockHint" style="font-size:11px;color:var(--ink3);margin-top:4px;"></div>
       </div>
       <div class="form-group">
         <label class="form-label">📸 Fotos &amp; 🎥 Video del producto</label>
@@ -952,7 +953,7 @@ function openAddToStoreModal(productId) {
   window._storePhotos = [...(existing.photos||[])];
   window._storeVideo = existing.video ? { type: 'url', url: existing.video } : null;
   renderPhotoGrid('as');
-  setTimeout(() => renderShelfChips('as'), 50);
+  setTimeout(() => initLocationSlots(String(productId)), 50);
 }
 
 function openEditStoreProduct(productId) {
@@ -966,9 +967,10 @@ function openEditStoreProduct(productId) {
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label class="form-label">📍 Ubicación en tienda</label>
-        <input class="field" id="as_shelf" placeholder="Ej: Pasillo A, Estante 2" value="${existing.shelf||''}">
-        <div id="as_shelfChips" style="display:none;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+        <label class="form-label">📍 Ubicaciones en tienda</label>
+        <div id="as_locationSlots" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+        <button class="btn btn-ghost btn-sm" onclick="addLocationSlot()" style="width:100%;">+ Agregar ubicación</button>
+        <div id="as_stockHint" style="font-size:11px;color:var(--ink3);margin-top:4px;"></div>
       </div>
       <div class="form-group">
         <label class="form-label">📸 Fotos &amp; 🎥 Video</label>
@@ -992,7 +994,7 @@ function openEditStoreProduct(productId) {
   window._storePhotos = [...(existing.photos||[])];
   window._storeVideo = existing.video ? { type: 'url', url: existing.video } : null;
   renderPhotoGrid('as');
-  setTimeout(() => renderShelfChips('as'), 50);
+  setTimeout(() => initLocationSlots(String(productId)), 50);
 }
 
 function renderPhotoGrid(prefix) {
@@ -1153,17 +1155,95 @@ function pickShelf(prefix, loc) {
   if (input) { input.value = loc; }
 }
 
+/* ─── MULTI-LOCATION SLOTS ─── */
+let _currentSlotProductId = null;
+
+function initLocationSlots(productId) {
+  _currentSlotProductId = productId;
+  const existing = posProducts[String(productId)] || {};
+  const slots = existing.locations?.filter(l=>l.shelf).length
+    ? existing.locations
+    : existing.shelf ? [{shelf: existing.shelf, qty: 1}]
+    : [{shelf: '', qty: 1}];
+  renderLocationSlots(slots, productId);
+}
+
+function renderLocationSlots(slots, productId) {
+  const container = document.getElementById('as_locationSlots');
+  if (!container) return;
+  const stock = getStock(String(productId), getMaranathaWhId());
+  const locs = getPosLocations();
+  const locOptions = locs.map(l => `<option value="${l}">${l}</option>`).join('');
+  const hint = document.getElementById('as_stockHint');
+  if (hint) hint.textContent = `${stock} unidades disponibles en almacén`;
+
+  container.innerHTML = slots.map((slot, i) => `
+    <div class="loc-slot" style="background:var(--surface3);border-radius:8px;padding:10px;display:flex;gap:8px;align-items:flex-end;">
+      <div style="flex:1;">
+        <label style="font-size:11px;color:var(--ink3);display:block;margin-bottom:4px;">Ubicación</label>
+        <select class="field loc-shelf-sel" style="margin-bottom:6px;" onchange="this.nextElementSibling.value=this.value">
+          <option value="">— Seleccionar —</option>
+          ${locOptions}
+          ${slot.shelf && !locs.includes(slot.shelf) ? `<option value="${slot.shelf}" selected>${slot.shelf}</option>` : ''}
+        </select>
+        <input class="field loc-shelf" placeholder="O escribe nueva..." value="${slot.shelf||''}" style="font-size:13px;">
+      </div>
+      <div style="width:60px;">
+        <label style="font-size:11px;color:var(--ink3);display:block;margin-bottom:4px;">Uds</label>
+        <input class="field loc-qty" type="number" min="1" value="${slot.qty||1}" style="text-align:center;padding:8px 4px;">
+      </div>
+      ${slots.length > 1 ? `<button onclick="removeLocationSlot(${i})" style="background:#fee2e2;color:#dc2626;border:none;border-radius:7px;width:32px;height:32px;cursor:pointer;font-size:16px;flex-shrink:0;">✕</button>` : '<div style="width:32px;"></div>'}
+    </div>
+  `).join('');
+
+  // Set select values after render
+  container.querySelectorAll('.loc-slot').forEach((slotEl, i) => {
+    const sel = slotEl.querySelector('.loc-shelf-sel');
+    const inp = slotEl.querySelector('.loc-shelf');
+    if (sel && slots[i]?.shelf) sel.value = slots[i].shelf;
+    sel?.addEventListener('change', () => { if (sel.value) inp.value = sel.value; });
+  });
+}
+
+function addLocationSlot() {
+  const slots = getCurrentSlots();
+  slots.push({shelf: '', qty: 1});
+  renderLocationSlots(slots, _currentSlotProductId);
+}
+
+function removeLocationSlot(idx) {
+  const slots = getCurrentSlots();
+  slots.splice(idx, 1);
+  if (!slots.length) slots.push({shelf: '', qty: 1});
+  renderLocationSlots(slots, _currentSlotProductId);
+}
+
+function getCurrentSlots() {
+  const slots = [];
+  document.querySelectorAll('.loc-slot').forEach(slotEl => {
+    const shelf = slotEl.querySelector('.loc-shelf')?.value.trim() || '';
+    const qty   = parseInt(slotEl.querySelector('.loc-qty')?.value) || 1;
+    slots.push({shelf, qty});
+  });
+  return slots;
+}
+
 function saveAddToStore(productId) {
   if (window._storeVideo?.type === 'uploading') {
     showToast('Espera — el video todavía se está subiendo', 'error');
     return;
   }
-  const shelf  = document.getElementById('as_shelf')?.value.trim() || '';
+  // Read multi-location slots
+  const _slots = getCurrentSlots().filter(s => s.shelf);
+  const shelf  = _slots[0]?.shelf || document.getElementById('as_shelf')?.value.trim() || '';
   const notes  = document.getElementById('as_notes')?.value.trim() || '';
   const photos = window._storePhotos || [];
   const video  = window._storeVideo?.url || null;
   posProducts[String(productId)] = {
-    active: true, shelf, notes, photos,
+    active: true,
+    shelf,
+    locations: _slots.length ? _slots : (shelf ? [{shelf, qty:1}] : []),
+    notes, photos,
     video: video || posProducts[String(productId)]?.video || null,
     addedAt: posProducts[String(productId)]?.addedAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
