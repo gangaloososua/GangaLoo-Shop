@@ -547,8 +547,15 @@ async function loadAllData() {
     try {
       const { data: tiendaRow } = await sb.from('pos_tienda').select('*').eq('id','main').single();
       posProducts = tiendaRow?.data || JSON.parse(row.pos_products || '{}');
-      if (tiendaRow?.locations) storeConfig.pos_locations = tiendaRow.locations;
-    } catch { posProducts = JSON.parse(row.pos_products || '{}'); }
+      if (tiendaRow?.locations && tiendaRow.locations.length > 0) {
+        storeConfig.pos_locations = tiendaRow.locations;
+      } else if (storeConfig.pos_locations?.length > 0) {
+        // keep store_config locations as fallback
+      }
+    } catch(e) {
+      console.warn('pos_tienda load error:', e);
+      posProducts = JSON.parse(row.pos_products || '{}');
+    }
     console.log('Loaded posProducts — keys:', Object.keys(posProducts).length);
     setSyncState('ok');
     renderInventario();
@@ -610,15 +617,27 @@ async function saveTiendaImmediate() {
 async function savePosLocations(locs) {
   storeConfig.pos_locations = locs;
   try {
-    // Use update (not upsert) to avoid wiping other columns like data/posProducts
+    // Save to pos_tienda
     const { error } = await sb.from('pos_tienda')
       .update({ locations: locs, updated_at: new Date().toISOString() })
       .eq('id', 'main');
-    if (error) throw error;
+    if (error) {
+      console.error('pos_tienda update failed:', error);
+      throw error;
+    }
+    // Also save to inventory_data store_config as backup
+    const { data: inv } = await sb.from('inventory_data').select('id').limit(1);
+    if (inv?.length) {
+      await sb.from('inventory_data')
+        .update({ store_config: JSON.stringify(storeConfig) })
+        .eq('id', inv[0].id);
+    }
     showToast('Posiciones guardadas ✅', 'success');
-    // Refresh location dropdowns in scan result if open
     refreshScanLocations();
-  } catch(e) { showToast('Error: '+e.message,'error'); }
+  } catch(e) {
+    console.error('savePosLocations error:', e);
+    showToast('Error guardando: ' + e.message, 'error');
+  }
 }
 
 function refreshScanLocations() {
@@ -1077,19 +1096,6 @@ async function handleVideoUpload(input, prefix) {
 /* ─── LOCATIONS MANAGER ─── */
 function getPosLocations() {
   return storeConfig.pos_locations || [];
-}
-
-async function savePosLocations(locs) {
-  storeConfig.pos_locations = locs;
-  try {
-    const { data } = await sb.from('inventory_data').select('id').limit(1);
-    if (data?.length) {
-      await sb.from('inventory_data').update({ store_config: JSON.stringify(storeConfig) }).eq('id', data[0].id);
-    }
-    showToast('Posiciones guardadas ✅', 'success');
-  } catch(e) {
-    showToast('Error guardando: ' + e.message, 'error');
-  }
 }
 
 function renderLocationsList() {
