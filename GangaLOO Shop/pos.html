@@ -373,7 +373,10 @@ select.field option { background:var(--surface2); }
 
     <!-- ═══ TAB: POS / VENDER ═══ -->
     <div id="tab-pos" style="display:none;">
-      <h2 style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:16px;">🛒 Punto de Venta</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <h2 style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;">🛒 Punto de Venta</h2>
+        <button class="btn btn-ghost btn-sm" onclick="loadAllData().then(()=>renderPosProducts())" title="Recargar precios/descuentos">🔄 Sync</button>
+      </div>
       <div class="pos-layout">
         <!-- Product search side -->
         <div>
@@ -594,7 +597,9 @@ async function saveTiendaImmediate() {
         video: (sd.video && !String(sd.video).startsWith('data:')) ? sd.video : null,
       };
     }
-    const { error } = await sb.from('pos_tienda').upsert({ id:'main', data:clean, updated_at:new Date().toISOString() });
+    // Try update first, insert if row doesn't exist
+    let { error } = await sb.from('pos_tienda').update({ data:clean, updated_at:new Date().toISOString() }).eq('id','main');
+    if (error) ({ error } = await sb.from('pos_tienda').insert({ id:'main', data:clean, updated_at:new Date().toISOString() }));
     if (error) throw error;
     const { data:inv } = await sb.from('inventory_data').select('id').limit(1);
     if (inv?.length) await sb.from('inventory_data').update({ products: JSON.stringify(products) }).eq('id', inv[0].id);
@@ -605,10 +610,25 @@ async function saveTiendaImmediate() {
 async function savePosLocations(locs) {
   storeConfig.pos_locations = locs;
   try {
-    const { error } = await sb.from('pos_tienda').upsert({ id:'main', locations:locs, updated_at:new Date().toISOString() });
+    // Use update (not upsert) to avoid wiping other columns like data/posProducts
+    const { error } = await sb.from('pos_tienda')
+      .update({ locations: locs, updated_at: new Date().toISOString() })
+      .eq('id', 'main');
     if (error) throw error;
-    showToast('Posiciones guardadas ✅','success');
+    showToast('Posiciones guardadas ✅', 'success');
+    // Refresh location dropdowns in scan result if open
+    refreshScanLocations();
   } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+function refreshScanLocations() {
+  // Update any open scan result location dropdowns with new locations
+  const sel = document.getElementById('scanLocSel');
+  if (!sel) return;
+  const locs = getPosLocations();
+  const curVal = sel.value;
+  sel.innerHTML = '<option value="">— Seleccionar ubicación —</option>' +
+    locs.map(l => `<option value="${l}" ${l===curVal?'selected':''}>${l}</option>`).join('');
 }
 
 function debouncedSave() {
@@ -633,8 +653,25 @@ function getStock(productId, warehouseId) {
 function getMaranathaTotal() {
   return products.reduce((s,p) => s+getStock(p.id, getMaranathaWhId()), 0);
 }
-function getProductPrice(p) {
+function getOriginalPrice(p) {
   return parseFloat(p.salePrice || p.price || p.retailPrice || 0);
+}
+function getProductPrice(p) {
+  const base = getOriginalPrice(p);
+  // admin-v2 discount types
+  if (p.discountType === 'fixed'   && p.discountValue > 0) return Math.max(0, base - p.discountValue);
+  if (p.discountType === 'percent' && p.discountValue > 0) return Math.round(base * (1 - p.discountValue/100));
+  // legacy fields
+  if (p.dealDiscount > 0)  return Math.round(base * (1 - p.dealDiscount/100));
+  if (p.discountPrice > 0 && p.discountPrice < base) return p.discountPrice;
+  return base;
+}
+function hasDiscount(p) {
+  const base = getOriginalPrice(p);
+  return (p.discountType === 'fixed'   && p.discountValue > 0)
+      || (p.discountType === 'percent' && p.discountValue > 0)
+      || (p.dealDiscount > 0)
+      || (p.discountPrice > 0 && p.discountPrice < base);
 }
 function getCategoryName(catIds) {
   if (!catIds) return '';
@@ -1177,7 +1214,12 @@ function renderTienda() {
         </div>
         <div class="store-card-body">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.1em;color:var(--accent2);">${price>0?formatDOP(price):'—'}</span>
+            <div>
+              ${hasDiscount(p) ? `
+                <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.1em;color:var(--rose);">${formatDOP(price)}</span>
+                <span style="font-size:10px;color:var(--ink3);text-decoration:line-through;margin-left:4px;">${formatDOP(getOriginalPrice(p))}</span>
+              ` : `<span style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.1em;color:var(--accent2);">${price>0?formatDOP(price):'—'}</span>`}
+            </div>
             <span style="font-size:11px;" class="${stock>0?stock<=3?'stock-low':'stock-ok':'stock-zero'}">${stock} uds</span>
           </div>
           ${sd.shelf ? `<div class="shelf-badge">📍 ${sd.shelf}</div>` : ''}
@@ -1313,6 +1355,14 @@ function showScanResult(code) {
         🛒 Agregar al carrito
       </button>` : ''}
 
+      <!-- PRINT QR -->
+      <div style="margin-bottom:10px;">
+        <button onclick="printBarcode('${p.id}','${(p.sku||String(p.id)).replace(/'/g,"\'")}','${p.name.replace(/'/g,"\'").replace(/"/g,'&quot;')}',${price})"
+          style="width:100%;background:var(--surface3);border:1.5px solid var(--border);border-radius:9px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+          🖨️ Imprimir etiqueta QR
+        </button>
+      </div>
+
       <!-- ADD TO TIENDA section -->
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px;">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;">🏪 ${inTienda?'Editar ubicación en tienda':'Agregar a tienda'}</div>
@@ -1379,7 +1429,9 @@ function renderPosProducts() {
         </div>
         <div class="product-info">
           <div class="product-name" style="font-size:12px;">${p.name}</div>
-          <div class="product-price" style="font-size:13px;">${price>0?formatDOP(price):'—'}</div>
+          <div class="product-price" style="font-size:13px;">
+            ${hasDiscount(p) ? `<span style="color:var(--rose);">${formatDOP(price)}</span> <span style="font-size:10px;text-decoration:line-through;color:var(--ink3);">${formatDOP(getOriginalPrice(p))}</span>` : (price>0?formatDOP(price):'—')}
+          </div>
           <div class="product-stock ${stock<=3?'stock-low':'stock-ok'}" style="font-size:10px;">${stock} uds</div>
         </div>
       </div>`;
