@@ -2756,6 +2756,13 @@
                         <input type="number" id="cfg_shippingCost2" placeholder="0.00" step="0.01" min="0">
                     </div>
                 </div>
+                <div class="form-grid" style="margin-top:10px;">
+                    <div class="form-group">
+                        <label>🚐 Cargo Recogida Maranatha (RD$)</label>
+                        <input type="number" id="cfg_maranatha_pickup_fee" placeholder="0.00" step="0.01" min="0">
+                        <small style="color:#888;font-size:11px;">Cargo adicional cuando cliente de Montellano recoge en Maranatha</small>
+                    </div>
+                </div>
 
                 <h3 style="margin-top:20px;">💳 Cargos y Descuentos por Método de Pago</h3>
                 <p style="color:#666;font-size:13px;margin-bottom:14px;">Agrega un cargo extra o un descuento según cómo paga el cliente. Se aplica automáticamente en el checkout.</p>
@@ -3173,24 +3180,6 @@
           </div>
         </div>
 
-        <!-- ACCORDION: Pagos Recibidos de Clientes -->
-        <div class="seller-accordion" style="background:white; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.06); overflow:hidden; margin-bottom:14px;">
-          <div onclick="toggleSellerSection('cobros')" style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" id="sellerHdr-cobros">
-            <div style="display:flex; align-items:center; gap:10px;">
-              <span style="font-size:1.2em;">💵</span>
-              <span style="font-weight:700; color:#1d4ed8;">Pagos Recibidos de Clientes</span>
-              <span id="sellerBadge-cobros" style="background:#1d4ed8; color:white; border-radius:20px; padding:2px 10px; font-size:.75em; font-weight:700;">0</span>
-            </div>
-            <span id="sellerArrow-cobros" style="color:#aaa; font-size:1.1em; transition:transform .2s;">▶</span>
-          </div>
-          <div id="sellerBody-cobros" style="display:none;">
-            <div id="sellerCobrosSummary" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; padding:16px 16px 0;"></div>
-            <div id="sellerCobrosList" style="padding:16px;">
-              <div style="text-align:center; padding:30px; color:#aaa;">Cargando...</div>
-            </div>
-          </div>
-        </div>
-
         <!-- ACCORDION: Inventario -->
         <div class="seller-accordion" style="background:white; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.06); overflow:hidden; margin-bottom:14px;">
           <div onclick="toggleSellerSection('inventario')" style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" id="sellerHdr-inventario">
@@ -3404,33 +3393,27 @@
             renderSellerInventory();
             // Match seller by email or name
             const sellerName = currentUser.email.split('@')[0];
-            // Find ALL customer records for this seller (may have multiple roles)
-            const myAllRecords = _sellerCustomers.filter(c =>
+            // Find this seller's customer record for ID matching
+            const meAsCustomerLocal = _sellerCustomers.find(c =>
                 (c.email && c.email.toLowerCase() === currentUser.email.toLowerCase()) ||
                 (c.name && c.name.toLowerCase() === sellerName.toLowerCase())
             );
-            const myAllIds = myAllRecords.map(c => String(c.id));
-            const meAsCustomerLocal = myAllRecords[0];
             const period = document.getElementById('sellerPeriodFilter').value;
             const now = getNowDO();
             const specificMonth = parseInt(document.getElementById('sellerMonthPick')?.value ?? now.getMonth());
             const specificYear = parseInt(document.getElementById('sellerYearPick')?.value ?? now.getFullYear());
             let mySales = allSales.filter(s => {
-                // Match by seller name, sellerId, customerId — across all their IDs
-                const matchBySeller = s.seller && s.seller.toLowerCase().includes(sellerName.toLowerCase());
-                const matchBySellerEmail = s.sellerEmail === currentUser.email;
-                const matchBySellerId = s.sellerId && myAllIds.includes(String(s.sellerId));
-                const matchByCustomerId = s.customerId && myAllIds.includes(String(s.customerId));
-                const match = matchBySeller || matchBySellerEmail || matchBySellerId || matchByCustomerId;
+                // Match by seller field OR by customer being this seller (for online orders)
+                const matchBySeller = s.seller && (s.seller.toLowerCase().includes(sellerName.toLowerCase()) || s.sellerEmail === currentUser.email);
+                const matchByCustomer = s.customer && (s.customer.toLowerCase() === sellerName.toLowerCase() || (meAsCustomerLocal && String(s.customerId) === String(meAsCustomerLocal.id)));
+                const match = matchBySeller || matchByCustomer;
                 if (!match) return false;
-                if (s.status === 'cancelled') return false;
                 const d = new Date(s.date || s.createdAt);
                 if (period === 'month') return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
                 if (period === 'specific') return d.getMonth()===specificMonth && d.getFullYear()===specificYear;
                 if (period === 'week') return (now - d) / (1000*60*60*24) <= 7;
                 return true;
             });
-            renderSellerCobros(mySales, myAllIds);
             const totalComm = mySales.reduce((s,sale) => s+(sale.commissionPaid||0), 0);
             const totalRev = mySales.reduce((s,sale) => s+(sale.totalSale||0), 0);
             document.getElementById('sellerTotalSales').textContent = mySales.length;
@@ -3698,104 +3681,6 @@
                         </div>
                         <div style="font-weight:800;font-size:.95em;color:#166534;">+RD$ ${(p.amount||0).toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
                     </div>
-                </div>`;
-            }).join('');
-        }
-
-        function renderSellerCobros(mySales, myAllIds) {
-            const summary = document.getElementById('sellerCobrosSummary');
-            const list    = document.getElementById('sellerCobrosList');
-            const badge   = document.getElementById('sellerBadge-cobros');
-            if (!summary || !list) return;
-
-            /* Get all payments for this seller's sales */
-            const mySaleIds = new Set(mySales.map(s => String(s.id)));
-            const myCobros  = _sellerPayments.filter(p => mySaleIds.has(String(p.saleId)));
-
-            if (badge) badge.textContent = myCobros.length;
-
-            const totalCobrado   = myCobros.reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
-            const totalVentas    = mySales.reduce((s,v) => s+(v.totalSale||v.total||0), 0);
-            const totalPendiente = Math.max(0, totalVentas - totalCobrado);
-
-            summary.innerHTML = `
-                <div style="background:#eff6ff;border-radius:10px;padding:14px;text-align:center;">
-                    <div style="font-size:1.3em;font-weight:800;color:#1d4ed8;">RD$ ${totalCobrado.toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
-                    <div style="color:#888;font-size:.8em;margin-top:3px;">Total Cobrado</div>
-                </div>
-                <div style="background:#f0fdf4;border-radius:10px;padding:14px;text-align:center;">
-                    <div style="font-size:1.3em;font-weight:800;color:#166534;">${myCobros.length}</div>
-                    <div style="color:#888;font-size:.8em;margin-top:3px;">Pagos Recibidos</div>
-                </div>
-                <div style="background:${totalPendiente>0?'#fef2f2':'#f0fdf4'};border-radius:10px;padding:14px;text-align:center;">
-                    <div style="font-size:1.3em;font-weight:800;color:${totalPendiente>0?'#dc2626':'#166534'};">RD$ ${totalPendiente.toLocaleString('es-DO',{minimumFractionDigits:2})}</div>
-                    <div style="color:#888;font-size:.8em;margin-top:3px;">Por Cobrar</div>
-                </div>`;
-
-            if (!myCobros.length) {
-                list.innerHTML = '<div style="text-align:center;padding:30px;color:#aaa;">No hay pagos registrados aún.</div>';
-                return;
-            }
-
-            /* Group by receiptId — bulk payments show as one deposit with breakdown */
-            const groups = {};
-            myCobros.forEach(p => {
-                const key = p.receiptId || p.id; /* no receiptId = standalone payment */
-                if (!groups[key]) groups[key] = {
-                    receiptId: p.receiptId || null,
-                    date:      p.date,
-                    accountId: p.accountId,
-                    reference: p.reference || '',
-                    isBulk:    !!p.receiptId,
-                    payments:  [],
-                    total:     0,
-                };
-                groups[key].payments.push(p);
-                groups[key].total += parseFloat(p.amount)||0;
-            });
-
-            /* For bulk receipts, get the full deposit amount from transactions */
-            const allTransactions = _sellerSalesAcct; /* reuse loaded sales slot — actually need transactions */
-
-            const sorted = Object.values(groups).sort((a,b) => (b.date||'') < (a.date||'') ? -1 : 1);
-
-            list.innerHTML = sorted.map(g => {
-                const dateStr = g.date ? new Date(g.date).toLocaleDateString('es-DO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-                const ref = (g.reference||'').replace(/Recibo\s+\w+\s+·\s+/,'').split('·')[0].trim();
-
-                /* Breakdown rows */
-                const breakdown = g.payments.map(p => {
-                    const sale = mySales.find(s => String(s.id) === String(p.saleId));
-                    const inv  = sale ? (sale.invoiceNum||sale.invoiceNumber||'#'+sale.id) : '#'+p.saleId;
-                    return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f4ff;font-size:.82em;">
-                        <span style="color:#374151;">↳ ${inv}</span>
-                        <span style="font-weight:700;color:#1d4ed8;">RD$ ${(p.amount||0).toLocaleString('es-DO',{minimumFractionDigits:2})}</span>
-                    </div>`;
-                }).join('');
-
-                const isBulk = g.payments.length > 1;
-
-                return `<div style="background:white;border:1.5px solid #dbeafe;border-left:4px solid #1d4ed8;border-radius:10px;padding:12px 16px;margin-bottom:10px;">
-                    <!-- Header: deposit amount -->
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:${isBulk?'10px':'0'};">
-                        <div>
-                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">
-                                <span style="background:#1d4ed8;color:white;border-radius:6px;padding:2px 8px;font-size:.75em;font-weight:700;">💵 DEPÓSITO</span>
-                                <span style="font-size:.78em;color:#6b7280;">${dateStr}</span>
-                            </div>
-                            ${ref?`<div style="font-size:.8em;color:#6b7280;margin-top:2px;">📋 ${ref}</div>`:''}
-                            ${isBulk?`<div style="font-size:.78em;color:#1d4ed8;margin-top:2px;">${g.payments.length} facturas cubiertas</div>`:''}
-                        </div>
-                        <div style="font-weight:900;color:#166534;font-size:1.05em;white-space:nowrap;">
-                            RD$ ${g.total.toLocaleString('es-DO',{minimumFractionDigits:2})}
-                        </div>
-                    </div>
-                    <!-- Breakdown per invoice -->
-                    ${isBulk ? `<div style="background:#f5f8ff;border-radius:8px;padding:8px 10px;">${breakdown}</div>` : `
-                        <div style="font-size:.82em;color:#374151;">${(()=>{
-                            const sale = mySales.find(s => String(s.id) === String(g.payments[0]?.saleId));
-                            return sale ? (sale.invoiceNum||sale.invoiceNumber||'#'+sale.id) : '';
-                        })()}</div>`}
                 </div>`;
             }).join('');
         }
@@ -6441,6 +6326,7 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
             document.getElementById('cfg_shippingZone').value   = cfg.shippingZone  || '';
             document.getElementById('cfg_shippingCost2').value  = cfg.shippingCost2 || '';
             document.getElementById('cfg_shippingZone2').value  = cfg.shippingZone2 || '';
+            document.getElementById('cfg_maranatha_pickup_fee').value = cfg.maranatha_pickup_fee ?? '';
             document.getElementById('cfg_cash_discount').value      = cfg.cash_discount      ?? '';
             document.getElementById('cfg_cash_fee').value           = cfg.cash_fee           ?? '';
             document.getElementById('cfg_transfer_discount').value  = cfg.transfer_discount  ?? '';
@@ -6491,6 +6377,7 @@ Esto eliminará su cuenta de la tienda online. No se puede deshacer.`)) return;
                 shippingZone:  document.getElementById('cfg_shippingZone').value.trim(),
                 shippingCost2: parseFloat(document.getElementById('cfg_shippingCost2').value) || 0,
                 shippingZone2: document.getElementById('cfg_shippingZone2').value.trim(),
+                maranatha_pickup_fee: parseFloat(document.getElementById('cfg_maranatha_pickup_fee').value) || 0,
                 cash_discount:     parseFloat(document.getElementById('cfg_cash_discount').value)     || 0,
                 cash_fee:          parseFloat(document.getElementById('cfg_cash_fee').value)          || 0,
                 transfer_discount: parseFloat(document.getElementById('cfg_transfer_discount').value) || 0,
