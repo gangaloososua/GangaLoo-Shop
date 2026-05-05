@@ -290,6 +290,7 @@ select.field option { background:var(--surface2); }
     <div class="nav-tab" onclick="showTab('scanner')" data-tab="scanner">🔍 Escáner</div>
     <div class="nav-tab" onclick="showTab('pos')" data-tab="pos">🛒 Vender <span class="nav-badge" id="cartCount">0</span></div>
     <div class="nav-tab" onclick="showTab('ventas')" data-tab="ventas">📊 Mis Ventas</div>
+    <div class="nav-tab" onclick="showTab('nuevo')" data-tab="nuevo">➕ Nuevo</div>
     <div class="nav-tab" onclick="showTab('ajustes')" data-tab="ajustes">⚙️ Ajustes</div>
   </div>
 
@@ -413,6 +414,121 @@ select.field option { background:var(--surface2); }
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB: NUEVO PRODUCTO ═══ -->
+    <div id="tab-nuevo" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2 style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;">➕ Nuevo Producto</h2>
+          <div style="font-size:12px;color:var(--ink3);margin-top:2px;">Crea un producto rápido desde la tienda</div>
+        </div>
+      </div>
+
+      <div style="max-width:600px;">
+
+        <!-- Basic info -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:14px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:14px;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">📦 Info del Producto</div>
+
+          <div class="form-group">
+            <label class="form-label req">Nombre</label>
+            <input class="field" id="np_name" placeholder="Ej: Camisa Polo Azul M" autocomplete="off">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">SKU / Código</label>
+              <div style="display:flex;gap:6px;">
+                <input class="field" id="np_sku" placeholder="GL-001" style="flex:1;" autocomplete="off">
+                <button onclick="npGenSku()" title="Generar SKU" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r);padding:0 10px;color:var(--ink2);cursor:pointer;font-size:13px;white-space:nowrap;">⚡</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Categoría</label>
+              <select class="field" id="np_cat">
+                <option value="">— Sin categoría —</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Descripción</label>
+            <textarea class="field" id="np_desc" rows="2" placeholder="Descripción corta..."></textarea>
+          </div>
+        </div>
+
+        <!-- Pricing -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:14px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:14px;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">💰 Precios</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label req">Precio venta (RD$)</label>
+              <input class="field" id="np_price" type="number" min="0" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Costo (RD$)</label>
+              <input class="field" id="np_cost" type="number" min="0" step="0.01" placeholder="0.00">
+            </div>
+          </div>
+        </div>
+
+        <!-- Photos -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:14px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:14px;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">📸 Fotos</div>
+          <div id="np_photoGrid" class="photo-grid"></div>
+          <input type="file" id="np_fileInput" accept="image/*" multiple style="display:none;" onchange="npHandlePhotos(this)">
+        </div>
+
+        <!-- Tienda options -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:14px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:4px;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">🏪 Agregar a Tienda Física</div>
+          <div style="font-size:12px;color:var(--ink3);margin-bottom:14px;">¿Poner este producto en el piso de tienda ahora mismo?</div>
+
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:14px;">
+            <div style="position:relative;">
+              <input type="checkbox" id="np_addToStore" onchange="npToggleStore(this.checked)" style="opacity:0;position:absolute;width:0;height:0;">
+              <div id="np_toggleTrack" style="width:40px;height:22px;background:var(--surface3);border-radius:99px;border:1.5px solid var(--border);transition:all .2s;position:relative;">
+                <div id="np_toggleThumb" style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:var(--ink3);border-radius:99px;transition:all .2s;"></div>
+              </div>
+            </div>
+            <span style="font-size:14px;font-weight:600;">Sí, agregar a tienda</span>
+          </label>
+
+          <div id="np_storeFields" style="display:none;">
+            <div class="form-group">
+              <label class="form-label">📍 Ubicación en tienda</label>
+              <div style="display:flex;gap:8px;margin-bottom:6px;">
+                <select class="field" id="np_locSel" onchange="if(this.value)document.getElementById('np_shelf').value=this.value" style="flex:1;font-size:13px;">
+                  <option value="">— Seleccionar posición —</option>
+                </select>
+              </div>
+              <input class="field" id="np_shelf" placeholder="O escribe una nueva ubicación..." style="font-size:13px;">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Unidades en tienda</label>
+              <input class="field" id="np_storeQty" type="number" min="1" value="1" style="width:100px;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Save buttons -->
+        <div style="display:flex;gap:10px;margin-bottom:32px;flex-wrap:wrap;">
+          <button onclick="saveNewProduct()" class="btn btn-primary" style="flex:1;padding:14px;font-size:15px;font-family:'Syne',sans-serif;font-weight:700;">
+            ✅ Guardar Producto
+          </button>
+          <button onclick="npReset()" class="btn btn-ghost" style="padding:14px 20px;">
+            🗑 Limpiar
+          </button>
+        </div>
+
+        <!-- Sync notice -->
+        <div style="background:rgba(124,92,252,.08);border:1px solid rgba(124,92,252,.2);border-radius:var(--r);padding:14px;margin-bottom:20px;">
+          <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px;">🔄 Sobre la sincronización</div>
+          <div style="font-size:12px;color:var(--ink3);line-height:1.6;">
+            El producto se guarda en el inventario compartido y queda disponible en el POS y tienda. Para agregarlo al <strong style="color:var(--ink2);">stock de almacén</strong> o publicarlo en la <strong style="color:var(--ink2);">tienda online</strong>, hazlo desde el panel de Admin después.
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -710,6 +826,184 @@ function showTab(tab) {
   if (tab === 'ventas') renderVentas();
   if (tab === 'pos') renderPosProducts();
   if (tab === 'ajustes') renderLocationsList();
+  if (tab === 'nuevo') npInit();
+}
+
+/* ─── NUEVO PRODUCTO ─── */
+let _npPhotos = [];
+
+function npInit() {
+  // Populate category select
+  const sel = document.getElementById('np_cat');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Sin categoría —</option>' +
+      categories.map(c => `<option value="${c.id}">${c.icon?c.icon+' ':''}${c.name}</option>`).join('');
+  }
+  // Populate location select
+  const locSel = document.getElementById('np_locSel');
+  if (locSel) {
+    const locs = getPosLocations();
+    locSel.innerHTML = '<option value="">— Seleccionar posición —</option>' +
+      locs.map(l => `<option value="${l}">${l}</option>`).join('');
+  }
+  npRenderPhotos();
+}
+
+function npToggleStore(on) {
+  document.getElementById('np_storeFields').style.display = on ? 'block' : 'none';
+  const track = document.getElementById('np_toggleTrack');
+  const thumb = document.getElementById('np_toggleThumb');
+  if (on) {
+    track.style.background = 'var(--accent)';
+    thumb.style.left = '20px';
+    thumb.style.background = '#fff';
+  } else {
+    track.style.background = 'var(--surface3)';
+    thumb.style.left = '2px';
+    thumb.style.background = 'var(--ink3)';
+  }
+}
+
+function npGenSku() {
+  const name = document.getElementById('np_name')?.value.trim() || '';
+  const prefix = name ? name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,3) : 'GL';
+  const num = String(Math.floor(Math.random()*9000)+1000);
+  document.getElementById('np_sku').value = prefix + '-' + num;
+}
+
+function npHandlePhotos(input) {
+  const files = Array.from(input.files);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => { _npPhotos.push(e.target.result); npRenderPhotos(); };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function npRenderPhotos() {
+  const grid = document.getElementById('np_photoGrid');
+  if (!grid) return;
+  grid.innerHTML = _npPhotos.map((url,i) => `
+    <div class="photo-thumb">
+      <img src="${url}" alt="foto">
+      <button class="del-btn" onclick="_npPhotos.splice(${i},1);npRenderPhotos()">✕</button>
+    </div>`).join('') +
+    `<div class="photo-add" onclick="document.getElementById('np_fileInput').click()">
+      <span style="font-size:20px;">📷</span><span>Foto</span>
+    </div>`;
+}
+
+function npReset() {
+  document.getElementById('np_name').value = '';
+  document.getElementById('np_sku').value = '';
+  document.getElementById('np_desc').value = '';
+  document.getElementById('np_price').value = '';
+  document.getElementById('np_cost').value = '';
+  document.getElementById('np_shelf').value = '';
+  document.getElementById('np_storeQty').value = '1';
+  document.getElementById('np_addToStore').checked = false;
+  document.getElementById('np_cat').value = '';
+  document.getElementById('np_locSel').value = '';
+  npToggleStore(false);
+  _npPhotos = [];
+  npRenderPhotos();
+}
+
+async function saveNewProduct() {
+  const name  = document.getElementById('np_name')?.value.trim();
+  const price = parseFloat(document.getElementById('np_price')?.value) || 0;
+  if (!name) { showToast('El nombre es obligatorio', 'error'); document.getElementById('np_name').focus(); return; }
+  if (!price) { showToast('Ingresa un precio de venta', 'error'); document.getElementById('np_price').focus(); return; }
+
+  const sku     = document.getElementById('np_sku')?.value.trim() || '';
+  const desc    = document.getElementById('np_desc')?.value.trim() || '';
+  const cost    = parseFloat(document.getElementById('np_cost')?.value) || 0;
+  const catId   = document.getElementById('np_cat')?.value || '';
+  const addStore = document.getElementById('np_addToStore')?.checked;
+  const shelf   = document.getElementById('np_shelf')?.value.trim() || '';
+  const storeQty = parseInt(document.getElementById('np_storeQty')?.value) || 1;
+
+  // Build product object matching existing structure
+  const newProd = {
+    id:          generateId(),
+    name,
+    sku:         sku || null,
+    description: desc || null,
+    salePrice:   price,
+    price:       price,
+    costPrice:   cost || null,
+    categoryId:  catId || null,
+    categoryIds: catId ? [catId] : [],
+    imageUrl:    _npPhotos[0] || null,
+    active:      true,
+    createdAt:   new Date().toISOString(),
+    updatedAt:   new Date().toISOString(),
+    _posCreated: true, // flag so admin knows origin
+  };
+
+  // Add to local products array
+  products.push(newProd);
+
+  // If adding to tienda
+  if (addStore) {
+    const locShelf = shelf || '—';
+    posProducts[String(newProd.id)] = {
+      active:    true,
+      shelf:     locShelf,
+      locations: [{ shelf: locShelf, qty: storeQty }],
+      photos:    _npPhotos.filter(p => !p.startsWith('data:')), // exclude base64 for now
+      notes:     '',
+      addedAt:   new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  // Upload photos to Supabase storage if any are base64
+  if (_npPhotos.length) {
+    setSyncState('syncing');
+    const uploadedUrls = [];
+    for (const photo of _npPhotos) {
+      if (!photo.startsWith('data:')) { uploadedUrls.push(photo); continue; }
+      try {
+        const res = await fetch(photo);
+        const blob = await res.blob();
+        const ext = blob.type.split('/')[1] || 'jpg';
+        const path = `pos-products/${newProd.id}-${Date.now()}.${ext}`;
+        const { data, error } = await sb.storage.from('gangaloo-media').upload(path, blob, { contentType: blob.type, upsert: false });
+        if (!error) {
+          const { data: urlData } = sb.storage.from('gangaloo-media').getPublicUrl(path);
+          uploadedUrls.push(urlData.publicUrl);
+        }
+      } catch(e) { console.warn('Photo upload failed:', e); }
+    }
+    newProd.imageUrl = uploadedUrls[0] || null;
+    if (addStore && posProducts[String(newProd.id)]) {
+      posProducts[String(newProd.id)].photos = uploadedUrls;
+    }
+  }
+
+  // Save to DB
+  try {
+    setSyncState('syncing');
+    const { data: inv } = await sb.from('inventory_data').select('id').limit(1);
+    if (inv?.length) {
+      await sb.from('inventory_data')
+        .update({ products: JSON.stringify(products), updated_at: new Date().toISOString() })
+        .eq('id', inv[0].id);
+    }
+    if (addStore) await saveTiendaImmediate();
+    setSyncState('ok');
+    showToast(`✅ "${name}" guardado${addStore?' y agregado a tienda':''}`, 'success', 4000);
+    renderInventario();
+    renderTienda();
+    renderInvCatPills();
+    updateStoreBadge();
+    npReset();
+  } catch(e) {
+    setSyncState('error');
+    showToast('Error guardando: ' + e.message, 'error');
+  }
 }
 
 /* ─── INVENTARIO TAB ─── */
