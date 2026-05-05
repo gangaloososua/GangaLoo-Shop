@@ -1642,12 +1642,53 @@ async function loadAllData() {
     renderDashboard();
     setSaveState('saved');
     showToast('Datos cargados correctamente', 'success');
+    startOrderPolling();
   } catch(e) {
     console.error('loadAllData error:', e);
     setSaveState('error');
     showToast('Error al cargar datos: ' + e.message, 'error');
     seedDefaults(); renderDashboard();
   }
+}
+
+/* ─── AUTO-POLL NEW ORDERS ─── */
+let _orderPollInterval = null;
+let _knownOrderIds = new Set();
+let _orderPollingStarted = false;
+
+async function pollNewOrders() {
+  try {
+    const { data } = await sb.from('online_orders').select('id,status,customer_name,total,created_at').order('created_at', { ascending: false }).limit(50);
+    if (!data) return;
+    // Update badge
+    const pending = data.filter(o => ['pending','pending_payment'].includes(o.status));
+    const badge = document.getElementById('badge-pedidos');
+    if (badge) { badge.textContent = pending.length; badge.style.display = pending.length ? 'block' : 'none'; }
+    // Detect new orders
+    const newOrders = data.filter(o => !_knownOrderIds.has(o.id));
+    newOrders.forEach(o => _knownOrderIds.add(o.id));
+    if (_knownOrderIds.size > 0 && newOrders.length > 0 && newOrders.some(o => ['pending','pending_payment'].includes(o.status))) {
+      const newest = newOrders.find(o => ['pending','pending_payment'].includes(o.status));
+      if (newest) {
+        showToast('🛒 Nuevo pedido: ' + (newest.customer_name||'Cliente') + ' — RD$ ' + fmt(parseFloat(newest.total||0)), 'success');
+        // Refresh panel if currently open
+        if (document.getElementById('panel-pedidos') && document.getElementById('pedidosStoreContainer')) {
+          loadPedidosOnline();
+        }
+      }
+    }
+  } catch(e) {}
+}
+
+function startOrderPolling() {
+  if (_orderPollingStarted) return;
+  _orderPollingStarted = true;
+  // Seed known IDs first without alerting
+  sb.from('online_orders').select('id').then(({data}) => {
+    (data||[]).forEach(o => _knownOrderIds.add(o.id));
+    // Then poll every 30 seconds
+    _orderPollInterval = setInterval(pollNewOrders, 30000);
+  });
 }
 
 /* ─── DATA SAVE ─── */
