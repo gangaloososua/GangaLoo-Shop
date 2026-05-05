@@ -2221,6 +2221,24 @@ async function submitOrder(){
     return;
   }
   const t=totalAfterBulk();cart=[];updCart();localStorage.removeItem('gangaloo_cart');
+  // Send WhatsApp notifications
+  const _orderId=data?.[0]?.id||'';
+  const _whObj=allWarehouses.find(w=>w.id==selectedWH);
+  const _cfgWA=(storeConfig?.whatsapp||'').replace(/[^0-9]/g,'');
+  const _whWA=(_whObj?.whatsapp||'').replace(/[^0-9]/g,'');
+  const _waMsg=encodeURIComponent(
+    '🛒 *Nuevo Pedido GangaLoo*\n'
+    +'👤 '+n+'  📞 '+p+'\n'
+    +(e?'📧 '+e+'\n':'')
+    +'📍 Tienda: '+(_whObj?.name||'—')+'\n'
+    +'📦 '+cart.map(i=>i.qty+'× '+i.name).join(', ')+'\n'
+    +'💰 Total: RD$ '+fmt(t)+'\n'
+    +(del!=='pickup'&&del!=='other_wh'&&a?'🏠 Dirección: '+a+'\n':'')
+    +(del==='other_wh'?'🚐 Recogida en '+_pickupOtherName+'\n':'')
+    +(_orderId?'🔑 ID: '+_orderId:'')
+  );
+  if(_cfgWA) window.open('https://wa.me/'+_cfgWA+'?text='+_waMsg,'_blank');
+  if(_whWA && _whWA!==_cfgWA) setTimeout(()=>window.open('https://wa.me/'+_whWA+'?text='+_waMsg,'_blank'),800);
   document.getElementById('checkoutContent').innerHTML=`<div class="success-box"><div class="success-ico">✅</div><h2>¡Pedido Enviado!</h2><p>Hola <strong>${n}</strong>, recibimos tu pedido por <strong>RD$ ${fmt(t)}</strong>.</p><p>Nos comunicaremos al <strong>${p}</strong> para confirmar y coordinar la entrega.</p><p style="margin-top:12px;font-size:12px;background:var(--warm);padding:10px;border-radius:9px">⏳ Pendiente de confirmación.</p><button class="btn-submit" style="margin-top:22px" onclick="closeCheckout()">Continuar Comprando →</button></div>`;
 }
 
