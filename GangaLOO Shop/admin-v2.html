@@ -8773,7 +8773,17 @@ function renderStoreOrderCard(o) {
           <span><strong>${it.qty||1}×</strong> ${it.name||it.product_name||it.product_id}</span>
           <span style="color:var(--violet);font-weight:600;">${formatDOP((parseFloat(it.price)||0)*(parseInt(it.qty)||1))}</span>
         </div>`).join('')}
-      </div>`:''}
+      </div>`:''}      ${(o.customer_address||(o.notes||'').trim()) ? `<div style="background:#f8f6ff;border:1px solid #e8e4f8;border-radius:var(--r-sm);padding:10px 12px;margin-bottom:10px;font-size:12px;display:flex;flex-direction:column;gap:4px;">
+        ${o.customer_address?`<div>🏠 <strong>Dirección:</strong> ${o.customer_address}</div>`:''}
+        ${(o.notes||'').split('\n').filter(l=>l.trim()&&!l.startsWith('📍 Tienda')).map(line=>{
+          const mapsMatch = line.match(/https:\/\/maps[^\s]*/);
+          if(mapsMatch) return `<div>${line.replace(mapsMatch[0],'')}<a href="${mapsMatch[0]}" target="_blank" style="color:var(--violet);font-weight:600;">📍 Ver en mapa</a></div>`;
+          if(line.includes('📅')) return `<div style="color:#0369a1;">${line}</div>`;
+          if(line.includes('🚐')||line.includes('🚚')||line.includes('🏪')) return `<div style="color:#065f46;font-weight:700;">${line}</div>`;
+          if(line.includes('💳')||line.includes('💵')||line.includes('🏦')) return `<div style="color:#7c3aed;font-weight:700;">${line}</div>`;
+          return `<div style="color:var(--ink-2);">${line}</div>`;
+        }).join('')}
+      </div>` : ''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${o.customer_phone?`<button class="btn btn-teal btn-xs" onclick="openWhatsApp('${o.customer_phone}','')">💬 WhatsApp</button>`:''}
         <button class="btn btn-ghost btn-xs" onclick="openEditOnlineOrder('${o.id}')">✏️ Editar</button>

@@ -2187,7 +2187,7 @@ async function submitOrder(){
     customer_address:a,
     notes:nt||null,
     items:JSON.stringify(cart.map(i=>({product_id:i.id,name:i.name,sku:i.sku,qty:i.qty,price:i.price}))),
-    total:totalAfterBulk(),
+    total:getCheckoutTotal().total,
     currency:'DOP',
     status:'pending'
   };
@@ -2220,23 +2220,34 @@ async function submitOrder(){
     btn.disabled=false;btn.textContent='Enviar Pedido ✦';
     return;
   }
-  const t=totalAfterBulk();cart=[];updCart();localStorage.removeItem('gangaloo_cart');
-  // Send WhatsApp notifications
+  const t=getCheckoutTotal().total;
+  // Build WA message BEFORE clearing cart
   const _orderId=data?.[0]?.id||'';
   const _whObj=allWarehouses.find(w=>w.id==selectedWH);
   const _cfgWA=(storeConfig?.whatsapp||'').replace(/[^0-9]/g,'');
   const _whWA=(_whObj?.whatsapp||'').replace(/[^0-9]/g,'');
+  const _pay=document.querySelector('input[name="payment"]:checked')?.value||'';
+  const _payLabel={'cash':'💵 Efectivo','transfer':'🏦 Transferencia','stripe':'💳 Tarjeta (Stripe)','paypal':'💳 PayPal','extra':storeConfig?.extra_pay_name||'Otro'}[_pay]||_pay;
+  const _delLabel=del==='pickup'?'🏪 Recoger en '+(_whObj?.name||'tienda'):del==='other_wh'?'🚐 Recoger en '+_pickupOtherName:del==='shipping'?'🚚 '+(storeConfig?.shippingZone||'Envío zona 1'):del==='shipping2'?'🚛 '+(storeConfig?.shippingZone2||'Envío zona 2'):'—';
+  const _itemsLine=cart.map(i=>i.qty+'× '+i.name+' (RD$ '+fmt(i.price*i.qty)+')').join('\n   ');
   const _waMsg=encodeURIComponent(
     '🛒 *Nuevo Pedido GangaLoo*\n'
     +'👤 '+n+'  📞 '+p+'\n'
-    +(e?'📧 '+e+'\n':'')
+    +(e&&e!==n?'📧 '+e+'\n':'')
     +'📍 Tienda: '+(_whObj?.name||'—')+'\n'
-    +'📦 '+cart.map(i=>i.qty+'× '+i.name).join(', ')+'\n'
-    +'💰 Total: RD$ '+fmt(t)+'\n'
-    +(del!=='pickup'&&del!=='other_wh'&&a?'🏠 Dirección: '+a+'\n':'')
-    +(del==='other_wh'?'🚐 Recogida en '+_pickupOtherName+'\n':'')
+    +'━━━━━━━━━━━━\n'
+    +'📦 *Productos:*\n   '+_itemsLine+'\n'
+    +'💰 *Total: RD$ '+fmt(t)+'*\n'
+    +'━━━━━━━━━━━━\n'
+    +'🚚 *Entrega:* '+_delLabel+'\n'
+    +(a?'🏠 Dirección: '+a+'\n':'')
+    +(delivDate?'📅 Fecha: '+delivDate+'\n':'')
+    +(coPinLat&&coPinLng?'📍 Mapa: https://maps.google.com/?q='+coPinLat+','+coPinLng+'\n':'')
+    +'💳 *Pago:* '+_payLabel+'\n'
+    +'━━━━━━━━━━━━\n'
     +(_orderId?'🔑 ID: '+_orderId:'')
   );
+  cart=[];updCart();localStorage.removeItem('gangaloo_cart');
   if(_cfgWA) window.open('https://wa.me/'+_cfgWA+'?text='+_waMsg,'_blank');
   if(_whWA && _whWA!==_cfgWA) setTimeout(()=>window.open('https://wa.me/'+_whWA+'?text='+_waMsg,'_blank'),800);
   document.getElementById('checkoutContent').innerHTML=`<div class="success-box"><div class="success-ico">✅</div><h2>¡Pedido Enviado!</h2><p>Hola <strong>${n}</strong>, recibimos tu pedido por <strong>RD$ ${fmt(t)}</strong>.</p><p>Nos comunicaremos al <strong>${p}</strong> para confirmar y coordinar la entrega.</p><p style="margin-top:12px;font-size:12px;background:var(--warm);padding:10px;border-radius:9px">⏳ Pendiente de confirmación.</p><button class="btn-submit" style="margin-top:22px" onclick="closeCheckout()">Continuar Comprando →</button></div>`;
