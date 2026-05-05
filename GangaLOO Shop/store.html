@@ -1756,10 +1756,18 @@ function onDeliveryChange(){
     mapSection.style.display=isDelivery?'block':'none';
     if(isDelivery) initCoMap();
   }
-  // show maranatha fee row
+  // show maranatha fee row and update its amount
   const maranathaFeeRow=document.getElementById('co_maranatha_fee');
-  if(maranathaFeeRow) maranathaFeeRow.style.display=del==='other_wh'?'flex':'none';
   const {shipFee}=getCheckoutTotal();
+  if(maranathaFeeRow){
+    if(del==='other_wh'&&shipFee>0){
+      maranathaFeeRow.style.display='flex';
+      const mfa=document.getElementById('co_maranatha_fee_amt');
+      if(mfa) mfa.textContent='+ RD$ '+fmt(shipFee);
+    } else {
+      maranathaFeeRow.style.display=del==='other_wh'?'flex':'none';
+    }
+  }
   if(feeRow){
     if(isShipping && shipFee===0 && isClubMember()){
       feeRow.style.display='flex';
@@ -1805,6 +1813,16 @@ function onPaymentChange(){
 function openCheckout(){
   if(!currentUser){ closeCart(); openAuthWall('login'); return; }
   closeCart();
+  // Refresh storeConfig from Supabase to ensure fees are current
+  (async()=>{
+    try{
+      const {data}=await sb.from('inventory_data').select('store_config').limit(1);
+      if(data&&data[0]?.store_config) storeConfig=JSON.parse(data[0].store_config||'{}');
+    }catch(e){}
+    _openCheckoutRender();
+  })();
+}
+function _openCheckoutRender(){
   const wh=allWarehouses.find(w=>w.id==selectedWH);
   const userName=userProfile?.full_name||'';
   const userEmail=currentUser?.email||'';
@@ -1868,7 +1886,7 @@ function openCheckout(){
       <div class="oitem"><span>Subtotal</span><span>RD$ ${fmt(_rawTotal)}</span></div>
       ${_bulkTier ? `<div class="oitem" style="color:#166534;font-weight:600;"><span>🏷️ ${_bulkTier.label||'Descuento mayoreo'} (-${_bulkTier.disc}%)</span><span>- RD$ ${fmt(_rawTotal*(_bulkTier.disc/100))}</span></div>` : ''}
       <div class="oitem" id="co_shipping_fee" style="display:none;"><span>🚚 Envío${isClubMember()?'':''}</span><span id="co_fee_amt">${isClubMember()?'<span style="color:#002D62;font-weight:700;">🏆 GRATIS</span>':'RD$ 0'}</span></div>
-      <div class="oitem" id="co_maranatha_fee" style="display:none;"><span>🚐 Recogida Maranatha</span><span>+ RD$ ${fmt(maranathaFee)}</span></div>
+      <div class="oitem" id="co_maranatha_fee" style="display:none;"><span>🚐 Recogida ${otherWHName||'otra tienda'}</span><span id="co_maranatha_fee_amt">+ RD$ ${fmt(maranathaFee)}</span></div>
       <div class="oitem" id="co_pay_adj_row" style="display:none;"><span id="co_pay_adj_lbl">Ajuste pago</span><span id="co_pay_adj_amt"></span></div>
       <div class="ototal"><span>Total</span><span id="co_pay_total">RD$ ${fmt(cartTotal)}</span></div>
       ${wh?`<div style="margin-top:8px;font-size:11px;color:var(--muted)">📍 ${wh.name}</div>`:''}
