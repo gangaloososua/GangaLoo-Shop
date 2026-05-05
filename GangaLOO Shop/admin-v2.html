@@ -12372,6 +12372,7 @@ function renderAlmacenesPanel() {
                 </div>
               </div>
               ${w.phone?`<div style="font-size:13px;color:var(--ink-2);margin-bottom:8px;">📞 ${w.phone}</div>`:''}
+              ${w.whatsapp?`<div style="font-size:13px;color:#25D366;margin-bottom:8px;">📱 WA: ${w.whatsapp}</div>`:`<div style="font-size:12px;color:#f59e0b;margin-bottom:8px;">📱 Sin WhatsApp de notificaciones</div>`}
               ${(w.storeCategoryIds&&w.storeCategoryIds.length)?`<div style="font-size:12px;color:var(--violet);margin-bottom:8px;">🏷 ${w.storeCategoryIds.length} categoría(s) en tienda</div>`:'<div style="font-size:12px;color:var(--ink-3);margin-bottom:8px;">🏷 Todas las categorías en tienda</div>'}
               ${w.mapsUrl?`<a href="${w.mapsUrl}" target="_blank" class="btn btn-ghost btn-xs" style="margin-bottom:10px;">📍 Ver en Maps</a>`:''}
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -12397,6 +12398,7 @@ function editAlmacen(id) {
         <div class="form-group" style="margin-top:10px;"><label class="field-label">Ciudad</label><input class="field" id="ewCity" value="${w.city||''}"></div>
         <div class="form-group" style="margin-top:10px;"><label class="field-label">Teléfono</label><input class="field" id="ewPhone" value="${w.phone||''}"></div>
         <div class="form-group" style="margin-top:10px;"><label class="field-label">Google Maps URL</label><input class="field" id="ewMaps" value="${w.mapsUrl||''}" placeholder="https://maps.google.com/..."></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">📱 WhatsApp Notificaciones</label><input class="field" id="ewWhatsapp" value="${w.whatsapp||''}" placeholder="Ej: 8291234567"><div style="font-size:11px;color:var(--ink-3);margin-top:3px;">Recibe un mensaje cuando se haga un pedido en esta tienda</div></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -12409,10 +12411,11 @@ function editAlmacen(id) {
 function saveEditAlmacen(id) {
   const w = warehouses.find(x=>String(x.id)===String(id));
   if (!w) return;
-  w.name    = document.getElementById('ewName').value.trim() || w.name;
-  w.city    = document.getElementById('ewCity').value.trim();
-  w.phone   = document.getElementById('ewPhone').value.trim();
-  w.mapsUrl = document.getElementById('ewMaps').value.trim();
+  w.name     = document.getElementById('ewName').value.trim() || w.name;
+  w.city     = document.getElementById('ewCity').value.trim();
+  w.phone    = document.getElementById('ewPhone').value.trim();
+  w.mapsUrl  = document.getElementById('ewMaps').value.trim();
+  w.whatsapp = document.getElementById('ewWhatsapp').value.trim().replace(/[^0-9]/g,'');
   debouncedSave();
   renderAlmacenesPanel();
   closeModal();
@@ -12427,6 +12430,7 @@ function openNuevoAlmacen() {
         <div class="form-group"><label class="field-label field-required">Nombre</label><input class="field" id="naName" placeholder="Nombre del almacén"></div>
         <div class="form-group" style="margin-top:10px;"><label class="field-label">Ciudad</label><input class="field" id="naCity" placeholder="Ciudad"></div>
         <div class="form-group" style="margin-top:10px;"><label class="field-label">Teléfono</label><input class="field" id="naPhone" placeholder="809..."></div>
+        <div class="form-group" style="margin-top:10px;"><label class="field-label">📱 WhatsApp Notificaciones</label><input class="field" id="naWhatsapp" placeholder="Ej: 8291234567"><div style="font-size:11px;color:var(--ink-3);margin-top:3px;">Recibe un mensaje cuando se haga un pedido en esta tienda</div></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -12440,7 +12444,7 @@ function saveNuevoAlmacen() {
   const name = document.getElementById('naName').value.trim();
   if (!name) { showToast('Nombre obligatorio','error'); return; }
   const id = name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
-  warehouses.push({ id, name, city: document.getElementById('naCity').value.trim(), phone: document.getElementById('naPhone').value.trim(), mapsUrl: '' });
+  warehouses.push({ id, name, city: document.getElementById('naCity').value.trim(), phone: document.getElementById('naPhone').value.trim(), whatsapp: document.getElementById('naWhatsapp').value.trim().replace(/[^0-9]/g,''), mapsUrl: '' });
   debouncedSave();
   renderAlmacenesPanel();
   closeModal();

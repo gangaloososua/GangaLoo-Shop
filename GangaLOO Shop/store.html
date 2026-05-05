@@ -1721,7 +1721,7 @@ function getCheckoutTotal(){
   let shipFee=0;
   if(del==='shipping') shipFee=isClubMember()?0:parseFloat(cfg.shippingCost||0);
   else if(del==='shipping2') shipFee=isClubMember()?0:parseFloat(cfg.shippingCost2||0);
-  else if(del==='other_wh') shipFee=parseFloat(cfg.maranatha_pickup_fee||0);
+  else if(del==='other_wh') shipFee=parseFloat(cfg.maranatha_pickup_fee||cfg.maranatha_fee||0);
   // payment adjustment
   let payAdj=0;
   if(pay==='cash'){
@@ -1831,7 +1831,7 @@ function _openCheckoutRender(){
   const _rawSc2=parseFloat(cfg.shippingCost2||0);
   const sc=isClubMember()?0:_rawSc;
   const sc2=isClubMember()?0:_rawSc2;
-  const maranathaFee=parseFloat(cfg.maranatha_pickup_fee||0);
+  const maranathaFee=parseFloat(cfg.maranatha_pickup_fee||cfg.maranatha_fee||0);
   const isMontellano=(wh?.name||'').toLowerCase().includes('montellano');
   const isMaranathaWH=(wh?.name||'').toLowerCase().includes('maranatha');
   const otherWHName=isMontellano?'Maranatha':isMaranathaWH?'Montellano':null;
