@@ -405,7 +405,7 @@ function render(prods) {
     const store = (p.store && p.store !== '') ? p.store : 'aliexpress';
     const storeLbl = store === 'temu' ? 'Temu' : 'AliExpress';
     return `
-    <div class="card" onclick="openAffLink(${i},event)" style="cursor:pointer;">
+    <div class="card" data-idx="${i}" style="cursor:pointer;">
       <div class="card-img">
         <img src="${e(p.image_url)}" alt="${e(p.name)}" loading="lazy" onerror="this.parentElement.style.background='#eee'">
         <div class="hover-ovl"><div class="ovl-cta">🛒 Ver en ${storeLbl}</div></div>
@@ -423,11 +423,20 @@ function render(prods) {
 function openAffLink(idx, event) {
   if (event) { event.preventDefault(); event.stopPropagation(); }
   const url = window._cardUrls && window._cardUrls[idx];
-  if (url) {
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }
+  if (url) window.open(url, '_blank', 'noopener,noreferrer');
   return false;
 }
+
+// Single delegated click handler on grid - more reliable than inline onclick
+document.addEventListener('click', function(e) {
+  const card = e.target.closest('[data-idx]');
+  if (!card) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const idx = parseInt(card.dataset.idx);
+  const url = window._cardUrls && window._cardUrls[idx];
+  if (url) window.open(url, '_blank', 'noopener,noreferrer');
+});
 
 function buildFilters() {
   const src = activeStore === 'all' ? allProducts : allProducts.filter(p => (p.store || 'aliexpress') === activeStore);
