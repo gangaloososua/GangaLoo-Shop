@@ -390,7 +390,7 @@ function render(prods) {
     const storeLbl = store === 'temu' ? 'Temu' : 'AliExpress';
     return `
     <a class="card" href="${e(p.affiliate_url)}" target="_blank" rel="noopener noreferrer"
-       onclick="event.preventDefault();window.open('${p.affiliate_url.replace(/'/g,\"\\'\")}','_blank','noopener,noreferrer')">
+       onclick="event.preventDefault();window.open(this.href,'_blank','noopener,noreferrer')">
       <div class="card-img">
         <img src="${e(p.image_url)}" alt="${e(p.name)}" loading="lazy" onerror="this.parentElement.style.background='#eee'">
         <div class="hover-ovl"><div class="ovl-cta">🛒 Ver en ${storeLbl}</div></div>
