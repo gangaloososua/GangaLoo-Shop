@@ -9167,8 +9167,7 @@ async function approveOnlineOrder(orderId) {
   let pickupWH = null;
   if (isCrossPickup) {
     // The pickup warehouse is the one mentioned after "🚐 Recoger en"
-    const pickupMatch = orderNotes.match(/🚐 Recoger en ([^
-]+)/);
+    const pickupMatch = orderNotes.match(/🚐 Recoger en ([^\n]+)/);
     const pickupWHName = pickupMatch ? pickupMatch[1].trim().toLowerCase() : '';
     pickupWH = warehouses.find(w => (w.name||'').toLowerCase().includes(pickupWHName) || pickupWHName.includes((w.name||'').toLowerCase()));
   }
