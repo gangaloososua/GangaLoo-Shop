@@ -4314,6 +4314,7 @@ function openVentaDetail(saleId) {
             <div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:6px;">Comisión</div>
             <div>Comisión vendedor: <strong style="color:var(--amber);">${formatDOP(sale.commissionPaid||sale.commissionAmt||0)}</strong>${sale.commissionPercent?` (${sale.commissionPercent}%)`:''}${sale.commissionPaid>0&&sale.commissionPercent?' del total':''}</div>
             ${(sale.distributorCommissionPaid||sale.distribAmt||0) > 0 ? `<div>Distribuidor (${sale.distributorCommissionPct||5}%): <strong>${formatDOP(sale.distributorCommissionPaid||sale.distribAmt||0)}</strong></div>` : ''}
+            ${sale.pickupCommissionAmt > 0 ? `<div style="color:#92400e;">🚐 Comisión recogida ${sale.pickupCommissionPct}% → ${sale.pickupDistributorName||sale.pickupWarehouseName||'—'}: <strong>${formatDOP(sale.pickupCommissionAmt)}</strong></div>` : ''}
           </div>
         ` : ''}
 
@@ -8827,6 +8828,7 @@ function renderStoreOrderCard(o) {
       </div>` : ''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${o.customer_phone?`<button class="btn btn-teal btn-xs" onclick="openWhatsApp('${o.customer_phone}','')">💬 WhatsApp</button>`:''}
+        ${(()=>{ const s=sales.find(x=>x.onlineOrderId===o.id); return s?.pickupCommissionAmt>0?`<span style="background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;">💰 Comisión recogida: ${formatDOP(s.pickupCommissionAmt)} (${s.pickupCommissionPct}%) → ${s.pickupDistributorName||s.pickupWarehouseName||'—'}</span>`:''; })()}
         <button class="btn btn-ghost btn-xs" onclick="openEditOnlineOrder('${o.id}')">✏️ Editar</button>
         ${o.status==='pending'||o.status==='pending_payment'?`
           <button class="btn btn-success btn-xs" onclick="updateOrderStatus('${o.id}','approved')">✅ Aprobar</button>
@@ -9023,11 +9025,71 @@ async function updateOrderStatus(orderId, status) {
     await approveOnlineOrder(orderId);
   } else {
     try {
+      // Before rejecting, check if order had shipping/transfer fee — create debt if so
+      if (status === 'rejected') {
+        const { data: order } = await sb.from('online_orders').select('*').eq('id', orderId).single();
+        if (order) await _createShippingDebtIfNeeded(order);
+      }
       await sb.from('online_orders').update({ status }).eq('id', orderId);
       showToast('Pedido rechazado', 'warning');
       loadPedidosOnline();
     } catch(e) { showToast('Error: ' + e.message, 'error'); }
   }
+}
+
+async function _createShippingDebtIfNeeded(order) {
+  // Parse shipping fee from order notes
+  const notes = order.notes || '';
+  const hasShipping = notes.includes('🚐') || notes.includes('🚚') || notes.includes('🚛');
+  if (!hasShipping) return;
+
+  // Determine fee amount from notes or storeConfig
+  let feeAmt = 0;
+  const feeMatch = notes.match(/\+ RD\$\s*([\d,.]+)/);
+  if (feeMatch) {
+    feeAmt = parseFloat(feeMatch[1].replace(',','')) || 0;
+  }
+  // Fallback: check storeConfig
+  if (!feeAmt) {
+    feeAmt = parseFloat(storeConfig?.maranatha_fee || storeConfig?.maranatha_pickup_fee || 0);
+    if (!feeAmt && notes.includes('🚚')) feeAmt = parseFloat(storeConfig?.shippingCost || 0);
+    if (!feeAmt && notes.includes('🚛')) feeAmt = parseFloat(storeConfig?.shippingCost2 || 0);
+  }
+  if (!feeAmt || feeAmt <= 0) return;
+
+  // Find or create customer record
+  const custName  = order.customer_name || 'Cliente Online';
+  const custPhone = order.customer_phone || '';
+  let customer = customers.find(c =>
+    (custPhone && c.phone === custPhone) ||
+    c.name?.toLowerCase() === custName.toLowerCase()
+  );
+  if (!customer) {
+    customer = { id: Date.now(), name: custName, phone: custPhone, email: order.customer_email||'', createdAt: new Date().toISOString() };
+    customers.push(customer);
+  }
+
+  // Create a "shipping fee debt" sale entry
+  const wh = warehouses.find(w => String(w.id) === String(order.warehouse_id));
+  const delivLabel = notes.includes('🚐') ? '🚐 Recogida en otra tienda' : notes.includes('🚚') ? '🚚 Envío' : '🚛 Envío zona 2';
+  const debtSale = {
+    id:           Date.now(),
+    invoiceNum:   nextInvoiceNumber(),
+    date:         new Date().toISOString().split('T')[0],
+    customerId:   String(customer.id),
+    sellerId:     null,
+    warehouseId:  order.warehouse_id || null,
+    items:        [{ productId: 'shipping-fee', name: delivLabel + ' (pedido cancelado #' + (order.id||'').slice(-8).toUpperCase() + ')', qty: 1, price: feeAmt, totalSale: feeAmt }],
+    totalSale:    feeAmt,
+    total:        feeAmt,
+    status:       'active',
+    notes:        'Deuda de envío por cancelación de pedido online. Ref: ' + (order.id||''),
+    onlineOrderId: order.id,
+    isShippingDebt: true,
+  };
+  sales.push(debtSale);
+  await saveData();
+  showToast('⚠️ Deuda de envío RD$ ' + fmt(feeAmt) + ' registrada para ' + custName, 'warning');
 }
 
 async function approveOnlineOrder(orderId) {
@@ -9095,7 +9157,27 @@ async function approveOnlineOrder(orderId) {
   const subtotal  = saleItems.reduce((s,i)=>s+i.qty*i.price, 0);
   const total     = Math.max(0, subtotal - discount);
   const comm      = calcCommission(total, orderCustomer || customerAsSeller);
-  const distObj   = customers.find(cx => cx.type==='distributor' && cx.distributorWarehouseId===parseInt(whId));
+
+  // ── Pickup commission: if order notes say cross-warehouse pickup, award distributor of PICKUP warehouse ──
+  const orderNotes = order.notes || '';
+  const isCrossPickup = orderNotes.includes('🚐 Recoger en');
+  // Figure out which warehouse the customer is picking up from (the OTHER one)
+  const orderWH = warehouses.find(w => String(w.id) === String(whId));
+  const orderWHName = (orderWH?.name || '').toLowerCase();
+  let pickupWH = null;
+  if (isCrossPickup) {
+    // The pickup warehouse is the one mentioned after "🚐 Recoger en"
+    const pickupMatch = orderNotes.match(/🚐 Recoger en ([^
+]+)/);
+    const pickupWHName = pickupMatch ? pickupMatch[1].trim().toLowerCase() : '';
+    pickupWH = warehouses.find(w => (w.name||'').toLowerCase().includes(pickupWHName) || pickupWHName.includes((w.name||'').toLowerCase()));
+  }
+  const pickupCommPct = parseFloat(storeConfig?.pickup_commission_pct ?? 5);
+  const pickupDistObj = pickupWH ? customers.find(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(pickupWH.id) || (cx.distributorWarehouseName||'').toLowerCase().includes((pickupWH.name||'').toLowerCase()))) : null;
+  const pickupCommAmt = (isCrossPickup && pickupCommPct > 0) ? Math.round(total * pickupCommPct / 100 * 100) / 100 : 0;
+
+  // Regular distributor (order warehouse)
+  const distObj = customers.find(cx => cx.type==='distributor' && cx.distributorWarehouseId===parseInt(whId));
 
   sales.push({
     id:              generateId(),
@@ -9120,13 +9202,23 @@ async function approveOnlineOrder(orderId) {
     commissionAmt:     comm ? comm.sellerAmt : 0,
     commissionPaid:    comm ? comm.sellerAmt : 0,
     distribAmt:        comm ? comm.distribAmt : 0,
+    // Pickup commission fields
+    pickupDistributorId:    pickupDistObj?.id || null,
+    pickupDistributorName:  pickupDistObj?.name || (pickupWH?.name ? 'Distribuidor '+pickupWH.name : null),
+    pickupWarehouseId:      pickupWH?.id || null,
+    pickupWarehouseName:    pickupWH?.name || null,
+    pickupCommissionPct:    isCrossPickup ? pickupCommPct : 0,
+    pickupCommissionAmt:    pickupCommAmt,
     productName:       items.map(i=>i.name||getProductName(i.product_id)).filter(Boolean).join(', '),
-    invoiceNumber:     invoiceNum,
     distributorId:     distObj?.id || null,
     distributorName:   distObj?.name || null,
     onlineOrderId:     orderId,
     createdAt:         new Date().toISOString(),
   });
+
+  if (pickupCommAmt > 0) {
+    showToast(`💰 Comisión recogida: ${formatDOP(pickupCommAmt)} (${pickupCommPct}%) → ${pickupDistObj?.name || pickupWH?.name || 'Distribuidor'}`, 'info');
+  }
 
   await sb.from('online_orders').update({ status: 'approved', updated_at: new Date().toISOString() }).eq('id', orderId);
   await saveData();
@@ -13096,6 +13188,26 @@ function renderConfigPanel() {
             <div class="form-group"><label class="field-label">🚐 Transfer Montellano→Maranatha (RD$)</label>
               <input class="field" type="number" id="cfg_maranatha_fee" value="${sc.maranatha_fee||200}" placeholder="200" step="1">
               <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">Cargo por transferir pedidos de Montellano a Maranatha para recogida</div></div>
+            <div class="form-group"><label class="field-label">💰 Comisión Distribuidor por Recogida (%)</label>
+              <input class="field" type="number" id="cfg_pickup_commission_pct" value="${sc.pickup_commission_pct??5}" placeholder="5" step="0.5" min="0" max="100">
+              <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">% del total que recibe el distribuidor cuando un pedido online se recoge en su almacén</div></div>
+          </div>
+          <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="saveFullStoreConfig()">💾 Guardar</button>
+        </div>
+
+        <!-- WhatsApp Notificaciones -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">📱 Notificaciones WhatsApp</div></div>
+          <p class="field-hint" style="margin-bottom:12px;">Recibe un mensaje automático cuando llega un pedido nuevo. Usa <strong>CallMeBot</strong> (gratis). Cada número debe activarse una vez: escribe <em>I allow callmebot to send me messages</em> al <strong>+34 644 44 74 64</strong> por WhatsApp, y recibirás tu API key.</p>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="form-group"><label class="field-label">📞 Admin WhatsApp (con código país)</label>
+              <input class="field" id="cfg_notify_admin_phone" value="${sc.notify_admin_phone||''}" placeholder="18498001234"></div>
+            <div class="form-group"><label class="field-label">🔑 Admin CallMeBot API Key</label>
+              <input class="field" id="cfg_notify_admin_key" value="${sc.notify_admin_key||''}" placeholder="1234567"></div>
+            <div class="form-group"><label class="field-label">📞 Distribuidor WhatsApp (con código país)</label>
+              <input class="field" id="cfg_notify_dist_phone" value="${sc.notify_dist_phone||''}" placeholder="18491234567"></div>
+            <div class="form-group"><label class="field-label">🔑 Distribuidor CallMeBot API Key</label>
+              <input class="field" id="cfg_notify_dist_key" value="${sc.notify_dist_key||''}" placeholder="7654321"></div>
           </div>
           <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="saveFullStoreConfig()">💾 Guardar</button>
         </div>
@@ -13322,7 +13434,12 @@ function saveFullStoreConfig() {
   storeConfig.shippingCost    = v('cfg_shippingCost');
   storeConfig.shippingZone2   = s('cfg_shippingZone2');
   storeConfig.shippingCost2   = v('cfg_shippingCost2');
-  storeConfig.maranatha_fee   = v('cfg_maranatha_fee');
+  storeConfig.maranatha_fee           = v('cfg_maranatha_fee');
+  storeConfig.pickup_commission_pct   = v('cfg_pickup_commission_pct');
+  storeConfig.notify_admin_phone = s('cfg_notify_admin_phone');
+  storeConfig.notify_admin_key   = s('cfg_notify_admin_key');
+  storeConfig.notify_dist_phone  = s('cfg_notify_dist_phone');
+  storeConfig.notify_dist_key    = s('cfg_notify_dist_key');
   /* Payment fees */
   storeConfig.cash_discount       = v('cfg_cash_discount');
   storeConfig.cash_fee            = v('cfg_cash_fee');
