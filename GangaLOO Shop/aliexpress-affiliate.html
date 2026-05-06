@@ -171,7 +171,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 <div class="filter-bar">
   <div class="search-wrap">
     <span style="color:var(--muted)">🔍</span>
-    <input type="text" id="searchInput" placeholder="Buscar productos..." oninput="filterProducts()">
+    <input type="text" id="searchInput" placeholder="Buscar productos..." oninput="filterProducts()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="search_aff">
   </div>
   <select class="cat-sel" id="catFilter" onchange="filterProducts()">
     <option value="">Todas las categorías</option>
@@ -350,6 +350,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (session?.user) await onSignedIn(session.user);
     else { currentUser = null; sellerMode = false; updateSellerUI(); }
   });
+  document.getElementById('searchInput').value = '';
   load();
 });
 
