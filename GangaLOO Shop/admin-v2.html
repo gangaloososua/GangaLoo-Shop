@@ -1662,8 +1662,10 @@ async function pollNewOrders() {
     if (!data) return;
     // Update badge
     const pending = data.filter(o => ['pending','pending_payment'].includes(o.status));
+    const notHome = data.filter(o => o.tracking_status === 'not_home');
+    const badgeCount = pending.length + notHome.length;
     const badge = document.getElementById('badge-pedidos');
-    if (badge) { badge.textContent = pending.length; badge.style.display = pending.length ? 'block' : 'none'; }
+    if (badge) { badge.textContent = badgeCount; badge.style.display = badgeCount ? 'block' : 'none'; badge.title = notHome.length ? notHome.length+' pedido(s) sin entregar' : ''; }
     // Detect new orders
     const newOrders = data.filter(o => !_knownOrderIds.has(o.id));
     newOrders.forEach(o => _knownOrderIds.add(o.id));
@@ -2858,6 +2860,17 @@ window.addEventListener('DOMContentLoaded', () => {
   /* Auto-focus email field */
   document.getElementById('loginEmail').focus();
 });
+/* ── TRACKING PIPELINE ── */
+.track-pipeline{display:flex;gap:0;margin:10px 0;overflow-x:auto;border-radius:10px;border:1px solid var(--border);}
+.track-step{flex:1;min-width:70px;padding:7px 4px;text-align:center;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;border-right:1px solid var(--border);position:relative;background:var(--surface-2);color:var(--ink-3);user-select:none;}
+.track-step:last-child{border-right:none;}
+.track-step:hover{background:var(--violet-soft,#f0eeff);color:var(--violet);}
+.track-step.active{background:var(--violet);color:#fff;}
+.track-step.done{background:#dcfce7;color:#166534;}
+.track-step.warn{background:#fef3c7;color:#92400e;}
+.track-step .ts-icon{font-size:16px;display:block;margin-bottom:2px;}
+.track-step .ts-label{display:block;line-height:1.2;}
+
 /* ═══════════════════════════════════════════════════════════════
    PART 2: VENTAS PANEL — Full invoice creation & management
 ═══════════════════════════════════════════════════════════════ */
@@ -8789,6 +8802,60 @@ function renderStoreOrders(orders) {
   `).join('');
 }
 
+/* ── TRACKING PIPELINE CONFIG ── */
+const TRACK_STEPS = [
+  { key:'pending',        icon:'📥', label:'Pendiente',       waMsg: null },
+  { key:'confirmed',      icon:'✅', label:'Confirmado',      waMsg: 'Hola {name}, hemos confirmado tu pedido #{ref} por {total}. Pronto lo estaremos preparando. 📦' },
+  { key:'preparing',      icon:'📦', label:'Preparando',      waMsg: 'Hola {name}, tu pedido #{ref} está siendo preparado. Te avisamos cuando esté listo. 🏪' },
+  { key:'in_transit',     icon:'🚐', label:'En Camino',       waMsg: 'Hola {name}, tu pedido #{ref} está en camino. Estaremos llegando pronto. 🚐' },
+  { key:'ready_pickup',   icon:'🏪', label:'Listo Recoger',   waMsg: 'Hola {name}, tu pedido #{ref} está listo para recoger. Por favor pasa a buscarlo. 🏪✅' },
+  { key:'not_home',       icon:'🔔', label:'No Estaba',       waMsg: 'Hola {name}, pasamos a entregar tu pedido #{ref} pero no te encontramos. Por favor contáctanos para coordinar una nueva entrega. 📞' },
+  { key:'delivered',      icon:'🎉', label:'Entregado',       waMsg: 'Hola {name}, tu pedido #{ref} fue entregado. ¡Gracias por tu compra en GangaLoo! 🎉' },
+];
+
+function getTrackStep(key) { return TRACK_STEPS.find(s=>s.key===key) || TRACK_STEPS[0]; }
+function getTrackIndex(key) { const i=TRACK_STEPS.findIndex(s=>s.key===key); return i<0?0:i; }
+
+async function setTrackingStatus(orderId, newStatus, customerPhone, customerName, total, ref) {
+  try {
+    await sb.from('online_orders').update({ tracking_status: newStatus, tracking_updated_at: new Date().toISOString() }).eq('id', orderId);
+    const step = getTrackStep(newStatus);
+    // Send WA to customer if step has a message
+    if(step.waMsg && customerPhone) {
+      const msg = step.waMsg
+        .replace('{name}', customerName||'Cliente')
+        .replace('{ref}', ref||orderId.slice(-8).toUpperCase())
+        .replace('{total}', total||'');
+      const phone = customerPhone.replace(/[^0-9]/g,'');
+      window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
+    }
+    showToast('Estado actualizado: '+step.icon+' '+step.label, 'success');
+    loadPedidosOnline();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+function renderTrackingPipeline(o) {
+  const currentKey = o.tracking_status || 'pending';
+  const currentIdx = getTrackIndex(currentKey);
+  const ref = (o.id||'').slice(-8).toUpperCase();
+  const name = (o.customer_name||'Cliente').split(' ')[0];
+  const total = formatDOP(o.total||0);
+  const phone = o.customer_phone||'';
+
+  return `<div class="track-pipeline">
+    ${TRACK_STEPS.map((s,i) => {
+      const isActive = s.key === currentKey;
+      const isDone   = i < currentIdx;
+      const isWarn   = s.key === 'not_home';
+      const cls      = isActive ? (isWarn?'active warn':'active') : isDone ? 'done' : (isWarn&&isActive?'warn':'');
+      return `<div class="track-step ${cls}" title="${s.label}" onclick="setTrackingStatus('${o.id}','${s.key}','${phone}','${name}','${total}','${ref}')">
+        <span class="ts-icon">${s.icon}</span>
+        <span class="ts-label">${s.label}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
 function renderStoreOrderCard(o) {
   let items = [];
   try { items = JSON.parse(o.items||'[]'); } catch(e) {}
@@ -8801,12 +8868,15 @@ function renderStoreOrderCard(o) {
           <span style="font-size:12px;color:var(--ink-3);margin-left:10px;">${formatDateTime(o.created_at)}</span>
           <div style="margin-top:4px;font-weight:600;">${o.customer_name||'—'}${o.customer_phone?` · ${o.customer_phone}`:''}</div>
           ${wh?`<span class="badge wh-${wh.id}" style="font-size:10px;margin-top:4px;">${wh.name}</span>`:''}
+          ${o.tracking_status==='not_home'?`<span style="background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;display:inline-block;margin-top:4px;">🔔 REAGENDAR ENTREGA</span>`:''}
+          ${o.tracking_status==='delivered'?`<span style="background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;display:inline-block;margin-top:4px;">🎉 ENTREGADO</span>`:''}
         </div>
         <div style="text-align:right;">
           <div style="font-size:1.2em;font-weight:900;color:var(--violet);">${formatDOP(o.total)}</div>
           <div style="font-size:12px;color:var(--ink-3);">${items.length} artículo(s)</div>
         </div>
       </div>
+      ${renderTrackingPipeline(o)}
       ${items.length ? `<div style="background:var(--surface-2);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:10px;font-size:12px;">
         ${items.map(it=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);">
           <span><strong>${it.qty||1}×</strong> ${it.name||it.product_name||it.product_id}</span>
