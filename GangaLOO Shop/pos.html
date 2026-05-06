@@ -1145,12 +1145,10 @@ function printBarcodeForProduct(productId) {
 }
 
 function printBarcode(productId, sku, name, price) {
-  const safeName = (name||'');
+  const safeName = (name||'').replace(/'/g, "\\'").replace(/"/g, '&quot;');
   const safeSku  = (sku||'') || String(productId);
-  const priceStr = 'RD$ ' + (parseFloat(price)||0).toLocaleString('es-DO',{minimumFractionDigits:2});
 
-  // Open HTML page — much easier layout control than canvas
-  const win = window.open('', '_blank', 'width=500,height=400');
+  const win = window.open('', '_blank', 'width=420,height:560');
   const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -1158,57 +1156,105 @@ function printBarcode(productId, sku, name, price) {
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"><\/script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"><\/script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@800&display=swap');
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: Arial, sans-serif; background:#f0f0f0; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:20px; gap:16px; }
-  .label { width:500px; background:#fff; padding:16px; text-align:center; }
-  .store { font-size:20px; font-weight:900; margin-bottom:6px; }
-  .name  { font-size:15px; font-weight:700; line-height:1.4; margin-bottom:10px; word-wrap:break-word; white-space:normal; }
-  .qr    { display:flex; justify-content:center; margin:8px 0; }
-  .sku   { font-family:monospace; font-size:12px; color:#333; margin-bottom:6px; }
-  .price { font-size:24px; font-weight:900; }
-  .buttons { display:flex; gap:10px; }
-  .btn { padding:10px 24px; border:none; border-radius:8px; font-size:15px; cursor:pointer; font-weight:700; }
-  .btn-img { background:#10b981; color:#fff; }
-  .btn-pdf { background:#6c3ff5; color:#fff; }
-  #status { font-size:13px; color:#666; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #e8e8e8;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 24px;
+  }
+  .label {
+    width: 280px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.12);
+  }
+  .name {
+    font-family: 'Syne', Arial, sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    text-align: center;
+    line-height: 1.25;
+    color: #0a0a0f;
+    word-break: break-word;
+    width: 100%;
+  }
+  .qr-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    background: #fff;
+    border-radius: 8px;
+  }
+  .buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn {
+    padding: 11px 22px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: Arial, sans-serif;
+  }
+  .btn-save { background: #10b981; color: #fff; }
+  .btn-print { background: #7c5cfc; color: #fff; }
+  #status { font-size: 12px; color: #666; min-height: 18px; }
+  @media print {
+    body { background: #fff; padding: 0; justify-content: flex-start; }
+    .buttons, #status { display: none; }
+    .label { box-shadow: none; border-radius: 0; }
+  }
 </style>
 </head>
 <body>
 <div class="label" id="label">
-  <div class="store">GangaLoo</div>
   <div class="name">${safeName}</div>
-  <div class="qr"><canvas id="qr"></canvas></div>
-  <div class="sku">${safeSku}</div>
-  <div class="price">${priceStr}</div>
+  <div class="qr-wrap"><canvas id="qr"></canvas></div>
 </div>
 <div class="buttons">
-  <button class="btn btn-img" onclick="saveImage()">📷 Guardar como imagen</button>
-  <button class="btn btn-pdf" onclick="window.print()">🖨️ Imprimir</button>
+  <button class="btn btn-save" onclick="saveImage()">📷 Guardar imagen</button>
+  <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir</button>
 </div>
 <div id="status"></div>
 <script>
   QRCode.toCanvas(document.getElementById('qr'), '${safeSku}', {
-    width: 160, margin: 1, color: { dark: '#000', light: '#fff' }
+    width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' }
   });
 
   function saveImage() {
-    document.getElementById('status').textContent = 'Generando imagen...';
+    const status = document.getElementById('status');
+    status.textContent = 'Generando imagen...';
     html2canvas(document.getElementById('label'), {
-      scale: 3,
+      scale: 4,
       backgroundColor: '#ffffff',
       useCORS: true,
     }).then(canvas => {
       canvas.toBlob(blob => {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = '${safeSku}_50x30.png';
+        a.download = '${safeSku}.png';
         a.click();
         URL.revokeObjectURL(a.href);
-        document.getElementById('status').textContent = '✅ Imagen guardada!';
+        status.textContent = '✅ Guardado!';
       }, 'image/png');
-    }).catch(e => {
-      document.getElementById('status').textContent = 'Error: ' + e.message;
-    });
+    }).catch(e => { status.textContent = 'Error: ' + e.message; });
   }
 <\/script>
 </body>
