@@ -1112,6 +1112,15 @@ table.erp-table th.text-center, table.erp-table td.text-center { text-align: cen
   font-size: 1.5em; font-weight: 900;
   letter-spacing: -.03em;
 }
+.track-pipeline{display:flex;gap:0;margin:10px 0;overflow-x:auto;border-radius:10px;border:1px solid var(--border);}
+.track-step{flex:1;min-width:70px;padding:7px 4px;text-align:center;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;border-right:1px solid var(--border);background:var(--surface-2);color:var(--ink-3);user-select:none;}
+.track-step:last-child{border-right:none;}
+.track-step:hover{background:#f0eeff;color:var(--violet);}
+.track-step.active{background:var(--violet);color:#fff;}
+.track-step.done{background:#dcfce7;color:#166534;}
+.track-step.warn{background:#fef3c7;color:#92400e;}
+.track-step .ts-icon{font-size:16px;display:block;margin-bottom:2px;}
+.track-step .ts-label{display:block;line-height:1.2;}
 </style>
 </head>
 <body>
@@ -2860,17 +2869,6 @@ window.addEventListener('DOMContentLoaded', () => {
   /* Auto-focus email field */
   document.getElementById('loginEmail').focus();
 });
-/* ── TRACKING PIPELINE ── */
-.track-pipeline{display:flex;gap:0;margin:10px 0;overflow-x:auto;border-radius:10px;border:1px solid var(--border);}
-.track-step{flex:1;min-width:70px;padding:7px 4px;text-align:center;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;border-right:1px solid var(--border);position:relative;background:var(--surface-2);color:var(--ink-3);user-select:none;}
-.track-step:last-child{border-right:none;}
-.track-step:hover{background:var(--violet-soft,#f0eeff);color:var(--violet);}
-.track-step.active{background:var(--violet);color:#fff;}
-.track-step.done{background:#dcfce7;color:#166534;}
-.track-step.warn{background:#fef3c7;color:#92400e;}
-.track-step .ts-icon{font-size:16px;display:block;margin-bottom:2px;}
-.track-step .ts-label{display:block;line-height:1.2;}
-
 /* ═══════════════════════════════════════════════════════════════
    PART 2: VENTAS PANEL — Full invoice creation & management
 ═══════════════════════════════════════════════════════════════ */
@@ -12984,7 +12982,8 @@ function buildPriceListHTML(title, prods, showStock) {
       tfoot td{padding:10px 14px;font-weight:800;font-size:.88em;}
       .footer{margin-top:20px;text-align:center;font-size:.75em;color:#7c7a96;padding-top:12px;border-top:1px solid #e8e6f3;}
       @media print{body{padding:16px;}@page{margin:1.5cm;}tr{page-break-inside:avoid;}thead{display:table-header-group;}}
-    </style>
+    
+</style>
   </head><body>
     <div class="hdr">
       <div class="logo">
