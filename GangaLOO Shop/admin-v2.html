@@ -6651,18 +6651,29 @@ function openTransferModal() {
 }
 function refreshTfProducts() {
   const whId = document.getElementById('tfFrom')?.value;
-  const sel = document.getElementById('tfProduct');
+  const sel  = document.getElementById('tfProduct');
   if (!sel) return;
-  // Products that have stock in the selected from-warehouse
   const available = products.filter(p => getStock(whId, p.id) > 0);
   if (available.length === 0) {
     sel.innerHTML = '<option value="">— Sin stock en este almacén —</option>';
-  } else {
-    sel.innerHTML = available
-      .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
-      .map(p=>`<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''} — ${getStock(whId,p.id)} uds</option>`)
-      .join('');
+    updateTfStock();
+    return;
   }
+  // Group by category (same pattern as other dropdowns)
+  const catMap = {};
+  [...available].sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')).forEach(p => {
+    const catIds = (p.categoryIds?.length ? p.categoryIds : [p.categoryId]).filter(Boolean);
+    const cat    = categories.find(c => catIds.map(String).includes(String(c.id)));
+    const catName = cat ? (cat.icon||'') + ' ' + cat.name : '📦 Sin categoría';
+    if (!catMap[catName]) catMap[catName] = [];
+    catMap[catName].push(p);
+  });
+  sel.innerHTML = '<option value="">Seleccionar producto...</option>' +
+    Object.keys(catMap).sort().map(catName =>
+      `<optgroup label="${catName}">${catMap[catName].map(p =>
+        `<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''} — ${getStock(whId,p.id)} uds</option>`
+      ).join('')}</optgroup>`
+    ).join('');
   updateTfStock();
 }
 function updateTfStock() {
