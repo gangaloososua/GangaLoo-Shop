@@ -371,14 +371,16 @@ function updateSellerUI() {
 }
 
 // ── LOAD & RENDER ─────────────────────────────────────────────────────────────
+let _loadSeq = 0;
 async function load() {
-  showSk(12);
+  const seq = ++_loadSeq;
+  // Only show skeletons if nothing is visible yet
+  if (!allProducts.length) showSk(12);
   let query = sb.from(TABLE).select('*').eq('active', true).order('created_at', { ascending: false });
   if (!sellerMode) query = query.eq('seller_only', false);
   const { data, error: loadErr } = await query;
-  console.log('Load result:', data?.length, 'items, error:', loadErr);
+  if (seq !== _loadSeq) return; // newer load fired, discard stale result
   allProducts = data || [];
-  // Cache in sessionStorage so page reload restores instantly
   try { sessionStorage.setItem('gl_aff_products', JSON.stringify(allProducts)); } catch(e) {}
   buildFilters();
   filterProducts();
@@ -404,12 +406,10 @@ function render(prods) {
   g.innerHTML = prods.map((p, i) => {
     const store = (p.store && p.store !== '') ? p.store : 'aliexpress';
     const storeLbl = store === 'temu' ? 'Temu' : 'AliExpress';
-    let imgSrc = p.image_url || '';
-    if (imgSrc.startsWith('//')) imgSrc = 'https:' + imgSrc;
     return `
     <div class="card" data-idx="${i}" style="cursor:pointer;">
       <div class="card-img">
-        <img src="${imgSrc}" alt="${e(p.name)}" onerror="this.parentElement.style.background='#eee'">
+        <img src="${e(p.image_url)}" alt="${e(p.name)}" loading="lazy" onerror="this.parentElement.style.background='#eee'">
         <div class="hover-ovl"><div class="ovl-cta">🛒 Ver en ${storeLbl}</div></div>
         ${p.seller_only ? `<div class="seller-badge">👥 Vendedores</div>` : `<div class="store-badge ${store}">${storeLbl}</div>`}
         ${p.discount ? `<div class="disc-badge">${e(p.discount)}</div>` : ''}
@@ -443,9 +443,8 @@ document.addEventListener('click', function(e) {
 function buildFilters() {
   const src = activeStore === 'all' ? allProducts : allProducts.filter(p => (p.store || 'aliexpress') === activeStore);
   const cats = [...new Set(src.map(p => p.category).filter(Boolean))];
-  const currentCat = document.getElementById('catFilter').value;
   document.getElementById('catFilter').innerHTML = '<option value="">Todas las categorías</option>' +
-    cats.map(c => `<option value="${e(c)}"${c === currentCat ? ' selected' : ''}>${e(c)}</option>`).join('');
+    cats.map(c => `<option value="${e(c)}">${e(c)}</option>`).join('');
   document.getElementById('chipRow').innerHTML =
     `<div class="chip on" onclick="chipClick(this,'')">✨ Todos</div>` +
     cats.map(c => `<div class="chip" onclick="chipClick(this,'${e(c)}')">${e(c)}</div>`).join('');
