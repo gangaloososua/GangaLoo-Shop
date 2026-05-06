@@ -8766,6 +8766,7 @@ async function loadPedidosOnline() {
 }
 
 function renderStoreOrders(orders) {
+  window._onlineOrdersCache = orders; // cache for instant UI updates
   const el = document.getElementById('pedidosStoreContainer');
   if (!el) return;
   if (!orders.length) {
@@ -8816,8 +8817,28 @@ function getTrackIndex(key) { const i=TRACK_STEPS.findIndex(s=>s.key===key); ret
 
 async function setTrackingStatus(orderId, newStatus, customerPhone, customerName, total, ref) {
   try {
-    await sb.from('online_orders').update({ tracking_status: newStatus, tracking_updated_at: new Date().toISOString() }).eq('id', orderId);
+    // Try updating tracking_status — column may not exist yet in Supabase
+    const { error } = await sb.from('online_orders').update({ tracking_status: newStatus }).eq('id', orderId);
+    if (error) {
+      // If column missing, show SQL hint
+      if (error.message && error.message.includes('tracking_status')) {
+        showToast('⚠️ Ejecuta el SQL en Supabase primero (ver consola)', 'error');
+        console.warn('Run in Supabase SQL Editor:\nALTER TABLE online_orders ADD COLUMN IF NOT EXISTS tracking_status TEXT DEFAULT \'pending\';');
+        return;
+      }
+      throw error;
+    }
     const step = getTrackStep(newStatus);
+    // Update UI immediately without full reload
+    const card = document.querySelector(`[data-order-id="${orderId}"]`);
+    if (card) {
+      // Re-render just this card's pipeline by updating the cached order
+      const cachedOrder = window._onlineOrdersCache?.find(o => o.id === orderId);
+      if (cachedOrder) {
+        cachedOrder.tracking_status = newStatus;
+        card.outerHTML = renderStoreOrderCard(cachedOrder);
+      }
+    }
     // Send WA to customer if step has a message
     if(step.waMsg && customerPhone) {
       const msg = step.waMsg
@@ -8827,8 +8848,9 @@ async function setTrackingStatus(orderId, newStatus, customerPhone, customerName
       const phone = customerPhone.replace(/[^0-9]/g,'');
       window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
     }
-    showToast('Estado actualizado: '+step.icon+' '+step.label, 'success');
-    loadPedidosOnline();
+    showToast('Estado: '+step.icon+' '+step.label, 'success');
+    // Full reload in background to sync
+    setTimeout(() => loadPedidosOnline(), 1000);
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
@@ -8859,7 +8881,7 @@ function renderStoreOrderCard(o) {
   try { items = JSON.parse(o.items||'[]'); } catch(e) {}
   const wh = warehouses.find(w => String(w.id) === String(o.warehouse_id));
   return `
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:10px;">
+    <div data-order-id="${o.id}" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:10px;flex-wrap:wrap;">
         <div>
           <strong style="font-size:14px;">#${(o.id||'').slice(-8).toUpperCase()}</strong>
