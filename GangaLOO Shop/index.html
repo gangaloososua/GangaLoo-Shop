@@ -695,54 +695,6 @@
 </style>
 </head>
 <body>
-<!-- ── ANNOUNCEMENT POPUP ── -->
-<div id="gangaloo-notice" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px;">
-  <div style="background:#fff;border-radius:20px;max-width:480px;width:100%;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.4);animation:popIn .3s ease;">
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#002D62,#001a40);padding:28px 28px 20px;text-align:center;position:relative;">
-      <div style="font-size:2.8rem;margin-bottom:8px;">📢</div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:3px;color:#fff;">AVISO IMPORTANTE</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:4px;letter-spacing:1px;">GANGALOO · ACTUALIZACIÓN DE ALMACENES</div>
-    </div>
-    <!-- Body -->
-    <div style="padding:24px 28px;">
-      <!-- Montellano -->
-      <div style="display:flex;align-items:flex-start;gap:14px;padding:14px;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;margin-bottom:12px;">
-        <div style="font-size:1.8rem;flex-shrink:0;">✅</div>
-        <div>
-          <div style="font-weight:800;font-size:.95rem;color:#166534;">Almacén Montellano</div>
-          <div style="font-size:.82rem;color:#166534;margin-top:2px;">Abierto y operando con normalidad. Recogidas disponibles.</div>
-        </div>
-      </div>
-      <!-- Maranatha -->
-      <div style="display:flex;align-items:flex-start;gap:14px;padding:14px;background:#fff8f0;border:1px solid #fdba74;border-radius:12px;margin-bottom:16px;">
-        <div style="font-size:1.8rem;flex-shrink:0;">⏳</div>
-        <div>
-          <div style="font-weight:800;font-size:.95rem;color:#9a3412;">Almacén Maranatha</div>
-          <div style="font-size:.82rem;color:#9a3412;margin-top:2px;">
-            Aún no disponible para recogidas. Puedes ordenar productos de Maranatha, 
-            pero la recogida será <strong>exclusivamente en Montellano</strong> hasta nuevo aviso.
-          </div>
-          <div style="margin-top:8px;display:inline-block;background:#9a3412;color:#fff;font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.5px;">⏳ PRÓXIMAMENTE · BACK SOON</div>
-        </div>
-      </div>
-      <!-- CTA -->
-      <p style="font-size:.8rem;color:#888;text-align:center;margin-bottom:16px;line-height:1.6;">Agradecemos tu paciencia. Para más información contáctanos por WhatsApp.</p>
-      <button onclick="document.getElementById('gangaloo-notice').style.display='none';localStorage.setItem('gl_notice_v2','1');" style="width:100%;padding:14px;background:linear-gradient(135deg,#002D62,#001a40);color:#fff;border:none;border-radius:12px;font-weight:800;font-size:.95rem;cursor:pointer;letter-spacing:.5px;">Entendido — Ver Tienda →</button>
-    </div>
-  </div>
-</div>
-<style>
-@keyframes popIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
-</style>
-<script>
-// Show popup once per session (resets if user cleared storage)
-(function(){
-  if(!localStorage.getItem('gl_notice_v2')){
-    document.getElementById('gangaloo-notice').style.display='flex';
-  }
-})();
-</script>
 
 <!-- CLUB PROMO BANNER -->
 <div id="clubPromoBanner" style="background:linear-gradient(90deg,#002D62 0%,#CF142B 50%,#002D62 100%);color:white;text-align:center;padding:10px 20px;font-size:.85rem;font-weight:600;letter-spacing:.03em;position:relative;z-index:101;">
@@ -1413,8 +1365,8 @@ let totalDOP = 0;
 
 // Store rules: bank fee % and whether flete is "at delivery"
 const STORE_RULES = {
-  'Temu':       { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 250, minFee: 0,   minFeeThresholdUSD: 0  },
-  'Shein':      { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 250, minFee: 0,   minFeeThresholdUSD: 0  },
+  'Temu':       { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 100, minFee: 0,   minFeeThresholdUSD: 0  },
+  'Shein':      { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 100, minFee: 0,   minFeeThresholdUSD: 0  },
   'Amazon':     { bank: 0,   tax: 0,  fleteAtDelivery: true,  ship: 0,   minFee: 150, minFeeThresholdUSD: 35 },
   'eBay':       { bank: 3,   tax: 0,  fleteAtDelivery: true,  ship: 0,   minFee: 0,   minFeeThresholdUSD: 0  },
   'AliExpress': { bank: 3,   tax: 7,  fleteAtDelivery: true,  ship: 0,   minFee: 0,   minFeeThresholdUSD: 0  },
