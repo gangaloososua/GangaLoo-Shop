@@ -1112,15 +1112,6 @@ table.erp-table th.text-center, table.erp-table td.text-center { text-align: cen
   font-size: 1.5em; font-weight: 900;
   letter-spacing: -.03em;
 }
-.track-pipeline{display:flex;gap:0;margin:10px 0;overflow-x:auto;border-radius:10px;border:1px solid var(--border);}
-.track-step{flex:1;min-width:70px;padding:7px 4px;text-align:center;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;border-right:1px solid var(--border);background:var(--surface-2);color:var(--ink-3);user-select:none;}
-.track-step:last-child{border-right:none;}
-.track-step:hover{background:#f0eeff;color:var(--violet);}
-.track-step.active{background:var(--violet);color:#fff;}
-.track-step.done{background:#dcfce7;color:#166534;}
-.track-step.warn{background:#fef3c7;color:#92400e;}
-.track-step .ts-icon{font-size:16px;display:block;margin-bottom:2px;}
-.track-step .ts-label{display:block;line-height:1.2;}
 </style>
 </head>
 <body>
@@ -1647,7 +1638,7 @@ async function loadAllData() {
         migrated++;
       }
     });
-    if (migrated > 0) { debouncedSave(); }
+    if (migrated > 0) { debouncedSave(); console.log(`Migrated ${migrated} sale fields`); }
     renderDashboard();
     setSaveState('saved');
     showToast('Datos cargados correctamente', 'success');
@@ -1671,10 +1662,8 @@ async function pollNewOrders() {
     if (!data) return;
     // Update badge
     const pending = data.filter(o => ['pending','pending_payment'].includes(o.status));
-    const notHome = data.filter(o => o.tracking_status === 'not_home');
-    const badgeCount = pending.length + notHome.length;
     const badge = document.getElementById('badge-pedidos');
-    if (badge) { badge.textContent = badgeCount; badge.style.display = badgeCount ? 'block' : 'none'; badge.title = notHome.length ? notHome.length+' pedido(s) sin entregar' : ''; }
+    if (badge) { badge.textContent = pending.length; badge.style.display = pending.length ? 'block' : 'none'; }
     // Detect new orders
     const newOrders = data.filter(o => !_knownOrderIds.has(o.id));
     newOrders.forEach(o => _knownOrderIds.add(o.id));
@@ -1732,6 +1721,9 @@ async function saveData() {
       total += s;
     }
     const sorted = Object.entries(sizes).sort((a,b) => parseInt(b[1]) - parseInt(a[1]));
+    console.log('ALL data sizes (sorted):');
+    sorted.forEach(([k,v]) => console.log(' ', k + ':', v));
+    console.log('Total:', Math.round(total/1024), 'KB');
 
     // Split into chunks — accounts FIRST so balance updates always save
     const chunks = [
@@ -6637,14 +6629,14 @@ function applyTransferHistFilter() {
 }
 
 function openTransferModal() {
-  const whOpts=warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('');
-  const prodOpts=products.map(p=>`<option value="${p.id}">${p.name} (Total: ${getTotalStock(p.id)})</option>`).join('');
+  if (!warehouses.length) { showToast('No hay almacenes configurados','error'); return; }
+  const whOpts = warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('');
   openModal(`<div class="modal"><div class="modal-header"><div class="modal-title">↔ Transferencia entre Almacenes</div><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
       <div class="form-grid" style="grid-template-columns:1fr 1fr;">
-        <div class="form-group"><label class="field-label field-required">De (origen)</label><select class="field" id="tfFrom" onchange="updateTfStock()">${whOpts}</select></div>
+        <div class="form-group"><label class="field-label field-required">De (origen)</label><select class="field" id="tfFrom" onchange="refreshTfProducts()">${whOpts}</select></div>
         <div class="form-group"><label class="field-label field-required">Hacia (destino)</label><select class="field" id="tfTo">${whOpts}</select></div>
-        <div class="form-group" style="grid-column:1/-1;"><label class="field-label field-required">Producto</label><select class="field" id="tfProduct" onchange="updateTfStock()">${prodOpts}</select></div>
+        <div class="form-group" style="grid-column:1/-1;"><label class="field-label field-required">Producto</label><select class="field" id="tfProduct" onchange="updateTfStock()"><option value="">Cargando...</option></select></div>
         <div class="form-group"><label class="field-label field-required">Cantidad</label><input class="field" type="number" id="tfQty" min="1" value="1"></div>
         <div class="form-group"><label class="field-label">Stock disponible (origen)</label><input class="field" id="tfStock" readonly style="background:var(--surface-3);" value="—"></div>
       </div>
@@ -6652,13 +6644,35 @@ function openTransferModal() {
     </div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveTransfer()">Confirmar Transferencia</button></div>
   </div>`);
+  // Set default destination to second warehouse if available
+  const tfTo = document.getElementById('tfTo');
+  if (tfTo && warehouses.length > 1) tfTo.value = warehouses[1].id;
+  refreshTfProducts();
+}
+function refreshTfProducts() {
+  const whId = document.getElementById('tfFrom')?.value;
+  const sel = document.getElementById('tfProduct');
+  if (!sel) return;
+  // Products that have stock in the selected from-warehouse
+  const available = products.filter(p => getStock(whId, p.id) > 0);
+  if (available.length === 0) {
+    sel.innerHTML = '<option value="">— Sin stock en este almacén —</option>';
+  } else {
+    sel.innerHTML = available
+      .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
+      .map(p=>`<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''} — ${getStock(whId,p.id)} uds</option>`)
+      .join('');
+  }
   updateTfStock();
 }
 function updateTfStock() {
-  const whId=document.getElementById('tfFrom')?.value;
-  const prodId=document.getElementById('tfProduct')?.value;
-  const el=document.getElementById('tfStock');
-  if(el) el.value=getStock(whId,prodId)+' unidades';
+  const whId  = document.getElementById('tfFrom')?.value;
+  const prodId = document.getElementById('tfProduct')?.value;
+  const el    = document.getElementById('tfStock');
+  if (!el) return;
+  if (!whId || !prodId) { el.value = '—'; return; }
+  const s = getStock(whId, prodId);
+  el.value = s > 0 ? s + ' unidades' : '⚠️ Sin stock';
 }
 function saveTransfer() {
   const from=document.getElementById('tfFrom').value;
@@ -8766,7 +8780,6 @@ async function loadPedidosOnline() {
 }
 
 function renderStoreOrders(orders) {
-  window._onlineOrdersCache = orders; // cache for instant UI updates
   const el = document.getElementById('pedidosStoreContainer');
   if (!el) return;
   if (!orders.length) {
@@ -8801,102 +8814,24 @@ function renderStoreOrders(orders) {
   `).join('');
 }
 
-/* ── TRACKING PIPELINE CONFIG ── */
-const TRACK_STEPS = [
-  { key:'pending',        icon:'📥', label:'Pendiente',       waMsg: null },
-  { key:'confirmed',      icon:'✅', label:'Confirmado',      waMsg: 'Hola {name}, hemos confirmado tu pedido #{ref} por {total}. Pronto lo estaremos preparando. 📦' },
-  { key:'preparing',      icon:'📦', label:'Preparando',      waMsg: 'Hola {name}, tu pedido #{ref} está siendo preparado. Te avisamos cuando esté listo. 🏪' },
-  { key:'in_transit',     icon:'🚐', label:'En Camino',       waMsg: 'Hola {name}, tu pedido #{ref} está en camino. Estaremos llegando pronto. 🚐' },
-  { key:'ready_pickup',   icon:'🏪', label:'Listo Recoger',   waMsg: 'Hola {name}, tu pedido #{ref} está listo para recoger. Por favor pasa a buscarlo. 🏪✅' },
-  { key:'not_home',       icon:'🔔', label:'No Estaba',       waMsg: 'Hola {name}, pasamos a entregar tu pedido #{ref} pero no te encontramos. Por favor contáctanos para coordinar una nueva entrega. 📞' },
-  { key:'delivered',      icon:'🎉', label:'Entregado',       waMsg: 'Hola {name}, tu pedido #{ref} fue entregado. ¡Gracias por tu compra en GangaLoo! 🎉' },
-];
-
-function getTrackStep(key) { return TRACK_STEPS.find(s=>s.key===key) || TRACK_STEPS[0]; }
-function getTrackIndex(key) { const i=TRACK_STEPS.findIndex(s=>s.key===key); return i<0?0:i; }
-
-async function setTrackingStatus(orderId, newStatus, customerPhone, customerName, total, ref) {
-  try {
-    // Try updating tracking_status — column may not exist yet in Supabase
-    const { error } = await sb.from('online_orders').update({ tracking_status: newStatus }).eq('id', orderId);
-    if (error) {
-      // If column missing, show SQL hint
-      if (error.message && error.message.includes('tracking_status')) {
-        showToast('⚠️ Ejecuta el SQL en Supabase primero (ver consola)', 'error');
-        console.warn('Run in Supabase SQL Editor:\nALTER TABLE online_orders ADD COLUMN IF NOT EXISTS tracking_status TEXT DEFAULT \'pending\';');
-        return;
-      }
-      throw error;
-    }
-    const step = getTrackStep(newStatus);
-    // Update UI immediately without full reload
-    const card = document.querySelector(`[data-order-id="${orderId}"]`);
-    if (card) {
-      // Re-render just this card's pipeline by updating the cached order
-      const cachedOrder = window._onlineOrdersCache?.find(o => o.id === orderId);
-      if (cachedOrder) {
-        cachedOrder.tracking_status = newStatus;
-        card.outerHTML = renderStoreOrderCard(cachedOrder);
-      }
-    }
-    // Send WA to customer if step has a message
-    if(step.waMsg && customerPhone) {
-      const msg = step.waMsg
-        .replace('{name}', customerName||'Cliente')
-        .replace('{ref}', ref||orderId.slice(-8).toUpperCase())
-        .replace('{total}', total||'');
-      const phone = customerPhone.replace(/[^0-9]/g,'');
-      window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
-    }
-    showToast('Estado: '+step.icon+' '+step.label, 'success');
-    // Full reload in background to sync
-    setTimeout(() => loadPedidosOnline(), 1000);
-  } catch(e) { showToast('Error: '+e.message,'error'); }
-}
-
-function renderTrackingPipeline(o) {
-  const currentKey = o.tracking_status || 'pending';
-  const currentIdx = getTrackIndex(currentKey);
-  const ref = (o.id||'').slice(-8).toUpperCase();
-  const name = (o.customer_name||'Cliente').split(' ')[0];
-  const total = formatDOP(o.total||0);
-  const phone = o.customer_phone||'';
-
-  return `<div class="track-pipeline">
-    ${TRACK_STEPS.map((s,i) => {
-      const isActive = s.key === currentKey;
-      const isDone   = i < currentIdx;
-      const isWarn   = s.key === 'not_home';
-      const cls      = isActive ? (isWarn?'active warn':'active') : isDone ? 'done' : (isWarn&&isActive?'warn':'');
-      return `<div class="track-step ${cls}" title="${s.label}" onclick="setTrackingStatus('${o.id}','${s.key}','${phone}','${name}','${total}','${ref}')">
-        <span class="ts-icon">${s.icon}</span>
-        <span class="ts-label">${s.label}</span>
-      </div>`;
-    }).join('')}
-  </div>`;
-}
-
 function renderStoreOrderCard(o) {
   let items = [];
   try { items = JSON.parse(o.items||'[]'); } catch(e) {}
   const wh = warehouses.find(w => String(w.id) === String(o.warehouse_id));
   return `
-    <div data-order-id="${o.id}" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:10px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:10px;flex-wrap:wrap;">
         <div>
           <strong style="font-size:14px;">#${(o.id||'').slice(-8).toUpperCase()}</strong>
           <span style="font-size:12px;color:var(--ink-3);margin-left:10px;">${formatDateTime(o.created_at)}</span>
           <div style="margin-top:4px;font-weight:600;">${o.customer_name||'—'}${o.customer_phone?` · ${o.customer_phone}`:''}</div>
           ${wh?`<span class="badge wh-${wh.id}" style="font-size:10px;margin-top:4px;">${wh.name}</span>`:''}
-          ${o.tracking_status==='not_home'?`<span style="background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;display:inline-block;margin-top:4px;">🔔 REAGENDAR ENTREGA</span>`:''}
-          ${o.tracking_status==='delivered'?`<span style="background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;display:inline-block;margin-top:4px;">🎉 ENTREGADO</span>`:''}
         </div>
         <div style="text-align:right;">
           <div style="font-size:1.2em;font-weight:900;color:var(--violet);">${formatDOP(o.total)}</div>
           <div style="font-size:12px;color:var(--ink-3);">${items.length} artículo(s)</div>
         </div>
       </div>
-      ${renderTrackingPipeline(o)}
       ${items.length ? `<div style="background:var(--surface-2);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:10px;font-size:12px;">
         ${items.map(it=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);">
           <span><strong>${it.qty||1}×</strong> ${it.name||it.product_name||it.product_id}</span>
@@ -13004,8 +12939,7 @@ function buildPriceListHTML(title, prods, showStock) {
       tfoot td{padding:10px 14px;font-weight:800;font-size:.88em;}
       .footer{margin-top:20px;text-align:center;font-size:.75em;color:#7c7a96;padding-top:12px;border-top:1px solid #e8e6f3;}
       @media print{body{padding:16px;}@page{margin:1.5cm;}tr{page-break-inside:avoid;}thead{display:table-header-group;}}
-    
-</style>
+    </style>
   </head><body>
     <div class="hdr">
       <div class="logo">
@@ -14593,8 +14527,8 @@ function validateCoupon(code, orderTotal) {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(() => {})
-      .catch(() => {});
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW failed:', err));
   });
 }
 </script>
