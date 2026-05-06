@@ -1562,7 +1562,8 @@ function renderPay(total) {
   if (payMode === 'full') { pd.innerHTML = ''; return; }
   // Use custom adelanto amount, fallback to 50%
   const adelantoInput = document.getElementById('adelantoInput');
-  const adelanto = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
+  const adelantoRaw = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
+  const adelanto = roundUp25(adelantoRaw);
   const restante = total - adelanto;
   // 20% financiero applies ONLY on the restante (what's not paid upfront)
   const fin = restante * 0.20;
@@ -1639,7 +1640,8 @@ function sendWA() {
 
   if (payMode === 'half') {
     const adelantoInput = document.getElementById('adelantoInput');
-    const adelanto = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
+    const adelantoRaw = adelantoInput && adelantoInput.value !== '' ? parseFloat(adelantoInput.value) : total / 2;
+  const adelanto = roundUp25(adelantoRaw);
     const restante = total - adelanto;
     const fin = restante * 0.20;
     const alRecoger = roundUp25(restante + fin);
