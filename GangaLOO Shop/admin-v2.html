@@ -6628,38 +6628,54 @@ function applyTransferHistFilter() {
   }).join('');
 }
 
+/* ── MULTI-PRODUCT TRANSFER ─────────────────────────────────── */
+let _tfItems = []; // [{productId, qty}]
+
 function openTransferModal() {
   if (!warehouses.length) { showToast('No hay almacenes configurados','error'); return; }
+  _tfItems = [];
   const whOpts = warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('');
-  openModal(`<div class="modal"><div class="modal-header"><div class="modal-title">↔ Transferencia entre Almacenes</div><button class="modal-close" onclick="closeModal()">✕</button></div>
-    <div class="modal-body">
-      <div class="form-grid" style="grid-template-columns:1fr 1fr;">
-        <div class="form-group"><label class="field-label field-required">De (origen)</label><select class="field" id="tfFrom" onchange="refreshTfProducts()">${whOpts}</select></div>
-        <div class="form-group"><label class="field-label field-required">Hacia (destino)</label><select class="field" id="tfTo">${whOpts}</select></div>
-        <div class="form-group" style="grid-column:1/-1;"><label class="field-label field-required">Producto</label><select class="field" id="tfProduct" onchange="updateTfStock()"><option value="">Cargando...</option></select></div>
-        <div class="form-group"><label class="field-label field-required">Cantidad</label><input class="field" type="number" id="tfQty" min="1" value="1"></div>
-        <div class="form-group"><label class="field-label">Stock disponible (origen)</label><input class="field" id="tfStock" readonly style="background:var(--surface-3);" value="—"></div>
-      </div>
-      <div class="form-group"><label class="field-label">Notas</label><input class="field" id="tfNotes" placeholder="Motivo..."></div>
+  openModal(`<div class="modal" style="max-width:680px;width:95vw;">
+    <div class="modal-header">
+      <div class="modal-title">↔ Transferencia entre Almacenes</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveTransfer()">Confirmar Transferencia</button></div>
+    <div class="modal-body" style="padding-bottom:0;">
+      <!-- Warehouses + date + notes -->
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label class="field-label field-required">De (origen)</label>
+          <select class="field" id="tfFrom" onchange="tfRefreshAllRows()">${whOpts}</select></div>
+        <div class="form-group"><label class="field-label field-required">Hacia (destino)</label>
+          <select class="field" id="tfTo">${whOpts}</select></div>
+        <div class="form-group"><label class="field-label">Fecha</label>
+          <input class="field" type="date" id="tfDate" value="${todayDR()}"></div>
+        <div class="form-group"><label class="field-label">Notas generales</label>
+          <input class="field" id="tfNotes" placeholder="Motivo del traslado..."></div>
+      </div>
+      <!-- Items table -->
+      <div style="margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:13px;font-weight:700;color:var(--ink-2);">Productos a transferir</span>
+          <button class="btn btn-secondary btn-sm" onclick="tfAddRow()">+ Agregar producto</button>
+        </div>
+        <div id="tfItemsBody" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;padding-right:4px;"></div>
+        <div id="tfSummary" style="margin-top:10px;font-size:12px;color:var(--ink-3);text-align:right;"></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="gap:8px;">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-secondary" onclick="saveTransfer(true)">💾 Guardar + Imprimir PDF</button>
+      <button class="btn btn-primary" onclick="saveTransfer(false)">✅ Confirmar Transferencia</button>
+    </div>
   </div>`);
-  // Set default destination to second warehouse if available
   const tfTo = document.getElementById('tfTo');
   if (tfTo && warehouses.length > 1) tfTo.value = warehouses[1].id;
-  refreshTfProducts();
+  tfAddRow(); // start with one row
 }
-function refreshTfProducts() {
-  const whId = document.getElementById('tfFrom')?.value;
-  const sel  = document.getElementById('tfProduct');
-  if (!sel) return;
-  const available = products.filter(p => getStock(whId, p.id) > 0);
-  if (available.length === 0) {
-    sel.innerHTML = '<option value="">— Sin stock en este almacén —</option>';
-    updateTfStock();
-    return;
-  }
-  // Group by category (same pattern as other dropdowns)
+
+function _tfProductOptgroups(fromWhId, excludeIds=[]) {
+  const available = products.filter(p => getStock(fromWhId, p.id) > 0 && !excludeIds.includes(String(p.id)));
+  if (!available.length) return '<option value="">— Sin más stock disponible —</option>';
   const catMap = {};
   [...available].sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')).forEach(p => {
     const catIds = (p.categoryIds?.length ? p.categoryIds : [p.categoryId]).filter(Boolean);
@@ -6668,43 +6684,220 @@ function refreshTfProducts() {
     if (!catMap[catName]) catMap[catName] = [];
     catMap[catName].push(p);
   });
-  sel.innerHTML = '<option value="">Seleccionar producto...</option>' +
-    Object.keys(catMap).sort().map(catName =>
-      `<optgroup label="${catName}">${catMap[catName].map(p =>
-        `<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''} — ${getStock(whId,p.id)} uds</option>`
+  return '<option value="">Seleccionar producto...</option>' +
+    Object.keys(catMap).sort().map(cn =>
+      `<optgroup label="${cn}">${catMap[cn].map(p =>
+        `<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''} — ${getStock(fromWhId,p.id)} uds</option>`
       ).join('')}</optgroup>`
     ).join('');
-  updateTfStock();
 }
-function updateTfStock() {
-  const whId  = document.getElementById('tfFrom')?.value;
-  const prodId = document.getElementById('tfProduct')?.value;
-  const el    = document.getElementById('tfStock');
-  if (!el) return;
-  if (!whId || !prodId) { el.value = '—'; return; }
-  const s = getStock(whId, prodId);
-  el.value = s > 0 ? s + ' unidades' : '⚠️ Sin stock';
+
+function tfAddRow() {
+  const rowId = 'tfrow_' + Date.now();
+  _tfItems.push({ rowId, productId:'', qty:1 });
+  const fromWhId = document.getElementById('tfFrom')?.value || '';
+  const usedIds = _tfItems.filter(r=>r.productId).map(r=>String(r.productId));
+  const row = document.createElement('div');
+  row.id = rowId;
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 90px 80px 32px;gap:8px;align-items:end;';
+  row.innerHTML = `
+    <div class="form-group" style="margin:0;">
+      <select class="field" onchange="tfRowProductChange('${rowId}',this)">
+        ${_tfProductOptgroups(fromWhId, usedIds)}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <input class="field" type="number" min="1" value="1" placeholder="Cant."
+        id="tfqty_${rowId}" onchange="tfUpdateSummary()" style="text-align:center;">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <input class="field" readonly id="tfavail_${rowId}" value="—"
+        style="background:var(--surface-3);font-size:12px;text-align:center;" title="Stock disponible">
+    </div>
+    <button onclick="tfRemoveRow('${rowId}')" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--ink-4);padding:0;line-height:1;margin-bottom:4px;">✕</button>`;
+  document.getElementById('tfItemsBody').appendChild(row);
+  tfUpdateSummary();
 }
-function saveTransfer() {
-  const from=document.getElementById('tfFrom').value;
-  const to=document.getElementById('tfTo').value;
-  const prodId=document.getElementById('tfProduct').value;
-  const qty=parseInt(document.getElementById('tfQty').value)||0;
-  const notes=document.getElementById('tfNotes').value.trim();
-  if(from===to){showToast('Origen y destino deben ser distintos','error');return;}
-  if(!prodId||qty<1){showToast('Selecciona producto y cantidad','error');return;}
-  const stock=getStock(from,prodId);
-  if(qty>stock){showToast(`Stock insuficiente. Disponible: ${stock}`,'error');return;}
-  const usedLots=transferStock(from,to,prodId,qty);
-  transfers.push({id:generateId(),fromWarehouse:from,toWarehouse:to,productId:prodId,qty,usedLots,date:todayDR(),notes});
-  debouncedSave();
-  if (_invViewMode === 'historial') {
-    renderInvContent();
-  } else {
-    renderInvContent();
+
+function tfRowProductChange(rowId, sel) {
+  const item = _tfItems.find(r=>r.rowId===rowId);
+  if (item) item.productId = sel.value;
+  const fromWhId = document.getElementById('tfFrom')?.value || '';
+  const avail = sel.value ? getStock(fromWhId, sel.value) : 0;
+  const availEl = document.getElementById('tfavail_'+rowId);
+  if (availEl) availEl.value = sel.value ? avail+' uds' : '—';
+  const qtyEl = document.getElementById('tfqty_'+rowId);
+  if (qtyEl && sel.value) { qtyEl.max = avail; if(parseInt(qtyEl.value)>avail) qtyEl.value=avail; }
+  // Refresh other rows to exclude this product
+  tfRefreshSelects();
+  tfUpdateSummary();
+}
+
+function tfRemoveRow(rowId) {
+  _tfItems = _tfItems.filter(r=>r.rowId!==rowId);
+  const el = document.getElementById(rowId);
+  if (el) el.remove();
+  tfRefreshSelects();
+  tfUpdateSummary();
+}
+
+function tfRefreshAllRows() {
+  // Called when from-warehouse changes — rebuild all selects
+  _tfItems.forEach(item => { item.productId=''; item.qty=1; });
+  const body = document.getElementById('tfItemsBody');
+  if (body) body.innerHTML = '';
+  _tfItems = [];
+  tfAddRow();
+}
+
+function tfRefreshSelects() {
+  const fromWhId = document.getElementById('tfFrom')?.value || '';
+  const usedIds  = _tfItems.filter(r=>r.productId).map(r=>String(r.productId));
+  _tfItems.forEach(item => {
+    const row = document.getElementById(item.rowId);
+    if (!row) return;
+    const sel = row.querySelector('select');
+    if (!sel) return;
+    const currentVal = item.productId;
+    // include current product even if "used" by this row
+    const excludeForThis = usedIds.filter(id=> id !== String(currentVal));
+    sel.innerHTML = _tfProductOptgroups(fromWhId, excludeForThis);
+    if (currentVal) sel.value = currentVal;
+  });
+}
+
+function tfUpdateSummary() {
+  const fromWhId = document.getElementById('tfFrom')?.value||'';
+  let total=0;
+  _tfItems.forEach(item=>{
+    const q=parseInt(document.getElementById('tfqty_'+item.rowId)?.value)||0;
+    item.qty=q;
+    if(item.productId) total+=q;
+  });
+  const el=document.getElementById('tfSummary');
+  if(el) el.textContent=`Total: ${_tfItems.filter(r=>r.productId).length} producto(s) · ${total} unidad(es)`;
+}
+
+function saveTransfer(printPdf=false) {
+  const from  = document.getElementById('tfFrom').value;
+  const to    = document.getElementById('tfTo').value;
+  const date  = document.getElementById('tfDate').value || todayDR();
+  const notes = document.getElementById('tfNotes').value.trim();
+  if (from===to) { showToast('Origen y destino deben ser distintos','error'); return; }
+  // Collect + validate rows
+  const rows=[];
+  for (const item of _tfItems) {
+    if (!item.productId) continue;
+    const qty = parseInt(document.getElementById('tfqty_'+item.rowId)?.value)||0;
+    if (qty<1) { showToast('Cantidad debe ser al menos 1','error'); return; }
+    const stock=getStock(from,item.productId);
+    if (qty>stock) {
+      showToast(`Stock insuficiente para ${getProductName(item.productId)} (disponible: ${stock})`,'error');
+      return;
+    }
+    rows.push({productId:item.productId, qty});
   }
+  if (!rows.length) { showToast('Agrega al menos un producto','error'); return; }
+  // Process all
+  const batchId = generateId();
+  const processed=[];
+  rows.forEach(r=>{
+    const usedLots=transferStock(from,to,r.productId,r.qty);
+    const rec={id:generateId(),batchId,fromWarehouse:from,toWarehouse:to,productId:r.productId,qty:r.qty,usedLots,date,notes};
+    transfers.push(rec);
+    processed.push(rec);
+  });
+  debouncedSave();
+  renderInvContent();
   closeModal();
-  showToast(`${qty} unidades de ${getProductName(prodId)} transferidas a ${getWarehouseName(to)} ✅`,'success');
+  showToast(`✅ ${rows.length} producto(s) transferidos a ${getWarehouseName(to)}`,'success');
+  if (printPdf) printTransferPDF(processed, from, to, date, notes, batchId);
+}
+
+function printTransferPDF(items, fromId, toId, date, notes, batchId) {
+  const fromName = getWarehouseName(fromId);
+  const toName   = getWarehouseName(toId);
+  const folio    = batchId.slice(-8).toUpperCase();
+  const rows = items.map(r=>{
+    const p = products.find(x=>String(x.id)===String(r.productId))||{};
+    const catIds = (p.categoryIds?.length ? p.categoryIds : [p.categoryId]).filter(Boolean);
+    const cat = categories.find(c=>catIds.map(String).includes(String(c.id)));
+    return `<tr>
+      <td>${cat ? (cat.icon||'')+ ' '+cat.name : '—'}</td>
+      <td><strong>${p.name||r.productId}</strong>${p.sku?`<br><small style="color:#666;">${p.sku}</small>`:''}</td>
+      <td style="text-align:center;font-size:1.1em;font-weight:700;">${r.qty}</td>
+      <td style="text-align:center;color:#555;">${getStock(toId,r.productId)}</td>
+    </tr>`;
+  }).join('');
+  const totalUnits = items.reduce((s,r)=>s+r.qty,0);
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Transferencia ${folio}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Helvetica Neue',Arial,sans-serif;color:#111;padding:28px 32px;font-size:13px;}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #6c5ce7;margin-bottom:20px;}
+    .brand{font-size:1.6em;font-weight:900;color:#6c5ce7;letter-spacing:-0.5px;}
+    .brand span{color:#111;}
+    .doc-title{text-align:right;}
+    .doc-title h2{font-size:1.15em;font-weight:800;color:#111;}
+    .doc-title .folio{font-size:.78em;color:#666;margin-top:2px;}
+    .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+    .info-box{background:#f5f3ff;border-radius:10px;padding:14px 16px;}
+    .info-box .label{font-size:.7em;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6c5ce7;margin-bottom:4px;}
+    .info-box .value{font-size:.95em;font-weight:700;}
+    .arrow-box{display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;border:2px solid #6c5ce7;border-radius:10px;padding:14px 16px;}
+    .arrow-box .wh{text-align:center;}
+    .arrow-box .wh .label{font-size:.68em;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#999;}
+    .arrow-box .wh .name{font-size:.95em;font-weight:800;}
+    .arrow-box .arr{font-size:1.8em;color:#6c5ce7;font-weight:900;}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px;}
+    thead tr{background:#6c5ce7;color:#fff;}
+    thead th{padding:9px 12px;text-align:left;font-size:.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+    tbody tr{border-bottom:1px solid #eee;}
+    tbody tr:nth-child(even){background:#faf9ff;}
+    tbody td{padding:9px 12px;vertical-align:middle;}
+    .totals{background:#f5f3ff;border-radius:8px;padding:10px 14px;text-align:right;font-weight:700;margin-bottom:20px;}
+    .notes-box{border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:20px;font-size:.85em;color:#444;}
+    .notes-box .label{font-weight:700;color:#6c5ce7;font-size:.75em;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+    .sigs{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:32px;}
+    .sig{border-top:1.5px solid #333;padding-top:8px;text-align:center;font-size:.78em;color:#555;}
+    .footer{margin-top:24px;text-align:center;font-size:.7em;color:#aaa;border-top:1px solid #eee;padding-top:10px;}
+    @media print{body{padding:16px;}button{display:none!important;}}
+  </style></head><body>
+  <div class="header">
+    <div class="brand">Ganga<span>Loo</span></div>
+    <div class="doc-title">
+      <h2>Orden de Transferencia</h2>
+      <div class="folio">Folio: #${folio} &nbsp;·&nbsp; ${new Date(date+'T12:00:00').toLocaleDateString('es-DO',{year:'numeric',month:'long',day:'numeric'})}</div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="arrow-box" style="grid-column:1/-1;">
+      <div class="wh"><div class="label">Origen</div><div class="name">📦 ${fromName}</div></div>
+      <div class="arr">→</div>
+      <div class="wh"><div class="label">Destino</div><div class="name">🏪 ${toName}</div></div>
+    </div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Categoría</th><th>Producto</th>
+      <th style="text-align:center;">Cantidad</th>
+      <th style="text-align:center;">Stock destino (post)</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="totals">Total: ${items.length} producto(s) &nbsp;·&nbsp; ${totalUnits} unidades transferidas</div>
+  ${notes?`<div class="notes-box"><div class="label">Notas</div>${notes}</div>`:''}
+  <div class="sigs">
+    <div class="sig">Preparado por (Origen)<br><br>_________________________</div>
+    <div class="sig">Recibido por (Destino)<br><br>_________________________</div>
+  </div>
+  <div class="footer">GangaLoo ERP · Generado ${new Date().toLocaleString('es-DO')} · Folio ${folio}</div>
+  <script>window.onload=()=>{window.print();}<\/script>
+  </body></html>`;
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();}
+  else{showToast('Activa ventanas emergentes para imprimir','warning');}
 }
 
 
