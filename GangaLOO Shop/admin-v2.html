@@ -12454,7 +12454,7 @@ function rptComisiones(el) {
       const montellanoWh2 = warehouses.find(w=>(w.name||'').toLowerCase().includes('montellano'));
       const isMontelSeller = seller.warehouseId==='montellano' || (montellanoWh2 && String(seller.warehouseId)===String(montellanoWh2.id));
       const distrib= (isMontelSeller ? Math.round(total*0.05*100)/100 : 0) + pickupTotal;
-      const keeps  = comm - (distrib - pickupTotal);
+      const keeps  = comm - (isMontelSeller ? Math.round(total*0.05*100)/100 : 0) + pickupTotal;
       const payout = commissionPayouts.find(p=>String(p.sellerId)===String(seller.id)&&p.monthKey===mk);
       rows.push({ seller:seller.name, mk, total, comm, distrib, keeps, payout, count:mSales.length+pickupMs.length });
     });
@@ -12522,7 +12522,7 @@ function rptComisiones(el) {
       return rptTable(
         [{label:'Vendedor'},{label:'Mes'},{label:'Ventas',center:true},{label:'Total Ventas',right:true},{label:'Comisión 15%',right:true},{label:'Delia 5%',right:true},{label:'Retiene',right:true},{label:'Estado',center:true}],
         trows,
-        `<td colspan="4" style="padding:10px 14px;">TOTAL</td><td class="text-right" style="padding:10px 14px;">${formatDOP(totalComm)}</td><td class="text-right" style="padding:10px 14px;color:var(--teal);">${formatDOP(totalDistrib)}</td><td class="text-right" style="padding:10px 14px;">${formatDOP(totalComm-totalDistrib)}</td><td></td>`
+        `<td colspan="4" style="padding:10px 14px;">TOTAL</td><td class="text-right" style="padding:10px 14px;">${formatDOP(totalComm)}</td><td class="text-right" style="padding:10px 14px;color:var(--teal);">${formatDOP(totalDistrib)}</td><td class="text-right" style="padding:10px 14px;">${formatDOP(rows.reduce((s,r)=>s+r.keeps,0))}</td><td></td>`
       );
     })(), true)}
 
