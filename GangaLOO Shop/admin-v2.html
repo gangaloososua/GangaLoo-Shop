@@ -11602,17 +11602,24 @@ function renderComisionesCards() {
 
     // Pickup commissions: orders routed to this person's warehouse for pickup/delivery
     // Match by: pickupDistributorId, pickupWarehouseId, or warehouse name
-    const myWhId   = seller.warehouseId || seller.distributorWarehouseId;
+    const myWhId   = String(seller.warehouseId || seller.distributorWarehouseId || '');
     const myWhName = (seller.distributorWarehouseName || seller.warehouseName || '').toLowerCase();
     const pickupSales = filtSales.filter(s => {
-      if (sSales.find(x=>String(x.id)===String(s.id))) return false; // no double-count
+      if (sSales.find(x=>String(x.id)===String(s.id))) return false;
       if (!s.pickupCommissionAmt || parseFloat(s.pickupCommissionAmt) <= 0) return false;
-      return (
-        (s.pickupDistributorId && String(s.pickupDistributorId) === String(seller.id)) ||
-        (myWhId && s.pickupWarehouseId && String(s.pickupWarehouseId) === String(myWhId)) ||
-        (myWhName && s.pickupWarehouseName && s.pickupWarehouseName.toLowerCase().includes(myWhName)) ||
-        (myWhName && s.notes && s.notes.toLowerCase().includes(myWhName) && (s.notes.includes('🚐')||s.notes.includes('🚚')))
-      );
+      // Match by distributor ID (string compare both ways)
+      if (s.pickupDistributorId && (String(s.pickupDistributorId) === String(seller.id))) return true;
+      // Match by pickup warehouse ID
+      if (myWhId && s.pickupWarehouseId && String(s.pickupWarehouseId) === myWhId) return true;
+      // Match by warehouse name in sale
+      const pickupWHName = (s.pickupWarehouseName || '').toLowerCase();
+      if (pickupWHName && myWhName && pickupWHName.includes(myWhName)) return true;
+      // Match by distributor name in sale
+      const pickupDistName = (s.pickupDistributorName || '').toLowerCase();
+      if (pickupDistName && seller.name && pickupDistName.includes(seller.name.toLowerCase())) return true;
+      // Match by warehouse name in notes
+      if (myWhName && s.notes && s.notes.toLowerCase().includes(myWhName) && (s.notes.includes('🚐')||s.notes.includes('🚚'))) return true;
+      return false;
     });
     const pickupCommTotal = pickupSales.reduce((t,s)=>t+(parseFloat(s.pickupCommissionAmt)||0),0);
 
@@ -11637,7 +11644,14 @@ function renderComisionesCards() {
     return { seller, sSales, pickupSales, pickupCommTotal, totalSales, comm15, distrib5, distrib5FromSeller, keeps, periodPayouts, totalPaid, isPaid };
   })
   // Only show if they have actual sales OR actual pickup commissions — hide empty cards
-  .filter(d => d.sSales.length > 0 || d.pickupCommTotal > 0);
+  .filter(d => d.sSales.length > 0 || d.pickupCommTotal > 0 || (
+    // Distributor with a warehouse: check if any sale routes through their warehouse by name in notes
+    d.seller.type === 'distributor' && d.seller.distributorWarehouseId && filtSales.some(s =>
+      parseFloat(s.pickupCommissionAmt) > 0 &&
+      s.notes && warehouses.find(w => String(w.id)===String(d.seller.distributorWarehouseId) &&
+        s.notes.toLowerCase().includes((w.name||'').toLowerCase()))
+    )
+  ));
 
   /* Summary strip */
   const totalComm  = sellerData.reduce((s,d)=>s+d.comm15,0);
