@@ -11567,11 +11567,31 @@ function renderComisionesCards() {
 
   /* Build per-seller data */
   const sellerData = allSellers.map(seller => {
+    // Sales where this person is the seller
     const sSales     = filtSales.filter(s => String(s.customerId)===String(seller.id) || String(s.sellerId)===String(seller.id));
     const totalSales = sSales.reduce((t,v)=>t+saleTotal(v),0);
     const comm15     = Math.round(totalSales*0.15*100)/100;
-    const distrib5   = seller.warehouseId==='montellano' ? Math.round(totalSales*0.05*100)/100 : 0;
-    const keeps      = comm15 - distrib5;
+
+    // Distributor 5%: from sales where this seller is a Montellano seller
+    const distrib5FromSeller = seller.warehouseId==='montellano' ? Math.round(totalSales*0.05*100)/100 : 0;
+
+    // Pickup commissions: sales where this person is the PICKUP distributor (cross-warehouse orders)
+    // These are sales by OTHER customers routed through this distributor's warehouse
+    const pickupSales = filtSales.filter(s =>
+      (String(s.pickupDistributorId) === String(seller.id) ||
+       (s.pickupWarehouseId && seller.warehouseId && String(s.pickupWarehouseId)===String(seller.warehouseId)) ||
+       (s.pickupWarehouseName && seller.distributorWarehouseName &&
+        s.pickupWarehouseName.toLowerCase().includes(seller.distributorWarehouseName?.toLowerCase()||'__'))) &&
+      // Don't double-count sales already in sSales
+      !sSales.find(x=>String(x.id)===String(s.id))
+    );
+    const pickupCommTotal = pickupSales.reduce((t,s)=>t+(parseFloat(s.pickupCommissionAmt)||0),0);
+
+    // Also include distribAmt from sales by sellers linked to this distributor
+    const distribFromSales = sSales.reduce((t,s)=>t+(parseFloat(s.distribAmt)||0),0);
+
+    const distrib5 = Math.max(distrib5FromSeller, distribFromSales) + pickupCommTotal;
+    const keeps    = comm15 - (distrib5FromSeller + distribFromSales);
 
     /* For month view: check if payout exists for that specific month */
     /* For year/all: show all payouts in period */
@@ -11590,13 +11610,16 @@ function renderComisionesCards() {
     const totalPaid = periodPayouts.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
     const isPaid    = _comPeriod==='month' ? periodPayouts.length>0 : totalPaid >= comm15 - 0.01;
 
-    return { seller, sSales, totalSales, comm15, distrib5, keeps, periodPayouts, totalPaid, isPaid };
-  });
+    return { seller, sSales, pickupSales, pickupCommTotal, totalSales, comm15, distrib5, distrib5FromSeller, keeps, periodPayouts, totalPaid, isPaid };
+  })
+  // Only show sellers/distributors who have activity OR are distributors (always show distributors)
+  .filter(d => d.sSales.length > 0 || d.pickupSales.length > 0 || d.seller.type === 'distributor');
 
   /* Summary strip */
-  const totalComm = sellerData.reduce((s,d)=>s+d.comm15,0);
-  const totalPaid = sellerData.reduce((s,d)=>s+d.totalPaid,0);
-  const totalPend = Math.max(0, totalComm - totalPaid);
+  const totalComm  = sellerData.reduce((s,d)=>s+d.comm15,0);
+  const totalPickup= sellerData.reduce((s,d)=>s+d.pickupCommTotal,0);
+  const totalPaid  = sellerData.reduce((s,d)=>s+d.totalPaid,0);
+  const totalPend  = Math.max(0, totalComm + totalPickup - totalPaid);
   if (strip) strip.innerHTML = [
     { label:`${label}`, value: sellerData.reduce((s,d)=>s+d.totalSales,0), fmt: formatDOP, color:'var(--ink)', sub:'ventas totales' },
     { label:'Comisiones (15%)', value: totalComm, fmt: formatDOP, color:'var(--violet)', sub:allSellers.length+' vendedores' },
@@ -11679,12 +11702,19 @@ function renderComisionesCards() {
             </div>
             ${distrib5>0?`
               <div style="background:rgba(0,201,167,.08);border-radius:var(--r-sm);padding:12px;">
-                <div class="text-xs text-muted">Delia Thomas (5%)</div>
+                <div class="text-xs text-muted">${distrib5FromSeller>0?'Distribuidor (5% vendedores)':''}${pickupCommTotal>0&&distrib5FromSeller>0?' + ':''}${pickupCommTotal>0?'Comisión recogida':''}</div>
                 <div style="font-weight:800;font-size:1.05em;color:var(--teal);">${formatDOP(distrib5)}</div>
+                ${pickupCommTotal>0?`<div style="font-size:11px;color:var(--ink-3);margin-top:2px;">🚐 ${formatDOP(pickupCommTotal)} de ${pickupSales.length} pedido(s) recogida</div>`:''}
               </div>
-              <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px;">
+              ${distrib5FromSeller>0?`<div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px;">
                 <div class="text-xs text-muted">Vendedor retiene</div>
                 <div style="font-weight:800;font-size:1.05em;">${formatDOP(keeps)}</div>
+              </div>`:''}
+            `:''}
+            ${pickupCommTotal>0&&distrib5===pickupCommTotal?`
+              <div style="background:rgba(0,201,167,.08);border-radius:var(--r-sm);padding:12px;">
+                <div class="text-xs text-muted">🚐 Comisión recogida (${pickupSales.length} pedido(s))</div>
+                <div style="font-weight:800;font-size:1.05em;color:var(--teal);">${formatDOP(pickupCommTotal)}</div>
               </div>
             `:''}
             ${totalPaid>0?`
@@ -11713,7 +11743,7 @@ function renderComisionesCards() {
                       <th style="padding:6px 10px;text-align:left;">Cliente</th>
                       <th style="padding:6px 10px;text-align:right;">Total</th>
                       <th style="padding:6px 10px;text-align:right;color:var(--violet);">Comisión 15%</th>
-                      ${distrib5>0?`<th style="padding:6px 10px;text-align:right;color:var(--teal);">Distrib 5%</th>`:''}
+                      ${distrib5FromSeller>0?`<th style="padding:6px 10px;text-align:right;color:var(--teal);">Distrib 5%</th>`:''}
                       <th style="padding:6px 10px;text-align:right;color:var(--emerald);">Vendedor retiene</th>
                     </tr>
                   </thead>
@@ -11721,7 +11751,7 @@ function renderComisionesCards() {
                     ${[...sSales].sort((a,b)=>(b.date||'')<(a.date||'')?-1:1).map(s => {
                       const st   = saleTotal(s);
                       const comm = Math.round(st*0.15*100)/100;
-                      const dist = distrib5>0 ? Math.round(st*0.05*100)/100 : 0;
+                      const dist = distrib5FromSeller>0 ? Math.round(st*0.05*100)/100 : 0;
                       const ret  = comm - dist;
                       const inv  = s.invoiceNum||s.invoiceNumber||'#'+s.id;
                       const cust = getCustomerName(s.customerId)||s.customer||'—';
@@ -11731,7 +11761,7 @@ function renderComisionesCards() {
                         <td style="padding:6px 10px;font-size:11px;">${cust}</td>
                         <td style="padding:6px 10px;text-align:right;font-weight:700;">${formatDOP(st)}</td>
                         <td style="padding:6px 10px;text-align:right;font-weight:700;color:var(--violet);">${formatDOP(comm)}</td>
-                        ${distrib5>0?`<td style="padding:6px 10px;text-align:right;color:var(--teal);">${formatDOP(dist)}</td>`:''}
+                        ${distrib5FromSeller>0?`<td style="padding:6px 10px;text-align:right;color:var(--teal);">${formatDOP(dist)}</td>`:''}
                         <td style="padding:6px 10px;text-align:right;font-weight:700;color:var(--emerald);">${formatDOP(ret)}</td>
                       </tr>`;
                     }).join('')}
@@ -11741,8 +11771,50 @@ function renderComisionesCards() {
                       <td colspan="3" style="padding:7px 10px;">TOTALES</td>
                       <td style="padding:7px 10px;text-align:right;">${formatDOP(totalSales)}</td>
                       <td style="padding:7px 10px;text-align:right;color:var(--violet);">${formatDOP(comm15)}</td>
-                      ${distrib5>0?`<td style="padding:7px 10px;text-align:right;color:var(--teal);">${formatDOP(distrib5)}</td>`:''}
+                      ${distrib5FromSeller>0?`<td style="padding:7px 10px;text-align:right;color:var(--teal);">${formatDOP(distrib5FromSeller)}</td>`:''}
                       <td style="padding:7px 10px;text-align:right;color:var(--emerald);">${formatDOP(keeps)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Pickup commission sales (cross-warehouse orders) -->
+          ${pickupSales.length > 0 ? `
+            <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+              <button class="btn btn-ghost btn-xs" style="margin-bottom:8px;font-weight:700;color:var(--teal);"
+                onclick="const t=document.getElementById('comPickup_${seller.id}');t.style.display=t.style.display==='none'?'block':'none';this.textContent=t.style.display==='none'?'▶ Ver ${pickupSales.length} pedido(s) de recogida':'▼ Ocultar pedidos recogida'">
+                ▶ 🚐 Ver ${pickupSales.length} pedido(s) de recogida — ${formatDOP(pickupCommTotal)}
+              </button>
+              <div id="comPickup_${seller.id}" style="display:none;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                  <thead>
+                    <tr style="background:rgba(0,201,167,.08);">
+                      <th style="padding:6px 10px;text-align:left;">Factura</th>
+                      <th style="padding:6px 10px;text-align:left;">Fecha</th>
+                      <th style="padding:6px 10px;text-align:left;">Cliente</th>
+                      <th style="padding:6px 10px;text-align:right;">Total venta</th>
+                      <th style="padding:6px 10px;text-align:right;color:var(--teal);">🚐 Comisión recogida</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${[...pickupSales].sort((a,b)=>(b.date||'')<(a.date||'')?-1:1).map(s => {
+                      const inv  = s.invoiceNum||s.invoiceNumber||'#'+s.id;
+                      const cust = getCustomerName(s.customerId)||s.customer||'—';
+                      return `<tr style="border-bottom:1px solid var(--border);">
+                        <td style="padding:6px 10px;"><strong style="color:var(--teal);">${inv}</strong></td>
+                        <td style="padding:6px 10px;color:var(--ink-3);">${formatDate(s.date)}</td>
+                        <td style="padding:6px 10px;font-size:11px;">${cust}</td>
+                        <td style="padding:6px 10px;text-align:right;font-weight:700;">${formatDOP(saleTotal(s))}</td>
+                        <td style="padding:6px 10px;text-align:right;font-weight:700;color:var(--teal);">${formatDOP(parseFloat(s.pickupCommissionAmt)||0)} (${s.pickupCommissionPct||5}%)</td>
+                      </tr>`;
+                    }).join('')}
+                  </tbody>
+                  <tfoot>
+                    <tr style="background:rgba(0,201,167,.08);font-weight:800;">
+                      <td colspan="4" style="padding:7px 10px;">TOTAL COMISIÓN RECOGIDA</td>
+                      <td style="padding:7px 10px;text-align:right;color:var(--teal);">${formatDOP(pickupCommTotal)}</td>
                     </tr>
                   </tfoot>
                 </table>
