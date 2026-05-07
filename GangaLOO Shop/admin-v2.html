@@ -11572,29 +11572,29 @@ function renderComisionesCards() {
     const totalSales = sSales.reduce((t,v)=>t+saleTotal(v),0);
     const comm15     = Math.round(totalSales*0.15*100)/100;
 
-    // Distributor 5%: from sales where this seller is a Montellano seller
+    // Distributor 5% from seller's own sales (seller is linked to Montellano)
     const distrib5FromSeller = seller.warehouseId==='montellano' ? Math.round(totalSales*0.05*100)/100 : 0;
+    const distribFromSales   = sSales.reduce((t,s)=>t+(parseFloat(s.distribAmt)||0),0);
 
-    // Pickup commissions: sales where this person is the PICKUP distributor (cross-warehouse orders)
-    // These are sales by OTHER customers routed through this distributor's warehouse
-    const pickupSales = filtSales.filter(s =>
-      (String(s.pickupDistributorId) === String(seller.id) ||
-       (s.pickupWarehouseId && seller.warehouseId && String(s.pickupWarehouseId)===String(seller.warehouseId)) ||
-       (s.pickupWarehouseName && seller.distributorWarehouseName &&
-        s.pickupWarehouseName.toLowerCase().includes(seller.distributorWarehouseName?.toLowerCase()||'__'))) &&
-      // Don't double-count sales already in sSales
-      !sSales.find(x=>String(x.id)===String(s.id))
-    );
+    // Pickup commissions: orders routed to this person's warehouse for pickup/delivery
+    // Match by: pickupDistributorId, pickupWarehouseId, or warehouse name
+    const myWhId   = seller.warehouseId || seller.distributorWarehouseId;
+    const myWhName = (seller.distributorWarehouseName || seller.warehouseName || '').toLowerCase();
+    const pickupSales = filtSales.filter(s => {
+      if (sSales.find(x=>String(x.id)===String(s.id))) return false; // no double-count
+      if (!s.pickupCommissionAmt || parseFloat(s.pickupCommissionAmt) <= 0) return false;
+      return (
+        (s.pickupDistributorId && String(s.pickupDistributorId) === String(seller.id)) ||
+        (myWhId && s.pickupWarehouseId && String(s.pickupWarehouseId) === String(myWhId)) ||
+        (myWhName && s.pickupWarehouseName && s.pickupWarehouseName.toLowerCase().includes(myWhName)) ||
+        (myWhName && s.notes && s.notes.toLowerCase().includes(myWhName) && (s.notes.includes('🚐')||s.notes.includes('🚚')))
+      );
+    });
     const pickupCommTotal = pickupSales.reduce((t,s)=>t+(parseFloat(s.pickupCommissionAmt)||0),0);
 
-    // Also include distribAmt from sales by sellers linked to this distributor
-    const distribFromSales = sSales.reduce((t,s)=>t+(parseFloat(s.distribAmt)||0),0);
-
     const distrib5 = Math.max(distrib5FromSeller, distribFromSales) + pickupCommTotal;
-    const keeps    = comm15 - (distrib5FromSeller + distribFromSales);
+    const keeps    = comm15 - Math.max(distrib5FromSeller, distribFromSales);
 
-    /* For month view: check if payout exists for that specific month */
-    /* For year/all: show all payouts in period */
     let periodPayouts = [];
     if (_comPeriod === 'month') {
       const p = commissionPayouts.find(p=>String(p.sellerId)===String(seller.id)&&p.monthKey===mk);
@@ -11612,8 +11612,8 @@ function renderComisionesCards() {
 
     return { seller, sSales, pickupSales, pickupCommTotal, totalSales, comm15, distrib5, distrib5FromSeller, keeps, periodPayouts, totalPaid, isPaid };
   })
-  // Only show sellers/distributors who have activity OR are distributors (always show distributors)
-  .filter(d => d.sSales.length > 0 || d.pickupSales.length > 0 || d.seller.type === 'distributor');
+  // Only show if they have actual sales OR actual pickup commissions — hide empty cards
+  .filter(d => d.sSales.length > 0 || d.pickupCommTotal > 0);
 
   /* Summary strip */
   const totalComm  = sellerData.reduce((s,d)=>s+d.comm15,0);
