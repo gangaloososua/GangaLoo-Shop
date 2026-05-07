@@ -3421,8 +3421,8 @@
                 if (period === 'week') return (now - d) / (1000*60*60*24) <= 7;
                 return true;
             });
-            const totalComm = mySales.reduce((s,sale) => s+(sale.commissionPaid||0), 0);
-            const totalRev = mySales.reduce((s,sale) => s+(sale.totalSale||0), 0);
+            const totalComm = mySales.reduce((s,sale) => s+(parseFloat(sale.commissionPaid||sale.commissionAmt)||0), 0);
+            const totalRev = mySales.reduce((s,sale) => s+(parseFloat(sale.totalSale||sale.total)||0), 0);
             document.getElementById('sellerTotalSales').textContent = mySales.length;
             document.getElementById('sellerTotalCommission').textContent = 'RD$ ' + totalComm.toLocaleString('es-DO', {minimumFractionDigits:2, maximumFractionDigits:2});
             document.getElementById('sellerTotalRevenue').textContent = 'RD$ ' + totalRev.toLocaleString('es-DO', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -3432,7 +3432,7 @@
             // Check if this seller is also a distributor in the customers list
             const meAsDistributor = _sellerCustomers.find(cx =>
                 cx.type === 'distributor' && (
-                    (cx.email && cx.email.toLowerCase() === myEmail) ||
+                    (cx.email && cx.email.toLowerCase() === currentUser.email.toLowerCase()) ||
                     (cx.name && meAsCustomerLocal && cx.name.toLowerCase() === meAsCustomerLocal.name.toLowerCase()) ||
                     (cx.name && cx.name.toLowerCase().includes(sellerName.toLowerCase()))
                 )
@@ -3500,8 +3500,8 @@
                 var prod = allProducts.find(function(p){return p.id==s.productId;});
                 var d = new Date(s.date||s.createdAt);
                 var dateStr = isNaN(d)?'—':d.toLocaleDateString('es-DO');
-                var total = s.totalSale||0;
-                var comm = s.commissionPaid||0;
+                var total = parseFloat(s.totalSale||s.total)||0;
+                var comm = parseFloat(s.commissionPaid||s.commissionAmt)||0;
                 var commPct = s.commissionPercent||0;
                 var inv = s.invoiceNumber ? '<span style="font-size:.75em;color:#bbb;margin-left:6px;">'+s.invoiceNumber+'</span>' : '';
                 var customer = s.customer||s.customerName||s.client||'Sin cliente';

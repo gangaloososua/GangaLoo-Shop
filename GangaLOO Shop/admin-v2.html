@@ -3501,7 +3501,7 @@ function renderVentasList() {
     getCustomerName(s.customerId).toLowerCase().includes(search) ||
     s._items.some(i => getProductName(i.productId).toLowerCase().includes(search))
   );
-  if (cust)  list = list.filter(s => s.customerId === cust);
+  if (cust)  list = list.filter(s => String(s.customerId) === String(cust) || String(s.sellerId) === String(cust));
   if (month) list = list.filter(s => (s.date||'').startsWith(month));
   if (status) {
     list = list.filter(s => {
