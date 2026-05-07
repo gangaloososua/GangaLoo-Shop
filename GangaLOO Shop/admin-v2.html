@@ -9615,24 +9615,15 @@ async function approveOnlineOrder(orderId) {
 
   // ── Pickup commission: award distributor of the PICKUP/SHIPPING warehouse ──
   const orderNotes = order.notes || '';
-
-  // Detect cross-warehouse pickup/shipping by multiple patterns:
-  // 1. "🚐 Recoger en Montellano" (old explicit format)
-  // 2. "🚐 Montellano" or any note line with 🚐 + warehouse name
-  // 3. The order's warehouse_id itself is a distributor warehouse (cross-ship from main store)
-  const mainWarehouseIds = ['sosu', 'sosua', '1']; // warehouses that are NOT distributor-managed
   let pickupWH = null;
   let isCrossPickup = false;
 
-  // Pattern 1 & 2: scan notes for 🚐 + warehouse name
-  const notesLower = orderNotes.toLowerCase();
+  // Detect any shipping/pickup emoji + warehouse name in notes
   if (orderNotes.includes('🚐') || orderNotes.includes('🚚') || orderNotes.includes('🚛')) {
-    // Try "Recoger en X" pattern first
-    const recogerMatch = orderNotes.match(/🚐\s*Recoger en\s+([^\n+]+)/i);
-    // Fallback: "🚐 WarehouseName" anywhere in notes
-    const simpleMatch  = orderNotes.match(/🚐\s*([^\n+🚐]+)/i);
-    const rawName = (recogerMatch?.[1] || simpleMatch?.[1] || '').trim().toLowerCase()
-      .replace(/\+\s*rd\$.*/i,'').replace(/envío?/i,'').trim();
+    // Match: "🚐/🚚/🚛 [Recoger en / Recogida en / Envío a / <blank>] WarehouseName"
+    const match = orderNotes.match(/(?:🚐|🚚|🚛)\s*(?:Recogida?\s+en|Recoger\s+en|Envío\s+a)?\s*([^\n📍+]+)/i);
+    const rawName = (match?.[1] || '').trim().toLowerCase()
+      .replace(/\+\s*rd\$.*/i,'').replace(/tienda[:\s]*/i,'').trim();
 
     if (rawName) {
       pickupWH = warehouses.find(w => {
@@ -9642,7 +9633,7 @@ async function approveOnlineOrder(orderId) {
     }
   }
 
-  // Pattern 3: order warehouse itself is a known distributor warehouse
+  // Fallback: if order warehouse itself has a distributor, apply pickup commission
   if (!pickupWH) {
     const orderWHobj = warehouses.find(w => String(w.id) === String(whId));
     const distForOrderWH = customers.find(cx =>
@@ -9650,17 +9641,20 @@ async function approveOnlineOrder(orderId) {
       (String(cx.distributorWarehouseId) === String(whId) ||
        (cx.distributorWarehouseName||'').toLowerCase().includes((orderWHobj?.name||'').toLowerCase()))
     );
-    // Only apply pickup commission if the order warehouse has a distributor AND
-    // the customer placing the order is NOT already that distributor's seller
-    if (distForOrderWH && !(comm && String(comm.isMonteDistrib))) {
+    if (distForOrderWH && !(comm?.isMonteDistrib)) {
       pickupWH = orderWHobj;
     }
   }
 
-  // Determine if this is a cross-pickup (pickup/ship warehouse ≠ stock-deduct warehouse, OR warehouse has distributor)
+  // isCrossPickup = true if pickup warehouse has a distributor
   if (pickupWH) {
-    isCrossPickup = String(pickupWH.id) !== String(whId) ||
-      customers.some(cx => cx.type==='distributor' && String(cx.distributorWarehouseId)===String(pickupWH.id));
+    isCrossPickup = customers.some(cx =>
+      cx.type === 'distributor' &&
+      (String(cx.distributorWarehouseId) === String(pickupWH.id) ||
+       (cx.distributorWarehouseName||'').toLowerCase().includes((pickupWH.name||'').toLowerCase()))
+    );
+    // Also true if pickup warehouse differs from stock warehouse
+    if (!isCrossPickup) isCrossPickup = String(pickupWH.id) !== String(whId);
   }
 
   const pickupCommPct = parseFloat(storeConfig?.pickup_commission_pct ?? 5);
