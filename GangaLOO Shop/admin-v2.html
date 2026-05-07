@@ -3420,7 +3420,7 @@ function renderVentasKPI() {
   const totalRev       = activeSales.reduce((s,v)=>s+saleTotal(v),0);
   const totalCollected = activeSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
   const totalDebt      = Math.max(0, totalRev - totalCollected);
-  const totalComm      = activeSales.reduce((s,v)=>s+(parseFloat(v.commissionPaid||v.commissionAmt)||0),0);
+  const totalComm      = activeSales.reduce((s,v)=>s+(parseFloat(v.commissionPaid||v.commissionAmt)||0)+(parseFloat(v.pickupCommissionAmt)||0),0);
 
   const paidCount    = activeSales.filter(s=>(paidMap[String(s.id)]||0)>=(saleTotal(s)-0.01)).length;
   const partialCount = activeSales.filter(s=>{const p=paidMap[String(s.id)]||0;return p>0.01&&p<saleTotal(s)-0.01;}).length;
@@ -11607,18 +11607,12 @@ function renderComisionesCards() {
     const pickupSales = filtSales.filter(s => {
       if (sSales.find(x=>String(x.id)===String(s.id))) return false;
       if (!s.pickupCommissionAmt || parseFloat(s.pickupCommissionAmt) <= 0) return false;
-      // Match by distributor ID (string compare both ways)
-      if (s.pickupDistributorId && (String(s.pickupDistributorId) === String(seller.id))) return true;
-      // Match by pickup warehouse ID
+      // 1. Exact distributor ID match
+      if (s.pickupDistributorId && String(s.pickupDistributorId) === String(seller.id)) return true;
+      // 2. Pickup warehouse ID matches seller's warehouse
       if (myWhId && s.pickupWarehouseId && String(s.pickupWarehouseId) === myWhId) return true;
-      // Match by warehouse name in sale
-      const pickupWHName = (s.pickupWarehouseName || '').toLowerCase();
-      if (pickupWHName && myWhName && pickupWHName.includes(myWhName)) return true;
-      // Match by distributor name in sale
-      const pickupDistName = (s.pickupDistributorName || '').toLowerCase();
-      if (pickupDistName && seller.name && pickupDistName.includes(seller.name.toLowerCase())) return true;
-      // Match by warehouse name in notes
-      if (myWhName && s.notes && s.notes.toLowerCase().includes(myWhName) && (s.notes.includes('🚐')||s.notes.includes('🚚'))) return true;
+      // 3. Pickup warehouse name matches (only if seller has a warehouse name configured)
+      if (myWhName && s.pickupWarehouseName && s.pickupWarehouseName.toLowerCase().includes(myWhName)) return true;
       return false;
     });
     const pickupCommTotal = pickupSales.reduce((t,s)=>t+(parseFloat(s.pickupCommissionAmt)||0),0);
@@ -11643,15 +11637,8 @@ function renderComisionesCards() {
 
     return { seller, sSales, pickupSales, pickupCommTotal, totalSales, comm15, distrib5, distrib5FromSeller, keeps, periodPayouts, totalPaid, isPaid };
   })
-  // Only show if they have actual sales OR actual pickup commissions — hide empty cards
-  .filter(d => d.sSales.length > 0 || d.pickupCommTotal > 0 || (
-    // Distributor with a warehouse: check if any sale routes through their warehouse by name in notes
-    d.seller.type === 'distributor' && d.seller.distributorWarehouseId && filtSales.some(s =>
-      parseFloat(s.pickupCommissionAmt) > 0 &&
-      s.notes && warehouses.find(w => String(w.id)===String(d.seller.distributorWarehouseId) &&
-        s.notes.toLowerCase().includes((w.name||'').toLowerCase()))
-    )
-  ));
+  // Only show if they have actual sales OR actual pickup commissions
+  .filter(d => d.sSales.length > 0 || d.pickupCommTotal > 0);
 
   /* Summary strip */
   const totalComm  = sellerData.reduce((s,d)=>s+d.comm15,0);
@@ -11861,7 +11848,7 @@ function renderComisionesCards() {
           ` : ''}
 
           <!-- Pay button (only in month view when unpaid) -->
-          ${_comPeriod==='month' && !isPaid && comm15>0 ? `
+          ${_comPeriod==='month' && !isPaid && (comm15 > 0 || pickupCommTotal > 0) ? `
             <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
               <div style="flex:1;min-width:160px;">
                 <label class="field-label">Cuenta para pago</label>
@@ -11871,8 +11858,8 @@ function renderComisionesCards() {
                 <label class="field-label">Categoría</label>
                 <select class="field" id="comCat-${seller.id}">${catOpts}</select>
               </div>
-              <button class="btn btn-primary payout-btn" onclick="doPayout('${seller.id}','${mk}',${comm15})" style="white-space:nowrap;">
-                💸 Pagar ${formatDOP(comm15)}
+              <button class="btn btn-primary payout-btn" onclick="doPayout('${seller.id}','${mk}',${keeps + pickupCommTotal})" style="white-space:nowrap;">
+                💸 Pagar ${formatDOP(keeps + pickupCommTotal)}
               </button>
             </div>
           ` : _comPeriod==='month' && isPaid ? `
@@ -12222,7 +12209,7 @@ function rptVentas(el) {
   const totalRev   = filtSales.reduce((s,v)=>s+saleTotal(v),0);
   const totalPaid  = filtSales.reduce((s,v)=>s+(paidMap[String(v.id)]||0),0);
   const totalDebt  = Math.max(0,totalRev-totalPaid);
-  const totalComm  = filtSales.reduce((s,v)=>s+(parseFloat(v.commissionAmt)||0),0);
+  const totalComm  = filtSales.reduce((s,v)=>s+(parseFloat(v.commissionAmt)||0)+(parseFloat(v.pickupCommissionAmt)||0),0);
   const paidCount  = filtSales.filter(s=>(paidMap[String(s.id)]||0)>=(saleTotal(s)-0.01)).length;
   const pendCount  = filtSales.filter(s=>(paidMap[String(s.id)]||0)<0.01).length;
   const partCount  = filtSales.length - paidCount - pendCount;
@@ -12264,7 +12251,7 @@ function rptVentas(el) {
     if (!bySeller[name]) bySeller[name] = { count:0, total:0, comm:0 };
     bySeller[name].count++;
     bySeller[name].total += saleTotal(s);
-    bySeller[name].comm  += (parseFloat(s.commissionAmt)||parseFloat(s.commissionPaid)||0);
+    bySeller[name].comm  += (parseFloat(s.commissionAmt)||parseFloat(s.commissionPaid)||0) + (parseFloat(s.pickupCommissionAmt)||0);
   });
 
   /* By warehouse */
@@ -12432,12 +12419,22 @@ function rptComisiones(el) {
       if (_rptPeriod==='year'  && !mk.startsWith(_rptYear)) return;
       const mSales = sales.filter(s=>(s.date||'').startsWith(mk)&&(String(s.customerId)===String(seller.id)||String(s.sellerId)===String(seller.id))&&s.status!=='cancelled');
       const total  = mSales.reduce((t,v)=>t+saleTotal(v),0);
-      if (!total) return;
+      // Also include pickup commissions for this distributor in this month
+      const myWhId2 = String(seller.warehouseId || seller.distributorWarehouseId || '');
+      const pickupMs = sales.filter(s =>
+        (s.date||'').startsWith(mk) && s.status!=='cancelled' &&
+        parseFloat(s.pickupCommissionAmt) > 0 &&
+        !mSales.find(x=>String(x.id)===String(s.id)) &&
+        (String(s.pickupDistributorId)===String(seller.id) ||
+         (myWhId2 && s.pickupWarehouseId && String(s.pickupWarehouseId)===myWhId2))
+      );
+      const pickupTotal = pickupMs.reduce((t,s)=>t+(parseFloat(s.pickupCommissionAmt)||0),0);
+      if (!total && !pickupTotal) return;
       const comm   = Math.round(total*0.15*100)/100;
-      const distrib= seller.warehouseId==='montellano' ? Math.round(total*0.05*100)/100 : 0;
-      const keeps  = comm - distrib;
+      const distrib= (seller.warehouseId==='montellano' ? Math.round(total*0.05*100)/100 : 0) + pickupTotal;
+      const keeps  = comm - (distrib - pickupTotal);
       const payout = commissionPayouts.find(p=>String(p.sellerId)===String(seller.id)&&p.monthKey===mk);
-      rows.push({ seller:seller.name, mk, total, comm, distrib, keeps, payout, count:mSales.length });
+      rows.push({ seller:seller.name, mk, total, comm, distrib, keeps, payout, count:mSales.length+pickupMs.length });
     });
   });
 
