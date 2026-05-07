@@ -3411,7 +3411,9 @@
                 // Match by seller field OR by customer being this seller (for online orders)
                 const matchBySeller = s.seller && (s.seller.toLowerCase().includes(sellerName.toLowerCase()) || s.sellerEmail === currentUser.email);
                 const matchByCustomer = s.customer && (s.customer.toLowerCase() === sellerName.toLowerCase() || (meAsCustomerLocal && String(s.customerId) === String(meAsCustomerLocal.id)));
-                const match = matchBySeller || matchByCustomer;
+                const matchBySellerId = meAsCustomerLocal && (String(s.sellerId) === String(meAsCustomerLocal.id));
+                const matchByEmail = s.customerEmail && s.customerEmail.toLowerCase() === currentUser.email.toLowerCase();
+                const match = matchBySeller || matchByCustomer || matchBySellerId || matchByEmail;
                 if (!match) return false;
                 const d = new Date(s.date || s.createdAt);
                 if (period === 'month') return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
@@ -3430,7 +3432,8 @@
             // Check if this seller is also a distributor in the customers list
             const meAsDistributor = _sellerCustomers.find(cx =>
                 cx.type === 'distributor' && (
-                    (cx.email && cx.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+                    (cx.email && cx.email.toLowerCase() === myEmail) ||
+                    (cx.name && meAsCustomerLocal && cx.name.toLowerCase() === meAsCustomerLocal.name.toLowerCase()) ||
                     (cx.name && cx.name.toLowerCase().includes(sellerName.toLowerCase()))
                 )
             );
@@ -3440,15 +3443,20 @@
                 document.getElementById('distributorAccordion').style.display = 'block';
                 // Filter sales where this person is the distributor, within selected period
                 const distSales = allSales.filter(s => {
-                    if (String(s.distributorId) !== String(meAsDistributor.id)) return false;
-                    if ((s.distributorCommissionPaid || 0) <= 0) return false;
+                    // Match old distributorId field OR new pickupDistributorId field
+                    const isDistSale = (String(s.distributorId) === String(meAsDistributor.id)) ||
+                                       (String(s.pickupDistributorId) === String(meAsDistributor.id));
+                    if (!isDistSale) return false;
+                    // Has distributor commission (old or new field)
+                    const hasComm = (s.distributorCommissionPaid || 0) > 0 || (s.pickupCommissionAmt || 0) > 0;
+                    if (!hasComm) return false;
                     const d = new Date(s.date || s.createdAt);
                     if (period === 'month') return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
                     if (period === 'specific') return d.getMonth()===specificMonth && d.getFullYear()===specificYear;
                     if (period === 'week') return (now - d) / (1000*60*60*24) <= 7;
                     return true;
                 });
-                const totalDistIncome = distSales.reduce((sum, s) => sum + (s.distributorCommissionPaid || 0), 0);
+                const totalDistIncome = distSales.reduce((sum, s) => sum + (s.distributorCommissionPaid || s.pickupCommissionAmt || 0), 0);
                 document.getElementById('distributorTotalIncome').textContent = 'RD$ ' + totalDistIncome.toLocaleString('es-DO', {minimumFractionDigits:2, maximumFractionDigits:2});
                 document.getElementById('sellerBadge-distribuidor').textContent = distSales.length;
                 const distList = document.getElementById('distributorIncomeList');
@@ -3471,7 +3479,7 @@
                             <td style="padding:6px 10px;color:#888;">${s.invoiceNumber||'—'}</td>
                             <td style="padding:6px 10px;">${s.seller||'—'}</td>
                             <td style="padding:6px 10px;text-align:right;">${fmt2(s.totalSale||0)}</td>
-                            <td style="padding:6px 10px;text-align:right;font-weight:800;color:#7c3aed;">${fmt2(s.distributorCommissionPaid||0)}</td>
+                            <td style="padding:6px 10px;text-align:right;font-weight:800;color:#7c3aed;">${fmt2(s.distributorCommissionPaid||s.pickupCommissionAmt||0)}</td>
                         </tr>`;
                     }).join('') +
                     `</tbody><tfoot><tr style="background:#f5f0ff;font-weight:700;">
