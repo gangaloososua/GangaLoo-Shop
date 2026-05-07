@@ -9795,12 +9795,32 @@ async function reCreateOrderSales(orderId) {
     }));
 
     const subtotal = saleItems.reduce((s,i)=>s+i.qty*i.price, 0);
-    /* Use subtotal from items (already in DOP) — order.total may be in USD */
     const total    = subtotal;
     const discount = 0;
     const comm     = calcCommission(total, orderCustomer || customerAsSeller);
     const whId     = order.warehouse_id ? parseInt(order.warehouse_id) : null;
     const distObj  = customers.find(cx => cx.type==='distributor' && cx.distributorWarehouseId===whId);
+
+    // ── Pickup commission (same logic as approveOnlineOrder) ──
+    const orderNotes2 = order.notes || '';
+    let pickupWH2 = null, isCrossPickup2 = false;
+    if (orderNotes2.includes('🚐') || orderNotes2.includes('🚚') || orderNotes2.includes('🚛')) {
+      const match2 = orderNotes2.match(/(?:🚐|🚚|🚛)\s*(?:Recogida?\s+en|Recoger\s+en|Envío\s+a)?\s*([^\n📍+]+)/i);
+      const rawName2 = (match2?.[1] || '').trim().toLowerCase().replace(/\+\s*rd\$.*/i,'').replace(/tienda[:\s]*/i,'').trim();
+      if (rawName2) pickupWH2 = warehouses.find(w => { const wn=(w.name||'').toLowerCase(); return wn.includes(rawName2)||rawName2.includes(wn); });
+    }
+    if (!pickupWH2) {
+      const owh = warehouses.find(w => String(w.id)===String(whId));
+      const dfw = customers.find(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(whId)||(cx.distributorWarehouseName||'').toLowerCase().includes((owh?.name||'').toLowerCase())));
+      if (dfw && !comm?.isMonteDistrib) pickupWH2 = owh;
+    }
+    if (pickupWH2) {
+      isCrossPickup2 = customers.some(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(pickupWH2.id)||(cx.distributorWarehouseName||'').toLowerCase().includes((pickupWH2.name||'').toLowerCase())));
+      if (!isCrossPickup2) isCrossPickup2 = String(pickupWH2.id) !== String(whId);
+    }
+    const pickupCommPct2  = parseFloat(storeConfig?.pickup_commission_pct ?? 5);
+    const pickupDistObj2  = pickupWH2 ? customers.find(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(pickupWH2.id)||(cx.distributorWarehouseName||'').toLowerCase().includes((pickupWH2.name||'').toLowerCase()))) : null;
+    const pickupCommAmt2  = (isCrossPickup2 && pickupCommPct2 > 0) ? Math.round(total * pickupCommPct2 / 100 * 100) / 100 : 0;
 
     sales.push({
       id:              generateId(),
@@ -9825,6 +9845,12 @@ async function reCreateOrderSales(orderId) {
       commissionAmt:     comm ? comm.sellerAmt : 0,
       commissionPaid:    comm ? comm.sellerAmt : 0,
       distribAmt:        comm ? comm.distribAmt : 0,
+      pickupDistributorId:   pickupDistObj2?.id || null,
+      pickupDistributorName: pickupDistObj2?.name || (pickupWH2?.name ? 'Distribuidor '+pickupWH2.name : null),
+      pickupWarehouseId:     pickupWH2?.id || null,
+      pickupWarehouseName:   pickupWH2?.name || null,
+      pickupCommissionPct:   isCrossPickup2 ? pickupCommPct2 : 0,
+      pickupCommissionAmt:   pickupCommAmt2,
       productName:       saleItems.map(i=>getProductName(i.productId)).filter(Boolean).join(', '),
       distributorId:     distObj?.id || null,
       distributorName:   distObj?.name || null,
@@ -9835,6 +9861,7 @@ async function reCreateOrderSales(orderId) {
     await saveData();
     loadPedidosOnline();
     renderVentasKPI(); renderVentasList();
+    if (pickupCommAmt2 > 0) showToast(`💰 Comisión recogida: ${formatDOP(pickupCommAmt2)} (${pickupCommPct2}%) → ${pickupDistObj2?.name || pickupWH2?.name || 'Distribuidor'}`, 'info');
     showToast(`Factura ${invoiceNum} creada — ${items.length} productos, ${formatDOP(total)} ✅`, 'success');
   }, { confirmLabel: 'Crear Factura', title: 'Recrear Factura' });
 }
