@@ -3501,7 +3501,15 @@ function renderVentasList() {
     getCustomerName(s.customerId).toLowerCase().includes(search) ||
     s._items.some(i => getProductName(i.productId).toLowerCase().includes(search))
   );
-  if (cust)  list = list.filter(s => String(s.customerId) === String(cust) || String(s.sellerId) === String(cust));
+  if (cust) {
+    // Find all IDs belonging to the same person (seller+distributor may share name/email)
+    const selCust = customers.find(c => String(c.id) === String(cust));
+    const samePersonIds = selCust ? customers
+      .filter(c => c.name && selCust.name && c.name.toLowerCase() === selCust.name.toLowerCase() ||
+                   c.email && selCust.email && c.email.toLowerCase() === selCust.email.toLowerCase())
+      .map(c => String(c.id)) : [String(cust)];
+    list = list.filter(s => samePersonIds.includes(String(s.customerId)) || samePersonIds.includes(String(s.sellerId)));
+  }
   if (month) list = list.filter(s => (s.date||'').startsWith(month));
   if (status) {
     list = list.filter(s => {
