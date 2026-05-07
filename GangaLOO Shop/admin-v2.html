@@ -9613,22 +9613,64 @@ async function approveOnlineOrder(orderId) {
   const total     = Math.max(0, subtotal - discount);
   const comm      = calcCommission(total, orderCustomer || customerAsSeller);
 
-  // ── Pickup commission: if order notes say cross-warehouse pickup, award distributor of PICKUP warehouse ──
+  // ── Pickup commission: award distributor of the PICKUP/SHIPPING warehouse ──
   const orderNotes = order.notes || '';
-  const isCrossPickup = orderNotes.includes('🚐 Recoger en');
-  // Figure out which warehouse the customer is picking up from (the OTHER one)
-  const orderWH = warehouses.find(w => String(w.id) === String(whId));
-  const orderWHName = (orderWH?.name || '').toLowerCase();
+
+  // Detect cross-warehouse pickup/shipping by multiple patterns:
+  // 1. "🚐 Recoger en Montellano" (old explicit format)
+  // 2. "🚐 Montellano" or any note line with 🚐 + warehouse name
+  // 3. The order's warehouse_id itself is a distributor warehouse (cross-ship from main store)
+  const mainWarehouseIds = ['sosu', 'sosua', '1']; // warehouses that are NOT distributor-managed
   let pickupWH = null;
-  if (isCrossPickup) {
-    // The pickup warehouse is the one mentioned after "🚐 Recoger en"
-    const pickupMatch = orderNotes.match(/🚐 Recoger en ([^\n]+)/);
-    const pickupWHName = pickupMatch ? pickupMatch[1].trim().toLowerCase() : '';
-    pickupWH = warehouses.find(w => (w.name||'').toLowerCase().includes(pickupWHName) || pickupWHName.includes((w.name||'').toLowerCase()));
+  let isCrossPickup = false;
+
+  // Pattern 1 & 2: scan notes for 🚐 + warehouse name
+  const notesLower = orderNotes.toLowerCase();
+  if (orderNotes.includes('🚐') || orderNotes.includes('🚚') || orderNotes.includes('🚛')) {
+    // Try "Recoger en X" pattern first
+    const recogerMatch = orderNotes.match(/🚐\s*Recoger en\s+([^\n+]+)/i);
+    // Fallback: "🚐 WarehouseName" anywhere in notes
+    const simpleMatch  = orderNotes.match(/🚐\s*([^\n+🚐]+)/i);
+    const rawName = (recogerMatch?.[1] || simpleMatch?.[1] || '').trim().toLowerCase()
+      .replace(/\+\s*rd\$.*/i,'').replace(/envío?/i,'').trim();
+
+    if (rawName) {
+      pickupWH = warehouses.find(w => {
+        const wn = (w.name||'').toLowerCase();
+        return wn.includes(rawName) || rawName.includes(wn);
+      });
+    }
   }
+
+  // Pattern 3: order warehouse itself is a known distributor warehouse
+  if (!pickupWH) {
+    const orderWHobj = warehouses.find(w => String(w.id) === String(whId));
+    const distForOrderWH = customers.find(cx =>
+      cx.type === 'distributor' &&
+      (String(cx.distributorWarehouseId) === String(whId) ||
+       (cx.distributorWarehouseName||'').toLowerCase().includes((orderWHobj?.name||'').toLowerCase()))
+    );
+    // Only apply pickup commission if the order warehouse has a distributor AND
+    // the customer placing the order is NOT already that distributor's seller
+    if (distForOrderWH && !(comm && String(comm.isMonteDistrib))) {
+      pickupWH = orderWHobj;
+    }
+  }
+
+  // Determine if this is a cross-pickup (pickup/ship warehouse ≠ stock-deduct warehouse, OR warehouse has distributor)
+  if (pickupWH) {
+    isCrossPickup = String(pickupWH.id) !== String(whId) ||
+      customers.some(cx => cx.type==='distributor' && String(cx.distributorWarehouseId)===String(pickupWH.id));
+  }
+
   const pickupCommPct = parseFloat(storeConfig?.pickup_commission_pct ?? 5);
-  const pickupDistObj = pickupWH ? customers.find(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(pickupWH.id) || (cx.distributorWarehouseName||'').toLowerCase().includes((pickupWH.name||'').toLowerCase()))) : null;
-  const pickupCommAmt = (isCrossPickup && pickupCommPct > 0) ? Math.round(total * pickupCommPct / 100 * 100) / 100 : 0;
+  const pickupDistObj = pickupWH ? customers.find(cx =>
+    cx.type === 'distributor' &&
+    (String(cx.distributorWarehouseId) === String(pickupWH.id) ||
+     (cx.distributorWarehouseName||'').toLowerCase().includes((pickupWH.name||'').toLowerCase()))
+  ) : null;
+  const pickupCommAmt = (isCrossPickup && pickupCommPct > 0)
+    ? Math.round(total * pickupCommPct / 100 * 100) / 100 : 0;
 
   // Regular distributor (order warehouse)
   const distObj = customers.find(cx => cx.type==='distributor' && cx.distributorWarehouseId===parseInt(whId));
