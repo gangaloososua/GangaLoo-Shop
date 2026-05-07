@@ -3374,7 +3374,7 @@
         async function loadSellerCommissions() {
             const list = document.getElementById('sellerSalesList');
             list.innerHTML = '<div style="text-align:center;padding:40px;color:#aaa;">Cargando...</div>';
-            const { data, error } = await sb.from('inventory_data').select('*').order('updated_at',{ascending:false}).limit(1);
+            const { data, error } = await sb.from('inventory_data').select('sales,products,purchases,warehouses,categories,customers,payments,commission_payouts').order('updated_at',{ascending:false}).limit(1);
             if (error || !data || !data.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:#aaa;">No se encontraron datos.</div>'; return; }
             const allSales = JSON.parse(data[0].sales || '[]');
             const allProducts = JSON.parse(data[0].products || '[]');
@@ -4443,7 +4443,7 @@
 
         async function loadFromSupabase() {
             if (!currentUser) return;
-            const { data: _rows, error } = await sb.from('inventory_data').select('*').limit(1);
+            const { data: _rows, error } = await sb.from('inventory_data').select('warehouses,categories,products,purchases,transfers,sales,accounts,accounting_categories,transactions,customers,payments,commission_payouts,account_transfers,purchase_payments,monthly_rates,store_config').limit(1);
             const data = _rows && _rows.length ? _rows[0] : null;
             if (error) {
                 console.error('Load error:', error);
