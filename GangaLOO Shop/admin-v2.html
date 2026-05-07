@@ -2050,7 +2050,9 @@ function calcCommission(saleTotal, customer) {
   if (!customer || customer.type !== 'seller') return null;
   const sellerPct      = 15;
   const distributorPct = 5;
-  const isMonteDistrib = customer.warehouseId === 'montellano';
+  const montellanoWh   = warehouses.find(w => (w.name||'').toLowerCase().includes('montellano'));
+  const isMonteDistrib = customer.warehouseId === 'montellano' ||
+    (montellanoWh && String(customer.warehouseId) === String(montellanoWh.id));
   const sellerAmt      = Math.round(saleTotal * sellerPct / 100 * 100) / 100;
   const distribAmt     = isMonteDistrib ? Math.round(saleTotal * distributorPct / 100 * 100) / 100 : 0;
   const sellerKeeps    = sellerAmt - distribAmt;
@@ -9649,15 +9651,22 @@ async function approveOnlineOrder(orderId) {
     }
   }
 
-  // isCrossPickup = true if pickup warehouse has a distributor
+  // isCrossPickup = true only if pickup warehouse has a distributor AND
+  // the customer placing the order is NOT that distributor (to avoid double-paying)
   if (pickupWH) {
-    isCrossPickup = customers.some(cx =>
+    const pickupDist = customers.find(cx =>
       cx.type === 'distributor' &&
       (String(cx.distributorWarehouseId) === String(pickupWH.id) ||
        (cx.distributorWarehouseName||'').toLowerCase().includes((pickupWH.name||'').toLowerCase()))
     );
-    // Also true if pickup warehouse differs from stock warehouse
-    if (!isCrossPickup) isCrossPickup = String(pickupWH.id) !== String(whId);
+    // Check if the buyer/seller is the same person as the distributor
+    const buyerIsDistributor = pickupDist && (
+      String(pickupDist.id) === String(orderCustomer?.id) ||
+      String(pickupDist.id) === String(customerAsSeller?.id) ||
+      (pickupDist.email && orderCustomer?.email && pickupDist.email.toLowerCase() === orderCustomer.email.toLowerCase()) ||
+      (pickupDist.name  && orderCustomer?.name  && pickupDist.name.toLowerCase()  === orderCustomer.name.toLowerCase())
+    );
+    isCrossPickup = !!pickupDist && !buyerIsDistributor;
   }
 
   const pickupCommPct = parseFloat(storeConfig?.pickup_commission_pct ?? 5);
@@ -9817,12 +9826,19 @@ async function reCreateOrderSales(orderId) {
       const dfw = customers.find(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(whId)||(cx.distributorWarehouseName||'').toLowerCase().includes((owh?.name||'').toLowerCase())));
       if (dfw && !comm?.isMonteDistrib) pickupWH2 = owh;
     }
+    let pickupDistObj2 = null;
     if (pickupWH2) {
-      isCrossPickup2 = customers.some(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(pickupWH2.id)||(cx.distributorWarehouseName||'').toLowerCase().includes((pickupWH2.name||'').toLowerCase())));
-      if (!isCrossPickup2) isCrossPickup2 = String(pickupWH2.id) !== String(whId);
+      const pickupDist2 = customers.find(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(pickupWH2.id)||(cx.distributorWarehouseName||'').toLowerCase().includes((pickupWH2.name||'').toLowerCase())));
+      const buyerIsDist2 = pickupDist2 && (
+        String(pickupDist2.id)===String(orderCustomer?.id) ||
+        String(pickupDist2.id)===String(customerAsSeller?.id) ||
+        (pickupDist2.email && orderCustomer?.email && pickupDist2.email.toLowerCase()===orderCustomer.email.toLowerCase()) ||
+        (pickupDist2.name  && orderCustomer?.name  && pickupDist2.name.toLowerCase()===orderCustomer.name.toLowerCase())
+      );
+      isCrossPickup2 = !!pickupDist2 && !buyerIsDist2;
+      if (isCrossPickup2) pickupDistObj2 = pickupDist2;
     }
     const pickupCommPct2  = parseFloat(storeConfig?.pickup_commission_pct ?? 5);
-    const pickupDistObj2  = pickupWH2 ? customers.find(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(pickupWH2.id)||(cx.distributorWarehouseName||'').toLowerCase().includes((pickupWH2.name||'').toLowerCase()))) : null;
     const pickupCommAmt2  = (isCrossPickup2 && pickupCommPct2 > 0) ? Math.round(total * pickupCommPct2 / 100 * 100) / 100 : 0;
 
     sales.push({
@@ -11596,8 +11612,11 @@ function renderComisionesCards() {
     const totalSales = sSales.reduce((t,v)=>t+saleTotal(v),0);
     const comm15     = Math.round(totalSales*0.15*100)/100;
 
-    // Distributor 5% from seller's own sales (seller is linked to Montellano)
-    const distrib5FromSeller = seller.warehouseId==='montellano' ? Math.round(totalSales*0.05*100)/100 : 0;
+    // Distributor 5% from seller's own sales (seller is linked to Montellano warehouse)
+    const montellanoWh = warehouses.find(w => (w.name||'').toLowerCase().includes('montellano') || (w.city||'').toLowerCase().includes('montellano'));
+    const isMontellanSeller = seller.warehouseId === 'montellano' ||
+      (montellanoWh && (String(seller.warehouseId) === String(montellanoWh.id) || String(seller.distributorWarehouseId) === String(montellanoWh.id)));
+    const distrib5FromSeller = isMontellanSeller ? Math.round(totalSales*0.05*100)/100 : 0;
     const distribFromSales   = sSales.reduce((t,s)=>t+(parseFloat(s.distribAmt)||0),0);
 
     // Pickup commissions: orders routed to this person's warehouse for pickup/delivery
@@ -11607,12 +11626,12 @@ function renderComisionesCards() {
     const pickupSales = filtSales.filter(s => {
       if (sSales.find(x=>String(x.id)===String(s.id))) return false;
       if (!s.pickupCommissionAmt || parseFloat(s.pickupCommissionAmt) <= 0) return false;
-      // 1. Exact distributor ID match
+      // 1. Exact distributor ID match (most reliable)
       if (s.pickupDistributorId && String(s.pickupDistributorId) === String(seller.id)) return true;
-      // 2. Pickup warehouse ID matches seller's warehouse
-      if (myWhId && s.pickupWarehouseId && String(s.pickupWarehouseId) === myWhId) return true;
-      // 3. Pickup warehouse name matches (only if seller has a warehouse name configured)
-      if (myWhName && s.pickupWarehouseName && s.pickupWarehouseName.toLowerCase().includes(myWhName)) return true;
+      // 2. Pickup warehouse ID matches — only for distributor-type records to avoid double-counting
+      if (seller.type === 'distributor' && myWhId && s.pickupWarehouseId && String(s.pickupWarehouseId) === myWhId) return true;
+      // 3. Pickup warehouse name matches — only for distributor-type records
+      if (seller.type === 'distributor' && myWhName && s.pickupWarehouseName && s.pickupWarehouseName.toLowerCase().includes(myWhName)) return true;
       return false;
     });
     const pickupCommTotal = pickupSales.reduce((t,s)=>t+(parseFloat(s.pickupCommissionAmt)||0),0);
@@ -11633,7 +11652,8 @@ function renderComisionesCards() {
       });
     }
     const totalPaid = periodPayouts.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-    const isPaid    = _comPeriod==='month' ? periodPayouts.length>0 : totalPaid >= comm15 - 0.01;
+    const totalOwed = comm15 + pickupCommTotal;
+    const isPaid    = _comPeriod==='month' ? periodPayouts.length>0 : totalPaid >= totalOwed - 0.01;
 
     return { seller, sSales, pickupSales, pickupCommTotal, totalSales, comm15, distrib5, distrib5FromSeller, keeps, periodPayouts, totalPaid, isPaid };
   })
@@ -11649,7 +11669,8 @@ function renderComisionesCards() {
     { label:`${label}`, value: sellerData.reduce((s,d)=>s+d.totalSales,0), fmt: formatDOP, color:'var(--ink)', sub:'ventas totales' },
     { label:'Comisiones (15%)', value: totalComm, fmt: formatDOP, color:'var(--violet)', sub:allSellers.length+' vendedores' },
     { label:'Pagadas', value: totalPaid, fmt: formatDOP, color:'var(--emerald)', sub:commissionPayouts.length+' pagos' },
-    { label:'Pendientes', value: totalPend, fmt: formatDOP, color: totalPend>0?'var(--rose)':'var(--emerald)', sub: sellerData.filter(d=>!d.isPaid&&d.comm15>0).length+' vendedores' },
+    { label:'Pendientes', value: totalPend, fmt: formatDOP, color: totalPend>0?'var(--rose)':'var(--emerald)', sub: sellerData.filter(d=>!d.isPaid&&(d.comm15>0||d.pickupCommTotal>0)).length+' pendiente(s)' },
+    ...(totalPickup>0 ? [{ label:'🚐 Recogida', value: totalPickup, fmt: formatDOP, color:'var(--teal)', sub:'comisión distribuidor' }] : []),
   ].map(k=>`<div style="flex:1;padding:12px 16px;border-right:1px solid var(--border);">
     <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin-bottom:4px;">${k.label}</div>
     <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.3em;font-weight:900;color:${k.color};">${k.fmt(k.value)}</div>
@@ -11704,18 +11725,19 @@ function renderComisionesCards() {
             </div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-            ${totalSales > 0
+            ${totalSales > 0 || pickupCommTotal > 0
               ? isPaid
                 ? `<span class="badge badge-teal" style="font-size:12px;padding:6px 14px;">✅ Pagada${_comPeriod!=='month'?' ('+periodPayouts.length+' pagos)':' — '+formatDOP(totalPaid)}</span>`
-                : `<span class="badge badge-rose" style="font-size:12px;padding:6px 14px;">⏳ Pendiente — ${formatDOP(comm15-totalPaid)}</span>`
+                : `<span class="badge badge-rose" style="font-size:12px;padding:6px 14px;">⏳ Pendiente — ${formatDOP(comm15 + pickupCommTotal - totalPaid)}</span>`
               : '<span class="badge badge-gray">Sin ventas</span>'}
             ${totalPaid > 0 && !isPaid ? `<span style="font-size:11px;color:var(--emerald);">Pagado hasta ahora: ${formatDOP(totalPaid)}</span>` : ''}
           </div>
         </div>
 
-        ${totalSales > 0 ? `
+        ${totalSales > 0 || pickupCommTotal > 0 ? `
           <!-- Stats -->
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:16px;">
+            ${totalSales > 0 ? `
             <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px;">
               <div class="text-xs text-muted">Ventas ${label}</div>
               <div style="font-weight:800;font-size:1.05em;">${formatDOP(totalSales)}</div>
@@ -11724,24 +11746,22 @@ function renderComisionesCards() {
             <div style="background:var(--violet-l);border-radius:var(--r-sm);padding:12px;">
               <div class="text-xs text-muted">Comisión (15%)</div>
               <div style="font-weight:800;font-size:1.05em;color:var(--violet);">${formatDOP(comm15)}</div>
-            </div>
-            ${distrib5>0?`
+            </div>` : ''}
+            ${distrib5FromSeller > 0 ? `
               <div style="background:rgba(0,201,167,.08);border-radius:var(--r-sm);padding:12px;">
-                <div class="text-xs text-muted">${distrib5FromSeller>0?'Distribuidor (5% vendedores)':''}${pickupCommTotal>0&&distrib5FromSeller>0?' + ':''}${pickupCommTotal>0?'Comisión recogida':''}</div>
-                <div style="font-weight:800;font-size:1.05em;color:var(--teal);">${formatDOP(distrib5)}</div>
-                ${pickupCommTotal>0?`<div style="font-size:11px;color:var(--ink-3);margin-top:2px;">🚐 ${formatDOP(pickupCommTotal)} de ${pickupSales.length} pedido(s) recogida</div>`:''}
+                <div class="text-xs text-muted">Distribuidor (5%)</div>
+                <div style="font-weight:800;font-size:1.05em;color:var(--teal);">${formatDOP(distrib5FromSeller)}</div>
               </div>
-              ${distrib5FromSeller>0?`<div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px;">
+              <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:12px;">
                 <div class="text-xs text-muted">Vendedor retiene</div>
                 <div style="font-weight:800;font-size:1.05em;">${formatDOP(keeps)}</div>
-              </div>`:''}
-            `:''}
-            ${pickupCommTotal>0&&distrib5===pickupCommTotal?`
+              </div>` : ''}
+            ${pickupCommTotal > 0 ? `
               <div style="background:rgba(0,201,167,.08);border-radius:var(--r-sm);padding:12px;">
-                <div class="text-xs text-muted">🚐 Comisión recogida (${pickupSales.length} pedido(s))</div>
+                <div class="text-xs text-muted">🚐 Comisión recogida</div>
                 <div style="font-weight:800;font-size:1.05em;color:var(--teal);">${formatDOP(pickupCommTotal)}</div>
-              </div>
-            `:''}
+                <div style="font-size:11px;color:var(--ink-3);margin-top:2px;">${pickupSales.length} pedido(s)</div>
+              </div>` : ''}
             ${totalPaid>0?`
               <div style="background:rgba(16,185,129,.08);border-radius:var(--r-sm);padding:12px;">
                 <div class="text-xs text-muted">Ya pagado</div>
@@ -11858,8 +11878,8 @@ function renderComisionesCards() {
                 <label class="field-label">Categoría</label>
                 <select class="field" id="comCat-${seller.id}">${catOpts}</select>
               </div>
-              <button class="btn btn-primary payout-btn" onclick="doPayout('${seller.id}','${mk}',${keeps + pickupCommTotal})" style="white-space:nowrap;">
-                💸 Pagar ${formatDOP(keeps + pickupCommTotal)}
+              <button class="btn btn-primary payout-btn" onclick="doPayout('${seller.id}','${mk}',${comm15 + pickupCommTotal})" style="white-space:nowrap;">
+                💸 Pagar ${formatDOP(comm15 + pickupCommTotal)}
               </button>
             </div>
           ` : _comPeriod==='month' && isPaid ? `
@@ -12431,7 +12451,9 @@ function rptComisiones(el) {
       const pickupTotal = pickupMs.reduce((t,s)=>t+(parseFloat(s.pickupCommissionAmt)||0),0);
       if (!total && !pickupTotal) return;
       const comm   = Math.round(total*0.15*100)/100;
-      const distrib= (seller.warehouseId==='montellano' ? Math.round(total*0.05*100)/100 : 0) + pickupTotal;
+      const montellanoWh2 = warehouses.find(w=>(w.name||'').toLowerCase().includes('montellano'));
+      const isMontelSeller = seller.warehouseId==='montellano' || (montellanoWh2 && String(seller.warehouseId)===String(montellanoWh2.id));
+      const distrib= (isMontelSeller ? Math.round(total*0.05*100)/100 : 0) + pickupTotal;
       const keeps  = comm - (distrib - pickupTotal);
       const payout = commissionPayouts.find(p=>String(p.sellerId)===String(seller.id)&&p.monthKey===mk);
       rows.push({ seller:seller.name, mk, total, comm, distrib, keeps, payout, count:mSales.length+pickupMs.length });
