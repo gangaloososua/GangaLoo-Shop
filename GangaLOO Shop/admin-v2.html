@@ -11632,7 +11632,7 @@ function renderComisionesCards() {
   </div>`).join('');
 
   /* Seller cards */
-  el.innerHTML = sellerData.map(({ seller, sSales, totalSales, comm15, distrib5, keeps, periodPayouts, totalPaid, isPaid }) => {
+  el.innerHTML = sellerData.map(({ seller, sSales, pickupSales, pickupCommTotal, totalSales, comm15, distrib5, distrib5FromSeller, keeps, periodPayouts, totalPaid, isPaid }) => {
     /* Month breakdown for year/all views */
     let monthBreakdown = '';
     if (_comPeriod !== 'month' && totalSales > 0) {
