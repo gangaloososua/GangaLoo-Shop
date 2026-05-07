@@ -9804,14 +9804,20 @@ async function reCreateOrderSales(orderId) {
     // ── Pickup commission (same logic as approveOnlineOrder) ──
     const orderNotes2 = order.notes || '';
     let pickupWH2 = null, isCrossPickup2 = false;
+    console.log('🔍 PICKUP DEBUG — notes:', JSON.stringify(orderNotes2));
+    console.log('🔍 PICKUP DEBUG — whId:', whId, '| warehouses:', warehouses.map(w=>w.id+':'+w.name));
+    console.log('🔍 PICKUP DEBUG — customers distributor:', customers.filter(c=>c.type==='distributor').map(c=>JSON.stringify({id:c.id,name:c.name,warehouseId:c.warehouseId,distributorWarehouseId:c.distributorWarehouseId,distributorWarehouseName:c.distributorWarehouseName})));
     if (orderNotes2.includes('🚐') || orderNotes2.includes('🚚') || orderNotes2.includes('🚛')) {
       const match2 = orderNotes2.match(/(?:🚐|🚚|🚛)\s*(?:Recogida?\s+en|Recoger\s+en|Envío\s+a)?\s*([^\n📍+]+)/i);
       const rawName2 = (match2?.[1] || '').trim().toLowerCase().replace(/\+\s*rd\$.*/i,'').replace(/tienda[:\s]*/i,'').trim();
+      console.log('🔍 PICKUP DEBUG — emoji match:', match2?.[0], '| rawName2:', rawName2);
       if (rawName2) pickupWH2 = warehouses.find(w => { const wn=(w.name||'').toLowerCase(); return wn.includes(rawName2)||rawName2.includes(wn); });
+      console.log('🔍 PICKUP DEBUG — pickupWH2 from notes:', pickupWH2?.name || 'NOT FOUND');
     }
     if (!pickupWH2) {
       const owh = warehouses.find(w => String(w.id)===String(whId));
       const dfw = customers.find(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(whId)||(cx.distributorWarehouseName||'').toLowerCase().includes((owh?.name||'').toLowerCase())));
+      console.log('🔍 PICKUP DEBUG — fallback owh:', owh?.name, '| distForOrderWH:', dfw?.name || 'none');
       if (dfw && !comm?.isMonteDistrib) pickupWH2 = owh;
     }
     if (pickupWH2) {
@@ -9821,6 +9827,7 @@ async function reCreateOrderSales(orderId) {
     const pickupCommPct2  = parseFloat(storeConfig?.pickup_commission_pct ?? 5);
     const pickupDistObj2  = pickupWH2 ? customers.find(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(pickupWH2.id)||(cx.distributorWarehouseName||'').toLowerCase().includes((pickupWH2.name||'').toLowerCase()))) : null;
     const pickupCommAmt2  = (isCrossPickup2 && pickupCommPct2 > 0) ? Math.round(total * pickupCommPct2 / 100 * 100) / 100 : 0;
+    console.log('🔍 PICKUP DEBUG — final: pickupWH2:', pickupWH2?.name, '| isCrossPickup2:', isCrossPickup2, '| pickupCommAmt2:', pickupCommAmt2, '| pickupDistObj2:', pickupDistObj2?.name, '| pickupCommPct2:', pickupCommPct2, '| storeConfig.pickup_commission_pct:', storeConfig?.pickup_commission_pct);
 
     sales.push({
       id:              generateId(),
