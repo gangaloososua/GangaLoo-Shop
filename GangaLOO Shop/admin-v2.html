@@ -9290,7 +9290,7 @@ function renderStoreOrderCard(o) {
           <button class="btn btn-danger btn-xs"  onclick="updateOrderStatus('${o.id}','rejected')">❌ Rechazar</button>
         `:''}
         ${o.status==='approved'?`
-          <button class="btn btn-ghost btn-xs" onclick="navigateTo('ventas')">📄 Ver facturas</button>
+          <button class="btn btn-ghost btn-xs" onclick="showPanel('ventas',document.querySelector('[data-panel=ventas]'))">📄 Ver facturas</button>
           <button class="btn btn-amber btn-xs" onclick="reCreateOrderSales('${o.id}')">⚠️ Re-crear factura</button>
           <button class="btn btn-ghost btn-xs" onclick="deductStockForOrder('${o.id}')">📦 Descontar stock</button>
         `:''}
