@@ -3526,7 +3526,8 @@ function renderVentasList() {
     const pend      = Math.round((total - paid) * 100) / 100;
     const cancelled = s.status === 'cancelled';
     const comm      = s._commAll;
-    const hasComm   = comm > 0.01 || s._commPct > 0;
+    const pickupComm = s._items.reduce((t,x)=>t+(parseFloat(x.pickupCommissionAmt)||0),0);
+    const hasComm   = comm > 0.01 || s._commPct > 0 || pickupComm > 0.01;
 
     /* Status badge */
     let statusBadge;
@@ -3546,8 +3547,10 @@ function renderVentasList() {
       const mk     = (s.date||'').slice(0,7);
       const sellId = s.sellerId || s.customerId;
       const paid2  = commissionPayouts.find(p => p.sellerId === sellId && p.monthKey === mk);
+      const totalCommDisplay = comm > 0.01 ? comm : pickupComm;
+      const label = comm > 0.01 ? '' : ' 🚐';
       commBadge = `<div style="line-height:1.3;">
-        <div style="font-weight:700;font-size:12.5px;color:var(--amber);">${formatDOP(comm)}</div>
+        <div style="font-weight:700;font-size:12.5px;color:var(--amber);">${formatDOP(totalCommDisplay)}${label}</div>
         <div style="font-size:10.5px;">${paid2
           ? `<span style="color:var(--emerald);">✓ Pagada</span>`
           : `<span style="color:var(--rose);">Pendiente</span>`}${s._commPct?` · ${s._commPct}%`:''}</div>
@@ -4321,12 +4324,12 @@ function openVentaDetail(saleId) {
         <div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:8px;">Historial de Pagos</div>
         ${paymentsHtml}
 
-        ${(sale.commissionPaid||sale.commissionAmt||0) > 0 ? `
+        ${((sale.commissionPaid||sale.commissionAmt||0) > 0 || (sale.pickupCommissionAmt||0) > 0) ? `
           <div style="margin-top:16px;padding:12px;background:rgba(108,92,231,.06);border-radius:var(--r-sm);">
             <div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:6px;">Comisión</div>
-            <div>Comisión vendedor: <strong style="color:var(--amber);">${formatDOP(sale.commissionPaid||sale.commissionAmt||0)}</strong>${sale.commissionPercent?` (${sale.commissionPercent}%)`:''}${sale.commissionPaid>0&&sale.commissionPercent?' del total':''}</div>
+            ${(sale.commissionPaid||sale.commissionAmt||0) > 0 ? `<div>Comisión vendedor: <strong style="color:var(--amber);">${formatDOP(sale.commissionPaid||sale.commissionAmt||0)}</strong>${sale.commissionPercent?` (${sale.commissionPercent}%)`:''}${sale.commissionPaid>0&&sale.commissionPercent?' del total':''}</div>` : ''}
             ${(sale.distributorCommissionPaid||sale.distribAmt||0) > 0 ? `<div>Distribuidor (${sale.distributorCommissionPct||5}%): <strong>${formatDOP(sale.distributorCommissionPaid||sale.distribAmt||0)}</strong></div>` : ''}
-            ${sale.pickupCommissionAmt > 0 ? `<div style="color:#92400e;">🚐 Comisión recogida ${sale.pickupCommissionPct}% → ${sale.pickupDistributorName||sale.pickupWarehouseName||'—'}: <strong>${formatDOP(sale.pickupCommissionAmt)}</strong></div>` : ''}
+            ${(sale.pickupCommissionAmt||0) > 0 ? `<div style="color:#92400e;">🚐 Comisión recogida ${sale.pickupCommissionPct||5}% → ${sale.pickupDistributorName||sale.pickupWarehouseName||'—'}: <strong>${formatDOP(sale.pickupCommissionAmt)}</strong></div>` : ''}
           </div>
         ` : ''}
 
@@ -9804,20 +9807,14 @@ async function reCreateOrderSales(orderId) {
     // ── Pickup commission (same logic as approveOnlineOrder) ──
     const orderNotes2 = order.notes || '';
     let pickupWH2 = null, isCrossPickup2 = false;
-    console.log('🔍 PICKUP DEBUG — notes:', JSON.stringify(orderNotes2));
-    console.log('🔍 PICKUP DEBUG — whId:', whId, '| warehouses:', warehouses.map(w=>w.id+':'+w.name));
-    console.log('🔍 PICKUP DEBUG — customers distributor:', customers.filter(c=>c.type==='distributor').map(c=>JSON.stringify({id:c.id,name:c.name,warehouseId:c.warehouseId,distributorWarehouseId:c.distributorWarehouseId,distributorWarehouseName:c.distributorWarehouseName})));
     if (orderNotes2.includes('🚐') || orderNotes2.includes('🚚') || orderNotes2.includes('🚛')) {
       const match2 = orderNotes2.match(/(?:🚐|🚚|🚛)\s*(?:Recogida?\s+en|Recoger\s+en|Envío\s+a)?\s*([^\n📍+]+)/i);
       const rawName2 = (match2?.[1] || '').trim().toLowerCase().replace(/\+\s*rd\$.*/i,'').replace(/tienda[:\s]*/i,'').trim();
-      console.log('🔍 PICKUP DEBUG — emoji match:', match2?.[0], '| rawName2:', rawName2);
       if (rawName2) pickupWH2 = warehouses.find(w => { const wn=(w.name||'').toLowerCase(); return wn.includes(rawName2)||rawName2.includes(wn); });
-      console.log('🔍 PICKUP DEBUG — pickupWH2 from notes:', pickupWH2?.name || 'NOT FOUND');
     }
     if (!pickupWH2) {
       const owh = warehouses.find(w => String(w.id)===String(whId));
       const dfw = customers.find(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(whId)||(cx.distributorWarehouseName||'').toLowerCase().includes((owh?.name||'').toLowerCase())));
-      console.log('🔍 PICKUP DEBUG — fallback owh:', owh?.name, '| distForOrderWH:', dfw?.name || 'none');
       if (dfw && !comm?.isMonteDistrib) pickupWH2 = owh;
     }
     if (pickupWH2) {
@@ -9827,7 +9824,6 @@ async function reCreateOrderSales(orderId) {
     const pickupCommPct2  = parseFloat(storeConfig?.pickup_commission_pct ?? 5);
     const pickupDistObj2  = pickupWH2 ? customers.find(cx => cx.type==='distributor' && (String(cx.distributorWarehouseId)===String(pickupWH2.id)||(cx.distributorWarehouseName||'').toLowerCase().includes((pickupWH2.name||'').toLowerCase()))) : null;
     const pickupCommAmt2  = (isCrossPickup2 && pickupCommPct2 > 0) ? Math.round(total * pickupCommPct2 / 100 * 100) / 100 : 0;
-    console.log('🔍 PICKUP DEBUG — final: pickupWH2:', pickupWH2?.name, '| isCrossPickup2:', isCrossPickup2, '| pickupCommAmt2:', pickupCommAmt2, '| pickupDistObj2:', pickupDistObj2?.name, '| pickupCommPct2:', pickupCommPct2, '| storeConfig.pickup_commission_pct:', storeConfig?.pickup_commission_pct);
 
     sales.push({
       id:              generateId(),
