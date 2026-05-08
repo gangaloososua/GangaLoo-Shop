@@ -1059,13 +1059,85 @@ table.erp-table th.text-center, table.erp-table td.text-center { text-align: cen
    RESPONSIVE
 ============================================================ */
 @media (max-width: 768px) {
-  .sidebar { position: absolute; z-index: 200; }
-  .sidebar:not(.collapsed) { box-shadow: var(--sh-xl); }
+  /* ── Layout ── */
+  .sidebar { position: fixed; z-index: 400; height: 100vh; transform: translateX(-100%); transition: transform .25s ease; }
+  .sidebar.mobile-open { transform: translateX(0); box-shadow: var(--sh-xl); }
+  .sidebar.collapsed { transform: translateX(-100%); }
+  .main-content { margin-left: 0 !important; }
   .split-layout { grid-template-columns: 1fr; }
-  .stat-grid { grid-template-columns: repeat(2, 1fr); padding: 16px; }
-  .section { padding: 16px; }
-  .topbar { padding: 0 16px; }
-  .page-header { padding: 16px; }
+
+  /* ── Topbar ── */
+  .topbar { padding: 0 12px; gap: 8px; }
+  .topbar .menu-toggle { display: flex !important; }
+
+  /* ── Panels ── */
+  .panel { padding: 0; }
+  .page-header { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+  .page-header h1 { font-size: 1.3em; }
+  .page-actions { flex-wrap: wrap; gap: 6px; }
+  .section { padding: 12px; }
+
+  /* ── KPI cards ── */
+  .stat-grid { grid-template-columns: repeat(2, 1fr); padding: 12px; gap: 8px; }
+  #invKPI { flex-wrap: wrap; }
+  #invKPI > div { min-width: calc(50% - 1px); flex: 1 1 calc(50% - 1px); border-right: none !important; border-bottom: 1px solid var(--border); }
+
+  /* ── Tables ── */
+  .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 600px; }
+  .table-toolbar { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+  .table-search { max-width: 100% !important; flex: 1 1 100%; }
+
+  /* ── Ventas list ── */
+  #ventasList .erp-table th:nth-child(3),
+  #ventasList .erp-table td:nth-child(3),
+  #ventasList .erp-table th:nth-child(4),
+  #ventasList .erp-table td:nth-child(4) { display: none; }
+
+  /* ── Modals ── */
+  .modal { max-width: 100% !important; width: 100% !important; margin: 0; border-radius: var(--r-lg) var(--r-lg) 0 0; max-height: 92vh; overflow-y: auto; }
+  #modalBackdrop .modal { position: fixed; bottom: 0; left: 0; right: 0; }
+  .modal-body { padding: 14px; max-height: 65vh; overflow-y: auto; }
+  .modal-footer { padding: 12px 14px; flex-wrap: wrap; gap: 8px; }
+  .modal-footer .btn { flex: 1; min-width: 120px; }
+
+  /* ── Product detail panel ── */
+  #productDetailPanel { width: 100% !important; top: auto !important; bottom: 0; height: 90vh; border-radius: var(--r-lg) var(--r-lg) 0 0; border-left: none !important; border-top: 1px solid var(--border); }
+
+  /* ── Compras split ── */
+  #comprasLayout { grid-template-columns: 1fr !important; }
+  #comprasDetailPane { display: none; }
+  #comprasDetailPane.mobile-show { display: block; position: fixed; inset: 0; z-index: 300; background: var(--surface); overflow-y: auto; padding-bottom: 80px; }
+
+  /* ── Form grids ── */
+  .form-grid { grid-template-columns: 1fr !important; }
+
+  /* ── Inner tabs ── */
+  .inner-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; gap: 4px; }
+  .inner-tab { white-space: nowrap; font-size: 12px; padding: 6px 10px; }
+
+  /* ── Inventory filter bar ── */
+  #invContent ~ * { flex-wrap: wrap; }
+
+  /* ── Buttons ── */
+  .btn-sm { font-size: 12px; padding: 5px 10px; }
+  .btn-xs { font-size: 11px; padding: 3px 8px; }
+
+  /* ── Online orders ── */
+  #onlineOrdersList { padding: 8px; }
+
+  /* ── Bottom nav overlay when sidebar opens ── */
+  .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 399; }
+  .sidebar-overlay.active { display: block; }
+}
+
+@media (max-width: 480px) {
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .page-header h1 { font-size: 1.1em; }
+  .big-num { font-size: 1.8em; }
+  .track-pipeline { gap: 0; }
+  .track-step { min-width: 50px; font-size: 9px; padding: 6px 2px; }
+  .track-step .ts-icon { font-size: 13px; }
 }
 
 /* ============================================================
@@ -1265,9 +1337,12 @@ table.erp-table th.text-center, table.erp-table td.text-center { text-align: cen
 
     <!-- TOP BAR -->
     <header class="topbar">
-      <div class="topbar-left">
-        <div class="topbar-title" id="topbarTitle">Dashboard</div>
-        <div class="topbar-subtitle" id="topbarSubtitle">Vista general del sistema</div>
+      <div class="topbar-left" style="display:flex;align-items:center;gap:10px;">
+        <button class="menu-toggle" onclick="toggleSidebar()" style="display:none;background:none;border:none;cursor:pointer;font-size:22px;padding:4px;line-height:1;color:var(--ink);" title="Menú">☰</button>
+        <div>
+          <div class="topbar-title" id="topbarTitle">Dashboard</div>
+          <div class="topbar-subtitle" id="topbarSubtitle">Vista general del sistema</div>
+        </div>
       </div>
       <div class="topbar-right">
         <div class="topbar-save-indicator">
@@ -1565,13 +1640,36 @@ async function doLogout() {
 
 /* ─── SIDEBAR TOGGLE ─── */
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('collapsed');
+  const sb = document.getElementById('sidebar');
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) {
+    sb.classList.toggle('mobile-open');
+    let overlay = document.getElementById('sidebarOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'sidebarOverlay';
+      overlay.className = 'sidebar-overlay';
+      overlay.onclick = () => { sb.classList.remove('mobile-open'); overlay.classList.remove('active'); };
+      document.body.appendChild(overlay);
+    }
+    overlay.classList.toggle('active', sb.classList.contains('mobile-open'));
+  } else {
+    sb.classList.toggle('collapsed');
+  }
 }
+
+// Close sidebar when navigating on mobile
+const _origShowPanel = typeof showPanel !== 'undefined' ? showPanel : null;
 
 /* ─── PANEL NAVIGATION ─── */
 let _activePanel = 'dashboard';
 
 function showPanel(id, el) {
+  // Close mobile sidebar on navigation
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar')?.classList.remove('mobile-open');
+    document.getElementById('sidebarOverlay')?.classList.remove('active');
+  }
   // Hide all panels
   document.querySelectorAll('.page-panel').forEach(p => p.classList.remove('active'));
   // Show target
@@ -6516,6 +6614,7 @@ let _invSearch   = '';
 let _invWhFilter = '';
 let _invCatFilter= '';
 let _invViewMode = 'category';
+let _invSort = 'name_asc';
 
 function renderInventarioPanel() {
   const panel = document.getElementById('panel-inventario');
@@ -6552,6 +6651,15 @@ function renderInventarioPanel() {
           onchange="_invCatFilter=this.value;renderInvContent()">
           <option value="">Todas las categorías</option>
           ${categories.map(c=>`<option value="${c.id}">${c.icon||''}${c.name}</option>`).join('')}
+        </select>
+        <select style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);"
+          onchange="_invSort=this.value;renderInvContent()">
+          <option value="name_asc">A→Z Nombre</option>
+          <option value="name_desc">Z→A Nombre</option>
+          <option value="stock_desc">Mayor stock</option>
+          <option value="stock_asc">Menor stock</option>
+          <option value="price_desc">Mayor precio</option>
+          <option value="price_asc">Menor precio</option>
         </select>
         <div style="padding:0 10px;font-size:12px;color:var(--ink-3);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);display:flex;align-items:center;" id="invCount">—</div>
       </div>
@@ -6634,7 +6742,7 @@ function invStats(prods, whId) {
 
 function filterInvProds(prods) {
   const search=_invSearch.toLowerCase();
-  return prods.filter(p=>{
+  const filtered = prods.filter(p=>{
     if (_invCatFilter) {
       const ids=(p.categoryIds?.length?p.categoryIds:[p.categoryId]).map(String);
       if (!ids.includes(String(_invCatFilter))) return false;
@@ -6646,6 +6754,19 @@ function filterInvProds(prods) {
     }
     if (search && !(p.name||'').toLowerCase().includes(search) && !(p.sku||'').toLowerCase().includes(search)) return false;
     return true;
+  });
+  // Sort
+  const sort = _invSort || 'name_asc';
+  return filtered.sort((a,b) => {
+    switch(sort) {
+      case 'name_asc':   return (a.name||'').localeCompare(b.name||'','es',{numeric:true,sensitivity:'base'});
+      case 'name_desc':  return (b.name||'').localeCompare(a.name||'','es',{numeric:true,sensitivity:'base'});
+      case 'stock_desc': return getTotalStock(b.id)-getTotalStock(a.id);
+      case 'stock_asc':  return getTotalStock(a.id)-getTotalStock(b.id);
+      case 'price_desc': return (b.price||0)-(a.price||0);
+      case 'price_asc':  return (a.price||0)-(b.price||0);
+      default:           return (a.name||'').localeCompare(b.name||'','es',{numeric:true,sensitivity:'base'});
+    }
   });
 }
 
