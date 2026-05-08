@@ -633,11 +633,11 @@ function buildAll() {
   } else {
     const incSeries = buildIncSeries(incCats);
 
+    incSeries.forEach(s => { s._safeId = 'ci_' + s.id.replace(/[^a-zA-Z0-9]/g,'_'); });
     incGridEl.innerHTML = makeCard('chartIncomeStacked','📈 Ingresos por Categoría','Todas las categorías y subcategorías por mes', null, '', 'var(--sky)', true)
       + incSeries.map(s=>{
-          const total = s.data.reduce((v,acc)=>v+acc,0);
-          const subLabel = s.parentLabel ? `${s.parentLabel} › ${s.label}` : s.label;
-          return makeCard(`chart_${s.id}`, s.label, s.parentLabel ? `Subcategoría de ${s.parentLabel}` : 'Ingresos mensuales', fmtShort(total), s.color, s.color);
+          const total = s.data.reduce((acc,v)=>acc+v,0);
+          return makeCard(s._safeId, s.label, s.parentLabel ? `Subcategoría de ${s.parentLabel}` : 'Ingresos mensuales', fmtShort(total), s.color, s.color);
         }).join('');
 
     setTimeout(()=>{
@@ -654,7 +654,7 @@ function buildAll() {
         });
       }
       incSeries.forEach(s => {
-        barChart(`chart_${s.id}`, lbls, s.data, s.color+'cc');
+        barChart(s._safeId, lbls, s.data, s.color+'cc');
       });
     }, 10);
   }
@@ -713,10 +713,11 @@ function buildAll() {
   } else {
     const expSeries = buildExpSeries(expCats);
 
+    expSeries.forEach(s => { s._safeId = 'ce_' + s.id.replace(/[^a-zA-Z0-9]/g,'_'); });
     expGridEl.innerHTML = makeCard('chartExpStacked','📉 Gastos por Categoría','Todas las categorías y subcategorías por mes', null, '', 'var(--rose)', true)
       + expSeries.map(s=>{
-          const total = s.data.reduce((v,acc)=>v+acc,0);
-          return makeCard(`chart_${s.id}`, s.label, s.parentLabel ? `Subcategoría de ${s.parentLabel}` : 'Gastos mensuales', fmtShort(total), s.color, s.color);
+          const total = s.data.reduce((acc,v)=>acc+v,0);
+          return makeCard(s._safeId, s.label, s.parentLabel ? `Subcategoría de ${s.parentLabel}` : 'Gastos mensuales', fmtShort(total), s.color, s.color);
         }).join('');
 
     setTimeout(()=>{
@@ -733,7 +734,7 @@ function buildAll() {
         });
       }
       expSeries.forEach(s => {
-        barChart(`chart_${s.id}`, lbls, s.data, s.color+'cc');
+        barChart(s._safeId, lbls, s.data, s.color+'cc');
       });
     }, 10);
   }
