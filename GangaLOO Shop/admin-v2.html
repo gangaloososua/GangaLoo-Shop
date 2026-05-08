@@ -10261,8 +10261,10 @@ function openCuentaMovements(accountId) {
   /* Collect ALL movements for this account */
   const movements = [];
 
-  /* 1. Sale payments (cobros) — include all, skipBalance ones shown but don't affect running balance */
-  payments.filter(p => String(p.accountId) === String(accountId)).forEach(p => {
+  /* 1. Sale payments (cobros)
+     - Skip skipBalance ones — those belong to a batch receipt shown as ONE transaction below
+     - Show non-batch payments individually */
+  payments.filter(p => String(p.accountId) === String(accountId) && !p.skipBalance).forEach(p => {
     const sale = sales.find(s => String(s.id) === String(p.saleId));
     const inv  = sale ? (sale.invoiceNum||sale.invoiceNumber||'#'+sale.id) : '—';
     movements.push({
@@ -10272,21 +10274,24 @@ function openCuentaMovements(accountId) {
       ref:        p.reference || inv,
       amount:     parseFloat(p.amount) || 0,
       source:     'cobro',
-      skipBalance: !!p.skipBalance,  // won't affect running balance
+      skipBalance: false,
     });
   });
 
-  /* 2. Expense & income transactions (exclude isReceiptEntry — already shown as Cobros) */
-  transactions.filter(t => String(t.accountId) === String(accountId) && !(t.isReceiptEntry && t.type==='income') && !((t.reference||'').toLowerCase().startsWith('commission-payout'))).forEach(t => {
+  /* 2. Expense & income transactions
+     - INCLUDE isReceiptEntry (batch deposits show as ONE full amount line)
+     - Exclude commission payouts (shown separately in section 3) */
+  transactions.filter(t => String(t.accountId) === String(accountId) && !((t.reference||'').toLowerCase().startsWith('commission-payout'))).forEach(t => {
     const cat    = accountingCategories.find(c => String(c.id) === String(t.categoryId));
     const catLabel = cat ? (cat.name + (cat.subname ? ' — ' + cat.subname : '')) : '—';
     movements.push({
       date:   t.date || '',
       type:   t.type === 'income' ? 'in' : 'out',
-      label:  catLabel,
+      label:  t.isReceiptEntry ? `💳 ${t.description||'Pago recibido'}` : catLabel,
       ref:    t.description || '',
       amount: parseFloat(t.amount) || 0,
-      source: 'transaction',
+      source: t.isReceiptEntry ? 'receipt' : 'transaction',
+      skipBalance: false,
     });
   });
 
@@ -10351,7 +10356,7 @@ function openCuentaMovements(accountId) {
   const totalOut = movements.filter(m=>m.type==='out').reduce((s,m)=>s+m.amount,0);
 
   /* Filter options */
-  const sourceLabels = { cobro:'💵 Cobros', transaction:'📝 Transacciones', comision:'🏷 Comisiones', compra:'📦 Compras', transfer:'↔ Transferencias' };
+  const sourceLabels = { cobro:'💵 Cobros', receipt:'💳 Depósitos', transaction:'📝 Transacciones', comision:'🏷 Comisiones', compra:'📦 Compras', transfer:'↔ Transferencias' };
   const sourceFilters = [...new Set(movements.map(m=>m.source))];
 
   /* Build year and month options from actual data */
