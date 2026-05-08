@@ -574,33 +574,73 @@ function buildAll() {
   /* ══════════ INCOME CATEGORIES ══════════ */
   const COLORS_INC = ['#38bdf8','#7c6fef','#10b981','#f59e0b','#e879f9','#34d399','#60a5fa','#a78bfa'];
   const incGridEl = document.getElementById('gridIncome');
+
+  // Build a flat list of all income series: parent + each subcategory separately
+  function buildIncSeries(cats) {
+    const series = [];
+    let colorIdx = 0;
+    cats.forEach(cat => {
+      const subs = cat.subcategories || [];
+      if (!subs.length) {
+        // No subcategories — just the parent itself
+        const catId = String(cat.id);
+        const data = mks.map(mk => {
+          return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='income'&&!t.isInternalTransfer&&!t.isReceiptEntry&&String(t.categoryId)===catId).reduce((s,t)=>s+(parseFloat(t.amount)||0),0)
+            + payments.filter(p=>{
+                if(!(p.date||'').startsWith(mk)) return false;
+                const rid=String(p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||'');
+                return rid===catId;
+              }).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+        });
+        series.push({ id: `inc_${catId}`, label: cat.name, parentLabel: null, data, color: COLORS_INC[colorIdx++%COLORS_INC.length] });
+      } else {
+        // Parent-level bucket: transactions tagged directly to the parent (no subcat)
+        const catId = String(cat.id);
+        const parentData = mks.map(mk => {
+          return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='income'&&!t.isInternalTransfer&&!t.isReceiptEntry&&String(t.categoryId)===catId).reduce((s,t)=>s+(parseFloat(t.amount)||0),0)
+            + payments.filter(p=>{
+                if(!(p.date||'').startsWith(mk)) return false;
+                const rid=String(p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||'');
+                return rid===catId;
+              }).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+        });
+        const parentColor = COLORS_INC[colorIdx++%COLORS_INC.length];
+        const parentTotal = parentData.reduce((s,v)=>s+v,0);
+        if (parentTotal > 0) {
+          series.push({ id: `inc_${catId}`, label: cat.name + ' (general)', parentLabel: cat.name, data: parentData, color: parentColor });
+        }
+        // Each subcategory
+        subs.forEach(sub => {
+          const subId = String(sub.id||sub);
+          const subName = sub.name || subId;
+          const data = mks.map(mk => {
+            return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='income'&&!t.isInternalTransfer&&!t.isReceiptEntry&&String(t.categoryId)===subId).reduce((s,t)=>s+(parseFloat(t.amount)||0),0)
+              + payments.filter(p=>{
+                  if(!(p.date||'').startsWith(mk)) return false;
+                  const rid=String(p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||'');
+                  return rid===subId;
+                }).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+          });
+          series.push({ id: `inc_${subId}`, label: subName, parentLabel: cat.name, data, color: COLORS_INC[colorIdx++%COLORS_INC.length] });
+        });
+      }
+    });
+    return series;
+  }
+
   if (!incCats.length) {
     incGridEl.innerHTML = '<div class="chart-card"><div class="no-data">Sin categorías de ingresos registradas</div></div>';
   } else {
-    // One stacked bar chart with all income categories + individual lines per cat
-    const incDatasets = incCats.map((cat, i) => {
-      const data = mks.map(mk => {
-        const catId = String(cat.id);
-        const subIds = new Set((cat.subcategories||[]).map(s=>String(s.id||s)));
-        subIds.add(catId);
-        return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='income'&&!t.isInternalTransfer&&!t.isReceiptEntry&&t.categoryId&&subIds.has(String(t.categoryId))).reduce((s,t)=>s+(parseFloat(t.amount)||0),0)
-          + payments.filter(p=>{
-              if(!(p.date||'').startsWith(mk)) return false;
-              const rid=p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||'';
-              return rid&&subIds.has(String(rid));
-            }).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-      });
-      return { label: cat.name, data, color: COLORS_INC[i%COLORS_INC.length] };
-    });
+    const incSeries = buildIncSeries(incCats);
 
-    incGridEl.innerHTML = makeCard('chartIncomeStacked','📈 Ingresos por Categoría','Todas las categorías de ingreso por mes', null, '', 'var(--sky)', true)
-      + incCats.map((cat,i)=>{
-          const total = incDatasets[i].data.reduce((s,v)=>s+v,0);
-          return makeCard(`chartInc_${i}`, cat.name, 'Ingresos mensuales', fmtShort(total), COLORS_INC[i%COLORS_INC.length], COLORS_INC[i%COLORS_INC.length]);
+    incGridEl.innerHTML = makeCard('chartIncomeStacked','📈 Ingresos por Categoría','Todas las categorías y subcategorías por mes', null, '', 'var(--sky)', true)
+      + incSeries.map(s=>{
+          const total = s.data.reduce((v,acc)=>v+acc,0);
+          const subLabel = s.parentLabel ? `${s.parentLabel} › ${s.label}` : s.label;
+          return makeCard(`chart_${s.id}`, s.label, s.parentLabel ? `Subcategoría de ${s.parentLabel}` : 'Ingresos mensuales', fmtShort(total), s.color, s.color);
         }).join('');
 
     setTimeout(()=>{
-      // stacked
       destroyChart('chartIncomeStacked');
       const ctx = document.getElementById('chartIncomeStacked')?.getContext('2d');
       if (ctx) {
@@ -609,12 +649,12 @@ function buildAll() {
         o.plugins.tooltip.callbacks.label = c => `${c.dataset.label}: ${fmt(c.parsed.y)}`;
         chartRegistry['chartIncomeStacked'] = new Chart(ctx, {
           type: 'bar',
-          data: { labels: lbls, datasets: incDatasets.map((ds,i)=>({ label: ds.label, data: ds.data, backgroundColor: ds.color, borderRadius: i===incDatasets.length-1?5:0, borderSkipped: false })) },
+          data: { labels: lbls, datasets: incSeries.map((ds,i)=>({ label: ds.label, data: ds.data, backgroundColor: ds.color, borderRadius: i===incSeries.length-1?5:0, borderSkipped: false })) },
           options: o
         });
       }
-      incCats.forEach((_,i)=>{
-        barChart(`chartInc_${i}`, lbls, incDatasets[i].data, COLORS_INC[i%COLORS_INC.length]+'cc');
+      incSeries.forEach(s => {
+        barChart(`chart_${s.id}`, lbls, s.data, s.color+'cc');
       });
     }, 10);
   }
@@ -622,30 +662,61 @@ function buildAll() {
   /* ══════════ EXPENSE CATEGORIES ══════════ */
   const COLORS_EXP = ['#f43f5e','#fb923c','#facc15','#e879f9','#f87171','#fbbf24','#ef4444','#c084fc'];
   const expGridEl = document.getElementById('gridExpense');
+
+  function isNoisyExpTxn(t) {
+    if (t.isPurchasePayment||t.isInternalTransfer) return true;
+    if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return true;
+    if (t.reference && /^LOT-|^ORD-/i.test(t.reference) && !t.isTransportPayment) return true;
+    const desc=(t.description||'').toLowerCase();
+    if (desc.startsWith('transferencia')||desc.startsWith('transfer entre')||desc.startsWith('movimiento interno')) return true;
+    return false;
+  }
+
+  function buildExpSeries(cats) {
+    const series = [];
+    let colorIdx = 0;
+    cats.forEach(cat => {
+      const subs = cat.subcategories || [];
+      if (!subs.length) {
+        const catId = String(cat.id);
+        const data = mks.map(mk => {
+          return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='expense'&&!isNoisyExpTxn(t)&&String(t.categoryId)===catId).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+        });
+        series.push({ id: `exp_${catId}`, label: cat.name, parentLabel: null, data, color: COLORS_EXP[colorIdx++%COLORS_EXP.length] });
+      } else {
+        const catId = String(cat.id);
+        const parentColor = COLORS_EXP[colorIdx++%COLORS_EXP.length];
+        // Parent-level (directly tagged to parent, not a sub)
+        const parentData = mks.map(mk => {
+          return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='expense'&&!isNoisyExpTxn(t)&&String(t.categoryId)===catId).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+        });
+        const parentTotal = parentData.reduce((s,v)=>s+v,0);
+        if (parentTotal > 0) {
+          series.push({ id: `exp_${catId}`, label: cat.name + ' (general)', parentLabel: cat.name, data: parentData, color: parentColor });
+        }
+        // Each subcategory
+        subs.forEach(sub => {
+          const subId = String(sub.id||sub);
+          const subName = sub.name || subId;
+          const data = mks.map(mk => {
+            return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='expense'&&!isNoisyExpTxn(t)&&String(t.categoryId)===subId).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
+          });
+          series.push({ id: `exp_${subId}`, label: subName, parentLabel: cat.name, data, color: COLORS_EXP[colorIdx++%COLORS_EXP.length] });
+        });
+      }
+    });
+    return series;
+  }
+
   if (!expCats.length) {
     expGridEl.innerHTML = '<div class="chart-card"><div class="no-data">Sin categorías de gastos registradas</div></div>';
   } else {
-    const expDatasets = expCats.map((cat, i) => {
-      const catId = String(cat.id);
-      const subIds = new Set((cat.subcategories||[]).map(s=>String(s.id||s)));
-      subIds.add(catId);
-      const data = mks.map(mk => {
-        return transactions.filter(t=>{
-          if(!(t.date||'').startsWith(mk)||t.type!=='expense') return false;
-          if(t.isPurchasePayment||t.isInternalTransfer) return false;
-          if((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
-          const desc=(t.description||'').toLowerCase();
-          if(desc.startsWith('transferencia')||desc.startsWith('transfer entre')) return false;
-          return t.categoryId&&subIds.has(String(t.categoryId));
-        }).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-      });
-      return { label: cat.name, data, color: COLORS_EXP[i%COLORS_EXP.length] };
-    });
+    const expSeries = buildExpSeries(expCats);
 
-    expGridEl.innerHTML = makeCard('chartExpStacked','📉 Gastos por Categoría','Todas las categorías de gasto por mes', null, '', 'var(--rose)', true)
-      + expCats.map((cat,i)=>{
-          const total = expDatasets[i].data.reduce((s,v)=>s+v,0);
-          return makeCard(`chartExp_${i}`, cat.name, 'Gastos mensuales', fmtShort(total), COLORS_EXP[i%COLORS_EXP.length], COLORS_EXP[i%COLORS_EXP.length]);
+    expGridEl.innerHTML = makeCard('chartExpStacked','📉 Gastos por Categoría','Todas las categorías y subcategorías por mes', null, '', 'var(--rose)', true)
+      + expSeries.map(s=>{
+          const total = s.data.reduce((v,acc)=>v+acc,0);
+          return makeCard(`chart_${s.id}`, s.label, s.parentLabel ? `Subcategoría de ${s.parentLabel}` : 'Gastos mensuales', fmtShort(total), s.color, s.color);
         }).join('');
 
     setTimeout(()=>{
@@ -657,12 +728,12 @@ function buildAll() {
         o.plugins.tooltip.callbacks.label = c => `${c.dataset.label}: ${fmt(c.parsed.y)}`;
         chartRegistry['chartExpStacked'] = new Chart(ctx, {
           type: 'bar',
-          data: { labels: lbls, datasets: expDatasets.map((ds,i)=>({ label: ds.label, data: ds.data, backgroundColor: ds.color, borderRadius: i===expDatasets.length-1?5:0, borderSkipped: false })) },
+          data: { labels: lbls, datasets: expSeries.map((ds,i)=>({ label: ds.label, data: ds.data, backgroundColor: ds.color, borderRadius: i===expSeries.length-1?5:0, borderSkipped: false })) },
           options: o
         });
       }
-      expCats.forEach((_,i)=>{
-        barChart(`chartExp_${i}`, lbls, expDatasets[i].data, COLORS_EXP[i%COLORS_EXP.length]+'cc');
+      expSeries.forEach(s => {
+        barChart(`chart_${s.id}`, lbls, s.data, s.color+'cc');
       });
     }, 10);
   }
