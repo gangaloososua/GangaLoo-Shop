@@ -7619,6 +7619,8 @@ function openClienteDetail(id) {
       <td style="padding:7px 10px;text-align:right;font-weight:700;color:var(--emerald);">${formatDOP(parseFloat(p.amount)||0)}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--ink-4);">Sin pagos registrados</td></tr>`;
+
+  const salesRows = sortedSales.map(s => {
     const isSellerSale = String(s.sellerId)===String(id) && String(s.customerId)!==String(id);
     const paid  = paidMap[String(s.id)]||0;
     const total = saleTotal(s);
