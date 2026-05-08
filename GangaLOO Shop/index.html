@@ -1365,8 +1365,8 @@ let totalDOP = 0;
 
 // Store rules: bank fee % and whether flete is "at delivery"
 const STORE_RULES = {
-  'Temu':       { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 250, minFee: 0,   minFeeThresholdUSD: 0  },
-  'Shein':      { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 250, minFee: 0,   minFeeThresholdUSD: 0  },
+  'Temu':       { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 100, minFee: 0,   minFeeThresholdUSD: 0  },
+  'Shein':      { bank: 0,   tax: 0,  fleteAtDelivery: false, ship: 100, minFee: 0,   minFeeThresholdUSD: 0  },
   'Amazon':     { bank: 0,   tax: 0,  fleteAtDelivery: true,  ship: 0,   minFee: 150, minFeeThresholdUSD: 35 },
   'eBay':       { bank: 3,   tax: 0,  fleteAtDelivery: true,  ship: 0,   minFee: 0,   minFeeThresholdUSD: 0  },
   'AliExpress': { bank: 3,   tax: 7,  fleteAtDelivery: true,  ship: 0,   minFee: 0,   minFeeThresholdUSD: 0  },
@@ -1453,7 +1453,7 @@ function selStore(el, name) {
     document.getElementById('lbsInput').value = '';
     document.getElementById('fleteResult').textContent = 'RD$ 0.00';
   } else {
-    document.getElementById('fleteDisplay').textContent = 'RD$ 250';
+    document.getElementById('fleteDisplay').textContent = 'RD$ 100';
     document.getElementById('fleteCalc').style.display = 'none';
   }
 
@@ -1502,7 +1502,7 @@ function calc() {
   const fS       = getCommission(subtotalUSD);
   const fB       = rules.bank;
   const fT       = rules.tax || 0;
-  const ship     = rules.fleteAtDelivery ? 0 : 250;
+  const ship     = rules.fleteAtDelivery ? 0 : 100;
 
   // Update commission display
   const commEl = document.getElementById('commDisplay');
