@@ -18,7 +18,7 @@ self.addEventListener('fetch', e => {
     fetch(e.request)
       .then(res => {
         // Cache successful responses
-        if (res.ok) {
+        if (res.ok && e.request.url.startsWith('http')) {
           const clone = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));
         }
