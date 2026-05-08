@@ -13056,6 +13056,78 @@ function rptInventario(el) {
   const totalValue = rows.reduce((s,r)=>s+r.st.value,0);
   const totalProd  = products.length;
 
+  /* ── Monthly inventory value trend ── */
+  // Build last 18 months
+  const last18 = [];
+  for (let i = 0; i < 18; i++) {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
+    last18.push(d.toLocaleString('en-CA',{timeZone:'America/Santo_Domingo',year:'numeric',month:'2-digit'}).slice(0,7));
+  }
+  const dataMks = [...new Set([
+    ...purchases.filter(p=>p.status==='delivered').map(p=>(p.date||'').slice(0,7)),
+  ].filter(Boolean))];
+  const months = [...new Set([...last18,...dataMks])].sort().reverse().slice(0,18).reverse();
+
+  // For each product, reconstruct end-of-month stock by walking purchase/sale history
+  // Current state: purchases[].remainingQty = units still in stock
+  // For a past month M:
+  //   stock = current remainingQty
+  //         + units sold AFTER end of M (sold = original qty - remainingQty, attributed by sale date)
+  //         - units purchased (delivered) AFTER end of M
+
+  // Build sale deductions per product: each sale has lotsUsed which records costDOP per lot
+  // Simpler: use purchase lots — for each lot, track how many units were in stock at end of each month
+  function calcMonthlyInventoryValue(monthKey) {
+    const endDate = monthKey + '-31'; // will compare as string YYYY-MM-DD, 31 covers all months
+    let value = 0;
+    // For each delivered purchase lot, calculate how many units were still in stock at end of monthKey
+    purchases.filter(p => p.status==='delivered' && p.date && p.date.slice(0,7) <= monthKey).forEach(lot => {
+      const originalQty = lot.qty || 0;
+      const currentRemaining = lot.remainingQty || 0;
+      // Units sold FROM this lot = originalQty - currentRemaining
+      // But we need units sold AFTER monthKey end from this lot
+      // Since we don't track lot-level sale dates, approximate:
+      // units sold after monthKey = units sold in sales dated > monthKey end
+      const soldAfter = (sales||[]).filter(s =>
+        s.status !== 'cancelled' &&
+        (s.date||'') > endDate &&
+        (s.lotsUsed||[]).some(lu => String(lu.lotId)===String(lot.id))
+      ).reduce((sum, s) => {
+        const lu = (s.lotsUsed||[]).find(lu=>String(lu.lotId)===String(lot.id));
+        return sum + (lu ? (parseFloat(lu.qty)||0) : 0);
+      }, 0);
+      const atEndOfMonth = Math.max(0, currentRemaining + soldAfter);
+      value += atEndOfMonth * (lot.costDOP || 0);
+    });
+    return value;
+  }
+
+  // Also calc units
+  function calcMonthlyUnits(monthKey) {
+    const endDate = monthKey + '-31';
+    let units = 0;
+    purchases.filter(p => p.status==='delivered' && p.date && p.date.slice(0,7) <= monthKey).forEach(lot => {
+      const currentRemaining = lot.remainingQty || 0;
+      const soldAfter = (sales||[]).filter(s =>
+        s.status !== 'cancelled' &&
+        (s.date||'') > endDate &&
+        (s.lotsUsed||[]).some(lu => String(lu.lotId)===String(lot.id))
+      ).reduce((sum, s) => {
+        const lu = (s.lotsUsed||[]).find(lu=>String(lu.lotId)===String(lot.id));
+        return sum + (lu ? (parseFloat(lu.qty)||0) : 0);
+      }, 0);
+      units += Math.max(0, currentRemaining + soldAfter);
+    });
+    return units;
+  }
+
+  const monthlyData = months.map(mk => ({
+    mk,
+    value: calcMonthlyInventoryValue(mk),
+    units: calcMonthlyUnits(mk),
+  }));
+  const maxValue = Math.max(...monthlyData.map(m=>m.value), 1);
+
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
       ${rptCard('Total en Stock', totalStock.toString(), totalProd+' productos', 'var(--emerald)')}
@@ -13063,6 +13135,27 @@ function rptInventario(el) {
       ${rptCard('Agotados', products.filter(p=>getTotalStock(p.id)===0).length.toString(), 'productos sin stock', 'var(--rose)')}
       ${rptCard('Categorías', rows.length.toString(), categories.length+' total', 'var(--sky)')}
     </div>
+
+    ${rptSection('📅 Valor de Inventario por Mes (fin de mes)', (() => {
+      const barRows = [...monthlyData].reverse().map((m,i) => {
+        const pct = maxValue > 0 ? (m.value/maxValue*100).toFixed(1) : 0;
+        return `<tr style="background:${i%2===0?'var(--surface)':'var(--surface-2)'};">
+          <td style="font-weight:700;white-space:nowrap;">${m.mk}</td>
+          <td class="text-center">${m.units.toLocaleString()}</td>
+          <td class="text-right" style="font-weight:700;color:var(--violet);">${formatDOP(m.value)}</td>
+          <td style="padding:6px 12px;width:200px;">
+            <div style="background:var(--surface-3);border-radius:4px;height:10px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:var(--violet);border-radius:4px;transition:width .3s;"></div>
+            </div>
+          </td>
+        </tr>`;
+      });
+      return rptTable(
+        [{label:'Mes'},{label:'Unidades',center:true},{label:'Valor fin de mes',right:true},{label:''}],
+        barRows,
+        `<td>HOY</td><td class="text-center">${totalStock}</td><td class="text-right">${formatDOP(totalValue)}</td><td></td>`
+      );
+    })(), true)}
 
     ${rptSection('📂 Por Categoría', (() => {
       const trows = rows.map((r,i) => `<tr style="background:${i%2===0?'var(--surface)':'var(--surface-2)'};">
