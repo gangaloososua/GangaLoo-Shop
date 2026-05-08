@@ -8260,6 +8260,16 @@ function renderProductosPanel() {
         <option value="visible">Visibles en tienda</option>
         <option value="hidden">Ocultos</option>
       </select>
+      <select class="field" style="width:160px;" id="prodSort" onchange="renderProductosList()">
+        <option value="name_asc">A→Z Nombre</option>
+        <option value="name_desc">Z→A Nombre</option>
+        <option value="stock_desc">Mayor stock</option>
+        <option value="stock_asc">Menor stock</option>
+        <option value="price_desc">Mayor precio</option>
+        <option value="price_asc">Menor precio</option>
+        <option value="margin_desc">Mayor margen</option>
+        <option value="added">Más recientes</option>
+      </select>
       <div class="table-count" id="prodCount">—</div>
     </div>
 
@@ -8306,6 +8316,26 @@ function renderProductosList() {
   });
 
   document.getElementById('prodCount').textContent = list.length + ' producto' + (list.length!==1?'s':'');
+
+  // Sort
+  const sort = document.getElementById('prodSort')?.value || 'name_asc';
+  list.sort((a,b) => {
+    switch(sort) {
+      case 'name_asc':    return (a.name||'').localeCompare(b.name||'','es',{numeric:true,sensitivity:'base'});
+      case 'name_desc':   return (b.name||'').localeCompare(a.name||'','es',{numeric:true,sensitivity:'base'});
+      case 'stock_desc':  return getTotalStock(b.id) - getTotalStock(a.id);
+      case 'stock_asc':   return getTotalStock(a.id) - getTotalStock(b.id);
+      case 'price_desc':  return (b.price||0) - (a.price||0);
+      case 'price_asc':   return (a.price||0) - (b.price||0);
+      case 'margin_desc': {
+        const mA = a.price && a.costDOP ? (a.price-a.costDOP)/a.price : 0;
+        const mB = b.price && b.costDOP ? (b.price-b.costDOP)/b.price : 0;
+        return mB - mA;
+      }
+      case 'added':       return String(b.id).localeCompare(String(a.id));
+      default:            return 0;
+    }
+  });
 
   if (!list.length) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">🏷️</div><h3>Sin productos</h3><p>Ajusta los filtros o crea el primer producto</p></div>`;
