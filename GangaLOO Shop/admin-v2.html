@@ -8441,7 +8441,10 @@ function openProductDetail(id) {
       <!-- Header -->
       <div style="padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);position:sticky;top:0;z-index:10;">
         <div style="font-family:'Cabinet Grotesk',sans-serif;font-weight:800;font-size:1.1em;">✏️ ${esc(p.name)}</div>
-        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('productDetailPanel').style.display='none'">✕ Cerrar</button>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-xs" style="color:var(--teal);border-color:var(--teal);" onclick="openMergeProduct('${p.id}')" title="Unificar con producto duplicado">🔀 Unificar</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('productDetailPanel').style.display='none'">✕ Cerrar</button>
+        </div>
       </div>
 
       <div style="padding:18px 20px;">
@@ -9003,6 +9006,132 @@ function saveProductDetail(id) {
   debouncedSave();
   renderProductosList();
   showToast(`Producto "${p.name}" guardado ✅`, 'success');
+}
+
+/* ─── MERGE / UNIFY DUPLICATE PRODUCTS ─── */
+function openMergeProduct(sourceId) {
+  const source = products.find(p => String(p.id) === String(sourceId));
+  if (!source) return;
+
+  const catMap = {};
+  [...products]
+    .filter(p => String(p.id) !== String(sourceId))
+    .sort((a,b) => (a.name||'').localeCompare(b.name||'','es'))
+    .forEach(p => {
+      const catIds = (p.categoryIds?.length ? p.categoryIds : [p.categoryId]).filter(Boolean);
+      const cat = categories.find(c => catIds.map(String).includes(String(c.id)));
+      const cn = cat ? (cat.icon||'')+ ' ' + cat.name : '📦 Sin categoría';
+      if (!catMap[cn]) catMap[cn] = [];
+      catMap[cn].push(p);
+    });
+  const opts = '<option value="">— Seleccionar producto principal —</option>' +
+    Object.keys(catMap).sort().map(cn =>
+      `<optgroup label="${cn}">${catMap[cn].map(p =>
+        `<option value="${p.id}">${p.name}${p.sku?' ('+p.sku+')':''}</option>`
+      ).join('')}</optgroup>`
+    ).join('');
+
+  const srcPurchases = purchases.filter(p => String(p.productId) === String(sourceId));
+  const srcSales     = sales.filter(s => String(s.productId) === String(sourceId) ||
+    (s.items||[]).some(i => String(i.productId) === String(sourceId)));
+  const srcStock     = getTotalStock(sourceId);
+
+  openModal(`
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">🔀 Unificar Productos Duplicados</div>
+          <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Mueve todo el stock e historial al producto principal</div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:var(--r-md);padding:10px 14px;margin-bottom:16px;font-size:13px;display:flex;gap:8px;">
+          <span>⚠️</span>
+          <span>Esta acción es <strong>irreversible</strong>. Todo el historial del duplicado se moverá al principal y el duplicado será eliminado.</span>
+        </div>
+        <div style="background:var(--surface-2);border-radius:var(--r-md);padding:12px 16px;margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:6px;">Duplicado a eliminar</div>
+          <div style="font-weight:800;">${source.name}</div>
+          <div style="font-size:12px;color:var(--ink-3);margin-top:4px;">
+            SKU: ${source.sku||'—'} &nbsp;·&nbsp;
+            ${srcStock} uds en stock &nbsp;·&nbsp;
+            ${srcPurchases.length} lote(s) &nbsp;·&nbsp;
+            ${srcSales.length} venta(s)
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="field-label field-required">Producto principal (se conserva)</label>
+          <select class="field" id="mergeTarget">${opts}</select>
+        </div>
+        <div style="font-size:12px;color:var(--ink-3);margin-top:6px;">
+          💡 Todo el stock, compras y ventas del duplicado pasarán al producto seleccionado.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-danger" onclick="confirmMergeProduct('${sourceId}')">🔀 Confirmar Unificación</button>
+      </div>
+    </div>
+  `);
+}
+
+function confirmMergeProduct(sourceId) {
+  const targetId = document.getElementById('mergeTarget')?.value;
+  if (!targetId) { showToast('Selecciona el producto principal', 'error'); return; }
+  if (String(sourceId) === String(targetId)) { showToast('No puedes unificar un producto consigo mismo', 'error'); return; }
+  const source = products.find(p => String(p.id) === String(sourceId));
+  const target = products.find(p => String(p.id) === String(targetId));
+  if (!source || !target) return;
+
+  confirmDialog(
+    `¿Unificar <strong>${source.name}</strong> → <strong>${target.name}</strong>?<br><br>
+     El duplicado será eliminado y todos sus datos pasarán al producto principal.`,
+    () => {
+      let moved = { purchases: 0, sales: 0, transfers: 0 };
+
+      // 1. Move all purchase lots
+      purchases.forEach(p => {
+        if (String(p.productId) === String(sourceId)) { p.productId = targetId; moved.purchases++; }
+      });
+
+      // 2. Move all sales
+      sales.forEach(s => {
+        if (String(s.productId) === String(sourceId)) { s.productId = targetId; moved.sales++; }
+        (s.items||[]).forEach(item => {
+          if (String(item.productId) === String(sourceId)) { item.productId = targetId; moved.sales++; }
+        });
+        (s.lotsUsed||[]).forEach(lu => {
+          if (String(lu.productId) === String(sourceId)) lu.productId = targetId;
+        });
+      });
+
+      // 3. Move transfers
+      transfers.forEach(t => {
+        if (String(t.productId) === String(sourceId)) { t.productId = targetId; moved.transfers++; }
+      });
+
+      // 4. Fill blanks on target from source
+      if (!target.sku         && source.sku)         target.sku         = source.sku;
+      if (!target.imageUrl    && source.imageUrl)    target.imageUrl    = source.imageUrl;
+      if (!target.description && source.description) target.description = source.description;
+      if (!target.videoUrl    && source.videoUrl)    target.videoUrl    = source.videoUrl;
+
+      // 5. Remove the duplicate
+      products = products.filter(p => String(p.id) !== String(sourceId));
+
+      debouncedSave();
+      document.getElementById('productDetailPanel').style.display = 'none';
+      renderProductosList();
+      if (typeof renderInvContent === 'function') renderInvContent();
+      closeModal();
+      showToast(
+        `✅ Unificado: ${moved.purchases} lotes, ${moved.sales} ventas, ${moved.transfers} transferencias → "${target.name}"`,
+        'success'
+      );
+    },
+    { danger: true, confirmLabel: 'Sí, unificar', title: 'Confirmar Unificación' }
+  );
 }
 
 function deleteProducto(id) {

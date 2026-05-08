@@ -1691,10 +1691,10 @@ function getBulkDiscount(){
   const cfg=storeConfig||{};
   const qty=getCartQty();
   const tiers=[
-    {min:cfg.bulk_qty4||0, disc:cfg.bulk_disc4||0, label:cfg.bulk_label4||''},
-    {min:cfg.bulk_qty3||0, disc:cfg.bulk_disc3||0, label:cfg.bulk_label3||''},
-    {min:cfg.bulk_qty2||0, disc:cfg.bulk_disc2||0, label:cfg.bulk_label2||''},
-    {min:cfg.bulk_qty1||0, disc:cfg.bulk_disc1||0, label:cfg.bulk_label1||''},
+    {min:parseFloat(cfg.bulk_qty4)||0, disc:parseFloat(cfg.bulk_disc4)||0, label:cfg.bulk_label4||''},
+    {min:parseFloat(cfg.bulk_qty3)||0, disc:parseFloat(cfg.bulk_disc3)||0, label:cfg.bulk_label3||''},
+    {min:parseFloat(cfg.bulk_qty2)||0, disc:parseFloat(cfg.bulk_disc2)||0, label:cfg.bulk_label2||''},
+    {min:parseFloat(cfg.bulk_qty1)||0, disc:parseFloat(cfg.bulk_disc1)||0, label:cfg.bulk_label1||''},
   ].filter(t=>t.min>0&&t.disc>0).sort((a,b)=>b.min-a.min);
   for(const t of tiers){
     if(qty>=t.min) return t;
@@ -1758,7 +1758,7 @@ function getCheckoutTotal(){
   let shipFee=0;
   if(del==='shipping') shipFee=isClubMember()?0:parseFloat(cfg.shippingCost||0);
   else if(del==='shipping2') shipFee=isClubMember()?0:parseFloat(cfg.shippingCost2||0);
-  else if(del==='other_wh') shipFee=parseFloat(cfg.maranatha_pickup_fee||cfg.maranatha_fee||0);
+  else if(del==='other_wh'){const _cartWHs=new Set(cart.map(i=>String(i.wh||selectedWH)).filter(Boolean));const _mixedCart=_cartWHs.size>1;shipFee=_mixedCart?0:parseFloat(cfg.maranatha_pickup_fee||cfg.maranatha_fee||0);}
   // payment adjustment
   let payAdj=0;
   if(pay==='cash'){
@@ -1875,6 +1875,9 @@ function _openCheckoutRender(){
   const isMontellano=(wh?.name||'').toLowerCase().includes('montellano');
   const isMaranathaWH=(wh?.name||'').toLowerCase().includes('maranatha');
   const otherWHName=isMontellano?'Maranatha':isMaranathaWH?'Montellano':null;
+  const _coCartWHs=new Set(cart.map(i=>String(i.wh||selectedWH)).filter(Boolean));
+  const _coMixedCart=_coCartWHs.size>1;
+  const otherWHFee=_coMixedCart?0:maranathaFee;
   const zone1=cfg.shippingZone||'Zona 1';
   const zone2=cfg.shippingZone2||'';
   const cartTotal=totalAfterBulk();
@@ -1926,7 +1929,7 @@ function _openCheckoutRender(){
       <div class="oitem"><span>Subtotal</span><span>RD$ ${fmt(_rawTotal)}</span></div>
       ${_bulkTier ? `<div class="oitem" style="color:#166534;font-weight:600;"><span>🏷️ ${_bulkTier.label||'Descuento mayoreo'} (-${_bulkTier.disc}%)</span><span>- RD$ ${fmt(_rawTotal*(_bulkTier.disc/100))}</span></div>` : ''}
       <div class="oitem" id="co_shipping_fee" style="display:none;"><span>🚚 Envío${isClubMember()?'':''}</span><span id="co_fee_amt">${isClubMember()?'<span style="color:#002D62;font-weight:700;">🏆 GRATIS</span>':'RD$ 0'}</span></div>
-      <div class="oitem" id="co_maranatha_fee" style="display:none;"><span>🚐 Recogida ${otherWHName||'otra tienda'}</span><span id="co_maranatha_fee_amt">+ RD$ ${fmt(maranathaFee)}</span></div>
+      <div class="oitem" id="co_maranatha_fee" style="display:none;"><span>🚐 Recogida ${otherWHName||'otra tienda'}</span><span id="co_maranatha_fee_amt">+ RD$ ${fmt(otherWHFee)}</span></div>
       <div class="oitem" id="co_pay_adj_row" style="display:none;"><span id="co_pay_adj_lbl">Ajuste pago</span><span id="co_pay_adj_amt"></span></div>
       <div class="ototal"><span>Total</span><span id="co_pay_total">RD$ ${fmt(cartTotal)}</span></div>
       ${wh?`<div style="margin-top:8px;font-size:11px;color:var(--muted)">📍 ${wh.name}</div>`:''}
@@ -1943,7 +1946,7 @@ function _openCheckoutRender(){
         ${otherWHName ? `<label class="co-option">
           <input type="radio" name="delivery" value="other_wh" onchange="onDeliveryChange()">
           <span class="co-option-ico">🚐</span>
-          <div><div style="font-weight:700">Recoger en ${otherWHName}</div><div style="font-size:11px;color:var(--muted)">${maranathaFee>0?'+ RD$ '+fmt(maranathaFee):'Cargo a definir'}</div></div>
+          <div><div style="font-weight:700">Recoger en ${otherWHName}</div><div style="font-size:11px;color:${otherWHFee>0?'var(--muted)':'#27ae60'}">${otherWHFee>0?'+ RD$ '+fmt(otherWHFee):'✅ Sin costo adicional'}</div></div>
         </label>` : ''}
         <label class="co-option">
           <input type="radio" name="delivery" value="shipping" onchange="onDeliveryChange()">
@@ -3322,342 +3325,103 @@ function getCoDeliveryData(){
 }
 </script>
 
-<!-- ═══════════════════════════════════════════
-     GANGALOO AI CHAT WIDGET
-═══════════════════════════════════════════ -->
+<!-- ═══ GANGALOO AI CHAT WIDGET ═══ -->
 <style>
-#glChatBubble{
-  position:fixed;bottom:80px;right:16px;z-index:600;
-  width:52px;height:52px;border-radius:50%;
-  background:linear-gradient(135deg,#6c3ff5,#00b4d8);
-  box-shadow:0 4px 18px rgba(108,63,245,.5);
-  display:flex;align-items:center;justify-content:center;
-  cursor:pointer;transition:transform .2s,box-shadow .2s;
-  border:none;
-}
-#glChatBubble:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(108,63,245,.6);}
-#glChatBubble svg{pointer-events:none;}
-#glChatUnread{
-  display:none;position:absolute;top:-3px;right:-3px;
-  background:#ff4757;color:#fff;border-radius:99px;
-  font-size:10px;padding:1px 5px;font-weight:700;
-  font-family:'Jost',sans-serif;
-}
-#glChatBox{
-  display:none;flex-direction:column;
-  position:fixed;bottom:144px;right:16px;z-index:600;
-  width:340px;max-width:calc(100vw - 24px);
-  height:480px;max-height:calc(100dvh - 160px);
-  background:#0a0e1a;border-radius:18px;
-  box-shadow:0 8px 48px rgba(0,0,0,.4);
-  overflow:hidden;font-family:'Jost',sans-serif;
-  border:1px solid rgba(255,255,255,.08);
-}
-.glch-header{
-  flex-shrink:0;padding:13px 16px;
-  background:rgba(255,255,255,.05);
-  border-bottom:1px solid rgba(255,255,255,.07);
-  display:flex;align-items:center;gap:10px;
-}
-.glch-avatar{
-  width:36px;height:36px;border-radius:50%;flex-shrink:0;
-  background:linear-gradient(135deg,#6c3ff5,#00b4d8);
-  display:flex;align-items:center;justify-content:center;
-  font-size:18px;box-shadow:0 0 14px rgba(108,63,245,.4);
-}
-.glch-hinfo{flex:1;min-width:0;}
-.glch-hname{
-  font-size:.9rem;font-weight:700;letter-spacing:.04em;
-  background:linear-gradient(90deg,#a78bfa,#22d3ee);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  line-height:1.1;
-}
+#glChatBubble{position:fixed;bottom:80px;right:16px;z-index:600;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#6c3ff5,#00b4d8);box-shadow:0 4px 18px rgba(108,63,245,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .2s,box-shadow .2s;border:none;}
+#glChatBubble:hover{transform:scale(1.08);}
+#glChatUnread{display:none;position:absolute;top:-3px;right:-3px;background:#ff4757;color:#fff;border-radius:99px;font-size:10px;padding:1px 5px;font-weight:700;font-family:'Jost',sans-serif;}
+#glChatBox{display:none;flex-direction:column;position:fixed;bottom:144px;right:16px;z-index:600;width:340px;max-width:calc(100vw - 24px);height:480px;max-height:calc(100dvh - 160px);background:#0a0e1a;border-radius:18px;box-shadow:0 8px 48px rgba(0,0,0,.4);overflow:hidden;font-family:'Jost',sans-serif;border:1px solid rgba(255,255,255,.08);}
+.glch-header{flex-shrink:0;padding:13px 16px;background:rgba(255,255,255,.05);border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:10px;}
+.glch-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6c3ff5,#00b4d8);display:flex;align-items:center;justify-content:center;font-size:18px;}
+.glch-hinfo{flex:1;}
+.glch-hname{font-size:.9rem;font-weight:700;background:linear-gradient(90deg,#a78bfa,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
 .glch-hsub{font-size:11px;color:rgba(240,238,255,.5);display:flex;align-items:center;gap:4px;margin-top:2px;}
-.glch-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px #22c55e;flex-shrink:0;}
-.glch-close{
-  background:rgba(255,255,255,.08);border:none;border-radius:50%;
-  width:28px;height:28px;cursor:pointer;color:rgba(240,238,255,.6);
-  display:flex;align-items:center;justify-content:center;font-size:14px;
-  transition:background .15s;
-}
-.glch-close:hover{background:rgba(255,255,255,.15);}
-.glch-msgs{
-  flex:1;overflow-y:auto;overflow-x:hidden;
-  padding:14px 14px 8px;
-  display:flex;flex-direction:column;gap:10px;
-  scroll-behavior:smooth;
-}
+.glch-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px #22c55e;}
+.glch-close{background:rgba(255,255,255,.08);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;color:rgba(240,238,255,.6);display:flex;align-items:center;justify-content:center;font-size:14px;}
+.glch-msgs{flex:1;overflow-y:auto;padding:14px 14px 8px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth;}
 .glch-msgs::-webkit-scrollbar{width:3px;}
 .glch-msgs::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:99px;}
 .glch-msg{display:flex;gap:8px;animation:glchIn .22s ease;}
 @keyframes glchIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .glch-msg.user{flex-direction:row-reverse;}
-.glch-mavatar{
-  width:28px;height:28px;border-radius:50%;flex-shrink:0;
-  background:linear-gradient(135deg,#6c3ff5,#00b4d8);
-  display:flex;align-items:center;justify-content:center;
-  font-size:14px;align-self:flex-end;margin-bottom:2px;
-}
+.glch-mavatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#6c3ff5,#00b4d8);display:flex;align-items:center;justify-content:center;font-size:14px;align-self:flex-end;margin-bottom:2px;}
 .glch-msg.user .glch-mavatar{background:rgba(255,255,255,.1);}
-.glch-bubble{
-  max-width:80%;padding:10px 13px;
-  font-size:13px;line-height:1.55;border-radius:16px;
-  word-break:break-word;
-}
-.glch-msg.bot .glch-bubble{
-  background:rgba(255,255,255,.08);
-  border:1px solid rgba(255,255,255,.08);
-  border-bottom-left-radius:4px;
-  color:#f0eeff;
-}
-.glch-msg.user .glch-bubble{
-  background:#6c3ff5;
-  border-bottom-right-radius:4px;
-  color:#fff;
-}
-.glch-bubble a{color:#22d3ee;text-decoration:underline;text-decoration-color:rgba(34,211,238,.4);}
+.glch-bubble{max-width:80%;padding:10px 13px;font-size:13px;line-height:1.55;border-radius:16px;word-break:break-word;}
+.glch-msg.bot .glch-bubble{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);border-bottom-left-radius:4px;color:#f0eeff;}
+.glch-msg.user .glch-bubble{background:#6c3ff5;border-bottom-right-radius:4px;color:#fff;}
 .glch-typing{display:flex;gap:5px;align-items:center;padding:12px 14px;}
-.glch-typing span{
-  width:7px;height:7px;border-radius:50%;
-  background:#00b4d8;opacity:.5;
-  animation:glchBounce 1.2s infinite;
-}
+.glch-typing span{width:7px;height:7px;border-radius:50%;background:#00b4d8;opacity:.5;animation:glchBounce 1.2s infinite;}
 .glch-typing span:nth-child(2){animation-delay:.2s;}
 .glch-typing span:nth-child(3){animation-delay:.4s;}
 @keyframes glchBounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-5px);opacity:1}}
-.glch-quickwrap{
-  padding:7px 12px 6px;
-  display:flex;gap:6px;flex-wrap:wrap;
-  border-top:1px solid rgba(255,255,255,.05);
-}
-.glch-qbtn{
-  background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.1);
-  border-radius:99px;padding:5px 11px;
-  font-size:11px;font-weight:500;
-  color:rgba(240,238,255,.7);
-  cursor:pointer;transition:all .15s;
-  font-family:'Jost',sans-serif;white-space:nowrap;
-}
+.glch-quickwrap{padding:7px 12px 6px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid rgba(255,255,255,.05);}
+.glch-qbtn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:99px;padding:5px 11px;font-size:11px;font-weight:500;color:rgba(240,238,255,.7);cursor:pointer;transition:all .15s;font-family:'Jost',sans-serif;white-space:nowrap;}
 .glch-qbtn:hover{background:rgba(108,63,245,.2);border-color:rgba(108,63,245,.5);color:#f0eeff;}
-.glch-inputbar{
-  flex-shrink:0;padding:10px 12px 12px;
-  background:rgba(0,0,0,.2);
-  border-top:1px solid rgba(255,255,255,.07);
-}
+.glch-inputbar{flex-shrink:0;padding:10px 12px 12px;background:rgba(0,0,0,.2);border-top:1px solid rgba(255,255,255,.07);}
 .glch-inputrow{display:flex;gap:8px;align-items:flex-end;}
-.glch-inputwrap{flex:1;position:relative;}
-#glChatInput{
-  width:100%;background:rgba(255,255,255,.06);
-  border:1.5px solid rgba(255,255,255,.1);
-  border-radius:12px;padding:9px 12px;
-  font-size:13px;font-family:'Jost',sans-serif;
-  color:#f0eeff;resize:none;outline:none;
-  max-height:80px;line-height:1.45;
-  transition:border-color .2s;
-  -webkit-appearance:none;
-}
+.glch-inputwrap{flex:1;}
+#glChatInput{width:100%;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:12px;padding:9px 12px;font-size:13px;font-family:'Jost',sans-serif;color:#f0eeff;resize:none;outline:none;max-height:80px;line-height:1.45;transition:border-color .2s;}
 #glChatInput::placeholder{color:rgba(240,238,255,.3);}
 #glChatInput:focus{border-color:rgba(108,63,245,.6);}
-.glch-sendbtn{
-  width:38px;height:38px;flex-shrink:0;
-  background:linear-gradient(135deg,#6c3ff5,#00b4d8);
-  border:none;border-radius:50%;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:transform .15s,opacity .15s;
-  box-shadow:0 3px 10px rgba(108,63,245,.4);
-}
+.glch-sendbtn{width:38px;height:38px;background:linear-gradient(135deg,#6c3ff5,#00b4d8);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s,opacity .15s;}
 .glch-sendbtn:hover{transform:scale(1.08);}
 .glch-sendbtn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
 </style>
-
-<!-- Chat Bubble Button -->
-<button id="glChatBubble" onclick="glToggleChat()" title="Chatea con GangaLoo" aria-label="Abrir chat">
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
+<button id="glChatBubble" onclick="glToggleChat()" title="Chatea con GangaLoo">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
   <span id="glChatUnread">1</span>
 </button>
-
-<!-- Chat Box -->
 <div id="glChatBox">
   <div class="glch-header">
-    <div class="glch-avatar">💆</div>
+    <div class="glch-avatar">&#128134;</div>
     <div class="glch-hinfo">
       <div class="glch-hname">Asistente GangaLoo</div>
-      <div class="glch-hsub"><span class="glch-dot"></span>En línea · IA</div>
+      <div class="glch-hsub"><span class="glch-dot"></span>En linea &middot; IA</div>
     </div>
-    <button class="glch-close" onclick="glToggleChat()">✕</button>
+    <button class="glch-close" onclick="glToggleChat()">&#x2715;</button>
   </div>
-
   <div class="glch-msgs" id="glChatMsgs">
     <div class="glch-msg bot">
-      <div class="glch-mavatar">💆</div>
-      <div class="glch-bubble">¡Hola! 👋 Soy el asistente de <strong>GangaLoo</strong>.<br><br>Puedo ayudarte con productos, precios, pedidos de Temu/Shein/Amazon, el Club GangaLoo, y más.<br><br>¿En qué te puedo ayudar?</div>
+      <div class="glch-mavatar">&#128134;</div>
+      <div class="glch-bubble">&#128075; Soy el asistente de <strong>GangaLoo</strong>. Puedo ayudarte con productos, precios, pedidos de Temu/Shein/Amazon, el Club GangaLoo, y mas. &#191;En que te puedo ayudar?</div>
     </div>
   </div>
-
   <div class="glch-quickwrap" id="glQuickReplies">
-    <button class="glch-qbtn" onclick="glSendQuick('¿Qué productos tienen disponibles?')">🛍️ Ver productos</button>
-    <button class="glch-qbtn" onclick="glSendQuick('¿Cómo pido de Temu o Shein?')">📦 Pedir de Temu/Shein</button>
-    <button class="glch-qbtn" onclick="glSendQuick('¿Qué es el Club GangaLoo?')">👑 Club GangaLoo</button>
-    <button class="glch-qbtn" onclick="glSendQuick('¿Dónde están ubicados?')">📍 Ubicación</button>
+    <button class="glch-qbtn" onclick="glSendQuick('Que productos tienen disponibles?')">&#128717;&#65039; Ver productos</button>
+    <button class="glch-qbtn" onclick="glSendQuick('Como pido de Temu o Shein?')">&#128230; Temu/Shein</button>
+    <button class="glch-qbtn" onclick="glSendQuick('Que es el Club GangaLoo?')">&#128081; Club</button>
+    <button class="glch-qbtn" onclick="glSendQuick('Donde estan ubicados?')">&#128205; Ubicacion</button>
   </div>
-
   <div class="glch-inputbar">
     <div class="glch-inputrow">
       <div class="glch-inputwrap">
-        <textarea id="glChatInput" rows="1"
-          placeholder="Escribe tu pregunta..."
-          oninput="glAutoResize(this)"
-          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();glSendChat();}"></textarea>
+        <textarea id="glChatInput" rows="1" placeholder="Escribe tu pregunta..." oninput="glAutoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();glSendChat();}"></textarea>
       </div>
       <button class="glch-sendbtn" id="glSendBtn" onclick="glSendChat()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-        </svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>
   </div>
 </div>
-
 <script>
-// ─── CHAT WIDGET ───
-let glChatOpen = false;
-let glChatHistory = [];
-let glChatStarted = false;
+let glChatOpen=false,glChatHistory=[];
+function glToggleChat(){glChatOpen=!glChatOpen;const b=document.getElementById('glChatBox');b.style.display=glChatOpen?'flex':'none';document.getElementById('glChatUnread').style.display='none';if(glChatOpen)setTimeout(()=>{document.getElementById('glChatInput').focus();},200);}
+function glAutoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,80)+'px';}
+function glSendQuick(text){document.getElementById('glChatInput').value=text;document.getElementById('glQuickReplies').style.display='none';glSendChat();}
+function glBuildCatalog(){try{if(!allProducts||!allProducts.length)return null;const stock={};(allPurchases||[]).forEach(pu=>{if(pu.status==='delivered'){const pid=String(pu.productId);stock[pid]=(stock[pid]||0)+(pu.remainingQty||0);}});const cats={};allProducts.forEach(p=>{const price=p.salePrice||p.price||0;if(!price)return;const catId=String((p.categoryIds&&p.categoryIds[0])||p.categoryId||'');const cat=(allCategories||[]).find(c=>String(c.id)===catId);const catName=cat?cat.name:'General';const qty=stock[String(p.id)]||0;if(!cats[catName])cats[catName]=[];cats[catName].push('  - '+p.name+(p.sku?' (SKU:'+p.sku+')':'')+': RD$ '+Number(price).toLocaleString('es-DO')+(qty>0?' - '+qty+' disponibles':''));});return Object.entries(cats).map(([c,items])=>c+':
+'+items.join('
+')).join('
 
-function glToggleChat(){
-  glChatOpen = !glChatOpen;
-  const box = document.getElementById('glChatBox');
-  box.style.display = glChatOpen ? 'flex' : 'none';
-  document.getElementById('glChatUnread').style.display = 'none';
-  if(glChatOpen){
-    setTimeout(()=>{ document.getElementById('glChatInput').focus(); },200);
-  }
-}
+');}catch(e){return null;}}
+async function glSendChat(){const input=document.getElementById('glChatInput');const text=input.value.trim();if(!text)return;input.value='';input.style.height='auto';document.getElementById('glQuickReplies').style.display='none';glAppendMsg('user',text);glChatHistory.push({role:'user',content:text});const typingId=glShowTyping();document.getElementById('glSendBtn').disabled=true;const catalog=glBuildCatalog();const sys='Eres el asistente virtual de GangaLoo, una tienda en Republica Dominicana especializada en pelucas, extensiones de cabello, y pedidos de Temu, Shein, Amazon, eBay y otras tiendas internacionales. Responde siempre en espanol, amigable y conciso. Ayuda con productos, precios, pedidos online, Club GangaLoo, pagos, entregas, ubicacion. Para pedidos online: el cliente envia el link y GangaLoo lo trae al precio en DOP. Si no sabes algo, invita a escribir por WhatsApp. No inventes precios. Max 3-4 oraciones.'+(catalog?'
 
-function glAutoResize(el){
-  el.style.height='auto';
-  el.style.height=Math.min(el.scrollHeight,80)+'px';
-}
-
-function glSendQuick(text){
-  document.getElementById('glChatInput').value=text;
-  document.getElementById('glQuickReplies').style.display='none';
-  glSendChat();
-}
-
-function glBuildCatalog(){
-  // Pull from the store's already-loaded data
-  try{
-    if(!allProducts||!allProducts.length) return null;
-    const stock={};
-    (allPurchases||[]).forEach(pu=>{
-      if(pu.status==='delivered'){
-        const pid=String(pu.productId);
-        stock[pid]=(stock[pid]||0)+(pu.remainingQty||0);
-      }
-    });
-    const cats={};
-    allProducts.forEach(p=>{
-      const price=p.salePrice||p.price||0;
-      if(!price) return;
-      const catId=String((p.categoryIds&&p.categoryIds[0])||p.categoryId||'');
-      const cat=(allCategories||[]).find(c=>String(c.id)===catId);
-      const catName=cat?cat.name:'General';
-      const qty=stock[String(p.id)]||0;
-      if(!cats[catName])cats[catName]=[];
-      cats[catName].push(`  - ${p.name}${p.sku?' (SKU:'+p.sku+')':''}: RD$ ${Number(price).toLocaleString('es-DO')}${qty>0?' · '+qty+' disponibles':''}`);
-    });
-    return Object.entries(cats).map(([c,items])=>c+':\n'+items.join('\n')).join('\n\n');
-  }catch(e){ return null; }
-}
-
-async function glSendChat(){
-  const input=document.getElementById('glChatInput');
-  const text=input.value.trim();
-  if(!text)return;
-  input.value='';input.style.height='auto';
-  document.getElementById('glQuickReplies').style.display='none';
-
-  glAppendMsg('user',text);
-  glChatHistory.push({role:'user',content:text});
-
-  const typingId=glShowTyping();
-  document.getElementById('glSendBtn').disabled=true;
-
-  const catalog=glBuildCatalog();
-  const systemPrompt=`Eres el asistente virtual de GangaLoo, una tienda en República Dominicana especializada en pelucas, extensiones de cabello, y pedidos de Temu, Shein, Amazon, eBay y otras tiendas internacionales.
-
-INSTRUCCIONES:
-- Responde siempre en español, de forma amigable y concisa
-- Ayuda con: productos disponibles, precios, cómo hacer pedidos, el Club GangaLoo, métodos de pago, entregas, y ubicación
-- Para pedidos de tiendas online (Temu, Shein, etc.): el cliente envía el link del producto y GangaLoo lo trae con envío incluido al precio en DOP
-- Club GangaLoo: membresía especial con beneficios y descuentos
-- Si no sabes algo específico, invita al cliente a escribir por WhatsApp
-- No inventes precios que no estén en el catálogo
-- Sé breve: máximo 3-4 oraciones por respuesta salvo que se pida detalle
-${catalog ? '\n\nCATÁLOGO ACTUAL DE PRODUCTOS:\n'+catalog : ''}`;
-
-  try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:400,
-        system:systemPrompt,
-        messages:glChatHistory
-      })
-    });
-    const data=await res.json();
-    glRemoveTyping(typingId);
-    const reply=data.content?.[0]?.text||'Lo siento, tuve un problema. ¡Intenta de nuevo! 😊';
-    glChatHistory.push({role:'assistant',content:reply});
-    glAppendMsg('bot',reply);
-  }catch(e){
-    glRemoveTyping(typingId);
-    glAppendMsg('bot','Tuve un problema técnico. Por favor intenta de nuevo 🙏');
-  }
-
-  document.getElementById('glSendBtn').disabled=false;
-}
-
-function glAppendMsg(role,text){
-  const msgs=document.getElementById('glChatMsgs');
-  const div=document.createElement('div');
-  div.className='glch-msg '+role;
-  const safe=text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')
-    .replace(/\n/g,'<br>');
-  div.innerHTML=`<div class="glch-mavatar">${role==='bot'?'💆':'👤'}</div><div class="glch-bubble">${safe}</div>`;
-  msgs.appendChild(div);
-  msgs.scrollTop=msgs.scrollHeight;
-}
-
-function glShowTyping(){
-  const msgs=document.getElementById('glChatMsgs');
-  const div=document.createElement('div');
-  const id='gltyp_'+Date.now();
-  div.id=id;div.className='glch-msg bot';
-  div.innerHTML=`<div class="glch-mavatar">💆</div><div class="glch-bubble glch-typing"><span></span><span></span><span></span></div>`;
-  msgs.appendChild(div);
-  msgs.scrollTop=msgs.scrollHeight;
-  return id;
-}
-
-function glRemoveTyping(id){
-  const el=document.getElementById(id);
-  if(el)el.remove();
-}
-
-// Show unread badge after 3 seconds if chat hasn't been opened
-setTimeout(()=>{
-  if(!glChatOpen) document.getElementById('glChatUnread').style.display='block';
-},3000);
+CATALOGO:
+'+catalog:'');try{const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,system:sys,messages:glChatHistory})});const data=await res.json();glRemoveTyping(typingId);const reply=data.content?.[0]?.text||'Lo siento, tuve un problema. Intenta de nuevo!';glChatHistory.push({role:'assistant',content:reply});glAppendMsg('bot',reply);}catch(e){glRemoveTyping(typingId);glAppendMsg('bot','Tuve un problema tecnico. Por favor intenta de nuevo.');}document.getElementById('glSendBtn').disabled=false;}
+function glAppendMsg(role,text){const msgs=document.getElementById('glChatMsgs');const div=document.createElement('div');div.className='glch-msg '+role;const safe=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank">$1</a>').replace(/
+/g,'<br>');div.innerHTML='<div class="glch-mavatar">'+(role==='bot'?'&#128134;':'&#128100;')+'</div><div class="glch-bubble">'+safe+'</div>';msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;}
+function glShowTyping(){const msgs=document.getElementById('glChatMsgs');const div=document.createElement('div');const id='gltyp_'+Date.now();div.id=id;div.className='glch-msg bot';div.innerHTML='<div class="glch-mavatar">&#128134;</div><div class="glch-bubble glch-typing"><span></span><span></span><span></span></div>';msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;return id;}
+function glRemoveTyping(id){const el=document.getElementById(id);if(el)el.remove();}
+setTimeout(()=>{if(!glChatOpen)document.getElementById('glChatUnread').style.display='block';},3000);
 </script>
-
 </body>
 </html>
