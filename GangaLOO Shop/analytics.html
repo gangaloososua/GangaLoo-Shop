@@ -3,175 +3,77 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GangaLoo — Analytics</title>
+<title>GangaLoo — Analytics v3</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;900&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:        #0d0d12;
-    --surface:   #14141c;
-    --surface-2: #1a1a26;
-    --border:    rgba(255,255,255,.07);
-    --violet:    #7c6fef;
-    --violet-l:  rgba(124,111,239,.12);
-    --emerald:   #10b981;
-    --rose:      #f43f5e;
-    --amber:     #f59e0b;
-    --sky:       #38bdf8;
-    --ink:       #f0f0f8;
-    --ink-2:     #a8a8c0;
-    --ink-3:     #5a5a78;
-    --radius:    14px;
+    --bg:#0d0d12; --surface:#14141c; --surface-2:#1a1a26;
+    --border:rgba(255,255,255,.07);
+    --violet:#7c6fef; --emerald:#10b981; --rose:#f43f5e;
+    --amber:#f59e0b; --sky:#38bdf8;
+    --ink:#f0f0f8; --ink-2:#a8a8c0; --ink-3:#5a5a78;
+    --radius:14px;
   }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Instrument Sans',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
 
-  body {
-    font-family: 'Instrument Sans', sans-serif;
-    background: var(--bg);
-    color: var(--ink);
-    min-height: 100vh;
-  }
+  .topbar{position:sticky;top:0;z-index:100;background:rgba(13,13,18,.95);backdrop-filter:blur(16px);
+    border-bottom:1px solid var(--border);padding:0 24px;height:56px;
+    display:flex;align-items:center;justify-content:space-between;}
+  .topbar-logo{font-family:'Cabinet Grotesk',sans-serif;font-weight:900;font-size:1.15em;}
+  .topbar-logo span{color:var(--violet);}
+  .topbar-right{display:flex;align-items:center;gap:10px;}
+  .year-select{background:var(--surface-2);border:1px solid var(--border);color:var(--ink);
+    border-radius:8px;padding:5px 10px;font-family:inherit;font-size:.85em;cursor:pointer;outline:none;}
+  .back-btn{background:var(--surface-2);border:1px solid var(--border);color:var(--ink-2);
+    border-radius:8px;padding:5px 12px;font-size:.82em;cursor:pointer;text-decoration:none;
+    display:flex;align-items:center;gap:5px;transition:all .15s;}
+  .back-btn:hover{border-color:var(--violet);color:var(--violet);}
 
-  /* ── TOPBAR ── */
-  .topbar {
-    position: sticky; top: 0; z-index: 100;
-    background: rgba(13,13,18,.92);
-    backdrop-filter: blur(16px);
-    border-bottom: 1px solid var(--border);
-    padding: 0 28px;
-    height: 60px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .topbar-logo {
-    font-family: 'Cabinet Grotesk', sans-serif;
-    font-weight: 900; font-size: 1.25em;
-    color: var(--ink);
-    display: flex; align-items: center; gap: 10px;
-  }
-  .topbar-logo span { color: var(--violet); }
-  .topbar-right { display: flex; align-items: center; gap: 12px; }
-  .year-select {
-    background: var(--surface-2); border: 1px solid var(--border);
-    color: var(--ink); border-radius: 8px; padding: 6px 12px;
-    font-family: 'Instrument Sans', sans-serif; font-size: .85em;
-    cursor: pointer; outline: none;
-  }
-  .back-btn {
-    background: var(--surface-2); border: 1px solid var(--border);
-    color: var(--ink-2); border-radius: 8px; padding: 6px 14px;
-    font-size: .82em; cursor: pointer; text-decoration: none;
-    display: flex; align-items: center; gap: 6px;
-    transition: all .15s;
-  }
-  .back-btn:hover { border-color: var(--violet); color: var(--violet); }
+  .main{padding:24px;max-width:1400px;margin:0 auto;}
+  .page-title{font-family:'Cabinet Grotesk',sans-serif;font-weight:900;font-size:1.8em;margin-bottom:4px;}
+  .page-title span{color:var(--violet);}
+  .page-sub{color:var(--ink-3);font-size:.88em;margin-bottom:24px;}
 
-  /* ── MAIN ── */
-  .main { padding: 28px; max-width: 1400px; margin: 0 auto; }
+  #loadingOverlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;z-index:999;gap:14px;}
+  .spinner{width:36px;height:36px;border-radius:50%;border:3px solid var(--border);
+    border-top-color:var(--violet);animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .load-text{color:var(--ink-3);font-size:.88em;}
 
-  /* ── HEADER ── */
-  .page-header { margin-bottom: 32px; }
-  .page-title {
-    font-family: 'Cabinet Grotesk', sans-serif;
-    font-weight: 900; font-size: 2em; color: var(--ink);
-    line-height: 1.1;
-  }
-  .page-title span { color: var(--violet); }
-  .page-sub { color: var(--ink-3); font-size: .9em; margin-top: 6px; }
+  .section{margin-bottom:36px;}
+  .section-title{font-family:'Cabinet Grotesk',sans-serif;font-weight:900;font-size:1em;
+    color:var(--ink);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
 
-  /* ── LOADING / ERROR ── */
-  #loadingOverlay {
-    position: fixed; inset: 0; background: var(--bg);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    z-index: 999; gap: 16px;
-  }
-  .spinner {
-    width: 40px; height: 40px; border-radius: 50%;
-    border: 3px solid var(--border);
-    border-top-color: var(--violet);
-    animation: spin .7s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .load-text { color: var(--ink-3); font-size: .9em; }
+  .charts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));gap:18px;}
 
-  /* ── SECTION ── */
-  .section { margin-bottom: 40px; }
-  .section-title {
-    font-family: 'Cabinet Grotesk', sans-serif;
-    font-weight: 900; font-size: 1.1em;
-    color: var(--ink); margin-bottom: 16px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .section-title .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-  }
+  .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px 22px;position:relative;overflow:hidden;}
+  .chart-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+    background:linear-gradient(90deg,var(--accent,var(--violet)),transparent);}
+  .card-title{font-family:'Cabinet Grotesk',sans-serif;font-weight:900;font-size:.93em;}
+  .card-sub{font-size:.76em;color:var(--ink-3);margin-top:2px;}
+  .card-stat{font-family:'Cabinet Grotesk',sans-serif;font-weight:900;font-size:1.5em;margin-top:6px;}
+  .chart-wrap{position:relative;height:190px;margin-top:14px;}
+  .chart-wrap.tall{height:250px;}
 
-  /* ── GRID ── */
-  .charts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(560px, 1fr));
-    gap: 20px;
-  }
-  .charts-grid.full { grid-template-columns: 1fr; }
-  .charts-grid.three { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
+  .kpi-bar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;}
+  .pill{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:12px 16px;flex:1;min-width:130px;}
+  .pill-label{font-size:.7em;color:var(--ink-3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+  .pill-value{font-family:'Cabinet Grotesk',sans-serif;font-weight:900;font-size:1.25em;margin-top:2px;}
 
-  /* ── CARD ── */
-  .chart-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 22px 24px;
-    position: relative;
-    overflow: hidden;
-    animation: fadeUp .4s ease both;
-  }
-  .chart-card::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, var(--accent-color, var(--violet)), transparent);
-  }
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .chart-card:nth-child(1) { animation-delay: .05s; }
-  .chart-card:nth-child(2) { animation-delay: .10s; }
-  .chart-card:nth-child(3) { animation-delay: .15s; }
-  .chart-card:nth-child(4) { animation-delay: .20s; }
-
-  .card-header { margin-bottom: 16px; }
-  .card-title {
-    font-family: 'Cabinet Grotesk', sans-serif;
-    font-weight: 900; font-size: .95em; color: var(--ink);
-  }
-  .card-sub { font-size: .78em; color: var(--ink-3); margin-top: 2px; }
-  .card-stat {
-    font-family: 'Cabinet Grotesk', sans-serif;
-    font-weight: 900; font-size: 1.6em;
-    margin-top: 6px;
-  }
-  .chart-wrap { position: relative; height: 200px; }
-  .chart-wrap.tall { height: 260px; }
-
-  /* ── SUMMARY PILLS ── */
-  .summary-bar {
-    display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 28px;
-  }
-  .pill {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px 18px;
-    display: flex; flex-direction: column; gap: 2px;
-    min-width: 140px; flex: 1;
-  }
-  .pill-label { font-size: .72em; color: var(--ink-3); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
-  .pill-value { font-family: 'Cabinet Grotesk', sans-serif; font-weight: 900; font-size: 1.3em; }
-
-  /* ── NO DATA ── */
-  .no-data {
-    display: flex; align-items: center; justify-content: center;
-    height: 120px; color: var(--ink-3); font-size: .85em;
-  }
+  #debugPanel{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;
+    padding:16px;margin-bottom:24px;font-size:.78em;font-family:monospace;color:var(--ink-2);
+    white-space:pre-wrap;max-height:300px;overflow-y:auto;display:none;}
+  .debug-toggle{background:none;border:1px solid var(--border);color:var(--ink-3);border-radius:6px;
+    padding:4px 10px;font-size:.75em;cursor:pointer;margin-bottom:10px;}
+  .debug-toggle:hover{border-color:var(--violet);color:var(--violet);}
 </style>
 </head>
 <body>
@@ -182,9 +84,10 @@
 </div>
 
 <div class="topbar">
-  <div class="topbar-logo">Ganga<span>Loo</span> <span style="color:var(--ink-3);font-weight:400;font-size:.7em;">Analytics</span></div>
+  <div class="topbar-logo">Ganga<span>Loo</span> <span style="color:var(--ink-3);font-weight:400;font-size:.7em;margin-left:4px;">Analytics</span></div>
   <div class="topbar-right">
     <select class="year-select" id="yearSelect" onchange="buildAll()">
+      <option value="2024">2024</option>
       <option value="2025">2025</option>
       <option value="2026" selected>2026</option>
     </select>
@@ -193,81 +96,83 @@
 </div>
 
 <div class="main" id="mainContent" style="display:none;">
+  <div class="page-title">Business <span>Analytics</span></div>
+  <div class="page-sub" id="pageSubtitle">—</div>
 
-  <div class="page-header">
-    <div class="page-title">Business <span>Analytics</span></div>
-    <div class="page-sub" id="pageSubtitle">Cargando resumen...</div>
-  </div>
+  <button class="debug-toggle" onclick="toggleDebug()">🔍 Ver estructura de categorías</button>
+  <div id="debugPanel"></div>
 
-  <!-- KPI PILLS -->
-  <div class="summary-bar" id="kpiBar"></div>
+  <div class="kpi-bar" id="kpiBar"></div>
 
-  <!-- VENTAS & PEDIDOS -->
   <div class="section">
-    <div class="section-title"><span class="dot" style="background:var(--emerald)"></span> Ventas & Pedidos</div>
+    <div class="section-title"><span class="dot" style="background:var(--emerald)"></span>Ventas &amp; Pedidos</div>
     <div class="charts-grid" id="gridVentas"></div>
   </div>
-
-  <!-- INGRESOS POR CATEGORÍA -->
   <div class="section">
-    <div class="section-title"><span class="dot" style="background:var(--sky)"></span> Ingresos por Categoría</div>
+    <div class="section-title"><span class="dot" style="background:var(--sky)"></span>Ingresos por Categoría</div>
     <div class="charts-grid" id="gridIncome"></div>
   </div>
-
-  <!-- GASTOS POR CATEGORÍA -->
   <div class="section">
-    <div class="section-title"><span class="dot" style="background:var(--rose)"></span> Gastos por Categoría</div>
+    <div class="section-title"><span class="dot" style="background:var(--rose)"></span>Gastos por Categoría</div>
     <div class="charts-grid" id="gridExpense"></div>
   </div>
-
-  <!-- COMISIONES & CUENTAS -->
   <div class="section">
-    <div class="section-title"><span class="dot" style="background:var(--amber)"></span> Comisiones & Saldo de Cuentas</div>
+    <div class="section-title"><span class="dot" style="background:var(--amber)"></span>Comisiones &amp; Saldo de Cuentas</div>
     <div class="charts-grid" id="gridComis"></div>
   </div>
-
-  <!-- RESULTADOS -->
   <div class="section">
-    <div class="section-title"><span class="dot" style="background:var(--violet)"></span> Resultados Financieros</div>
+    <div class="section-title"><span class="dot" style="background:var(--violet)"></span>Resultados Financieros</div>
     <div class="charts-grid" id="gridResults"></div>
   </div>
-
 </div>
 
 <script>
-/* ══════════════════════════════════════════════
-   CONFIG & SUPABASE
-══════════════════════════════════════════════ */
 const SUPABASE_URL = 'https://xnbkwczolkinurohloxj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* Global data */
-let sales=[], transactions=[], payments=[], commissionPayouts=[], accounts=[], accountingCategories=[], purchasePayments=[], purchases=[];
+let sales=[], transactions=[], payments=[], commissionPayouts=[], accounts=[],
+    accountingCategories=[], purchasePayments=[], purchases=[];
+const charts = {};
 
-/* Chart registry — track all charts so we can destroy on re-render */
-const chartRegistry = {};
+/* ── DEBUG ── */
+function toggleDebug() {
+  const el = document.getElementById('debugPanel');
+  const visible = el.style.display !== 'none';
+  el.style.display = visible ? 'none' : 'block';
+  if (!visible) {
+    let out = 'accountingCategories (' + accountingCategories.length + ' entradas):\n\n';
+    accountingCategories.forEach(c => {
+      const subs = c.subcategories || [];
+      out += '[' + c.type + '] [' + (c.scope||'business') + '] "' + c.name + '"  id=' + c.id + '  subcats=' + subs.length + '\n';
+      subs.forEach(s => { out += '   └─ "' + (s.name||'?') + '"  id=' + (s.id||'?') + '\n'; });
+    });
+    out += '\nÚltimas 15 transacciones:\n';
+    [...transactions].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,15).forEach(t => {
+      out += '  [' + t.type + '] catId=' + t.categoryId + '  amt=' + t.amount + '  date=' + t.date + '  "' + (t.description||'').slice(0,40) + '"\n';
+    });
+    el.textContent = out;
+  }
+}
 
-/* ══════════════════════════════════════════════
-   INIT
-══════════════════════════════════════════════ */
+/* ── INIT ── */
 async function init() {
   try {
     const { data: rows, error } = await sb.from('inventory_data').select('*').limit(1);
     if (error) throw error;
     const row = rows?.[0] || {};
-    sales              = JSON.parse(row.sales              || '[]');
-    transactions       = JSON.parse(row.transactions       || '[]');
-    payments           = JSON.parse(row.payments           || '[]');
-    commissionPayouts  = JSON.parse(row.commission_payouts || '[]');
-    accounts           = JSON.parse(row.accounts           || '[]');
-    accountingCategories = JSON.parse(row.accounting_categories || '[]').filter(c=>c.type==='income'||c.type==='expense');
-    purchasePayments   = JSON.parse(row.purchase_payments  || '[]');
-    purchases          = JSON.parse(row.purchases          || '[]');
-    /* Normalize sales aliases */
+    sales             = JSON.parse(row.sales              || '[]');
+    transactions      = JSON.parse(row.transactions       || '[]');
+    payments          = JSON.parse(row.payments           || '[]');
+    commissionPayouts = JSON.parse(row.commission_payouts || '[]');
+    accounts          = JSON.parse(row.accounts           || '[]');
+    accountingCategories = JSON.parse(row.accounting_categories || '[]')
+                           .filter(c => c.type === 'income' || c.type === 'expense');
+    purchasePayments  = JSON.parse(row.purchase_payments  || '[]');
+    purchases         = JSON.parse(row.purchases          || '[]');
     sales.forEach(s => {
       if (!s.totalSale) s.totalSale = parseFloat(s.total || s.subtotal || 0);
-      if (s.commissionPaid===undefined) s.commissionPaid = parseFloat(s.commissionAmt || 0);
+      if (s.commissionPaid === undefined) s.commissionPaid = parseFloat(s.commissionAmt || 0);
     });
     document.getElementById('loadingOverlay').style.display = 'none';
     document.getElementById('mainContent').style.display = '';
@@ -278,510 +183,320 @@ async function init() {
   }
 }
 
-/* ══════════════════════════════════════════════
-   HELPERS
-══════════════════════════════════════════════ */
+/* ── UTILS ── */
 const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const getYear = () => parseInt(document.getElementById('yearSelect').value);
+const mksOf   = y => Array.from({length:12}, (_,i) => y+'-'+String(i+1).padStart(2,'0'));
+const fmt      = n => 'RD$ ' + Math.round(n||0).toLocaleString('es-DO');
+const fmtK     = n => { const a=Math.abs(n||0); return (n<0?'-':'')+'RD$ '+(a>=1e6?(a/1e6).toFixed(1)+'M':a>=1e3?(a/1e3).toFixed(0)+'K':Math.round(a)+''); };
+const safeId   = str => 'g_' + String(str).replace(/[^a-zA-Z0-9]/g,'_');
 
-function getYear() { return parseInt(document.getElementById('yearSelect').value); }
+/* ── KILL & CREATE CHARTS ── */
+function kill(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
-function monthKeys(year) {
-  return Array.from({length:12},(_,i)=>`${year}-${String(i+1).padStart(2,'0')}`);
-}
-
-function fmt(n) {
-  if (n===undefined||n===null) return '—';
-  return 'RD$ ' + Math.round(n).toLocaleString('es-DO');
-}
-function fmtShort(n) {
-  if (Math.abs(n) >= 1_000_000) return 'RD$ ' + (n/1_000_000).toFixed(1)+'M';
-  if (Math.abs(n) >= 1_000)     return 'RD$ ' + (n/1_000).toFixed(0)+'K';
-  return 'RD$ ' + Math.round(n).toLocaleString('es-DO');
-}
-
-function destroyChart(id) {
-  if (chartRegistry[id]) { chartRegistry[id].destroy(); delete chartRegistry[id]; }
-}
-
-/* ══════════════════════════════════════════════
-   BASE CHART DEFAULTS
-══════════════════════════════════════════════ */
-Chart.defaults.color = '#5a5a78';
-Chart.defaults.font.family = "'Instrument Sans', sans-serif";
-Chart.defaults.font.size = 11;
-
-function baseOptions(color='#7c6fef', opts={}) {
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: opts.legend||false, position:'top', labels:{color:'#a8a8c0',boxWidth:10,padding:14} },
-      tooltip: {
-        backgroundColor: '#14141c',
-        borderColor: 'rgba(255,255,255,.1)',
-        borderWidth: 1,
-        titleColor: '#f0f0f8',
-        bodyColor: '#a8a8c0',
-        padding: 10,
-        callbacks: opts.tooltip || {}
-      }
-    },
-    scales: {
-      x: {
-        grid: { color: 'rgba(255,255,255,.04)' },
-        ticks: { color: '#5a5a78' }
-      },
-      y: {
-        grid: { color: 'rgba(255,255,255,.04)' },
-        ticks: {
-          color: '#5a5a78',
-          callback: v => fmtShort(v)
-        },
-        beginAtZero: true
-      }
+const BASE_OPTS = (yFmt='money') => ({
+  responsive: true, maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor:'#14141c', borderColor:'rgba(255,255,255,.1)', borderWidth:1,
+      titleColor:'#f0f0f8', bodyColor:'#a8a8c0', padding:10,
+      callbacks: { label: yFmt==='money' ? (c=>fmt(c.parsed.y)) : (c=>c.parsed.y) }
     }
-  };
-}
+  },
+  scales: {
+    x: { grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#5a5a78'} },
+    y: { grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#5a5a78',
+         callback: yFmt==='money' ? v=>fmtK(v) : v=>v}, beginAtZero:true }
+  }
+});
 
-function baseCountOptions() {
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: '#14141c',
-        borderColor: 'rgba(255,255,255,.1)',
-        borderWidth: 1,
-        titleColor: '#f0f0f8',
-        bodyColor: '#a8a8c0',
-        padding: 10,
-      }
-    },
-    scales: {
-      x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#5a5a78' } },
-      y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#5a5a78' }, beginAtZero: true }
-    }
-  };
-}
-
-/* ══════════════════════════════════════════════
-   CHART BUILDER
-══════════════════════════════════════════════ */
-function makeCard(id, title, sub, statValue, statColor, accentColor, tall=false) {
-  return `
-    <div class="chart-card" style="--accent-color:${accentColor};">
-      <div class="card-header">
-        <div class="card-title">${title}</div>
-        <div class="card-sub">${sub}</div>
-        ${statValue!==null?`<div class="card-stat" style="color:${statColor};">${statValue}</div>`:''}
-      </div>
-      <div class="chart-wrap${tall?' tall':''}">
-        <canvas id="${id}"></canvas>
-      </div>
-    </div>`;
-}
-
-function barChart(id, labels, data, color, opts={}) {
-  destroyChart(id);
+function bar(id, data, color, yFmt='money') {
+  kill(id);
   const ctx = document.getElementById(id)?.getContext('2d');
   if (!ctx) return;
-  const o = baseOptions(color, opts);
-  if (opts.currency !== false) {
-    o.scales.y.ticks.callback = v => fmtShort(v);
-    o.plugins.tooltip.callbacks.label = ctx => fmt(ctx.parsed.y);
-  } else {
-    o.scales.y.ticks.callback = v => v;
-    o.plugins.tooltip.callbacks.label = ctx => ctx.parsed.y + (opts.unit||'');
-  }
-  if (opts.stacked) { o.scales.x.stacked = true; o.scales.y.stacked = true; }
-  chartRegistry[id] = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: Array.isArray(data[0])
-        ? data.map((d,i)=>({ label: opts.dataLabels?.[i]||'', data: d, backgroundColor: (opts.colors||[color])[i], borderRadius: 5, borderSkipped: false }))
-        : [{ data, backgroundColor: color, borderRadius: 5, borderSkipped: false }]
-    },
-    options: o
+  const opts = BASE_OPTS(yFmt);
+  charts[id] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels:MONTHS, datasets:[{data, backgroundColor:color, borderRadius:5, borderSkipped:false}]},
+    options: opts
   });
 }
 
-function lineChart(id, labels, datasets, opts={}) {
-  destroyChart(id);
+function line(id, data, color) {
+  kill(id);
   const ctx = document.getElementById(id)?.getContext('2d');
   if (!ctx) return;
-  const o = baseOptions('', opts);
-  o.plugins.legend.display = datasets.length > 1;
-  if (opts.currency !== false) {
-    o.scales.y.ticks.callback = v => fmtShort(v);
-    o.plugins.tooltip.callbacks.label = ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`;
-  } else {
-    o.plugins.tooltip.callbacks.label = ctx => `${ctx.dataset.label}: ${ctx.parsed.y}`;
-  }
-  chartRegistry[id] = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: datasets.map(ds=>({
-        label: ds.label,
-        data: ds.data,
-        borderColor: ds.color,
-        backgroundColor: ds.fill ? ds.color.replace(')',',0.12)').replace('rgb','rgba') : 'transparent',
-        borderWidth: 2.5,
-        tension: 0.35,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        fill: !!ds.fill,
-        ...ds.extra
-      }))
-    },
-    options: o
+  const opts = BASE_OPTS('money');
+  charts[id] = new Chart(ctx, {
+    type:'line',
+    data:{ labels:MONTHS, datasets:[{data, borderColor:color, backgroundColor:color+'22',
+      borderWidth:2.5, tension:0.35, pointRadius:4, fill:true}]},
+    options: opts
   });
 }
 
-/* ══════════════════════════════════════════════
+function stacked(id, series) {
+  kill(id);
+  const ctx = document.getElementById(id)?.getContext('2d');
+  if (!ctx) return;
+  const opts = BASE_OPTS('money');
+  opts.plugins.legend = { display:true, position:'top', labels:{color:'#a8a8c0',boxWidth:10,padding:12} };
+  opts.plugins.tooltip.callbacks.label = c => c.dataset.label+': '+fmt(c.parsed.y);
+  opts.scales.x.stacked = true;
+  opts.scales.y.stacked = true;
+  charts[id] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels:MONTHS, datasets: series.map((s,i)=>({
+      label:s.label, data:s.data, backgroundColor:s.color,
+      borderRadius: i===series.length-1?5:0, borderSkipped:false
+    }))},
+    options: opts
+  });
+}
+
+/* ── CARD HTML ── */
+function card(id, title, sub, stat, statColor, accent, tall) {
+  return '<div class="chart-card" style="--accent:'+accent+'">'
+    + '<div class="card-title">'+title+'</div>'
+    + '<div class="card-sub">'+sub+'</div>'
+    + (stat!==null ? '<div class="card-stat" style="color:'+statColor+'">'+stat+'</div>' : '')
+    + '<div class="chart-wrap'+(tall?' tall':'')+'"><canvas id="'+id+'"></canvas></div>'
+    + '</div>';
+}
+
+/* ── AGGREGATE HELPERS ── */
+// Sum income for ONE specific categoryId (exact match — transactions + payments)
+function incByMonth(catId, mks) {
+  const cid = String(catId);
+  return mks.map(mk => {
+    const txSum = transactions
+      .filter(t => (t.date||'').startsWith(mk) && t.type==='income'
+                && !t.isInternalTransfer && !t.isReceiptEntry
+                && String(t.categoryId) === cid)
+      .reduce((s,t) => s+(parseFloat(t.amount)||0), 0);
+    const paySum = payments
+      .filter(p => {
+        if (!(p.date||'').startsWith(mk)) return false;
+        const rid = String(p.categoryId
+          || sales.find(s => String(s.id)===String(p.saleId))?.categoryId
+          || '');
+        return rid === cid;
+      })
+      .reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+    return txSum + paySum;
+  });
+}
+
+// Sum expense for ONE specific categoryId (exact match — transactions only, filtered)
+function expByMonth(catId, mks) {
+  const cid = String(catId);
+  return mks.map(mk =>
+    transactions.filter(t => {
+      if (!(t.date||'').startsWith(mk) || t.type!=='expense') return false;
+      if (t.isPurchasePayment || t.isInternalTransfer) return false;
+      if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
+      if (t.reference && /^LOT-|^ORD-/i.test(t.reference) && !t.isTransportPayment) return false;
+      const d=(t.description||'').toLowerCase();
+      if (d.startsWith('transferencia')||d.startsWith('transfer entre')||d.startsWith('movimiento interno')) return false;
+      return String(t.categoryId) === cid;
+    }).reduce((s,t) => s+(parseFloat(t.amount)||0), 0)
+  );
+}
+
+/* ── BUILD CATEGORY SERIES ── */
+// Returns flat array of {canvasId, label, badge, data[], color}
+// One card per subcategory. If a cat has no subs → one card for the cat itself.
+function buildSeries(cats, byMonthFn, mks, palette) {
+  const series = [];
+  let ci = 0;
+  cats.forEach(cat => {
+    const subs = (cat.subcategories || []).filter(s => s && s.id);
+    if (subs.length === 0) {
+      // No subcategories — single card for parent
+      series.push({
+        canvasId: safeId('s_'+cat.id),
+        label:    cat.name,
+        badge:    null,
+        data:     byMonthFn(cat.id, mks),
+        color:    palette[ci++ % palette.length]
+      });
+    } else {
+      // One card per subcategory
+      subs.forEach(sub => {
+        series.push({
+          canvasId: safeId('s_'+cat.id+'_'+sub.id),
+          label:    sub.name,
+          badge:    cat.name,                         // shows "Subcategoría de XXX"
+          data:     byMonthFn(sub.id, mks),
+          color:    palette[ci++ % palette.length]
+        });
+      });
+      // Transactions tagged directly to the parent (not to any sub)
+      const parentDirect = byMonthFn(cat.id, mks);
+      if (parentDirect.some(v => v > 0)) {
+        series.push({
+          canvasId: safeId('s_'+cat.id+'_parent'),
+          label:    cat.name + ' (sin subcat.)',
+          badge:    cat.name,
+          data:     parentDirect,
+          color:    palette[ci++ % palette.length]
+        });
+      }
+    }
+  });
+  return series;
+}
+
+/* ══════════════════════════════
    MAIN BUILD
-══════════════════════════════════════════════ */
+══════════════════════════════ */
 function buildAll() {
   const year = getYear();
-  const mks  = monthKeys(year);
-  const lbls = MONTHS;
+  const mks  = mksOf(year);
 
-  /* ── Aggregate helpers ── */
-  const salesByMonth    = mks.map(mk => sales.filter(s=>!s.status||s.status!=='cancelled').filter(s=>(s.date||'').startsWith(mk)));
-  const salesAmtByMonth = salesByMonth.map(arr => arr.reduce((s,x)=>s+(parseFloat(x.totalSale||x.total||x.subtotal||0)),0));
-  const salesCntByMonth = salesByMonth.map(arr => arr.length);
+  /* Ventas */
+  const salesAmt = mks.map(mk =>
+    sales.filter(s=>(!s.status||s.status!=='cancelled')&&(s.date||'').startsWith(mk))
+         .reduce((a,x)=>a+(parseFloat(x.totalSale||x.total||x.subtotal||0)),0));
+  const salesCnt = mks.map(mk =>
+    sales.filter(s=>(!s.status||s.status!=='cancelled')&&(s.date||'').startsWith(mk)).length);
+  const ytdRev  = salesAmt.reduce((a,v)=>a+v,0);
+  const ytdOrds = salesCnt.reduce((a,v)=>a+v,0);
 
-  /* ── Online orders from transactions/payments ── */
-  // We approximate from sales where source='online' or fall back to counting all sales
-  const onlineByMonth = mks.map(mk => sales.filter(s=>s.source==='online'&&(s.date||'').startsWith(mk)).length);
-  const possByMonth   = mks.map(mk => sales.filter(s=>s.source!=='online'&&(s.date||'').startsWith(mk)).length);
+  /* Commissions */
+  const commAmt = mks.map(mk =>
+    commissionPayouts.filter(p=>(p.date||'').startsWith(mk)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0));
 
-  /* ── Income categories by month ── */
-  const incCats = accountingCategories.filter(c=>c.type==='income'&&c.scope!=='personal');
-  const expCats = accountingCategories.filter(c=>c.type==='expense'&&c.scope!=='personal');
-
-  /* ── Commissions by month ── */
-  const commByMonth = mks.map(mk => commissionPayouts.filter(p=>(p.date||'').startsWith(mk)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0));
-
-  /* ── Account total by month: use current balance as a proxy, build a running snapshot ── */
-  // Since we don't have snapshots, we show current balance as a flat line and compute
-  // cumulative changes from transactions
+  /* Accounts */
   const currentDOP = accounts.filter(a=>a.active!==false&&a.currency==='DOP').reduce((s,a)=>s+(parseFloat(a.balance)||0),0);
 
-  /* ── Net calculations by month ── */
-  function monthCalc(mk) {
+  /* Personal category IDs */
+  const personalIncIds = new Set(
+    accountingCategories.filter(c=>c.type==='income'&&c.scope==='personal')
+      .flatMap(c=>[String(c.id), ...(c.subcategories||[]).map(s=>String(s.id||s))]));
+  const personalExpIds = new Set(
+    accountingCategories.filter(c=>c.type==='expense'&&c.scope==='personal')
+      .flatMap(c=>[String(c.id), ...(c.subcategories||[]).map(s=>String(s.id||s))]));
+
+  /* Monthly P&L */
+  const monthly = mks.map(mk => {
     const filtSales = sales.filter(s=>(!s.status||s.status!=='cancelled')&&(s.date||'').startsWith(mk));
     const revenue   = filtSales.reduce((s,x)=>s+(parseFloat(x.totalSale||x.total||x.subtotal||0)),0);
-    
-    // COGS — simplified (use purchase cost if available)
-    const cogs = filtSales.reduce((acc,s)=>{
-      const items = s.items||[];
-      if (!items.length) return acc;
-      let cost=0;
-      items.forEach(item=>{
-        const qty = parseFloat(item.qty||item.quantity||1);
-        // find average cost from purchases
-        const matchPurchases = purchases.filter(p=>p.items?.some(pi=>String(pi.productId)===String(item.productId)));
-        let avgCost=0;
-        if (matchPurchases.length) {
-          let totCost=0,totQty=0;
-          matchPurchases.forEach(p=>p.items?.filter(pi=>String(pi.productId)===String(item.productId)).forEach(pi=>{
-            const c=parseFloat(pi.unitCost||pi.cost||0); const q=parseFloat(pi.qty||pi.quantity||1);
-            totCost+=c*q; totQty+=q;
-          }));
-          avgCost=totQty>0?totCost/totQty:0;
-        }
-        cost+=avgCost*qty;
-      });
-      return acc+cost;
-    },0);
-
+    const cogs = filtSales.reduce((acc,s)=>acc+(s.items||[]).reduce((a,item)=>{
+      const qty=parseFloat(item.qty||item.quantity||1);
+      const m=purchases.flatMap(p=>p.items||[]).filter(pi=>String(pi.productId)===String(item.productId));
+      let tc=0,tq=0; m.forEach(pi=>{const q=parseFloat(pi.qty||pi.quantity||1);tc+=(parseFloat(pi.unitCost||pi.cost||0))*q;tq+=q;});
+      return a+(tq>0?tc/tq:0)*qty;
+    },0),0);
     const grossProfit = revenue - cogs;
-
-    const isPersonal = (t) => {
-      if (!t.categoryId) return false;
-      const cat = accountingCategories.find(c=>String(c.id)===String(t.categoryId));
-      return cat && cat.scope==='personal';
-    };
-
     const commPaid = commissionPayouts.filter(p=>(p.date||'').startsWith(mk)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-
     const otherExp = transactions.filter(t=>{
-      if (!(t.date||'').startsWith(mk)||t.type!=='expense') return false;
-      if (t.isPurchasePayment||t.isInternalTransfer) return false;
-      if (t.reference && /^LOT-|^ORD-/i.test(t.reference) && !t.isTransportPayment) return false;
-      if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
-      const desc=(t.description||'').toLowerCase();
-      if (desc.startsWith('transferencia')||desc.startsWith('transfer entre')||desc.startsWith('movimiento interno')) return false;
-      if (isPersonal(t)) return false;
+      if(!(t.date||'').startsWith(mk)||t.type!=='expense') return false;
+      if(t.isPurchasePayment||t.isInternalTransfer) return false;
+      if((t.reference||'').toLowerCase().startsWith('commission-payout')) return false;
+      if(t.reference&&/^LOT-|^ORD-/i.test(t.reference)&&!t.isTransportPayment) return false;
+      const d=(t.description||'').toLowerCase();
+      if(d.startsWith('transferencia')||d.startsWith('transfer entre')||d.startsWith('movimiento interno')) return false;
+      if(t.categoryId&&personalExpIds.has(String(t.categoryId))) return false;
       return true;
     }).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-
-    // resultado negocio = grossProfit - commissions - other expenses
     const bizNet = grossProfit - commPaid - otherExp;
-
-    // personal
-    const personalIncIds = new Set(accountingCategories.filter(c=>c.type==='income'&&c.scope==='personal').map(c=>String(c.id)));
-    const personalExpIds = new Set(accountingCategories.filter(c=>c.type==='expense'&&c.scope==='personal').map(c=>String(c.id)));
-
     const personalInc = transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='income'&&!t.isInternalTransfer&&!t.isReceiptEntry&&t.categoryId&&personalIncIds.has(String(t.categoryId))).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
     const personalExp = transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='expense'&&!t.isInternalTransfer&&t.categoryId&&personalExpIds.has(String(t.categoryId))).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-
-    const totalNet = bizNet + personalInc - personalExp;
-
-    // Cobrado
+    const totalNet  = bizNet + personalInc - personalExp;
     const collected = payments.filter(p=>(p.date||'').startsWith(mk)).reduce((s,p)=>s+(parseFloat(p.amount)||0),0)
       + transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='income'&&!t.isInternalTransfer&&!t.isReceiptEntry&&!personalIncIds.has(String(t.categoryId||''))).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-
     const purchPaid = purchasePayments.filter(p=>(p.date||'').startsWith(mk)&&!p.isTransportPayment).reduce((s,p)=>s+(parseFloat(p.dopAmount||p.amount)||0),0);
     const transPaid = transactions.filter(t=>(t.date||'').startsWith(mk)&&t.isTransportPayment).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-
-    const cashFlow = collected + personalInc - commPaid - otherExp - personalExp - purchPaid - transPaid;
-
+    const cashFlow  = collected + personalInc - commPaid - otherExp - personalExp - purchPaid - transPaid;
     return { revenue, cogs, grossProfit, commPaid, otherExp, bizNet, personalInc, personalExp, totalNet, cashFlow, collected };
-  }
-
-  const monthly = mks.map(mk => monthCalc(mk));
-
-  /* ══════════ KPI BAR ══════════ */
-  const ytdRevenue    = monthly.reduce((s,m)=>s+m.revenue,0);
-  const ytdGross      = monthly.reduce((s,m)=>s+m.grossProfit,0);
-  const ytdBiz        = monthly.reduce((s,m)=>s+m.bizNet,0);
-  const ytdCash       = monthly.reduce((s,m)=>s+m.cashFlow,0);
-  const ytdOrders     = salesCntByMonth.reduce((s,v)=>s+v,0);
-  document.getElementById('kpiBar').innerHTML = `
-    <div class="pill"><div class="pill-label">Ventas ${year}</div><div class="pill-value" style="color:var(--emerald)">${fmtShort(ytdRevenue)}</div></div>
-    <div class="pill"><div class="pill-label">Ganancia Bruta</div><div class="pill-value" style="color:${ytdGross>=0?'var(--emerald)':'var(--rose)'}">${fmtShort(ytdGross)}</div></div>
-    <div class="pill"><div class="pill-label">Resultado Negocio</div><div class="pill-value" style="color:${ytdBiz>=0?'var(--violet)':'var(--rose)'}">${fmtShort(ytdBiz)}</div></div>
-    <div class="pill"><div class="pill-label">Flujo de Caja</div><div class="pill-value" style="color:${ytdCash>=0?'var(--sky)':'var(--rose)'}">${fmtShort(ytdCash)}</div></div>
-    <div class="pill"><div class="pill-label">Facturas ${year}</div><div class="pill-value" style="color:var(--amber)">${ytdOrders}</div></div>
-    <div class="pill"><div class="pill-label">Saldo Cuentas DOP</div><div class="pill-value" style="color:var(--sky)">${fmtShort(currentDOP)}</div></div>
-  `;
-  document.getElementById('pageSubtitle').textContent = `Datos del año ${year} · ${ytdOrders} facturas · ${fmtShort(ytdRevenue)} en ventas`;
-
-  /* ══════════ VENTAS & PEDIDOS ══════════ */
-  document.getElementById('gridVentas').innerHTML = `
-    ${makeCard('chartSalesAmt','💰 Ventas por Mes','Total facturado (DOP)', fmtShort(ytdRevenue), 'var(--emerald)', 'var(--emerald)')}
-    ${makeCard('chartOrdersCnt','📦 Pedidos por Mes','Número de facturas', ytdOrders+' facturas', 'var(--amber)', 'var(--amber)')}
-  `;
-  setTimeout(()=>{
-    barChart('chartSalesAmt', lbls, salesAmtByMonth, 'rgba(16,185,129,.7)');
-    barChart('chartOrdersCnt', lbls, salesCntByMonth, 'rgba(245,158,11,.7)', { currency: false, unit: ' facturas' });
-  }, 10);
-
-  /* ══════════ INCOME CATEGORIES ══════════ */
-  const COLORS_INC = ['#38bdf8','#7c6fef','#10b981','#f59e0b','#e879f9','#34d399','#60a5fa','#a78bfa'];
-  const incGridEl = document.getElementById('gridIncome');
-
-  // Build a flat list of all income series: parent + each subcategory separately
-  function buildIncSeries(cats) {
-    const series = [];
-    let colorIdx = 0;
-    cats.forEach(cat => {
-      const subs = cat.subcategories || [];
-      if (!subs.length) {
-        // No subcategories — just the parent itself
-        const catId = String(cat.id);
-        const data = mks.map(mk => {
-          return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='income'&&!t.isInternalTransfer&&!t.isReceiptEntry&&String(t.categoryId)===catId).reduce((s,t)=>s+(parseFloat(t.amount)||0),0)
-            + payments.filter(p=>{
-                if(!(p.date||'').startsWith(mk)) return false;
-                const rid=String(p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||'');
-                return rid===catId;
-              }).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-        });
-        series.push({ id: `inc_${catId}`, label: cat.name, parentLabel: null, data, color: COLORS_INC[colorIdx++%COLORS_INC.length] });
-      } else {
-        // Parent-level bucket: transactions tagged directly to the parent (no subcat)
-        const catId = String(cat.id);
-        const parentData = mks.map(mk => {
-          return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='income'&&!t.isInternalTransfer&&!t.isReceiptEntry&&String(t.categoryId)===catId).reduce((s,t)=>s+(parseFloat(t.amount)||0),0)
-            + payments.filter(p=>{
-                if(!(p.date||'').startsWith(mk)) return false;
-                const rid=String(p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||'');
-                return rid===catId;
-              }).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-        });
-        const parentColor = COLORS_INC[colorIdx++%COLORS_INC.length];
-        const parentTotal = parentData.reduce((s,v)=>s+v,0);
-        if (parentTotal > 0) {
-          series.push({ id: `inc_${catId}`, label: cat.name + ' (general)', parentLabel: cat.name, data: parentData, color: parentColor });
-        }
-        // Each subcategory
-        subs.forEach(sub => {
-          const subId = String(sub.id||sub);
-          const subName = sub.name || subId;
-          const data = mks.map(mk => {
-            return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='income'&&!t.isInternalTransfer&&!t.isReceiptEntry&&String(t.categoryId)===subId).reduce((s,t)=>s+(parseFloat(t.amount)||0),0)
-              + payments.filter(p=>{
-                  if(!(p.date||'').startsWith(mk)) return false;
-                  const rid=String(p.categoryId||sales.find(s=>String(s.id)===String(p.saleId))?.categoryId||'');
-                  return rid===subId;
-                }).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-          });
-          series.push({ id: `inc_${subId}`, label: subName, parentLabel: cat.name, data, color: COLORS_INC[colorIdx++%COLORS_INC.length] });
-        });
-      }
-    });
-    return series;
-  }
-
-  if (!incCats.length) {
-    incGridEl.innerHTML = '<div class="chart-card"><div class="no-data">Sin categorías de ingresos registradas</div></div>';
-  } else {
-    const incSeries = buildIncSeries(incCats);
-
-    incSeries.forEach(s => { s._safeId = 'ci_' + s.id.replace(/[^a-zA-Z0-9]/g,'_'); });
-    incGridEl.innerHTML = makeCard('chartIncomeStacked','📈 Ingresos por Categoría','Todas las categorías y subcategorías por mes', null, '', 'var(--sky)', true)
-      + incSeries.map(s=>{
-          const total = s.data.reduce((acc,v)=>acc+v,0);
-          return makeCard(s._safeId, s.label, s.parentLabel ? `Subcategoría de ${s.parentLabel}` : 'Ingresos mensuales', fmtShort(total), s.color, s.color);
-        }).join('');
-
-    setTimeout(()=>{
-      destroyChart('chartIncomeStacked');
-      const ctx = document.getElementById('chartIncomeStacked')?.getContext('2d');
-      if (ctx) {
-        const o = baseOptions('', { legend: true });
-        o.scales.x.stacked = true; o.scales.y.stacked = true;
-        o.plugins.tooltip.callbacks.label = c => `${c.dataset.label}: ${fmt(c.parsed.y)}`;
-        chartRegistry['chartIncomeStacked'] = new Chart(ctx, {
-          type: 'bar',
-          data: { labels: lbls, datasets: incSeries.map((ds,i)=>({ label: ds.label, data: ds.data, backgroundColor: ds.color, borderRadius: i===incSeries.length-1?5:0, borderSkipped: false })) },
-          options: o
-        });
-      }
-      incSeries.forEach(s => {
-        barChart(s._safeId, lbls, s.data, s.color+'cc');
-      });
-    }, 10);
-  }
-
-  /* ══════════ EXPENSE CATEGORIES ══════════ */
-  const COLORS_EXP = ['#f43f5e','#fb923c','#facc15','#e879f9','#f87171','#fbbf24','#ef4444','#c084fc'];
-  const expGridEl = document.getElementById('gridExpense');
-
-  function isNoisyExpTxn(t) {
-    if (t.isPurchasePayment||t.isInternalTransfer) return true;
-    if ((t.reference||'').toLowerCase().startsWith('commission-payout')) return true;
-    if (t.reference && /^LOT-|^ORD-/i.test(t.reference) && !t.isTransportPayment) return true;
-    const desc=(t.description||'').toLowerCase();
-    if (desc.startsWith('transferencia')||desc.startsWith('transfer entre')||desc.startsWith('movimiento interno')) return true;
-    return false;
-  }
-
-  function buildExpSeries(cats) {
-    const series = [];
-    let colorIdx = 0;
-    cats.forEach(cat => {
-      const subs = cat.subcategories || [];
-      if (!subs.length) {
-        const catId = String(cat.id);
-        const data = mks.map(mk => {
-          return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='expense'&&!isNoisyExpTxn(t)&&String(t.categoryId)===catId).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-        });
-        series.push({ id: `exp_${catId}`, label: cat.name, parentLabel: null, data, color: COLORS_EXP[colorIdx++%COLORS_EXP.length] });
-      } else {
-        const catId = String(cat.id);
-        const parentColor = COLORS_EXP[colorIdx++%COLORS_EXP.length];
-        // Parent-level (directly tagged to parent, not a sub)
-        const parentData = mks.map(mk => {
-          return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='expense'&&!isNoisyExpTxn(t)&&String(t.categoryId)===catId).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-        });
-        const parentTotal = parentData.reduce((s,v)=>s+v,0);
-        if (parentTotal > 0) {
-          series.push({ id: `exp_${catId}`, label: cat.name + ' (general)', parentLabel: cat.name, data: parentData, color: parentColor });
-        }
-        // Each subcategory
-        subs.forEach(sub => {
-          const subId = String(sub.id||sub);
-          const subName = sub.name || subId;
-          const data = mks.map(mk => {
-            return transactions.filter(t=>(t.date||'').startsWith(mk)&&t.type==='expense'&&!isNoisyExpTxn(t)&&String(t.categoryId)===subId).reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
-          });
-          series.push({ id: `exp_${subId}`, label: subName, parentLabel: cat.name, data, color: COLORS_EXP[colorIdx++%COLORS_EXP.length] });
-        });
-      }
-    });
-    return series;
-  }
-
-  if (!expCats.length) {
-    expGridEl.innerHTML = '<div class="chart-card"><div class="no-data">Sin categorías de gastos registradas</div></div>';
-  } else {
-    const expSeries = buildExpSeries(expCats);
-
-    expSeries.forEach(s => { s._safeId = 'ce_' + s.id.replace(/[^a-zA-Z0-9]/g,'_'); });
-    expGridEl.innerHTML = makeCard('chartExpStacked','📉 Gastos por Categoría','Todas las categorías y subcategorías por mes', null, '', 'var(--rose)', true)
-      + expSeries.map(s=>{
-          const total = s.data.reduce((acc,v)=>acc+v,0);
-          return makeCard(s._safeId, s.label, s.parentLabel ? `Subcategoría de ${s.parentLabel}` : 'Gastos mensuales', fmtShort(total), s.color, s.color);
-        }).join('');
-
-    setTimeout(()=>{
-      destroyChart('chartExpStacked');
-      const ctx = document.getElementById('chartExpStacked')?.getContext('2d');
-      if (ctx) {
-        const o = baseOptions('', { legend: true });
-        o.scales.x.stacked = true; o.scales.y.stacked = true;
-        o.plugins.tooltip.callbacks.label = c => `${c.dataset.label}: ${fmt(c.parsed.y)}`;
-        chartRegistry['chartExpStacked'] = new Chart(ctx, {
-          type: 'bar',
-          data: { labels: lbls, datasets: expSeries.map((ds,i)=>({ label: ds.label, data: ds.data, backgroundColor: ds.color, borderRadius: i===expSeries.length-1?5:0, borderSkipped: false })) },
-          options: o
-        });
-      }
-      expSeries.forEach(s => {
-        barChart(s._safeId, lbls, s.data, s.color+'cc');
-      });
-    }, 10);
-  }
-
-  /* ══════════ COMISIONES & SALDO ══════════ */
-  const totalComis = commByMonth.reduce((s,v)=>s+v,0);
-  // Account balance: show current total as reference + cumulative monthly income - expense delta
-  const acctBalByMonth = mks.map((mk,i)=>{
-    // Reconstruct approximate balance for each month end by rewinding from current
-    // We'll show approximate: current - sum of future net cashflows
-    const futureFlow = monthly.slice(i+1).reduce((s,m)=>s+m.cashFlow,0);
-    return currentDOP - futureFlow;
   });
 
+  const ytdGross = monthly.reduce((s,m)=>s+m.grossProfit,0);
+  const ytdBiz   = monthly.reduce((s,m)=>s+m.bizNet,0);
+  const ytdCash  = monthly.reduce((s,m)=>s+m.cashFlow,0);
+
+  /* KPI */
+  document.getElementById('kpiBar').innerHTML = [
+    ['Ventas '+year, fmtK(ytdRev),   'var(--emerald)'],
+    ['Ganancia Bruta', fmtK(ytdGross), ytdGross>=0?'var(--emerald)':'var(--rose)'],
+    ['Resultado Negocio', fmtK(ytdBiz), ytdBiz>=0?'var(--violet)':'var(--rose)'],
+    ['Flujo de Caja', fmtK(ytdCash), ytdCash>=0?'var(--sky)':'var(--rose)'],
+    ['Facturas '+year, String(ytdOrds), 'var(--amber)'],
+    ['Saldo DOP', fmtK(currentDOP), 'var(--sky)'],
+  ].map(([l,v,c])=>'<div class="pill"><div class="pill-label">'+l+'</div><div class="pill-value" style="color:'+c+'">'+v+'</div></div>').join('');
+  document.getElementById('pageSubtitle').textContent = 'Año '+year+' · '+ytdOrds+' facturas · '+fmtK(ytdRev)+' en ventas';
+
+  /* VENTAS */
+  document.getElementById('gridVentas').innerHTML =
+    card('cSalesAmt','💰 Ventas por Mes','Total facturado (DOP)',fmtK(ytdRev),'var(--emerald)','var(--emerald)')
+   +card('cOrdersCnt','📦 Pedidos por Mes','Número de facturas',ytdOrds+' facturas','var(--amber)','var(--amber)');
+  setTimeout(()=>{ bar('cSalesAmt',salesAmt,'rgba(16,185,129,.75)'); bar('cOrdersCnt',salesCnt,'rgba(245,158,11,.75)','count'); },0);
+
+  /* INCOME CATEGORIES */
+  const INC_PAL = ['#38bdf8','#7c6fef','#10b981','#f59e0b','#e879f9','#34d399','#60a5fa','#a78bfa','#fb7185','#fbbf24'];
+  const incCats  = accountingCategories.filter(c=>c.type==='income'&&c.scope!=='personal');
+  const incSeries = buildSeries(incCats, incByMonth, mks, INC_PAL);
+
+  if (!incCats.length) {
+    document.getElementById('gridIncome').innerHTML = '<div class="chart-card" style="padding:30px;color:var(--ink-3)">Sin categorías de ingresos</div>';
+  } else {
+    document.getElementById('gridIncome').innerHTML =
+      card('cIncStack','📈 Ingresos — Vista General','Todas las categorías y subcategorías apiladas',null,'','var(--sky)',true)
+      + incSeries.map(s =>
+          card(s.canvasId, s.label,
+            s.badge ? 'Subcategoría de '+s.badge : 'Ingresos mensuales',
+            fmtK(s.data.reduce((a,v)=>a+v,0)), s.color, s.color)
+        ).join('');
+    setTimeout(()=>{
+      stacked('cIncStack', incSeries);
+      incSeries.forEach(s => bar(s.canvasId, s.data, s.color+'bb'));
+    },0);
+  }
+
+  /* EXPENSE CATEGORIES */
+  const EXP_PAL = ['#f43f5e','#fb923c','#facc15','#c084fc','#f87171','#fbbf24','#e879f9','#ef4444','#a78bfa','#34d399'];
+  const expCats   = accountingCategories.filter(c=>c.type==='expense'&&c.scope!=='personal');
+  const expSeries = buildSeries(expCats, expByMonth, mks, EXP_PAL);
+
+  if (!expCats.length) {
+    document.getElementById('gridExpense').innerHTML = '<div class="chart-card" style="padding:30px;color:var(--ink-3)">Sin categorías de gastos</div>';
+  } else {
+    document.getElementById('gridExpense').innerHTML =
+      card('cExpStack','📉 Gastos — Vista General','Todas las categorías y subcategorías apiladas',null,'','var(--rose)',true)
+      + expSeries.map(s =>
+          card(s.canvasId, s.label,
+            s.badge ? 'Subcategoría de '+s.badge : 'Gastos mensuales',
+            fmtK(s.data.reduce((a,v)=>a+v,0)), s.color, s.color)
+        ).join('');
+    setTimeout(()=>{
+      stacked('cExpStack', expSeries);
+      expSeries.forEach(s => bar(s.canvasId, s.data, s.color+'bb'));
+    },0);
+  }
+
+  /* COMISIONES & SALDO */
+  const acctBal = mks.map((_,i)=>currentDOP - monthly.slice(i+1).reduce((s,m)=>s+m.cashFlow,0));
   document.getElementById('gridComis').innerHTML =
-    makeCard('chartComisiones','💸 Comisiones Pagadas','Por mes (DOP)', fmtShort(totalComis), 'var(--amber)', 'var(--amber)')
-    + makeCard('chartSaldoCuentas','🏦 Saldo Total Cuentas DOP','Balance estimado al cierre del mes', fmtShort(currentDOP)+' actual', 'var(--sky)', 'var(--sky)');
+    card('cComis','💸 Comisiones Pagadas','Por mes (DOP)',fmtK(commAmt.reduce((a,v)=>a+v,0)),'var(--amber)','var(--amber)')
+   +card('cSaldo','🏦 Saldo Total DOP','Balance estimado cierre de mes',fmtK(currentDOP)+' actual','var(--sky)','var(--sky)');
+  setTimeout(()=>{ bar('cComis',commAmt,'rgba(245,158,11,.75)'); line('cSaldo',acctBal,'#38bdf8'); },0);
 
-  setTimeout(()=>{
-    barChart('chartComisiones', lbls, commByMonth, 'rgba(245,158,11,.7)');
-    lineChart('chartSaldoCuentas', lbls, [{ label: 'Saldo DOP', data: acctBalByMonth, color: '#38bdf8', fill: true }]);
-  }, 10);
-
-  /* ══════════ RESULTADOS ══════════ */
-  const grossByMonth   = monthly.map(m=>m.grossProfit);
-  const bizByMonth     = monthly.map(m=>m.bizNet);
-  const totalNetByMonth= monthly.map(m=>m.totalNet);
-  const cashFlowByMonth= monthly.map(m=>m.cashFlow);
-
+  /* RESULTADOS */
   document.getElementById('gridResults').innerHTML =
-    makeCard('chartGanBruta','💰 Ganancia Bruta por Mes','Ventas menos costo de mercancía', fmtShort(ytdGross), ytdGross>=0?'var(--emerald)':'var(--rose)', 'var(--emerald)')
-    + makeCard('chartResBiz','🏢 Resultado Negocio','Ganancia bruta − comisiones − gastos operativos', fmtShort(ytdBiz), ytdBiz>=0?'var(--violet)':'var(--rose)', 'var(--violet)')
-    + makeCard('chartResBizPers','👤 Resultado Negocio + Personal','Incluyendo ingresos y gastos personales', fmtShort(monthly.reduce((s,m)=>s+m.totalNet,0)), 'var(--amber)', 'var(--amber)')
-    + makeCard('chartFlujo','💳 Flujo Neto de Caja','Efectivo real del mes (cobrado − pagado)', fmtShort(ytdCash), ytdCash>=0?'var(--sky)':'var(--rose)', 'var(--sky)');
-
+    card('cGanBruta','💰 Ganancia Bruta','Ventas − costo de mercancía',fmtK(ytdGross),ytdGross>=0?'var(--emerald)':'var(--rose)','var(--emerald)')
+   +card('cResBiz','🏢 Resultado Negocio','Ganancia bruta − comisiones − gastos',fmtK(ytdBiz),ytdBiz>=0?'var(--violet)':'var(--rose)','var(--violet)')
+   +card('cResBizPers','🏢👤 Resultado Negocio + Personal','Incluyendo ingresos/gastos personales',fmtK(monthly.reduce((s,m)=>s+m.totalNet,0)),'var(--amber)','var(--amber)')
+   +card('cFlujo','💳 Flujo Neto de Caja','Efectivo real del mes',fmtK(ytdCash),ytdCash>=0?'var(--sky)':'var(--rose)','var(--sky)');
   setTimeout(()=>{
-    const positiveColor = (arr, c1, c2) => arr.map(v=>v>=0?c1:c2);
-    barChart('chartGanBruta',    lbls, grossByMonth,    'rgba(16,185,129,.7)');
-    barChart('chartResBiz',      lbls, bizByMonth,      'rgba(124,111,239,.7)');
-    barChart('chartResBizPers',  lbls, totalNetByMonth, 'rgba(245,158,11,.7)');
-    lineChart('chartFlujo',      lbls, [{ label: 'Flujo Neto de Caja', data: cashFlowByMonth, color: '#38bdf8', fill: true }]);
-  }, 10);
+    bar('cGanBruta',  monthly.map(m=>m.grossProfit),'rgba(16,185,129,.75)');
+    bar('cResBiz',    monthly.map(m=>m.bizNet),      'rgba(124,111,239,.75)');
+    bar('cResBizPers',monthly.map(m=>m.totalNet),    'rgba(245,158,11,.75)');
+    line('cFlujo',    monthly.map(m=>m.cashFlow),    '#38bdf8');
+  },0);
 }
 
-/* ══════════════════════════════════════════════
-   START
-══════════════════════════════════════════════ */
 window.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
