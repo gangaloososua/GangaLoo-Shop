@@ -7623,21 +7623,27 @@ function openClienteDetail(id) {
     const paid  = paidMap[String(s.id)]||0;
     const total = saleTotal(s);
     const debt  = Math.max(0,Math.round((total-paid)*100)/100);
+    let prodCell = '—';
+    if (s.productId) {
+      prodCell = getProductName(s.productId);
+    } else if (s.productName) {
+      const pn = s.productName.length>40 ? s.productName.slice(0,38)+'…' : s.productName;
+      prodCell = '<span title="'+s.productName+'">'+pn+'</span>';
+    } else if (s.items && s.items.length) {
+      const names = s.items.map(i=>getProductName(i.productId)).filter(Boolean);
+      const preview = names.slice(0,2).join(', ') + (names.length>2?' +'+(names.length-2)+' más':'');
+      prodCell = '<span title="'+names.join(', ')+'">'+preview+'</span>';
+    }
     return `<tr>
       <td style="font-size:12px;color:var(--ink-3);white-space:nowrap;">${formatDate(s.date)}</td>
       <td><strong style="color:var(--violet);">${s.invoiceNum||s.invoiceNumber||'#'+s.id}</strong>
-        ${isSellerSale?`<div style="font-size:10px;color:var(--ink-3);">vendió a ${getCustomerName(s.customerId)}</div>`:''}
+        ${isSellerSale?'<div style="font-size:10px;color:var(--ink-3);">vendió a '+getCustomerName(s.customerId)+'</div>':''}
       </td>
-      <td style="font-size:12px;max-width:200px;">
-        ${s.productId ? getProductName(s.productId) :
-          s.productName ? `<span title="${s.productName}">${s.productName.length>40?s.productName.slice(0,38)+'…':s.productName}</span>` :
-          s.items?.length ? `<span title="${s.items.map(i=>getProductName(i.productId)).filter(Boolean).join(', ')}">${s.items.map(i=>getProductName(i.productId)).filter(Boolean).slice(0,2).join(', ')}${s.items.length>2?' +'+( s.items.length-2)+' más':''}</span>` :
-          '—'}
-      </td>
+      <td style="font-size:12px;max-width:200px;">${prodCell}</td>
       <td class="text-right">${formatDOP(total)}</td>
       <td class="text-right" style="color:var(--emerald);">${formatDOP(paid)}</td>
       <td class="text-right" style="font-weight:700;color:${debt>0.01?'var(--rose)':'var(--emerald)'};">${debt>0.01?formatDOP(debt):'✓'}</td>
-      <td>${debt>0.01?`<button class="btn btn-primary btn-xs" onclick="closeModal();openRegistrarPago('${s.id}')">💵 Cobrar</button>`:''}</td>
+      <td>${debt>0.01?'<button class="btn btn-primary btn-xs" onclick="closeModal();openRegistrarPago(\''+s.id+'\')">💵 Cobrar</button>':''}</td>
     </tr>`;
   }).join('');
 
