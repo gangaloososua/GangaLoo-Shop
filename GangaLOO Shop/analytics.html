@@ -310,29 +310,26 @@ function expByMonth(catId, mks) {
 // We GROUP by name and sum all matching IDs into a single chart per unique name.
 function buildSeries(cats, byMonthFn, mks, palette) {
   // 1. Group all category entries by their name
-  const groups = {}; // name → [id, id, ...]
+  const groups = {}; // name → {ids: [], personal: bool}
   cats.forEach(cat => {
     const key = (cat.name || 'Sin nombre').trim();
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(cat.id);
+    if (!groups[key]) groups[key] = { ids: [], personal: cat.scope === 'personal' };
+    groups[key].ids.push(cat.id);
   });
 
   // 2. One series per unique name — sum across all IDs with that name
   const series = [];
   let ci = 0;
   Object.keys(groups).sort().forEach(name => {
-    const ids = groups[name];
-    // Sum monthly data across all IDs in this group
-    const data = mks.map((mk, i) => {
-      return ids.reduce((total, id) => {
-        const monthly = byMonthFn(id, mks);
-        return total + (monthly[i] || 0);
-      }, 0);
-    });
+    const grp = groups[name];
+    const data = mks.map((mk, i) =>
+      grp.ids.reduce((total, id) => total + (byMonthFn(id, mks)[i] || 0), 0)
+    );
     series.push({
       canvasId: safeId('s_' + name),
       label:    name,
-      idCount:  ids.length,
+      personal: grp.personal,
+      idCount:  grp.ids.length,
       data,
       color:    palette[ci++ % palette.length]
     });
@@ -428,7 +425,7 @@ function buildAll() {
 
   /* INCOME CATEGORIES */
   const INC_PAL = ['#38bdf8','#7c6fef','#10b981','#f59e0b','#e879f9','#34d399','#60a5fa','#a78bfa','#fb7185','#fbbf24'];
-  const incCats  = accountingCategories.filter(c=>c.type==='income'&&c.scope!=='personal');
+  const incCats  = accountingCategories.filter(c => c.type==='income');
   const incSeries = buildSeries(incCats, incByMonth, mks, INC_PAL);
 
   if (!incCats.length) {
@@ -437,8 +434,9 @@ function buildAll() {
     document.getElementById('gridIncome').innerHTML =
       card('cIncStack','📈 Ingresos — Vista General','Todas las categorías y subcategorías apiladas',null,'','var(--sky)',true)
       + incSeries.map(s =>
-          card(s.canvasId, s.label,
-            s.idCount > 1 ? s.idCount+' entradas agrupadas' : 'Ingresos mensuales',
+          card(s.canvasId,
+            (s.personal ? '👤 ' : '🏢 ') + s.label,
+            s.personal ? 'Ingreso personal' : 'Ingreso negocio',
             fmtK(s.data.reduce((a,v)=>a+v,0)), s.color, s.color)
         ).join('');
     setTimeout(()=>{
@@ -449,7 +447,7 @@ function buildAll() {
 
   /* EXPENSE CATEGORIES */
   const EXP_PAL = ['#f43f5e','#fb923c','#facc15','#c084fc','#f87171','#fbbf24','#e879f9','#ef4444','#a78bfa','#34d399'];
-  const expCats   = accountingCategories.filter(c=>c.type==='expense'&&c.scope!=='personal');
+  const expCats   = accountingCategories.filter(c => c.type==='expense');
   const expSeries = buildSeries(expCats, expByMonth, mks, EXP_PAL);
 
   if (!expCats.length) {
@@ -458,8 +456,9 @@ function buildAll() {
     document.getElementById('gridExpense').innerHTML =
       card('cExpStack','📉 Gastos — Vista General','Todas las categorías y subcategorías apiladas',null,'','var(--rose)',true)
       + expSeries.map(s =>
-          card(s.canvasId, s.label,
-            s.idCount > 1 ? s.idCount+' entradas agrupadas' : 'Gastos mensuales',
+          card(s.canvasId,
+            (s.personal ? '👤 ' : '🏢 ') + s.label,
+            s.personal ? 'Gasto personal' : 'Gasto negocio',
             fmtK(s.data.reduce((a,v)=>a+v,0)), s.color, s.color)
         ).join('');
     setTimeout(()=>{
