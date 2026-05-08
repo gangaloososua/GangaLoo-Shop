@@ -5027,6 +5027,7 @@ function renderCompraDetail(lotNumber) {
           <button class="btn btn-secondary btn-sm" onclick="openEditCompra('${lotNumber}')">✏️ Editar</button>
           ${order.status !== 'cancelled' ? `<button class="btn ${order.status==='delivered'?'btn-secondary':'btn-primary'} btn-sm" onclick="openReceiveCompra('${lotNumber}')">${order.status==='delivered'?'🔧 Corregir Productos':'📦 Recibir Mercancía'}</button>` : ''}
           <button class="btn btn-ghost btn-sm" onclick="changeCompraStatus('${lotNumber}')">🔄 Estado</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--teal);border-color:var(--teal);" onclick="openReembolsoCompra('${lotNumber}')">↩️ Reembolso</button>
           <button class="btn btn-danger btn-sm" onclick="deleteCompra('${lotNumber}')">🗑</button>
         </div>
       </div>
@@ -6268,7 +6269,7 @@ function saveReceiveCompra(lotNumber, isCorrection=false) {
 
   lots.forEach(p => {
     const newProdId = document.getElementById('rcv_prod_'+p.id)?.value || p.productId;
-    const newQty    = parseInt(document.getElementById('rcv_qty_'+p.id)?.value) || p.qty || 0;
+    const newQty    = parseInt(document.getElementById('rcv_qty_'+p.id)?.value ?? p.qty);
     const prodChanged = String(newProdId) !== String(p.productId);
     const qtyChanged  = newQty !== p.qty;
 
@@ -6299,8 +6300,9 @@ function saveReceiveCompra(lotNumber, isCorrection=false) {
       p.productId    = newProdId;
       p.qty          = newQty;
       p.remainingQty = newQty;
-      p.status       = 'delivered';
-      p.date         = date;
+      // qty 0 = not delivered (stays pending), qty > 0 = delivered
+      p.status       = newQty > 0 ? 'delivered' : 'pending';
+      p.date         = newQty > 0 ? date : p.date;
       if (notes) p.notes = notes + (p.notes ? '\n'+p.notes : '');
     }
   });
@@ -6318,6 +6320,158 @@ function saveReceiveCompra(lotNumber, isCorrection=false) {
   } else {
     showToast(changes.length ? `✅ Recibido con cambios: ${changes.join(' · ')}` : `✅ Mercancía recibida — sin diferencias`, 'success');
   }
+}
+
+/* ─── REEMBOLSO DE COMPRA ─── */
+function openReembolsoCompra(lotNumber) {
+  const order = getCompraOrders().find(o => o.lotNumber === lotNumber);
+  if (!order) return;
+  const orderTotal = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
+  const alreadyPaid = getOrderPaid(lotNumber);
+
+  const acctOpts = accounts.filter(a=>a.active!==false)
+    .map(a=>`<option value="${a.id}">${a.name} (${a.currency||'DOP'}) — ${a.currency==='USD'?formatUSD(a.balance):a.currency==='EUR'?formatEUR(a.balance):formatDOP(a.balance)}</option>`).join('');
+
+  const expCats = accountingCategories.filter(c=>c.type==='income'||c.type==='expense');
+  const catOpts = `<option value="">— Sin categoría —</option>` +
+    expCats.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(c=>
+      `<option value="${c.id}">${c.name}${c.subname?' — '+c.subname:''}</option>`
+    ).join('');
+
+  openModal(`
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">↩️ Registrar Reembolso</div>
+          <div style="font-size:12px;color:var(--ink-3);margin-top:2px;">Orden ${lotNumber}</div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Order summary -->
+        <div style="background:var(--surface-2);border-radius:var(--r-md);padding:12px 16px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
+          <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-3);">Total orden</div><div style="font-weight:800;">${formatDOP(orderTotal)}</div></div>
+          <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-3);">Pagado</div><div style="font-weight:800;color:var(--emerald);">${formatDOP(alreadyPaid)}</div></div>
+          <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-3);">Pendiente</div><div style="font-weight:800;color:var(--rose);">${formatDOP(Math.max(0,orderTotal-alreadyPaid))}</div></div>
+        </div>
+
+        <div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:var(--r-md);padding:10px 14px;margin-bottom:16px;font-size:12px;display:flex;gap:8px;">
+          <span>💡</span>
+          <span>El reembolso <strong>reduce el saldo pagado</strong> de esta orden y <strong>acredita la cuenta</strong> seleccionada. Úsalo cuando el proveedor devuelve dinero por productos no enviados o defectuosos.</span>
+        </div>
+
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="form-group">
+            <label class="field-label field-required">Cuenta destino (recibe el dinero)</label>
+            <select class="field" id="ref_account">${acctOpts}</select>
+          </div>
+          <div class="form-group">
+            <label class="field-label field-required">Fecha</label>
+            <input class="field" type="date" id="ref_date" value="${todayDR()}">
+          </div>
+          <div class="form-group">
+            <label class="field-label field-required">Monto reembolsado (DOP)</label>
+            <div class="input-group">
+              <span class="input-addon">RD$</span>
+              <input class="field" type="number" id="ref_amount_dop" placeholder="0.00" step="0.01" min="0.01" oninput="updateRefUSD()">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="field-label">Monto en USD (opcional)</label>
+            <div class="input-group">
+              <span class="input-addon">$</span>
+              <input class="field" type="number" id="ref_amount_usd" placeholder="0.00" step="0.01" min="0" oninput="updateRefDOP()">
+            </div>
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label class="field-label">Tasa USD→DOP (si aplica)</label>
+            <input class="field" type="number" id="ref_rate" placeholder="${accounts.find(a=>a.currency==='USD')?'Ej: 59.50':''}" step="0.01" min="0" oninput="updateRefDOP()">
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label class="field-label">Categoría contable</label>
+            <select class="field" id="ref_category">${catOpts}</select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label class="field-label field-required">Motivo</label>
+            <input class="field" id="ref_reason" placeholder="Ej: Productos no enviados, artículos defectuosos...">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" style="background:var(--teal);" onclick="saveReembolsoCompra('${lotNumber}')">↩️ Confirmar Reembolso</button>
+      </div>
+    </div>
+  `);
+}
+
+function updateRefUSD() {
+  const dop  = parseFloat(document.getElementById('ref_amount_dop')?.value) || 0;
+  const rate = parseFloat(document.getElementById('ref_rate')?.value) || 0;
+  const usdEl = document.getElementById('ref_amount_usd');
+  if (usdEl && rate > 0 && dop > 0) usdEl.value = (dop/rate).toFixed(2);
+}
+
+function updateRefDOP() {
+  const usd  = parseFloat(document.getElementById('ref_amount_usd')?.value) || 0;
+  const rate = parseFloat(document.getElementById('ref_rate')?.value) || 0;
+  const dopEl = document.getElementById('ref_amount_dop');
+  if (dopEl && rate > 0 && usd > 0) dopEl.value = (usd*rate).toFixed(2);
+}
+
+function saveReembolsoCompra(lotNumber) {
+  const acctId  = document.getElementById('ref_account')?.value;
+  const date    = document.getElementById('ref_date')?.value || todayDR();
+  const amtDOP  = parseFloat(document.getElementById('ref_amount_dop')?.value) || 0;
+  const amtUSD  = parseFloat(document.getElementById('ref_amount_usd')?.value) || 0;
+  const reason  = document.getElementById('ref_reason')?.value.trim();
+  const catId   = document.getElementById('ref_category')?.value;
+
+  if (!acctId)    { showToast('Selecciona una cuenta', 'error'); return; }
+  if (amtDOP <= 0){ showToast('Ingresa el monto del reembolso', 'error'); return; }
+  if (!reason)    { showToast('Ingresa el motivo del reembolso', 'error'); return; }
+
+  const desc = `Reembolso proveedor · ${lotNumber}${amtUSD>0?' ($'+amtUSD.toFixed(2)+' USD)':''} · ${reason}`;
+
+  // 1. Negative purchasePayment — reduces "paid" on the order
+  purchasePayments.push({
+    id:          generateId(),
+    lotNumber,
+    amount:      -Math.round(amtDOP * 100) / 100,   // ← negative
+    dopAmount:   -Math.round(amtDOP * 100) / 100,
+    accountId:   acctId,
+    categoryId:  catId || null,
+    date,
+    reference:   desc,
+    isRefund:    true,
+  });
+
+  // 2. Credit the account (money comes back in)
+  const account = accounts.find(a => String(a.id) === String(acctId));
+  if (account) account.balance = Math.round((account.balance + amtDOP) * 100) / 100;
+
+  // 3. Income transaction so it shows in Movimientos
+  const incomeCat = catId
+    ? accountingCategories.find(c => String(c.id) === String(catId))
+    : accountingCategories.find(c => c.type === 'income');
+  transactions.push({
+    id:          generateId(),
+    type:        'income',
+    description: desc,
+    amount:      Math.round(amtDOP * 100) / 100,
+    accountId:   acctId,
+    categoryId:  incomeCat?.id || catId || '',
+    date,
+    reference:   lotNumber,
+    isRefund:    true,
+  });
+
+  debouncedSave();
+  renderComprasKPI();
+  renderComprasList();
+  renderCompraDetail(lotNumber);
+  closeModal();
+  showToast(`↩️ Reembolso de ${formatDOP(amtDOP)} registrado${amtUSD>0?' ($'+amtUSD.toFixed(2)+' USD)':''} ✅`, 'success');
 }
 
 /* ─── DELETE COMPRA ─── */
