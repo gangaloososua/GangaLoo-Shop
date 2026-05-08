@@ -3529,7 +3529,7 @@
                 document.getElementById('distributorKpiCard').style.display = 'none';
                 document.getElementById('distributorAccordion').style.display = 'none';
             }
-            // Pagos recibidos
+            // Pagos recibidos (in-period only, per invoice)
             const saleIdSet = new Set(mySales.map(s => String(s.id)));
             const myPayments = _sellerPayments
                 .filter(p => saleIdSet.has(String(p.saleId)))
@@ -3582,17 +3582,28 @@
             // ── Mis Pagos al Admin (grouped by receiptId = one bank deposit) ──
             const misPagosEl = document.getElementById('sellerMisPagosList');
             if (misPagosEl) {
+              // Use ALL payments for ALL this seller's sales (not just current period)
+              // so a batch deposit spanning April+May shows its full amount in May
+              const allMySaleIds = new Set(_sellerSalesAcct.filter(s => {
+                return (meAsCustomerLocal && (String(s.sellerId)===String(meAsCustomerLocal.id) || String(s.customerId)===String(meAsCustomerLocal.id))) ||
+                       (s.seller && s.seller.toLowerCase().includes(sellerName.toLowerCase()));
+              }).map(s => String(s.id)));
+              const allMyPayments = _sellerPayments.filter(p => allMySaleIds.has(String(p.saleId)));
+              // Group by receiptId
               const receiptGroups = {};
-              myPayments.forEach(p => {
+              allMyPayments.forEach(p => {
                 const key = p.receiptId || ('solo_' + p.id);
-                if (!receiptGroups[key]) receiptGroups[key] = { payments:[], date:p.date, accountId:p.accountId, reference:p.reference };
+                if (!receiptGroups[key]) receiptGroups[key] = { payments:[], date:p.date, accountId:p.accountId };
                 receiptGroups[key].payments.push(p);
               });
-              const receipts = Object.values(receiptGroups).sort((a,b)=>(b.date||'')<(a.date||'')?-1:1);
-              document.getElementById('sellerBadge-mispagos').textContent = receipts.length;
-              const totalMisPagos = receipts.reduce((s,r)=>s+r.payments.reduce((t,p)=>t+(parseFloat(p.amount)||0),0),0);
+              // Only show receipts where at least one payment is in the selected period
+              const inPeriodReceipts = Object.values(receiptGroups).filter(r =>
+                r.payments.some(p => saleIdSet.has(String(p.saleId)))
+              ).sort((a,b)=>(b.date||'')<(a.date||'')?-1:1);
+              document.getElementById('sellerBadge-mispagos').textContent = inPeriodReceipts.length;
+              const totalMisPagos = inPeriodReceipts.reduce((s,r)=>s+r.payments.reduce((t,p)=>t+(parseFloat(p.amount)||0),0),0);
               const fmt4 = v => 'RD$ '+v.toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2});
-              if (!receipts.length) {
+              if (!inPeriodReceipts.length) {
                 misPagosEl.innerHTML = '<div style="text-align:center;padding:30px;color:#aaa;">No hay pagos registrados.</div>';
               } else {
                 misPagosEl.innerHTML = `
@@ -3608,21 +3619,21 @@
                       <th style="padding:7px 10px;text-align:right;">Monto</th>
                     </tr></thead>
                     <tbody>
-                    ${receipts.map(r => {
+                    ${inPeriodReceipts.map(r => {
                       const depositTotal = r.payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
                       const acct = _sellerAccounts.find(a=>String(a.id)===String(r.accountId));
-                    const d = parseDR(r.date||'');
-                    const dateStr = isNaN(d)?'—':d.toLocaleDateString('es-DO',{year:'numeric',month:'short',day:'numeric'});
+                      const d = parseDR(r.date||'');
+                      const dateStr = isNaN(d)?'—':d.toLocaleDateString('es-DO',{year:'numeric',month:'short',day:'numeric'});
                       const invoiceList = r.payments.map(p=>{
-                        const s2 = mySales.find(s=>String(s.id)===String(p.saleId));
+                        const s2 = _sellerSalesAcct.find(s=>String(s.id)===String(p.saleId));
                         return s2?(s2.invoiceNumber||s2.invoiceNum||'#'+s2.id):null;
                       }).filter(Boolean).join(', ');
-                      return `<tr style="border-bottom:1px solid #f0f0f0;">
-                        <td style="padding:7px 10px;color:#888;white-space:nowrap;">${dateStr}</td>
-                        <td style="padding:7px 10px;font-weight:600;">Pago recibido · <span style="color:#7c3aed;">${invoiceList}</span></td>
-                        <td style="padding:7px 10px;color:#555;">${acct?acct.name:'—'}</td>
-                        <td style="padding:7px 10px;text-align:right;font-weight:800;color:#16a34a;">${fmt4(depositTotal)}</td>
-                      </tr>`;
+                      return '<tr style="border-bottom:1px solid #f0f0f0;">' +
+                        '<td style="padding:7px 10px;color:#888;white-space:nowrap;">'+dateStr+'</td>' +
+                        '<td style="padding:7px 10px;font-weight:600;">Pago recibido · <span style="color:#7c3aed;">'+invoiceList+'</span></td>' +
+                        '<td style="padding:7px 10px;color:#555;">'+(acct?acct.name:'—')+'</td>' +
+                        '<td style="padding:7px 10px;text-align:right;font-weight:800;color:#16a34a;">'+fmt4(depositTotal)+'</td>' +
+                        '</tr>';
                     }).join('')}
                     </tbody>
                     <tfoot><tr style="background:#eff6ff;font-weight:700;">
