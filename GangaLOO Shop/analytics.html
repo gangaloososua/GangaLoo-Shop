@@ -305,45 +305,37 @@ function expByMonth(catId, mks) {
 }
 
 /* ── BUILD CATEGORY SERIES ── */
-// Returns flat array of {canvasId, label, badge, data[], color}
-// One card per subcategory. If a cat has no subs → one card for the cat itself.
+// Categories with the same name are actually the same logical category split into
+// multiple IDs (one per transaction batch in the original design).
+// We GROUP by name and sum all matching IDs into a single chart per unique name.
 function buildSeries(cats, byMonthFn, mks, palette) {
+  // 1. Group all category entries by their name
+  const groups = {}; // name → [id, id, ...]
+  cats.forEach(cat => {
+    const key = (cat.name || 'Sin nombre').trim();
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(cat.id);
+  });
+
+  // 2. One series per unique name — sum across all IDs with that name
   const series = [];
   let ci = 0;
-  cats.forEach(cat => {
-    const subs = (cat.subcategories || []).filter(s => s && s.id);
-    if (subs.length === 0) {
-      // No subcategories — single card for parent
-      series.push({
-        canvasId: safeId('s_'+cat.id),
-        label:    cat.name,
-        badge:    null,
-        data:     byMonthFn(cat.id, mks),
-        color:    palette[ci++ % palette.length]
-      });
-    } else {
-      // One card per subcategory
-      subs.forEach(sub => {
-        series.push({
-          canvasId: safeId('s_'+cat.id+'_'+sub.id),
-          label:    sub.name,
-          badge:    cat.name,                         // shows "Subcategoría de XXX"
-          data:     byMonthFn(sub.id, mks),
-          color:    palette[ci++ % palette.length]
-        });
-      });
-      // Transactions tagged directly to the parent (not to any sub)
-      const parentDirect = byMonthFn(cat.id, mks);
-      if (parentDirect.some(v => v > 0)) {
-        series.push({
-          canvasId: safeId('s_'+cat.id+'_parent'),
-          label:    cat.name + ' (sin subcat.)',
-          badge:    cat.name,
-          data:     parentDirect,
-          color:    palette[ci++ % palette.length]
-        });
-      }
-    }
+  Object.keys(groups).sort().forEach(name => {
+    const ids = groups[name];
+    // Sum monthly data across all IDs in this group
+    const data = mks.map((mk, i) => {
+      return ids.reduce((total, id) => {
+        const monthly = byMonthFn(id, mks);
+        return total + (monthly[i] || 0);
+      }, 0);
+    });
+    series.push({
+      canvasId: safeId('s_' + name),
+      label:    name,
+      idCount:  ids.length,
+      data,
+      color:    palette[ci++ % palette.length]
+    });
   });
   return series;
 }
@@ -446,7 +438,7 @@ function buildAll() {
       card('cIncStack','📈 Ingresos — Vista General','Todas las categorías y subcategorías apiladas',null,'','var(--sky)',true)
       + incSeries.map(s =>
           card(s.canvasId, s.label,
-            s.badge ? 'Subcategoría de '+s.badge : 'Ingresos mensuales',
+            s.idCount > 1 ? s.idCount+' entradas agrupadas' : 'Ingresos mensuales',
             fmtK(s.data.reduce((a,v)=>a+v,0)), s.color, s.color)
         ).join('');
     setTimeout(()=>{
@@ -467,7 +459,7 @@ function buildAll() {
       card('cExpStack','📉 Gastos — Vista General','Todas las categorías y subcategorías apiladas',null,'','var(--rose)',true)
       + expSeries.map(s =>
           card(s.canvasId, s.label,
-            s.badge ? 'Subcategoría de '+s.badge : 'Gastos mensuales',
+            s.idCount > 1 ? s.idCount+' entradas agrupadas' : 'Gastos mensuales',
             fmtK(s.data.reduce((a,v)=>a+v,0)), s.color, s.color)
         ).join('');
     setTimeout(()=>{
