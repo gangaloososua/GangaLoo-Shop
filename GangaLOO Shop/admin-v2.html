@@ -1077,6 +1077,20 @@ table.erp-table th.text-center, table.erp-table td.text-center { text-align: cen
   .page-actions { flex-wrap: wrap; gap: 6px; }
   .section { padding: 12px; }
 
+  /* ── Product filter expand: hidden by default on mobile ── */
+  #prodFilterExpand { display: none !important; }
+  #prodFilterExpand.mobile-expanded { display: flex !important; }
+  #prodFilterToggle { display: inline-flex !important; }
+
+  /* ── Inventory filter expand: hidden by default on mobile ── */
+  #invFilterExpand { display: none !important; }
+  #invFilterExpand.mobile-expanded { display: flex !important; }
+  #invFilterToggle { display: inline-flex !important; }
+
+  /* ── KPI strips: compact on mobile ── */
+  #invKPI > div { padding: 8px 12px !important; }
+  #invKPI .big-num, #invKPI [style*="font-size:1.6em"] { font-size: 1.2em !important; }
+
   /* ── KPI cards ── */
   .stat-grid { grid-template-columns: repeat(2, 1fr); padding: 12px; gap: 8px; }
   #invKPI { flex-wrap: wrap; }
@@ -1106,8 +1120,9 @@ table.erp-table th.text-center, table.erp-table td.text-center { text-align: cen
 
   /* ── Compras split ── */
   #comprasLayout { grid-template-columns: 1fr !important; }
-  #comprasDetailPane { display: none; }
-  #comprasDetailPane.mobile-show { display: block; position: fixed; inset: 0; z-index: 300; background: var(--surface); overflow-y: auto; padding-bottom: 80px; }
+  #comprasDetailPane { display: none !important; }
+  #comprasDetailPane.mobile-show { display: block !important; position: fixed; inset: 0; z-index: 300; background: var(--surface); overflow-y: auto; padding-bottom: 80px; }
+  .mobile-back-btn { display: flex !important; }
 
   /* ── Form grids ── */
   .form-grid { grid-template-columns: 1fr !important; }
@@ -1129,6 +1144,14 @@ table.erp-table th.text-center, table.erp-table td.text-center { text-align: cen
   /* ── Bottom nav overlay when sidebar opens ── */
   .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 399; }
   .sidebar-overlay.active { display: block; }
+}
+
+/* On desktop: always show filters, hide the toggle buttons */
+@media (min-width: 769px) {
+  #prodFilterExpand { display: flex !important; }
+  #prodFilterToggle { display: none !important; }
+  #invFilterExpand  { display: flex !important; }
+  #invFilterToggle  { display: none !important; }
 }
 
 @media (max-width: 480px) {
@@ -3797,30 +3820,31 @@ function openNuevaVenta() {
 }
 
 function renderNVItems() {
-  /* Build product options grouped by category */
-  const catMap = {};
-  [...products].sort((a,b)=>(a.name||'').localeCompare(b.name||'','es')).forEach(p => {
-    const catIds = (p.categoryIds?.length ? p.categoryIds : [p.categoryId]).filter(Boolean);
-    const cat = categories.find(c => catIds.map(String).includes(String(c.id)));
-    const catName = cat ? (cat.icon||'') + ' ' + cat.name : '📦 Sin categoría';
-    if (!catMap[catName]) catMap[catName] = [];
-    catMap[catName].push(p);
-  });
-  const productOpts = Object.keys(catMap).sort().map(catName =>
-    `<optgroup label="${catName}">${catMap[catName].map(p =>
-      `<option value="${p.id}" data-price="${p.salePrice||p.price||0}">${p.name} (Stock: ${getTotalStock(p.id)})</option>`
-    ).join('')}</optgroup>`
-  ).join('');
   const container = document.getElementById('nvItemsContainer');
   if (!container) return;
-  container.innerHTML = _saleItems.map((item, i) => `
+  container.innerHTML = _saleItems.map((item, i) => {
+    const prod = item.productId ? products.find(p => String(p.id) === String(item.productId)) : null;
+    const cat  = prod ? categories.find(c => (prod.categoryIds||[prod.categoryId]).map(String).includes(String(c.id))) : null;
+    return `
     <div style="display:grid;grid-template-columns:2fr 80px 130px 100px 32px;gap:8px;align-items:end;margin-bottom:8px;" id="nvItem-${item.id}">
-      <div class="form-group" style="margin:0">
+      <div class="form-group" style="margin:0;position:relative;">
         ${i===0?'<label class="field-label">Producto</label>':''}
-        <select class="field" onchange="onNVProductChange('${item.id}',this)">
-          <option value="">Seleccionar producto...</option>
-          ${productOpts}
-        </select>
+        <div style="position:relative;">
+          <input class="field" id="nvProdSearch-${item.id}"
+            placeholder="Buscar producto..."
+            value="${prod ? prod.name : ''}"
+            oninput="nvShowProductDropdown('${item.id}',this.value)"
+            onfocus="nvShowProductDropdown('${item.id}',this.value)"
+            autocomplete="off"
+            style="padding-right:28px;">
+          ${prod ? `<span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--teal);font-weight:700;">✓</span>` : ''}
+        </div>
+        ${prod ? `<div style="font-size:10.5px;color:var(--ink-3);margin-top:2px;display:flex;gap:8px;">
+          ${cat?`<span style="color:var(--violet);">${cat.icon||''}${cat.name}</span>`:''}
+          <span>Stock: <strong style="color:${getTotalStock(prod.id)>0?'var(--emerald)':'var(--rose)'};">${getTotalStock(prod.id)} uds</strong></span>
+          <span>SKU: ${prod.sku||'—'}</span>
+        </div>` : ''}
+        <div id="nvProdDropdown-${item.id}" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1.5px solid var(--violet);border-radius:var(--r-md);z-index:1000;max-height:280px;overflow-y:auto;box-shadow:var(--sh-lg);"></div>
       </div>
       <div class="form-group" style="margin:0">
         ${i===0?'<label class="field-label">Cant.</label>':''}
@@ -3840,21 +3864,95 @@ function renderNVItems() {
       <div style="${i===0?'padding-top:22px;':''}">
         ${_saleItems.length > 1 ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="removeNVItem('${item.id}')" style="color:var(--rose);">✕</button>` : ''}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+
+  // Close dropdowns on outside click
+  document.removeEventListener('click', _nvCloseDropdowns);
+  document.addEventListener('click', _nvCloseDropdowns);
 }
 
-function onNVProductChange(itemId, sel) {
-  const opt   = sel.selectedOptions[0];
-  const price = parseFloat(opt?.dataset?.price || 0);
-  const item  = _saleItems.find(i => i.id === itemId);
-  if (item) {
-    item.productId = sel.value;
-    item.price     = price;
-    const pEl = document.getElementById('nvPrice-'+itemId);
-    if (pEl) pEl.value = price;
-    updateNVItem(itemId, 'price', price);
+function _nvCloseDropdowns(e) {
+  if (!e.target.closest('[id^="nvProdSearch-"]') && !e.target.closest('[id^="nvProdDropdown-"]')) {
+    document.querySelectorAll('[id^="nvProdDropdown-"]').forEach(d => d.style.display = 'none');
   }
+}
+
+function nvShowProductDropdown(itemId, query) {
+  const dd = document.getElementById('nvProdDropdown-'+itemId);
+  if (!dd) return;
+  const q = (query||'').toLowerCase().trim();
+
+  // Filter and sort products
+  let filtered = products.filter(p => {
+    if (!q) return true;
+    return (p.name||'').toLowerCase().includes(q) ||
+           (p.sku||'').toLowerCase().includes(q);
+  }).sort((a,b) => {
+    // Exact start match first, then alphabetical with numeric
+    const aStarts = (a.name||'').toLowerCase().startsWith(q);
+    const bStarts = (b.name||'').toLowerCase().startsWith(q);
+    if (aStarts && !bStarts) return -1;
+    if (!aStarts && bStarts) return 1;
+    return (a.name||'').localeCompare(b.name||'','es',{numeric:true,sensitivity:'base'});
+  }).slice(0, 50); // max 50 results
+
+  if (!filtered.length) {
+    dd.innerHTML = `<div style="padding:14px;text-align:center;color:var(--ink-3);font-size:13px;">Sin resultados para "${query}"</div>`;
+    dd.style.display = 'block';
+    return;
+  }
+
+  // Group by category
+  const catMap = {};
+  filtered.forEach(p => {
+    const cat = categories.find(c => (p.categoryIds||[p.categoryId]).map(String).includes(String(c.id)));
+    const cn = cat ? (cat.icon||'')+ ' ' + cat.name : '📦 Sin categoría';
+    if (!catMap[cn]) catMap[cn] = [];
+    catMap[cn].push(p);
+  });
+
+  dd.innerHTML = Object.keys(catMap).sort().map(cn => `
+    <div>
+      <div style="padding:6px 12px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);background:var(--surface-2);position:sticky;top:0;">${cn}</div>
+      ${catMap[cn].map(p => {
+        const stock = getTotalStock(p.id);
+        const stockColor = stock > 5 ? 'var(--emerald)' : stock > 0 ? 'var(--amber)' : 'var(--rose)';
+        return `<div class="nv-prod-opt" onclick="nvSelectProduct('${itemId}','${p.id}')"
+          style="padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);gap:8px;"
+          onmouseover="this.style.background='var(--violet-l)'" onmouseout="this.style.background=''">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+            <div style="font-size:11px;color:var(--ink-3);margin-top:1px;">${p.sku||''}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-weight:800;font-size:13px;color:var(--violet);">${formatDOP(p.salePrice||p.price||0)}</div>
+            <div style="font-size:11px;font-weight:700;color:${stockColor};">${stock} uds</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('');
+
+  dd.style.display = 'block';
+}
+
+function nvSelectProduct(itemId, productId) {
+  const prod = products.find(p => String(p.id) === String(productId));
+  if (!prod) return;
+  const item = _saleItems.find(i => i.id === itemId);
+  if (item) {
+    item.productId = productId;
+    item.price = parseFloat(prod.salePrice || prod.price || 0);
+  }
+  // Close dropdown
+  const dd = document.getElementById('nvProdDropdown-'+itemId);
+  if (dd) dd.style.display = 'none';
+  // Re-render items to show product info
+  renderNVItems();
+  calcNVTotal();
+  // Re-focus on qty for fast entry
+  setTimeout(() => document.getElementById('nvQty-'+itemId)?.focus(), 50);
 }
 
 function updateNVItem(itemId, field, value) {
@@ -4826,7 +4924,7 @@ function renderComprasPanel() {
           <p id="comprasSubtitle">Cargando...</p>
         </div>
         <div class="page-actions">
-          <button class="btn btn-teal btn-sm" onclick="openPagarTransporte()">🚚 Pagar Transporte</button>
+          <button class="btn btn-teal btn-sm" onclick="openPagarTransporte()">🚚 Transporte</button>
           <button class="btn btn-primary" onclick="openNuevaCompra()">+ Nueva Orden</button>
         </div>
       </div>
@@ -4835,10 +4933,10 @@ function renderComprasPanel() {
       <div id="comprasKPI" style="display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;overflow-x:auto;"></div>
 
       <!-- Content: left list + right detail -->
-      <div style="flex:1;display:flex;overflow:hidden;min-height:0;">
+      <div id="comprasLayout" style="flex:1;display:grid;grid-template-columns:420px 1fr;overflow:hidden;min-height:0;">
 
         <!-- LEFT: order list -->
-        <div style="width:420px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--surface);">
+        <div style="flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--surface);">
 
           <!-- Search + filters -->
           <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px;">
@@ -5096,6 +5194,11 @@ function renderCompraDetail(lotNumber) {
   const order = getCompraOrders().find(o => o.lotNumber === lotNumber);
   if (!order) return;
 
+  // On mobile: show detail pane as full-screen overlay
+  if (window.innerWidth <= 768) {
+    pane.classList.add('mobile-show');
+  }
+
   const st    = COMPRA_STATUSES[order.status] || COMPRA_STATUSES.pending;
   const total          = order.lots.reduce((s,p)=>s+(p.totalCostDOP||(p.costDOP||0)*(p.qty||0)),0);
   const transportShare = order.lots.reduce((s,p)=>s+(parseFloat(p.transportShare)||0),0);
@@ -5108,7 +5211,12 @@ function renderCompraDetail(lotNumber) {
   const paidPct        = total > 0 ? Math.min(100, paid/total*100) : 0;
 
   pane.innerHTML = `
-    <div style="padding:24px 28px;max-width:720px;">
+    <div style="padding:16px 20px;max-width:720px;">
+
+      <!-- Mobile back button -->
+      <button onclick="document.getElementById('comprasDetailPane').classList.remove('mobile-show')"
+        style="display:none;align-items:center;gap:6px;background:none;border:none;font-size:14px;font-weight:700;color:var(--violet);cursor:pointer;margin-bottom:12px;padding:0;"
+        class="mobile-back-btn">‹ Volver a órdenes</button>
 
       <!-- Order header -->
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
@@ -6635,36 +6743,45 @@ function renderInventarioPanel() {
       <!-- KPI strip -->
       <div id="invKPI" style="display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;overflow-x:auto;"></div>
       <!-- Filters -->
-      <div style="padding:10px 28px;border-bottom:1px solid var(--border);background:var(--surface-2);display:flex;gap:10px;flex-wrap:wrap;align-items:center;flex-shrink:0;">
-        <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:7px 12px;flex:1;max-width:260px;">
-          <span style="color:var(--ink-3);font-size:13px;">🔍</span>
-          <input type="text" placeholder="Buscar producto o SKU..."
-            style="border:none;background:none;font-family:inherit;font-size:13px;color:var(--ink);outline:none;flex:1;"
-            oninput="_invSearch=this.value;renderInvContent()">
+      <div id="invFilterBar" style="padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface-2);flex-shrink:0;">
+        <!-- Always visible row: search + count + toggle -->
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:7px 12px;flex:1;">
+            <span style="color:var(--ink-3);font-size:13px;">🔍</span>
+            <input type="text" placeholder="Buscar producto o SKU..."
+              style="border:none;background:none;font-family:inherit;font-size:13px;color:var(--ink);outline:none;flex:1;"
+              oninput="_invSearch=this.value;renderInvContent()">
+          </div>
+          <div style="padding:0 10px;font-size:12px;color:var(--ink-3);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);display:flex;align-items:center;white-space:nowrap;" id="invCount">—</div>
+          <button class="btn btn-ghost btn-sm" id="invFilterToggle"
+            onclick="const fb=document.getElementById('invFilterExpand');fb.classList.toggle('mobile-expanded');this.textContent=fb.classList.contains('mobile-expanded')?'✕':'⚙️';"
+            style="white-space:nowrap;padding:7px 10px;">⚙️</button>
         </div>
-        <select style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);"
-          onchange="_invWhFilter=this.value;renderInvContent()">
-          <option value="">Todos los almacenes</option>
-          ${warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('')}
-        </select>
-        <select style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);"
-          onchange="_invCatFilter=this.value;renderInvContent()">
-          <option value="">Todas las categorías</option>
-          ${categories.map(c=>`<option value="${c.id}">${c.icon||''}${c.name}</option>`).join('')}
-        </select>
-        <select style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);"
-          onchange="_invSort=this.value;renderInvContent()">
-          <option value="name_asc">A→Z Nombre</option>
-          <option value="name_desc">Z→A Nombre</option>
-          <option value="stock_desc">Mayor stock</option>
-          <option value="stock_asc">Menor stock</option>
-          <option value="price_desc">Mayor precio</option>
-          <option value="price_asc">Menor precio</option>
-        </select>
-        <div style="padding:0 10px;font-size:12px;color:var(--ink-3);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);display:flex;align-items:center;" id="invCount">—</div>
+        <!-- Collapsible filters -->
+        <div id="invFilterExpand" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+          <select style="flex:1;min-width:130px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);"
+            onchange="_invWhFilter=this.value;renderInvContent()">
+            <option value="">Todos los almacenes</option>
+            ${warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('')}
+          </select>
+          <select style="flex:1;min-width:150px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);"
+            onchange="_invCatFilter=this.value;renderInvContent()">
+            <option value="">Todas las categorías</option>
+            ${categories.map(c=>`<option value="${c.id}">${c.icon||''}${c.name}</option>`).join('')}
+          </select>
+          <select style="flex:1;min-width:130px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);"
+            onchange="_invSort=this.value;renderInvContent()">
+            <option value="name_asc">A→Z Nombre</option>
+            <option value="name_desc">Z→A Nombre</option>
+            <option value="stock_desc">Mayor stock</option>
+            <option value="stock_asc">Menor stock</option>
+            <option value="price_desc">Mayor precio</option>
+            <option value="price_asc">Menor precio</option>
+          </select>
+        </div>
       </div>
       <!-- Content -->
-      <div style="flex:1;overflow-y:auto;padding:20px 28px;" id="invContent">
+      <div style="flex:1;overflow-y:auto;padding:16px;" id="invContent">
         <div style="text-align:center;padding:60px;color:var(--ink-3);">Cargando...</div>
       </div>
     </div>
@@ -6709,7 +6826,7 @@ function renderInvContent() {
   const el = document.getElementById('invContent');
   if (!el) return;
   /* Hide/show the filter bar — not relevant for historial */
-  const filterBar = el.closest('[style*="flex-direction:column"]')?.querySelector('[style*="padding:10px 28px"]');
+  const filterBar = document.getElementById('invFilterBar');
   if (_invViewMode === 'historial') {
     if (filterBar) filterBar.style.display = 'none';
     renderInvHistorial(el);
@@ -8357,46 +8474,55 @@ function renderProductosPanel() {
     </div>
 
     <!-- Filter bar -->
-    <div style="padding:14px 28px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-      <div class="table-search" style="flex:1;max-width:280px;">
-        <span style="color:var(--ink-3);">🔍</span>
-        <input type="text" id="prodSearch" placeholder="Nombre, SKU..." oninput="renderProductosList()">
+    <div style="padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);">
+      <!-- Always visible: search + count + filter toggle -->
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div class="table-search" style="flex:1;">
+          <span style="color:var(--ink-3);">🔍</span>
+          <input type="text" id="prodSearch" placeholder="Nombre, SKU..." oninput="renderProductosList()">
+        </div>
+        <div class="table-count" id="prodCount">—</div>
+        <button class="btn btn-ghost btn-sm" id="prodFilterToggle"
+          onclick="const fb=document.getElementById('prodFilterExpand');fb.classList.toggle('mobile-expanded');this.textContent=fb.classList.contains('mobile-expanded')?'✕ Cerrar':'⚙️ Filtros';"
+          style="white-space:nowrap;">⚙️ Filtros</button>
       </div>
-      <select class="field" style="width:180px;" id="prodCatFilter" onchange="renderProductosList()">
-        <option value="">Todas las categorías</option>
-        ${categories.map(c => `<option value="${c.id}">${c.icon||''} ${c.name}</option>`).join('')}
-      </select>
-      <select class="field" style="width:150px;" id="prodWhFilter" onchange="renderProductosList()">
-        <option value="">Todos los almacenes</option>
-        ${warehouses.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
-      </select>
-      <select class="field" style="width:150px;" id="prodStockFilter" onchange="renderProductosList()">
-        <option value="">Todos los stocks</option>
-        <option value="instock">Con stock</option>
-        <option value="low">Stock bajo (≤5)</option>
-        <option value="out">Sin stock</option>
-      </select>
-      <select class="field" style="width:150px;" id="prodVisFilter" onchange="renderProductosList()">
-        <option value="">Visibilidad: Todos</option>
-        <option value="visible">Visibles en tienda</option>
-        <option value="hidden">Ocultos</option>
-      </select>
-      <select class="field" style="width:160px;" id="prodSort" onchange="renderProductosList()">
-        <option value="name_asc">A→Z Nombre</option>
-        <option value="name_desc">Z→A Nombre</option>
-        <option value="stock_desc">Mayor stock</option>
-        <option value="stock_asc">Menor stock</option>
-        <option value="price_desc">Mayor precio</option>
-        <option value="price_asc">Menor precio</option>
-        <option value="margin_desc">Mayor margen</option>
-        <option value="added">Más recientes</option>
-      </select>
-      <div class="table-count" id="prodCount">—</div>
+      <!-- Collapsible filters — hidden on mobile by default -->
+      <div id="prodFilterExpand" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        <select class="field" style="flex:1;min-width:150px;" id="prodCatFilter" onchange="renderProductosList()">
+          <option value="">Todas las categorías</option>
+          ${categories.map(c => `<option value="${c.id}">${c.icon||''} ${c.name}</option>`).join('')}
+        </select>
+        <select class="field" style="flex:1;min-width:130px;" id="prodWhFilter" onchange="renderProductosList()">
+          <option value="">Todos los almacenes</option>
+          ${warehouses.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
+        </select>
+        <select class="field" style="flex:1;min-width:130px;" id="prodStockFilter" onchange="renderProductosList()">
+          <option value="">Todos los stocks</option>
+          <option value="instock">Con stock</option>
+          <option value="low">Stock bajo (≤5)</option>
+          <option value="out">Sin stock</option>
+        </select>
+        <select class="field" style="flex:1;min-width:130px;" id="prodVisFilter" onchange="renderProductosList()">
+          <option value="">Visibilidad: Todos</option>
+          <option value="visible">Visibles en tienda</option>
+          <option value="hidden">Ocultos</option>
+        </select>
+        <select class="field" style="flex:1;min-width:140px;" id="prodSort" onchange="renderProductosList()">
+          <option value="name_asc">A→Z Nombre</option>
+          <option value="name_desc">Z→A Nombre</option>
+          <option value="stock_desc">Mayor stock</option>
+          <option value="stock_asc">Menor stock</option>
+          <option value="price_desc">Mayor precio</option>
+          <option value="price_asc">Menor precio</option>
+          <option value="margin_desc">Mayor margen</option>
+          <option value="added">Más recientes</option>
+        </select>
+      </div>
     </div>
 
     <!-- Product grid -->
-    <div style="padding:20px 28px;overflow-y:auto;">
-      <div id="productosGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;"></div>
+    <div style="padding:16px;overflow-y:auto;">
+      <div id="productosGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;"></div>
     </div>
 
     <!-- Product detail slide panel -->
@@ -10567,8 +10693,8 @@ function renderContabilidadPanel() {
   const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
   panel.innerHTML = `
-    <div class="page-header" style="flex-direction:column;align-items:flex-start;gap:14px;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;width:100%;flex-wrap:wrap;gap:10px;">
+    <div class="page-header" style="flex-direction:column;align-items:flex-start;gap:10px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;width:100%;flex-wrap:wrap;gap:8px;">
         <div><h1>Contabilidad</h1><p>Cuentas, transacciones, pagos y comisiones</p></div>
         <!-- Date filter -->
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -10582,18 +10708,21 @@ function renderContabilidadPanel() {
           <button class="btn btn-ghost btn-xs" onclick="_contabYear=new Date().getFullYear();_contabMonth=0;document.getElementById('contabYearSel').value=_contabYear;document.getElementById('contabMonthSel').value=0;renderContabTab(_contabTab)">✕ Limpiar</button>
         </div>
       </div>
-      <div class="inner-tabs" id="contabTabs">
-        <button class="inner-tab active"  onclick="switchContabTab('cuentas',this)">💳 Cuentas</button>
-        <button class="inner-tab" onclick="switchContabTab('categorias',this)">📂 Categorías</button>
-        <button class="inner-tab" onclick="switchContabTab('transacciones',this)">📋 Transacciones</button>
-        <button class="inner-tab" onclick="switchContabTab('pagos',this)">💵 Pagos</button>
-        <button class="inner-tab" onclick="switchContabTab('cobrar',this)">⏳ x Cobrar</button>
-        <button class="inner-tab" onclick="switchContabTab('pagoscompra',this)">📦 Pagos Compras</button>
-        <button class="inner-tab" onclick="switchContabTab('comisiones',this)">🏷 Comisiones</button>
-        <button class="inner-tab" onclick="switchContabTab('transferencias',this)">↔ Transferencias</button>
+      <!-- Tab bar in its own scrollable row -->
+      <div style="width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;">
+        <div class="inner-tabs" id="contabTabs" style="flex-wrap:nowrap;min-width:max-content;">
+          <button class="inner-tab active"  onclick="switchContabTab('cuentas',this)">💳 Cuentas</button>
+          <button class="inner-tab" onclick="switchContabTab('categorias',this)">📂 Categorías</button>
+          <button class="inner-tab" onclick="switchContabTab('transacciones',this)">📋 Transacciones</button>
+          <button class="inner-tab" onclick="switchContabTab('pagos',this)">💵 Pagos</button>
+          <button class="inner-tab" onclick="switchContabTab('cobrar',this)">⏳ x Cobrar</button>
+          <button class="inner-tab" onclick="switchContabTab('pagoscompra',this)">📦 Pagos Compras</button>
+          <button class="inner-tab" onclick="switchContabTab('comisiones',this)">🏷 Comisiones</button>
+          <button class="inner-tab" onclick="switchContabTab('transferencias',this)">↔ Transferencias</button>
+        </div>
       </div>
     </div>
-    <div id="contabContent" style="flex:1;overflow-y:auto;padding:0 28px 28px;"></div>
+    <div id="contabContent" style="flex:1;overflow-y:auto;padding:0 16px 28px;"></div>
   `;
   renderContabTab('cuentas');
 }
