@@ -590,16 +590,32 @@ async function saveProduct() {
   const btn = document.getElementById('saveBtn');
   btn.disabled = true; btn.textContent = 'Guardando...';
   console.log('Saving payload:', JSON.stringify(payload));
-  const { error } = editingId
-    ? await sb.from(TABLE).update(payload).eq('id', editingId)
-    : await sb.from(TABLE).insert(payload);
+
+  let result;
+  try {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout — Supabase no respondió en 15s')), 15000));
+    const op = editingId
+      ? sb.from(TABLE).update(payload).eq('id', editingId)
+      : sb.from(TABLE).insert(payload);
+    result = await Promise.race([op, timeout]);
+  } catch(err) {
+    btn.disabled = false; btn.textContent = '💾 Guardar';
+    const errDiv = document.getElementById('saveError');
+    errDiv.textContent = '❌ ' + (err.message || String(err));
+    errDiv.style.display = 'block';
+    errDiv.scrollIntoView({behavior:'smooth',block:'center'});
+    console.error('SAVE EXCEPTION:', err);
+    return;
+  }
+
   btn.disabled = false; btn.textContent = '💾 Guardar';
+  const { error } = result;
   if (error) {
     console.error('SAVE ERROR:', JSON.stringify(error));
-    // Show full error in a visible way
-    document.getElementById('saveError').textContent = 'Error: ' + error.message + (error.details ? ' — ' + error.details : '');
-    document.getElementById('saveError').style.display = 'block';
-    document.getElementById('saveError').scrollIntoView({behavior:'smooth',block:'center'});
+    const errDiv = document.getElementById('saveError');
+    errDiv.textContent = '❌ ' + error.message + (error.details ? ' — ' + error.details : '') + (error.hint ? ' | Hint: ' + error.hint : '') + (error.code ? ' [' + error.code + ']' : '');
+    errDiv.style.display = 'block';
+    errDiv.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
   document.getElementById('saveError').style.display = 'none';
