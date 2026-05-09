@@ -268,14 +268,16 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
             <div class="field">
               <label>URL de imagen *</label>
               <input type="text" id="fTemuImg" placeholder="https://img.kwcdn.com/..." oninput="previewTemuImg()" autocomplete="off">
+              <img id="imgPreview" class="img-preview" alt="Preview" style="display:none;width:100%;aspect-ratio:unset;max-height:340px;object-fit:contain;margin-top:10px;border-radius:10px;border:1.5px solid var(--border);">
+              <div id="parsedUrl" style="font-size:.72rem;color:var(--muted);margin-top:5px;word-break:break-all;"></div>
             </div>
           </div>
 
-          <!-- Shared preview -->
-          <div class="field">
+          <!-- Shared preview (AliExpress only) -->
+          <div class="field" id="aliPreviewWrap">
             <label>Vista previa imagen</label>
-            <img id="imgPreview" class="img-preview" alt="Preview">
-            <div id="parsedUrl" style="font-size:.72rem;color:var(--muted);margin-top:5px;word-break:break-all;"></div>
+            <img id="imgPreviewAli" class="img-preview" alt="Preview">
+            <div id="parsedUrlAli" style="font-size:.72rem;color:var(--muted);margin-top:5px;word-break:break-all;"></div>
           </div>
 
           <!-- Shared fields -->
@@ -509,6 +511,7 @@ function switchStore(store) {
   document.getElementById('swTemu').classList.toggle('on', store === 'temu');
   document.getElementById('aliFields').style.display  = store === 'aliexpress' ? 'block' : 'none';
   document.getElementById('temuFields').style.display = store === 'temu'       ? 'block' : 'none';
+  document.getElementById('aliPreviewWrap').style.display = store === 'aliexpress' ? 'block' : 'none';
   clearPreview();
 }
 
@@ -544,13 +547,29 @@ function previewTemuImg() {
 }
 
 function showPreview(imgUrl, affUrl) {
-  const prev = document.getElementById('imgPreview');
-  prev.src = imgUrl; prev.style.display = 'block';
-  document.getElementById('parsedUrl').textContent = affUrl ? '🔗 ' + affUrl : '';
+  // Temu preview is inline under the image field
+  const isTemu = document.getElementById('swTemu').classList.contains('on');
+  if (isTemu) {
+    const prev = document.getElementById('imgPreview');
+    prev.src = imgUrl; prev.style.display = 'block';
+    document.getElementById('parsedUrl').textContent = affUrl ? '🔗 ' + affUrl : '';
+    document.getElementById('aliPreviewWrap').style.display = 'none';
+  } else {
+    const prev = document.getElementById('imgPreviewAli');
+    prev.src = imgUrl; prev.style.display = 'block';
+    document.getElementById('parsedUrlAli').textContent = affUrl ? '🔗 ' + affUrl : '';
+    document.getElementById('aliPreviewWrap').style.display = 'block';
+  }
 }
 function clearPreview() {
   document.getElementById('imgPreview').style.display = 'none';
   document.getElementById('parsedUrl').textContent = '';
+  const ali = document.getElementById('imgPreviewAli');
+  if (ali) { ali.style.display = 'none'; }
+  const aliUrl = document.getElementById('parsedUrlAli');
+  if (aliUrl) aliUrl.textContent = '';
+  const aliWrap = document.getElementById('aliPreviewWrap');
+  if (aliWrap) aliWrap.style.display = 'none';
   if (document.getElementById('embedStatus')) document.getElementById('embedStatus').textContent = '';
 }
 
