@@ -280,7 +280,8 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
             <div id="parsedUrlAli" style="font-size:.72rem;color:var(--muted);margin-top:5px;word-break:break-all;"></div>
           </div>
 
-          <!-- Shared fields -->
+          <!-- Shared fields (hidden for Temu) -->
+          <div id="sharedFields">
           <div class="field">
             <label>Nombre del producto *</label>
             <input type="text" id="fName" placeholder="Ej: Extensiones clip-in rubias 20 pulgadas">
@@ -300,6 +301,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
               <input type="checkbox" id="fSellerOnly" style="width:18px;height:18px;cursor:pointer;accent-color:var(--black);">
               <span>🔒 Solo para vendedores</span>
             </label>
+          </div>
           </div>
           <div style="display:flex;gap:10px;margin-top:4px;">
             <button class="btn-p" onclick="saveProduct()" id="saveBtn">💾 Guardar</button>
@@ -512,6 +514,7 @@ function switchStore(store) {
   document.getElementById('aliFields').style.display  = store === 'aliexpress' ? 'block' : 'none';
   document.getElementById('temuFields').style.display = store === 'temu'       ? 'block' : 'none';
   document.getElementById('aliPreviewWrap').style.display = store === 'aliexpress' ? 'block' : 'none';
+  document.getElementById('sharedFields').style.display = store === 'aliexpress' ? 'block' : 'none';
   clearPreview();
 }
 
@@ -594,10 +597,11 @@ async function saveProduct() {
     if (!url) { toast('⚠️ Enlace afiliado obligatorio'); return; }
   }
 
-  if (!name) { toast('⚠️ Nombre obligatorio'); return; }
+  if (!name && store === 'aliexpress') { toast('⚠️ Nombre obligatorio'); return; }
+  const finalName = name || url.split('?')[0].split('/').filter(Boolean).pop() || 'Producto Temu';
 
   const payload = {
-    name, store,
+    name: finalName, store,
     category:      document.getElementById('fCat').value.trim() || null,
     discount:      document.getElementById('fDisc').value.trim() || null,
     image_url:     img,
