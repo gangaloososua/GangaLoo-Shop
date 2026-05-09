@@ -978,41 +978,6 @@ button{font-family:'Jost',sans-serif;}
   </div>
 </div>
 <style>@keyframes popIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}</style>
-
-<style>
-/* ── PRODUCT DETAIL MODAL ── */
-#pmOvl{display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);padding:0;align-items:flex-end;justify-content:center;}
-#pmOvl.open{display:flex;}
-#pmBox{background:#0f1117;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:92dvh;overflow-y:auto;overflow-x:hidden;animation:pmSlide .3s cubic-bezier(.22,1,.36,1);}
-@keyframes pmSlide{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
-#pmBox::-webkit-scrollbar{width:3px;}
-#pmBox::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:99px;}
-.pm-media{position:relative;width:100%;aspect-ratio:1/1;background:#111;border-radius:20px 20px 0 0;overflow:hidden;flex-shrink:0;}
-.pm-media img,.pm-media video{width:100%;height:100%;object-fit:cover;display:none;}
-.pm-media video{object-fit:contain;background:#000;}
-.pm-media .active-media{display:block;}
-.pm-media-dots{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;}
-.pm-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.4);cursor:pointer;transition:background .2s;}
-.pm-dot.active{background:#fff;}
-.pm-close{position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}
-.pm-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.45);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}
-.pm-nav.prev{left:10px;}.pm-nav.next{right:10px;}
-.pm-body{padding:18px 18px 24px;background:#0f1117;}
-.pm-cat{font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
-.pm-name{font-size:1.15rem;font-weight:800;line-height:1.25;margin-bottom:6px;color:#f0eeff;}
-.pm-sku{font-size:11px;color:rgba(240,238,255,.4);margin-bottom:10px;}
-.pm-desc{font-size:13px;color:rgba(240,238,255,.65);line-height:1.6;margin-bottom:14px;white-space:pre-line;}
-.pm-price-row{display:flex;align-items:baseline;gap:10px;margin-bottom:16px;}
-.pm-price{font-size:1.5rem;font-weight:800;color:#f0eeff;}
-.pm-orig{font-size:.95rem;text-decoration:line-through;color:rgba(240,238,255,.4);}
-.pm-disc-badge{background:var(--accent);color:#fff;border-radius:99px;padding:2px 8px;font-size:.72rem;font-weight:700;}
-.pm-stock{font-size:12px;margin-bottom:16px;}
-.pm-stock.in{color:#22c55e;}.pm-stock.low{color:#f59e0b;}.pm-stock.out{color:#ef4444;}
-.pm-add{width:100%;padding:14px;background:var(--accent);border:none;border-radius:12px;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;transition:opacity .15s;font-family:inherit;}
-.pm-add:hover{opacity:.88;}.pm-add:disabled{opacity:.4;cursor:not-allowed;}
-.pcard-img,.pcard-body{cursor:pointer;}
-</style>
-
 <script>
 (function(){
   if(!localStorage.getItem('gl_notice_v2')){
@@ -1793,7 +1758,7 @@ function getCheckoutTotal(){
   let shipFee=0;
   if(del==='shipping') shipFee=isClubMember()?0:parseFloat(cfg.shippingCost||0);
   else if(del==='shipping2') shipFee=isClubMember()?0:parseFloat(cfg.shippingCost2||0);
-  else if(del==='other_wh'){const _cartWHs=new Set(cart.map(i=>String(i.wh||selectedWH)).filter(Boolean));const _mixedCart=_cartWHs.size>1;shipFee=_mixedCart?0:parseFloat(cfg.maranatha_pickup_fee||cfg.maranatha_fee||0);}
+  else if(del==='other_wh'){const _cWHs=new Set(cart.map(i=>String(i.wh||selectedWH)).filter(Boolean));const _mix=_cWHs.size>1;shipFee=_mix?0:parseFloat(cfg.maranatha_pickup_fee||cfg.maranatha_fee||0);}
   // payment adjustment
   let payAdj=0;
   if(pay==='cash'){
@@ -1910,9 +1875,9 @@ function _openCheckoutRender(){
   const isMontellano=(wh?.name||'').toLowerCase().includes('montellano');
   const isMaranathaWH=(wh?.name||'').toLowerCase().includes('maranatha');
   const otherWHName=isMontellano?'Maranatha':isMaranathaWH?'Montellano':null;
-  const _coCartWHs=new Set(cart.map(i=>String(i.wh||selectedWH)).filter(Boolean));
-  const _coMixedCart=_coCartWHs.size>1;
-  const otherWHFee=_coMixedCart?0:parseFloat(cfg.maranatha_pickup_fee||cfg.maranatha_fee||0);
+  const _cWHs2=new Set(cart.map(i=>String(i.wh||selectedWH)).filter(Boolean));
+  const _mix2=_cWHs2.size>1;
+  const otherWHFee=_mix2?0:parseFloat(cfg.maranatha_pickup_fee||cfg.maranatha_fee||0);
   const zone1=cfg.shippingZone||'Zona 1';
   const zone2=cfg.shippingZone2||'';
   const cartTotal=totalAfterBulk();
@@ -1981,7 +1946,7 @@ function _openCheckoutRender(){
         ${otherWHName ? `<label class="co-option">
           <input type="radio" name="delivery" value="other_wh" onchange="onDeliveryChange()">
           <span class="co-option-ico">🚐</span>
-          <div><div style="font-weight:700">Recoger en ${otherWHName}</div><div style="font-size:11px;color:${otherWHFee>0?'var(--muted)':'#27ae60'}">${otherWHFee>0?'+ RD$ '+fmt(otherWHFee):'✅ Sin costo adicional'}</div></div>
+          <div><div style="font-weight:700">Recoger en ${otherWHName}</div><div style="font-size:11px;color:${otherWHFee>0?'var(--muted)':'#27ae60'}">${otherWHFee>0?'+ RD$ '+fmt(otherWHFee):'\u2705 Sin costo adicional'}</div></div>
         </label>` : ''}
         <label class="co-option">
           <input type="radio" name="delivery" value="shipping" onchange="onDeliveryChange()">
@@ -3359,8 +3324,40 @@ function getCoDeliveryData(){
   return { date, addr, lat: coPinLat, lng: coPinLng };
 }
 </script>
-
 <!-- PRODUCT DETAIL MODAL -->
+<style>
+#pmOvl{display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);padding:0;align-items:flex-end;justify-content:center;}
+#pmOvl.open{display:flex;}
+#pmBox{background:#0f1117;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:92dvh;overflow-y:auto;overflow-x:hidden;animation:pmSlide .3s cubic-bezier(.22,1,.36,1);}
+@keyframes pmSlide{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+#pmBox::-webkit-scrollbar{width:3px;}
+#pmBox::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:99px;}
+.pm-media{position:relative;width:100%;aspect-ratio:1/1;background:#111;border-radius:20px 20px 0 0;overflow:hidden;}
+.pm-media img,.pm-media video{width:100%;height:100%;object-fit:cover;display:none;}
+.pm-media video{object-fit:contain;background:#000;}
+.pm-media .active-media{display:block;}
+.pm-media-dots{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;}
+.pm-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.4);cursor:pointer;transition:background .2s;}
+.pm-dot.active{background:#fff;}
+.pm-close{position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}
+.pm-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.45);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}
+.pm-nav.prev{left:10px;}.pm-nav.next{right:10px;}
+.pm-body{padding:18px 18px 24px;background:#0f1117;}
+.pm-cat{font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+.pm-name{font-size:1.15rem;font-weight:800;line-height:1.25;margin-bottom:6px;color:#f0eeff;}
+.pm-sku{font-size:11px;color:rgba(240,238,255,.4);margin-bottom:10px;}
+.pm-desc{font-size:13px;color:rgba(240,238,255,.65);line-height:1.6;margin-bottom:14px;white-space:pre-line;}
+.pm-price-row{display:flex;align-items:baseline;gap:10px;margin-bottom:16px;}
+.pm-price{font-size:1.5rem;font-weight:800;color:#f0eeff;}
+.pm-orig{font-size:.95rem;text-decoration:line-through;color:rgba(240,238,255,.4);}
+.pm-disc-badge{background:var(--accent,#CF142B);color:#fff;border-radius:99px;padding:2px 8px;font-size:.72rem;font-weight:700;}
+.pm-stock{font-size:12px;margin-bottom:16px;}
+.pm-stock.in{color:#22c55e;}.pm-stock.low{color:#f59e0b;}.pm-stock.out{color:#ef4444;}
+.pm-add{width:100%;padding:14px;background:var(--accent,#CF142B);border:none;border-radius:12px;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;transition:opacity .15s;font-family:inherit;}
+.pm-add:hover{opacity:.88;}.pm-add:disabled{opacity:.4;cursor:not-allowed;}
+.pcard-img,.pcard-body{cursor:pointer;}
+</style>
+
 <div id="pmOvl" onclick="if(event.target===this)closePM()">
   <div id="pmBox">
     <div class="pm-media" id="pmMedia">
@@ -3382,119 +3379,96 @@ function getCoDeliveryData(){
 </div>
 
 <script>
-
-/* ── PRODUCT DETAIL MODAL ── */
-let _pmProduct=null, _pmMedia=[], _pmIdx=0;
-
+var _pmProduct=null,_pmMedia=[],_pmIdx=0;
 function openProductModal(id){
-  const p=allProducts.find(x=>String(x.id)===String(id));
+  var p=allProducts.find(function(x){return String(x.id)===String(id);});
   if(!p)return;
   _pmProduct=p;
-
-  const origPrice=parseFloat(p.price||p.finalPrice||p.salePrice||0);
-  const hasDisc=p.discountPrice&&parseFloat(p.discountPrice)>0&&parseFloat(p.discountPrice)<origPrice;
-  const basePrice=hasDisc?parseFloat(p.discountPrice):origPrice;
-  const price=getDisplayPrice(basePrice);
-  const stk=selectedWH?getStock(p.id,selectedWH):allWarehouses.reduce((s,w)=>s+getStock(p.id,w.id),0);
-  const cat=allCategories.find(c=>(p.categoryIds||[p.categoryId]).filter(Boolean).map(String).includes(String(c.id)));
-
-  // Build media list: images first, then video
+  var origPrice=parseFloat(p.price||p.finalPrice||p.salePrice||0);
+  var hasDisc=p.discountPrice&&parseFloat(p.discountPrice)>0&&parseFloat(p.discountPrice)<origPrice;
+  var basePrice=hasDisc?parseFloat(p.discountPrice):origPrice;
+  var price=typeof getDisplayPrice==='function'?getDisplayPrice(basePrice):basePrice;
+  var stk=selectedWH?getStock(p.id,selectedWH):allWarehouses.reduce(function(s,w){return s+getStock(p.id,w.id);},0);
+  var pCatIds=(p.categoryIds&&p.categoryIds.length?p.categoryIds:[p.categoryId]);
+  var cat=allCategories.find(function(c){return pCatIds.map(String).includes(String(c.id));});
   _pmMedia=[];
-  if(p.imageUrl) _pmMedia.push({type:'img',src:p.imageUrl});
-  if(p.videoUrl) _pmMedia.push({type:'video',src:p.videoUrl});
+  if(p.imageUrl)_pmMedia.push({type:'img',src:p.imageUrl});
+  if(p.videoUrl)_pmMedia.push({type:'video',src:p.videoUrl});
   _pmIdx=0;
-
-  // Render media area
-  const mediaEl=document.getElementById('pmMedia');
-  // Remove old media elements (keep buttons/dots)
-  mediaEl.querySelectorAll('img,video').forEach(el=>el.remove());
+  var mediaEl=document.getElementById('pmMedia');
+  mediaEl.querySelectorAll('img,video').forEach(function(el){el.remove();});
   if(_pmMedia.length===0){
     mediaEl.style.background='#1a1a2e';
-    mediaEl.innerHTML+='<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:var(--muted)">'+(cat?.icon||'💇')+'</div>';
-  } else {
-    _pmMedia.forEach((m,i)=>{
-      const el=document.createElement(m.type==='video'?'video':'img');
+    var icon=document.createElement('div');
+    icon.style.cssText='display:flex;align-items:center;justify-content:center;height:100%;font-size:4rem;color:rgba(240,238,255,.3)';
+    icon.textContent=cat&&cat.icon?cat.icon:'💇';
+    mediaEl.appendChild(icon);
+  }else{
+    _pmMedia.forEach(function(m,i){
+      var el=document.createElement(m.type==='video'?'video':'img');
       el.src=m.src;
       if(m.type==='video'){el.controls=true;el.playsInline=true;}
       if(i===0)el.classList.add('active-media');
       mediaEl.appendChild(el);
     });
   }
-
-  // Dots
-  const dots=document.getElementById('pmDots');
-  dots.innerHTML=_pmMedia.length>1?_pmMedia.map((_,i)=>`<span class="pm-dot ${i===0?'active':''}" onclick="pmGoTo(${i})"></span>`).join(''):'';
-
-  // Nav arrows
+  var dots=document.getElementById('pmDots');
+  dots.innerHTML=_pmMedia.length>1?_pmMedia.map(function(_,i){return '<span class="pm-dot '+(i===0?'active':'')+'" onclick="pmGoTo('+i+')"></span>';}).join(''):'';
   document.getElementById('pmPrev').style.display=_pmMedia.length>1?'flex':'none';
   document.getElementById('pmNext').style.display=_pmMedia.length>1?'flex':'none';
-
-  // Text content
   document.getElementById('pmCat').textContent=cat?(cat.icon?cat.icon+' ':'')+cat.name:'';
   document.getElementById('pmName').textContent=p.name;
   document.getElementById('pmSku').textContent=p.sku?'SKU: '+p.sku:'';
-  document.getElementById('pmDesc').textContent=p.description||p.notes||'';
-  document.getElementById('pmDesc').style.display=(p.description||p.notes)?'block':'none';
-
-  // Price row
-  const pr=document.getElementById('pmPriceRow');
-  let prHtml=`<span class="pm-price"><span style="font-size:.75em">RD$</span> ${fmt(price)}</span>`;
-  if(hasDisc) prHtml+=`<span class="pm-orig">RD$ ${fmt(origPrice)}</span><span class="pm-disc-badge">-${Math.round((1-parseFloat(p.discountPrice)/origPrice)*100)}%</span>`;
+  var descEl=document.getElementById('pmDesc');
+  descEl.textContent=p.description||p.notes||'';
+  descEl.style.display=(p.description||p.notes)?'block':'none';
+  var pr=document.getElementById('pmPriceRow');
+  var prHtml='<span class="pm-price"><span style="font-size:.75em">RD$</span> '+fmt(price)+'</span>';
+  if(hasDisc){var discPct=Math.round((1-parseFloat(p.discountPrice)/origPrice)*100);prHtml+='<span class="pm-orig">RD$ '+fmt(origPrice)+'</span><span class="pm-disc-badge">-'+discPct+'%</span>';}
   pr.innerHTML=prHtml;
-
-  // Stock
-  const stockEl=document.getElementById('pmStock');
+  var stockEl=document.getElementById('pmStock');
   if(stk>10){stockEl.className='pm-stock in';stockEl.textContent='✅ En stock ('+stk+' disponibles)';}
   else if(stk>0){stockEl.className='pm-stock low';stockEl.textContent='⚠️ Pocas unidades ('+stk+' disponibles)';}
   else{stockEl.className='pm-stock out';stockEl.textContent='❌ Sin stock';}
-
-  // Add btn
-  const addBtn=document.getElementById('pmAddBtn');
+  var addBtn=document.getElementById('pmAddBtn');
   addBtn.disabled=stk<=0;
   addBtn.textContent=stk>0?'Agregar al carrito':'Sin disponibilidad';
-
   document.getElementById('pmOvl').classList.add('open');
   document.body.style.overflow='hidden';
 }
-
 function pmGoTo(idx){
-  const media=document.getElementById('pmMedia');
-  const items=media.querySelectorAll('img,video');
-  items.forEach((el,i)=>{el.classList.toggle('active-media',i===idx);if(el.tagName==='VIDEO'&&i!==idx)el.pause();});
-  document.querySelectorAll('.pm-dot').forEach((d,i)=>d.classList.toggle('active',i===idx));
+  var media=document.getElementById('pmMedia');
+  var items=media.querySelectorAll('img,video');
+  items.forEach(function(el,i){el.classList.toggle('active-media',i===idx);if(el.tagName==='VIDEO'&&i!==idx)el.pause();});
+  document.querySelectorAll('.pm-dot').forEach(function(d,i){d.classList.toggle('active',i===idx);});
   _pmIdx=idx;
 }
-
 function pmNav(dir){
-  const total=_pmMedia.length;
-  if(!total)return;
+  var total=_pmMedia.length;if(!total)return;
   pmGoTo((_pmIdx+dir+total)%total);
 }
-
 function pmAddToCart(){
   if(!_pmProduct)return;
-  const p=_pmProduct;
-  const origPrice=parseFloat(p.price||p.finalPrice||p.salePrice||0);
-  const hasDisc=p.discountPrice&&parseFloat(p.discountPrice)>0&&parseFloat(p.discountPrice)<origPrice;
-  const basePrice=hasDisc?parseFloat(p.discountPrice):origPrice;
-  const price=getDisplayPrice(basePrice);
+  var p=_pmProduct;
+  var origPrice=parseFloat(p.price||p.finalPrice||p.salePrice||0);
+  var hasDisc=p.discountPrice&&parseFloat(p.discountPrice)>0&&parseFloat(p.discountPrice)<origPrice;
+  var basePrice=hasDisc?parseFloat(p.discountPrice):origPrice;
+  var price=typeof getDisplayPrice==='function'?getDisplayPrice(basePrice):basePrice;
   addCart(p.id,p.name,price,p.sku||'',basePrice);
   closePM();
 }
-
 function closePM(){
   document.getElementById('pmOvl').classList.remove('open');
   document.body.style.overflow='';
-  document.getElementById('pmMedia').querySelectorAll('video').forEach(v=>v.pause());
+  document.getElementById('pmMedia').querySelectorAll('video').forEach(function(v){v.pause();});
 }
-
 </script>
 
 <!-- GANGALOO AI CHAT WIDGET -->
 <style>
-#glChatBubble{position:fixed;bottom:80px;right:16px;z-index:600;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#6c3ff5,#00b4d8);box-shadow:0 4px 18px rgba(108,63,245,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .2s,box-shadow .2s;border:none;}
+#glChatBubble{position:fixed;bottom:80px;right:16px;z-index:600;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#6c3ff5,#00b4d8);box-shadow:0 4px 18px rgba(108,63,245,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;transition:transform .2s;}
 #glChatBubble:hover{transform:scale(1.08);}
-#glChatUnread{display:none;position:absolute;top:-3px;right:-3px;background:#ff4757;color:#fff;border-radius:99px;font-size:10px;padding:1px 5px;font-weight:700;font-family:'Jost',sans-serif;}
+#glChatUnread{display:none;position:absolute;top:-3px;right:-3px;background:#ff4757;color:#fff;border-radius:99px;font-size:10px;padding:1px 5px;font-weight:700;}
 #glChatBox{display:none;flex-direction:column;position:fixed;bottom:144px;right:16px;z-index:600;width:340px;max-width:calc(100vw - 24px);height:480px;max-height:calc(100dvh - 160px);background:#0a0e1a;border-radius:18px;box-shadow:0 8px 48px rgba(0,0,0,.4);overflow:hidden;font-family:'Jost',sans-serif;border:1px solid rgba(255,255,255,.08);}
 .glch-header{flex-shrink:0;padding:13px 16px;background:rgba(255,255,255,.05);border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:10px;}
 .glch-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6c3ff5,#00b4d8);display:flex;align-items:center;justify-content:center;font-size:18px;}
@@ -3503,11 +3477,8 @@ function closePM(){
 .glch-hsub{font-size:11px;color:rgba(240,238,255,.5);display:flex;align-items:center;gap:4px;margin-top:2px;}
 .glch-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px #22c55e;}
 .glch-close{background:rgba(255,255,255,.08);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;color:rgba(240,238,255,.6);display:flex;align-items:center;justify-content:center;font-size:14px;}
-.glch-msgs{flex:1;overflow-y:auto;padding:14px 14px 8px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth;}
-.glch-msgs::-webkit-scrollbar{width:3px;}
-.glch-msgs::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:99px;}
-.glch-msg{display:flex;gap:8px;animation:glchIn .22s ease;}
-@keyframes glchIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.glch-msgs{flex:1;overflow-y:auto;padding:14px 14px 8px;display:flex;flex-direction:column;gap:10px;}
+.glch-msg{display:flex;gap:8px;}
 .glch-msg.user{flex-direction:row-reverse;}
 .glch-mavatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#6c3ff5,#00b4d8);display:flex;align-items:center;justify-content:center;font-size:14px;align-self:flex-end;margin-bottom:2px;}
 .glch-msg.user .glch-mavatar{background:rgba(255,255,255,.1);}
@@ -3515,24 +3486,21 @@ function closePM(){
 .glch-msg.bot .glch-bubble{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);border-bottom-left-radius:4px;color:#f0eeff;}
 .glch-msg.user .glch-bubble{background:#6c3ff5;border-bottom-right-radius:4px;color:#fff;}
 .glch-typing{display:flex;gap:5px;align-items:center;padding:12px 14px;}
-.glch-typing span{width:7px;height:7px;border-radius:50%;background:#00b4d8;opacity:.5;animation:glchBounce 1.2s infinite;}
+.glch-typing span{width:7px;height:7px;border-radius:50%;background:#00b4d8;opacity:.5;animation:glchB 1.2s infinite;}
 .glch-typing span:nth-child(2){animation-delay:.2s;}
 .glch-typing span:nth-child(3){animation-delay:.4s;}
-@keyframes glchBounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-5px);opacity:1}}
+@keyframes glchB{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-5px);opacity:1}}
 .glch-quickwrap{padding:7px 12px 6px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid rgba(255,255,255,.05);}
-.glch-qbtn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:99px;padding:5px 11px;font-size:11px;font-weight:500;color:rgba(240,238,255,.7);cursor:pointer;transition:all .15s;font-family:'Jost',sans-serif;white-space:nowrap;}
-.glch-qbtn:hover{background:rgba(108,63,245,.2);border-color:rgba(108,63,245,.5);color:#f0eeff;}
+.glch-qbtn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:99px;padding:5px 11px;font-size:11px;font-weight:500;color:rgba(240,238,255,.7);cursor:pointer;white-space:nowrap;}
 .glch-inputbar{flex-shrink:0;padding:10px 12px 12px;background:rgba(0,0,0,.2);border-top:1px solid rgba(255,255,255,.07);}
 .glch-inputrow{display:flex;gap:8px;align-items:flex-end;}
 .glch-inputwrap{flex:1;}
-#glChatInput{width:100%;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:12px;padding:9px 12px;font-size:13px;font-family:'Jost',sans-serif;color:#f0eeff;resize:none;outline:none;max-height:80px;line-height:1.45;transition:border-color .2s;}
+#glChatInput{width:100%;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:12px;padding:9px 12px;font-size:13px;color:#f0eeff;resize:none;outline:none;max-height:80px;line-height:1.45;}
 #glChatInput::placeholder{color:rgba(240,238,255,.3);}
-#glChatInput:focus{border-color:rgba(108,63,245,.6);}
-.glch-sendbtn{width:38px;height:38px;background:linear-gradient(135deg,#6c3ff5,#00b4d8);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s,opacity .15s;}
-.glch-sendbtn:hover{transform:scale(1.08);}
-.glch-sendbtn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.glch-sendbtn{width:38px;height:38px;background:linear-gradient(135deg,#6c3ff5,#00b4d8);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.glch-sendbtn:disabled{opacity:.4;cursor:not-allowed;}
 </style>
-<button id="glChatBubble" onclick="glToggleChat()" title="Chatea con GangaLoo">
+<button id="glChatBubble" onclick="glToggle()" title="Chat">
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
   <span id="glChatUnread">1</span>
 </button>
@@ -3543,42 +3511,110 @@ function closePM(){
       <div class="glch-hname">Asistente GangaLoo</div>
       <div class="glch-hsub"><span class="glch-dot"></span>En linea &middot; IA</div>
     </div>
-    <button class="glch-close" onclick="glToggleChat()">&#x2715;</button>
+    <button class="glch-close" onclick="glToggle()">&#x2715;</button>
   </div>
-  <div class="glch-msgs" id="glChatMsgs">
-    <div class="glch-msg bot">
-      <div class="glch-mavatar">&#128134;</div>
-      <div class="glch-bubble">&#128075; Soy el asistente de <strong>GangaLoo</strong>. Puedo ayudarte con productos, precios, pedidos de Temu/Shein/Amazon, el Club GangaLoo, y mas. &#191;En que te puedo ayudar?</div>
-    </div>
+  <div class="glch-msgs" id="glMsgs">
+    <div class="glch-msg bot"><div class="glch-mavatar">&#128134;</div><div class="glch-bubble">Hola &#128075; Soy el asistente de <strong>GangaLoo</strong>. Puedo ayudarte con productos, pedidos y mas.</div></div>
   </div>
-  <div class="glch-quickwrap" id="glQuickReplies">
-    <button class="glch-qbtn" onclick="glSendQuick('Que productos tienen disponibles?')">&#128717;&#65039; Ver productos</button>
-    <button class="glch-qbtn" onclick="glSendQuick('Como pido de Temu o Shein?')">&#128230; Temu/Shein</button>
-    <button class="glch-qbtn" onclick="glSendQuick('Que es el Club GangaLoo?')">&#128081; Club</button>
-    <button class="glch-qbtn" onclick="glSendQuick('Donde estan ubicados?')">&#128205; Ubicacion</button>
+  <div class="glch-quickwrap" id="glQR">
+    <button class="glch-qbtn" onclick="glQ('Que productos tienen?')">&#128717; Productos</button>
+    <button class="glch-qbtn" onclick="glQ('Como pido de Temu o Shein?')">&#128230; Temu/Shein</button>
+    <button class="glch-qbtn" onclick="glQ('Que es el Club GangaLoo?')">&#128081; Club</button>
   </div>
   <div class="glch-inputbar">
     <div class="glch-inputrow">
       <div class="glch-inputwrap">
-        <textarea id="glChatInput" rows="1" placeholder="Escribe tu pregunta..." oninput="glAutoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();glSendChat();}"></textarea>
+        <textarea id="glChatInput" rows="1" placeholder="Escribe tu pregunta..."></textarea>
       </div>
-      <button class="glch-sendbtn" id="glSendBtn" onclick="glSendChat()">
+      <button class="glch-sendbtn" id="glSendBtn" onclick="glSend()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>
   </div>
 </div>
 <script>
-let glChatOpen=false,glChatHistory=[];
-function glToggleChat(){glChatOpen=!glChatOpen;const b=document.getElementById('glChatBox');b.style.display=glChatOpen?'flex':'none';document.getElementById('glChatUnread').style.display='none';if(glChatOpen)setTimeout(()=>{document.getElementById('glChatInput').focus();},200);}
-function glAutoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,80)+'px';}
-function glSendQuick(text){document.getElementById('glChatInput').value=text;document.getElementById('glQuickReplies').style.display='none';glSendChat();}
-function glBuildCatalog(){try{if(!allProducts||!allProducts.length)return null;const stock={};(allPurchases||[]).forEach(pu=>{if(pu.status==='delivered'){const pid=String(pu.productId);stock[pid]=(stock[pid]||0)+(pu.remainingQty||0);}});const cats={};allProducts.forEach(p=>{const price=p.salePrice||p.price||0;if(!price)return;const catId=String((p.categoryIds&&p.categoryIds[0])||p.categoryId||'');const cat=(allCategories||[]).find(c=>String(c.id)===catId);const catName=cat?cat.name:'General';const qty=stock[String(p.id)]||0;if(!cats[catName])cats[catName]=[];cats[catName].push('  - '+p.name+(p.sku?' (SKU:'+p.sku+')':'')+': RD$ '+Number(price).toLocaleString('es-DO')+(qty>0?' - '+qty+' disponibles':''));});return Object.entries(cats).map(([c,items])=>c+':\n'+items.join('\n')).join('\n\n');}catch(e){return null;}}
-async function glSendChat(){const input=document.getElementById('glChatInput');const text=input.value.trim();if(!text)return;input.value='';input.style.height='auto';document.getElementById('glQuickReplies').style.display='none';glAppendMsg('user',text);glChatHistory.push({role:'user',content:text});const typingId=glShowTyping();document.getElementById('glSendBtn').disabled=true;const catalog=glBuildCatalog();const sys='Eres el asistente virtual de GangaLoo, una tienda en Republica Dominicana especializada en pelucas, extensiones de cabello, y pedidos de Temu, Shein, Amazon, eBay y otras tiendas internacionales. Responde siempre en espanol, amigable y conciso. Ayuda con productos, precios, pedidos online, Club GangaLoo, pagos, entregas, ubicacion. Para pedidos online: el cliente envia el link y GangaLoo lo trae al precio en DOP. Si no sabes algo, invita a escribir por WhatsApp. No inventes precios. Max 3-4 oraciones.'+(catalog?'\n\nCATALOGO:\n'+catalog:'');try{const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,system:sys,messages:glChatHistory})});const data=await res.json();glRemoveTyping(typingId);const reply=data.content?.[0]?.text||'Lo siento, tuve un problema. Intenta de nuevo!';glChatHistory.push({role:'assistant',content:reply});glAppendMsg('bot',reply);}catch(e){glRemoveTyping(typingId);glAppendMsg('bot','Tuve un problema tecnico. Por favor intenta de nuevo.');}document.getElementById('glSendBtn').disabled=false;}
-function glAppendMsg(role,text){const msgs=document.getElementById('glChatMsgs');const div=document.createElement('div');div.className='glch-msg '+role;const safe=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');div.innerHTML='<div class="glch-mavatar">'+(role==='bot'?'&#128134;':'&#128100;')+'</div><div class="glch-bubble">'+safe+'</div>';msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;}
-function glShowTyping(){const msgs=document.getElementById('glChatMsgs');const div=document.createElement('div');const id='gltyp_'+Date.now();div.id=id;div.className='glch-msg bot';div.innerHTML='<div class="glch-mavatar">&#128134;</div><div class="glch-bubble glch-typing"><span></span><span></span><span></span></div>';msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;return id;}
-function glRemoveTyping(id){const el=document.getElementById(id);if(el)el.remove();}
-setTimeout(()=>{if(!glChatOpen)document.getElementById('glChatUnread').style.display='block';},3000);
+(function(){
+var glOpen=false,glHist=[];
+document.getElementById('glChatInput').addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();glSend();}
+});
+document.getElementById('glChatInput').addEventListener('input',function(){
+  this.style.height='auto';
+  this.style.height=Math.min(this.scrollHeight,80)+'px';
+});
+window.glToggle=function(){
+  glOpen=!glOpen;
+  document.getElementById('glChatBox').style.display=glOpen?'flex':'none';
+  document.getElementById('glChatUnread').style.display='none';
+  if(glOpen)setTimeout(function(){document.getElementById('glChatInput').focus();},200);
+};
+window.glQ=function(text){
+  document.getElementById('glChatInput').value=text;
+  document.getElementById('glQR').style.display='none';
+  glSend();
+};
+function glCatalog(){
+  try{
+    if(!window.allProducts||!allProducts.length)return null;
+    var lines=allProducts.slice(0,30).map(function(p){
+      var price=p.salePrice||p.price||0;
+      if(!price)return null;
+      return p.name+(p.sku?' ('+p.sku+')':'')+': RD$ '+Number(price).toLocaleString('es-DO');
+    }).filter(Boolean);
+    return lines.join('\n');
+  }catch(e){return null;}
+}
+window.glSend=async function(){
+  var input=document.getElementById('glChatInput');
+  var text=input.value.trim();
+  if(!text)return;
+  input.value='';input.style.height='auto';
+  document.getElementById('glQR').style.display='none';
+  glMsg('user',text);
+  glHist.push({role:'user',content:text});
+  var tid=glTyping();
+  document.getElementById('glSendBtn').disabled=true;
+  var catalog=glCatalog();
+  var sys='Eres el asistente virtual de GangaLoo, una tienda en Republica Dominicana. Ayuda con productos, precios y pedidos de tiendas como Temu y Shein. Responde en espanol, breve y amigable.';
+  if(catalog)sys+='\n\nProductos:\n'+catalog;
+  try{
+    var res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,system:sys,messages:glHist})
+    });
+    var data=await res.json();
+    glRemTyping(tid);
+    var reply=(data.content&&data.content[0]&&data.content[0].text)||'Lo siento, intenta de nuevo.';
+    glHist.push({role:'assistant',content:reply});
+    glMsg('bot',reply);
+  }catch(e){
+    glRemTyping(tid);
+    glMsg('bot','Problema tecnico. Intenta de nuevo.');
+  }
+  document.getElementById('glSendBtn').disabled=false;
+};
+function glMsg(role,text){
+  var msgs=document.getElementById('glMsgs');
+  var d=document.createElement('div');
+  d.className='glch-msg '+role;
+  var safe=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  d.innerHTML='<div class="glch-mavatar">'+(role==='bot'?'&#128134;':'&#128100;')+'</div><div class="glch-bubble">'+safe+'</div>';
+  msgs.appendChild(d);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+function glTyping(){
+  var msgs=document.getElementById('glMsgs');
+  var d=document.createElement('div');
+  var id='gt'+Date.now();
+  d.id=id;d.className='glch-msg bot';
+  d.innerHTML='<div class="glch-mavatar">&#128134;</div><div class="glch-bubble glch-typing"><span></span><span></span><span></span></div>';
+  msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
+  return id;
+}
+function glRemTyping(id){var el=document.getElementById(id);if(el)el.remove();}
+setTimeout(function(){if(!glOpen)document.getElementById('glChatUnread').style.display='block';},3000);
+})();
 </script>
 
 </body>
