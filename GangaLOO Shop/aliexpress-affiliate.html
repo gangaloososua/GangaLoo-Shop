@@ -10,7 +10,7 @@
 <style>
 :root{
   --bg:#f7f4ef;--surface:#fff;--black:#111110;--red:#cc2200;--orange:#d4580a;
-  --gold:#b8902a;--temu:#ff6034;--ali:#e62f01;--muted:#88887f;--border:#e4e0d8;--text:#222220;
+  --gold:#b8902a;--temu:#ff6034;--ali:#e62f01;--shein:#e61e72;--muted:#88887f;--border:#e4e0d8;--text:#222220;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
@@ -43,6 +43,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .tab-dot.temu{background:var(--temu);}
 .tab-dot.home{background:var(--gold);}
 .tab-dot.codes{background:#4ade80;}
+.tab-dot.shein{background:var(--shein);}
 
 /* HOME */
 #pageHome{display:block;}
@@ -59,6 +60,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .store-card-bottom{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:.8rem;font-weight:600;}
 .store-card.ali .store-card-bottom{background:#fff8f7;color:var(--ali);}
 .store-card.temu .store-card-bottom{background:#fff8f5;color:var(--temu);}
+.store-card.shein .store-card-bottom{background:#fff5f9;color:var(--shein);}
 
 .home-codes-preview{background:var(--surface);border:1.5px solid var(--border);border-radius:20px;padding:28px;}
 .mini-code{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
@@ -66,6 +68,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .mini-code-store{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:2px 8px;border-radius:5px;flex-shrink:0;}
 .mini-code-store.ali{background:#fff0ee;color:var(--ali);}
 .mini-code-store.temu{background:#fff3ee;color:var(--temu);}
+.mini-code-store.shein{background:#fff0f6;color:var(--shein);}
 .mini-code-text{font-family:monospace;font-size:.88rem;font-weight:700;flex:1;}
 .mini-code-desc{font-size:.75rem;color:var(--muted);}
 
@@ -105,6 +108,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .store-badge{position:absolute;bottom:8px;left:8px;color:#fff;font-size:.55rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:5px;}
 .store-badge.ali{background:var(--ali);}
 .store-badge.temu{background:var(--temu);}
+.store-badge.shein{background:var(--shein);}
 .seller-badge{position:absolute;top:8px;left:8px;background:var(--gold);color:#fff;font-size:.55rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:5px;z-index:2;}
 .disc-badge{position:absolute;top:8px;right:8px;background:var(--orange);color:#fff;font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:5px;}
 .hover-ovl{position:absolute;inset:0;background:rgba(17,17,16,.52);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .22s;}
@@ -167,6 +171,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .store-sw-btn{flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--bg);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.83rem;font-weight:600;transition:all .2s;text-align:center;}
 .store-sw-btn.ali.on{border-color:var(--ali);background:#fff0ee;color:var(--ali);}
 .store-sw-btn.temu.on{border-color:var(--temu);background:#fff3ee;color:var(--temu);}
+.store-sw-btn.shein.on{border-color:var(--shein);background:#fff0f6;color:var(--shein);}
 .prod-list{display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto;}
 .prod-row{display:flex;gap:10px;align-items:center;padding:9px;border:1px solid var(--border);border-radius:10px;background:var(--bg);}
 .prod-row img{width:50px;height:50px;object-fit:cover;border-radius:8px;flex-shrink:0;}
@@ -180,6 +185,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .store-pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:.65rem;font-weight:700;text-transform:uppercase;margin-left:5px;}
 .store-pill.ali{background:#fff0ee;color:var(--ali);}
 .store-pill.temu{background:#fff3ee;color:var(--temu);}
+.store-pill.shein{background:#fff0f6;color:var(--shein);}
 #adminLoginView{padding:10px 0;}
 #adminLoginView h4{font-family:'Cormorant Garamond',serif;font-size:1.2rem;margin-bottom:16px;font-weight:400;text-align:center;}
 
@@ -228,6 +234,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
   <button class="top-tab on" onclick="showPage('home',this)"><span class="tab-dot home"></span> Inicio</button>
   <button class="top-tab" onclick="showPage('ali',this)"><span class="tab-dot ali"></span> AliExpress</button>
   <button class="top-tab" onclick="showPage('temu',this)"><span class="tab-dot temu"></span> Temu</button>
+  <button class="top-tab" onclick="showPage('shein',this)"><span class="tab-dot shein"></span> Shein</button>
   <button class="top-tab" onclick="showPage('codes',this)"><span class="tab-dot codes"></span> Códigos</button>
 </div>
 
@@ -264,6 +271,20 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
         </div>
         <div class="store-card-bottom"><span>Ver productos →</span><span>🛒</span></div>
       </div>
+      <div class="store-card shein" onclick="showPage('shein',document.querySelectorAll('.top-tab')[3])">
+        <div class="store-card-top">
+          <div class="store-card-logo">
+            <svg width="100" height="40" viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
+              <rect width="100" height="40" rx="8" fill="#e61e72"/>
+              <text x="50" y="27" font-family="Arial,sans-serif" font-size="18" font-weight="bold" fill="white" text-anchor="middle" letter-spacing="1">SHEIN</text>
+            </svg>
+          </div>
+          <div class="store-card-name">Shein</div>
+          <div class="store-card-desc">Moda a precios increíbles. Ropa, accesorios y más con envío internacional.</div>
+          <div class="store-card-count" id="homeSheinCount"></div>
+        </div>
+        <div class="store-card-bottom"><span>Ver productos →</span><span>🛍️</span></div>
+      </div>
     </div>
     <h2 class="home-heading">Códigos de descuento</h2>
     <div class="home-codes-preview" id="homeCodesPreview">
@@ -299,6 +320,21 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
   <div class="main">
     <div class="grid-hdr"><h2>Temu</h2><span class="gcount" id="temuCount"></span></div>
     <div class="grid-temu" id="gridTemu"></div>
+  </div>
+</div>
+
+<!-- SHEIN PAGE -->
+<div id="pageShein" style="display:none;">
+  <div class="filter-bar">
+    <div class="search-wrap"><span style="color:var(--muted)">🔍</span>
+      <input type="text" id="sheinSearch" placeholder="Buscar en Shein..." oninput="filterShein()" autocomplete="off" name="shein_s">
+    </div>
+    <select class="cat-sel" id="sheinCat" onchange="filterShein()"><option value="">Todas las categorías</option></select>
+  </div>
+  <div class="chips" id="sheinChips"></div>
+  <div class="main">
+    <div class="grid-hdr"><h2>Shein</h2><span class="gcount" id="sheinCount"></span></div>
+    <div class="grid-ali" id="gridShein"></div>
   </div>
 </div>
 
@@ -368,6 +404,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
             <div class="store-switch">
               <button class="store-sw-btn ali on" id="swAli" onclick="switchStore('aliexpress')">🟠 AliExpress</button>
               <button class="store-sw-btn temu" id="swTemu" onclick="switchStore('temu')">🔶 Temu</button>
+              <button class="store-sw-btn shein" id="swShein" onclick="switchStore('shein')" style="border-color:var(--border);">💗 Shein</button>
             </div>
             <input type="hidden" id="fStore" value="aliexpress">
           </div>
@@ -396,6 +433,29 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
             </div>
           </div>
 
+          <div id="sheinFields" style="display:none;">
+            <div class="field">
+              <label>Enlace afiliado Shein *</label>
+              <input type="text" id="fSheinUrl" placeholder="https://www.shein.com/..." autocomplete="off">
+            </div>
+            <div class="field">
+              <label>URL de imagen *</label>
+              <input type="text" id="fSheinImg" placeholder="https://img.ltwebstatic.com/..." oninput="previewSheinImg()" autocomplete="off">
+              <img id="imgPreviewShein" class="img-preview" alt="Preview" style="aspect-ratio:1;max-height:260px;">
+            </div>
+            <div class="field">
+              <label>Nombre del producto *</label>
+              <input type="text" id="fSheinName" placeholder="Ej: Vestido floral talla S">
+            </div>
+            <div class="field">
+              <label>Categoría</label>
+              <input type="text" id="fSheinCat" placeholder="Vestidos, Tops, Zapatos...">
+            </div>
+            <div class="field">
+              <label>Descuento (badge)</label>
+              <input type="text" id="fSheinDisc" placeholder="Ej: -40%">
+            </div>
+          </div>
           <div id="temuFields" style="display:none;">
             <div class="field">
               <label>Enlace afiliado Temu *</label>
@@ -429,7 +489,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
         <div id="aTabCodes" style="display:none;">
           <div style="margin-bottom:12px;font-size:.82rem;color:var(--muted);">Agrega códigos de descuento por tienda.</div>
           <div class="field"><label>Tienda</label>
-            <select id="codeStore"><option value="aliexpress">AliExpress</option><option value="temu">Temu</option></select>
+            <select id="codeStore"><option value="aliexpress">AliExpress</option><option value="temu">Temu</option><option value="shein">Shein</option></select>
           </div>
           <div class="field"><label>Tipo</label>
             <select id="codeType" onchange="toggleCodeType()">
@@ -466,17 +526,17 @@ const sb = supabase.createClient(window.GANGALOO_CONFIG.supabaseUrl, window.GANG
 const TABLE = 'aliexpress_affiliate_products';
 const CODES_TABLE = 'affiliate_discount_codes';
 
-let allProducts=[], aliProducts=[], temuProducts=[];
+let allProducts=[], aliProducts=[], temuProducts=[], sheinProducts=[];
 let sellerMode=false, currentUser=null, isAdmin=false;
 let editingId=null, adminStore='aliexpress';
 let allCodes=[];
 
 // ── PAGE NAV ──────────────────────────────────────────────────────────────────
 function showPage(page, tabEl) {
-  ['pageHome','pageAli','pageTemu','pageCodes'].forEach(id => document.getElementById(id).style.display='none');
+  ['pageHome','pageAli','pageTemu','pageShein','pageCodes'].forEach(id => document.getElementById(id).style.display='none');
   document.querySelectorAll('.top-tab').forEach(t => t.classList.remove('on'));
   if (tabEl) tabEl.classList.add('on');
-  const map={home:'pageHome',ali:'pageAli',temu:'pageTemu',codes:'pageCodes'};
+  const map={home:'pageHome',ali:'pageAli',temu:'pageTemu',shein:'pageShein',codes:'pageCodes'};
   document.getElementById(map[page]).style.display='block';
 }
 
@@ -534,11 +594,14 @@ async function load() {
 function splitAndRender() {
   aliProducts=allProducts.filter(p=>(p.store||'aliexpress')==='aliexpress');
   temuProducts=allProducts.filter(p=>p.store==='temu');
+  sheinProducts=allProducts.filter(p=>p.store==='shein');
   const ac=document.getElementById('homeAliCount');
   const tc=document.getElementById('homeTemuCount');
+  const sc=document.getElementById('homeSheinCount');
   if(ac) ac.textContent=aliProducts.length+' productos';
   if(tc) tc.textContent=temuProducts.length+' productos';
-  buildAliFilters(); buildTemuFilters(); filterAli(); filterTemu();
+  if(sc) sc.textContent=sheinProducts.length+' productos';
+  buildAliFilters(); buildTemuFilters(); buildSheinFilters(); filterAli(); filterTemu(); filterShein();
 }
 
 function showSkAli(n){document.getElementById('gridAli').innerHTML=Array(n).fill(0).map(()=>`<div class="sk-card"><div class="sk-img sk"></div><div class="sk-body"><div class="sk-line sk"></div><div class="sk-line sk s"></div></div></div>`).join('');}
@@ -612,12 +675,46 @@ function renderTemu(prods) {
   }).join('');
 }
 
+// ── SHEIN RENDER ─────────────────────────────────────────────────────────────
+window._sheinUrls=[];
+function buildSheinFilters() {
+  const cats=[...new Set(sheinProducts.map(p=>p.category).filter(Boolean))];
+  document.getElementById('sheinCat').innerHTML='<option value="">Todas las categorías</option>'+cats.map(c=>`<option value="${e(c)}">${e(c)}</option>`).join('');
+  document.getElementById('sheinChips').innerHTML=`<div class="chip on" onclick="sheinChip(this,'')">✨ Todos</div>`+cats.map(c=>`<div class="chip" onclick="sheinChip(this,'${e(c)}')">${e(c)}</div>`).join('');
+}
+function filterShein() {
+  const q=document.getElementById('sheinSearch').value.toLowerCase();
+  const cat=document.getElementById('sheinCat').value;
+  renderShein(sheinProducts.filter(p=>(!q||(p.name||'').toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q))&&(!cat||p.category===cat)));
+}
+function sheinChip(el,cat){
+  document.querySelectorAll('#sheinChips .chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on'); document.getElementById('sheinCat').value=cat; filterShein();
+}
+function renderShein(prods) {
+  const g=document.getElementById('gridShein');
+  document.getElementById('sheinCount').textContent=prods.length?prods.length+' productos':'';
+  if (!prods.length){g.innerHTML=`<div class="placeholder"><div class="placeholder-icon">🔍</div><div class="placeholder-title">Sin resultados</div><p style="font-size:.82rem">Prueba otra búsqueda</p></div>`;return;}
+  window._sheinUrls=prods.map(p=>p.affiliate_url||'');
+  g.innerHTML=prods.map((p,i)=>{
+    let img=p.image_url||''; if(img.startsWith('//')) img='https:'+img;
+    return `<div class="card" data-store="shein" data-idx="${i}">
+      <div class="card-img-sq"><img src="${img}" alt="${e(p.name)}" onerror="this.parentElement.style.background='#eee'">
+        <div class="hover-ovl"><div class="ovl-cta">🛍️ Ver en Shein</div></div>
+        ${p.seller_only?`<div class="seller-badge">👥 Vendedores</div>`:`<div class="store-badge shein">Shein</div>`}
+        ${p.discount?`<div class="disc-badge">${e(p.discount)}</div>`:''}
+      </div>
+      <div class="card-body">${p.category?`<div class="card-cat">${e(p.category)}</div>`:''}<div class="card-title">${e(p.name)}</div></div>
+    </div>`;
+  }).join('');
+}
+
 // Delegated click
 document.addEventListener('click', function(e) {
   const card=e.target.closest('[data-store]'); if(!card) return;
   e.preventDefault(); e.stopPropagation();
   const idx=parseInt(card.dataset.idx), store=card.dataset.store;
-  const url=store==='temu'?window._temuUrls[idx]:window._aliUrls[idx];
+  const url=store==='temu'?window._temuUrls[idx]:store==='shein'?window._sheinUrls[idx]:window._aliUrls[idx];
   if(url) window.open(url,'_blank','noopener,noreferrer');
 });
 
@@ -637,7 +734,7 @@ function renderCodesHome() {
     if(isText){
       // Temu text: copy button inline
       return `<div class="mini-code" style="flex-wrap:wrap;gap:8px;">
-        <span class="mini-code-store ${c.store}">${c.store==='temu'?'Temu':'AliExpress'}</span>
+        <span class="mini-code-store ${c.store}">${c.store==='temu'?'Temu':c.store==='shein'?'Shein':'AliExpress'}</span>
         <span style="flex:1;font-size:.78rem;color:var(--text);">${e((c.description||c.aff_text||'').substring(0,55))}…</span>
         <div style="display:flex;gap:6px;flex-shrink:0;">
           <button onclick="miniCopyText('${encodeURIComponent(c.aff_text||'')}',this)" style="background:var(--temu);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:.72rem;font-weight:600;cursor:pointer;">📋 Copiar</button>
@@ -647,7 +744,7 @@ function renderCodesHome() {
     }
     // AliExpress code: click to copy
     return `<div class="mini-code" style="cursor:pointer;" onclick="miniCopyCode('${e(c.code)}',this)" title="Clic para copiar">
-      <span class="mini-code-store ${c.store}">${c.store==='temu'?'Temu':'AliExpress'}</span>
+      <span class="mini-code-store ${c.store}">${c.store==='temu'?'Temu':c.store==='shein'?'Shein':'AliExpress'}</span>
       <span class="mini-code-text">${e(c.code)}</span>
       <span class="mini-code-desc">${e(c.description||'')}</span>
       <span style="font-size:.7rem;color:var(--muted);flex-shrink:0;">📋</span>
@@ -678,7 +775,7 @@ function renderCodesPage() {
   const stores=[...new Set(allCodes.map(c=>c.store))];
   main.innerHTML=stores.map(store=>{
     const codes=allCodes.filter(c=>c.store===store);
-    const name=store==='temu'?'Temu':'AliExpress', dot=store==='temu'?'🔶':'🟠';
+    const name=store==='temu'?'Temu':store==='shein'?'Shein':'AliExpress', dot=store==='temu'?'🔶':store==='shein'?'💗':'🟠';
     return `<div class="codes-section">
       <div class="codes-store-hdr"><span style="font-size:1.4rem;">${dot}</span><span class="codes-store-name">${name}</span><span style="font-size:.72rem;color:var(--muted);">${codes.length} oferta${codes.length!==1?'s':''}</span></div>
       <div class="codes-grid">${codes.map(c=>{
@@ -776,8 +873,10 @@ function switchStore(store) {
   adminStore=store;
   document.getElementById('swAli').classList.toggle('on',store==='aliexpress');
   document.getElementById('swTemu').classList.toggle('on',store==='temu');
-  document.getElementById('aliFields').style.display =store==='aliexpress'?'block':'none';
-  document.getElementById('temuFields').style.display=store==='temu'?'block':'none';
+  document.getElementById('swShein').classList.toggle('on',store==='shein');
+  document.getElementById('aliFields').style.display  =store==='aliexpress'?'block':'none';
+  document.getElementById('temuFields').style.display =store==='temu'?'block':'none';
+  document.getElementById('sheinFields').style.display=store==='shein'?'block':'none';
   clearPreview();
 }
 
@@ -800,13 +899,18 @@ function parseEmbed() {
   document.getElementById('parsedUrlAli').textContent='🔗 '+affUrl;
   status.innerHTML='✅ Código leído'; status.style.color='#166534';
 }
+function previewSheinImg() {
+  const url=document.getElementById('fSheinImg').value.trim();
+  const prev=document.getElementById('imgPreviewShein');
+  if(url){prev.src=url;prev.style.display='block';}else prev.style.display='none';
+}
 function previewTemuImg() {
   const url=document.getElementById('fTemuImg').value.trim();
   const prev=document.getElementById('imgPreviewTemu');
   if(url){prev.src=url;prev.style.display='block';}else prev.style.display='none';
 }
 function clearPreview() {
-  ['imgPreviewAli','imgPreviewTemu'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  ['imgPreviewAli','imgPreviewTemu','imgPreviewShein'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   const p=document.getElementById('parsedUrlAli');if(p)p.textContent='';
   const s=document.getElementById('embedStatus');if(s)s.textContent='';
 }
@@ -814,7 +918,8 @@ function clearPreview() {
 // ── SAVE PRODUCT ──────────────────────────────────────────────────────────────
 async function saveProduct() {
   const isTemu=document.getElementById('swTemu').classList.contains('on');
-  const store=isTemu?'temu':'aliexpress';
+  const isShein=document.getElementById('swShein').classList.contains('on');
+  const store=isTemu?'temu':isShein?'shein':'aliexpress';
   let img='',url='',name='',category=null,discount=null,sellerOnly=false;
   if(store==='aliexpress'){
     const embed=document.getElementById('fEmbed');
@@ -825,13 +930,22 @@ async function saveProduct() {
     sellerOnly=document.getElementById('fSellerOnly').checked;
     if(!img){toast('⚠️ Pega el código embed primero');return;}
     if(!name){toast('⚠️ Nombre obligatorio');return;}
-  } else {
+  } else if(store==='temu'){
     img=document.getElementById('fTemuImg').value.trim();
     url=document.getElementById('fTemuUrl').value.trim();
     category=document.getElementById('fTemuCat').value.trim()||null;
     if(!img){toast('⚠️ URL de imagen obligatoria');return;}
     if(!url){toast('⚠️ Enlace afiliado obligatorio');return;}
     name=category||'Producto Temu';
+  } else {
+    img=document.getElementById('fSheinImg').value.trim();
+    url=document.getElementById('fSheinUrl').value.trim();
+    name=document.getElementById('fSheinName').value.trim();
+    category=document.getElementById('fSheinCat').value.trim()||null;
+    discount=document.getElementById('fSheinDisc').value.trim()||null;
+    if(!img){toast('⚠️ URL de imagen obligatoria');return;}
+    if(!url){toast('⚠️ Enlace afiliado obligatorio');return;}
+    if(!name){toast('⚠️ Nombre obligatorio');return;}
   }
   const payload={name,store,category,discount,image_url:img,affiliate_url:url,seller_only:sellerOnly,active:true};
   const btn=document.getElementById('saveBtn');
@@ -903,11 +1017,19 @@ async function editProd(id) {
     prev.src=p.image_url; prev.style.display='block';
     document.getElementById('embedStatus').innerHTML='✅ Cargado para editar';
     document.getElementById('embedStatus').style.color='#166534';
-  } else {
+  } else if(store==='temu'){
     document.getElementById('fTemuUrl').value=p.affiliate_url||'';
     document.getElementById('fTemuImg').value=p.image_url||'';
     document.getElementById('fTemuCat').value=p.category||'';
     const prev=document.getElementById('imgPreviewTemu');
+    prev.src=p.image_url; prev.style.display='block';
+  } else {
+    document.getElementById('fSheinUrl').value=p.affiliate_url||'';
+    document.getElementById('fSheinImg').value=p.image_url||'';
+    document.getElementById('fSheinName').value=p.name||'';
+    document.getElementById('fSheinCat').value=p.category||'';
+    document.getElementById('fSheinDisc').value=p.discount||'';
+    const prev=document.getElementById('imgPreviewShein');
     prev.src=p.image_url; prev.style.display='block';
   }
   document.getElementById('saveBtn').textContent='💾 Actualizar';
@@ -917,7 +1039,7 @@ async function toggleProd(id,active){await sb.from(TABLE).update({active:!active
 async function delProd(id){if(!confirm('¿Eliminar?'))return;await sb.from(TABLE).delete().eq('id',id);toast('🗑️ Eliminado');loadAdminList();load();}
 function clearForm(){
   editingId=null;
-  ['fName','fCat','fDisc','fEmbed','fTemuUrl','fTemuImg','fTemuCat'].forEach(id=>{const el=document.getElementById(id);if(!el)return;el.value='';if(el.dataset){el.dataset.imgUrl='';el.dataset.affUrl='';}});
+  ['fName','fCat','fDisc','fEmbed','fTemuUrl','fTemuImg','fTemuCat','fSheinUrl','fSheinImg','fSheinName','fSheinCat','fSheinDisc'].forEach(id=>{const el=document.getElementById(id);if(!el)return;el.value='';if(el.dataset){el.dataset.imgUrl='';el.dataset.affUrl='';}});
   document.getElementById('fSellerOnly').checked=false;
   clearPreview(); document.getElementById('saveBtn').textContent='💾 Guardar';
   document.getElementById('saveError').style.display='none';
