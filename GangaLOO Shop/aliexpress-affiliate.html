@@ -927,13 +927,13 @@ async function saveCode() {
   const exp=document.getElementById('codeExpiry').value||null;
   const errDiv=document.getElementById('codeError');
   errDiv.style.display='none';
-  let code='', affText=null;
+  let code='', affText=null, affLink=null;
   if(type==='code'){
     code=document.getElementById('codeText').value.trim();
     if(!code){errDiv.textContent='❌ Código obligatorio';errDiv.style.display='block';return;}
   } else {
     affText=document.getElementById('codeAffText').value.trim();
-    const affLink=document.getElementById('codeAffLink').value.trim()||null;
+    affLink=document.getElementById('codeAffLink').value.trim()||null;
     code=affLink||'TEMU-TEXT';
     if(!affText){errDiv.textContent='❌ Texto afiliado obligatorio';errDiv.style.display='block';return;}
   }
