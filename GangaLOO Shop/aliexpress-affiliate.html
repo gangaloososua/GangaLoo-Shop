@@ -431,8 +431,19 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
           <div class="field"><label>Tienda</label>
             <select id="codeStore"><option value="aliexpress">AliExpress</option><option value="temu">Temu</option></select>
           </div>
-          <div class="field"><label>Código *</label><input type="text" id="codeText" placeholder="GANGALOO20" oninput="this.value=this.value.toUpperCase()"></div>
-          <div class="field"><label>Descripción</label><input type="text" id="codeDesc" placeholder="20% de descuento en tu primera compra"></div>
+          <div class="field"><label>Tipo</label>
+            <select id="codeType" onchange="toggleCodeType()">
+              <option value="code">Código (AliExpress)</option>
+              <option value="text">Texto afiliado (Temu)</option>
+            </select>
+          </div>
+          <div id="codeFieldCode">
+            <div class="field"><label>Código *</label><input type="text" id="codeText" placeholder="GANGALOO20" oninput="this.value=this.value.toUpperCase()"></div>
+          </div>
+          <div id="codeFieldText" style="display:none;">
+            <div class="field"><label>Texto afiliado *</label><textarea id="codeAffText" rows="5" placeholder="¡Ofertas increíbles a solo un clic de distancia! Obtén RD$0 regalos en https://temu.to/k/..."></textarea></div>
+          </div>
+          <div class="field"><label>Descripción / título</label><input type="text" id="codeDesc" placeholder="Ej: Envío gratis + RD$100 regalo"></div>
           <div class="field"><label>Válido hasta (opcional)</label><input type="date" id="codeExpiry"></div>
           <div style="display:flex;gap:10px;margin-top:4px;">
             <button class="btn-p" onclick="saveCode()">💾 Guardar código</button>
@@ -620,12 +631,16 @@ async function loadCodes() {
 function renderCodesHome() {
   const wrap=document.getElementById('homeCodesPreview');
   if(!allCodes.length){wrap.innerHTML='<div style="color:var(--muted);font-size:.83rem;text-align:center;padding:10px 0;">No hay códigos disponibles por ahora.</div>';return;}
-  wrap.innerHTML=allCodes.slice(0,6).map(c=>`
-    <div class="mini-code">
+  wrap.innerHTML=allCodes.slice(0,6).map(c=>{
+    const isText=c.code_type==='text'||c.aff_text;
+    return `<div class="mini-code">
       <span class="mini-code-store ${c.store}">${c.store==='temu'?'Temu':'AliExpress'}</span>
-      <span class="mini-code-text">${e(c.code)}</span>
-      <span class="mini-code-desc">${e(c.description||'')}</span>
-    </div>`).join('')+(allCodes.length>6?`<div style="margin-top:12px;font-size:.78rem;color:var(--muted);">Ver todos en <strong>Códigos</strong></div>`:'');
+      ${isText
+        ? `<span class="mini-code-text" style="font-family:inherit;font-size:.78rem;color:var(--muted);flex:1;">${e((c.description||c.aff_text||'').substring(0,60))}…</span>`
+        : `<span class="mini-code-text">${e(c.code)}</span><span class="mini-code-desc">${e(c.description||'')}</span>`
+      }
+    </div>`;
+  }).join('')+(allCodes.length>6?`<div style="margin-top:12px;font-size:.78rem;color:var(--muted);">Ver todos en <strong>Códigos</strong></div>`:'');
 }
 function renderCodesPage() {
   const main=document.getElementById('codesMain');
@@ -635,16 +650,34 @@ function renderCodesPage() {
     const codes=allCodes.filter(c=>c.store===store);
     const name=store==='temu'?'Temu':'AliExpress', dot=store==='temu'?'🔶':'🟠';
     return `<div class="codes-section">
-      <div class="codes-store-hdr"><span style="font-size:1.4rem;">${dot}</span><span class="codes-store-name">${name}</span><span style="font-size:.72rem;color:var(--muted);">${codes.length} código${codes.length!==1?'s':''}</span></div>
-      <div class="codes-grid">${codes.map(c=>`
-        <div class="code-card">
+      <div class="codes-store-hdr"><span style="font-size:1.4rem;">${dot}</span><span class="codes-store-name">${name}</span><span style="font-size:.72rem;color:var(--muted);">${codes.length} oferta${codes.length!==1?'s':''}</span></div>
+      <div class="codes-grid">${codes.map(c=>{
+        if(c.code_type==='text'||c.aff_text){
+          return `<div class="code-card" style="grid-column:1/-1;">
+            ${c.description?`<div style="font-weight:600;font-size:.88rem;margin-bottom:6px;">${e(c.description)}</div>`:''}
+            <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:.82rem;line-height:1.6;color:var(--text);white-space:pre-wrap;">${e(c.aff_text||'')}</div>
+            <button onclick="copyAffText('${encodeURIComponent(c.aff_text||'')}',this)" style="margin-top:8px;background:var(--temu);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:.8rem;font-weight:600;cursor:pointer;width:100%;">📋 Copiar texto para compartir</button>
+            ${c.expires_at?`<div class="code-expiry" style="margin-top:6px;">⏳ Válido hasta: ${new Date(c.expires_at).toLocaleDateString('es-DO')}</div>`:''}
+          </div>`;
+        }
+        return `<div class="code-card">
           <div class="code-badge" onclick="copyCode('${e(c.code)}',this)"><span>${e(c.code)}</span><span class="code-copy-btn">📋 Copiar</span></div>
           ${c.description?`<div class="code-desc">${e(c.description)}</div>`:''}
           ${c.expires_at?`<div class="code-expiry">⏳ Válido hasta: ${new Date(c.expires_at).toLocaleDateString('es-DO')}</div>`:''}
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
       </div>
     </div>`;
   }).join('');
+}
+function copyAffText(encoded, btn) {
+  const text = decodeURIComponent(encoded);
+  navigator.clipboard.writeText(text).then(()=>{
+    const orig=btn.textContent;
+    btn.textContent='✅ Copiado — ¡comparte ahora!';
+    setTimeout(()=>btn.textContent=orig,3000);
+    toast('✅ Texto copiado');
+  }).catch(()=>toast('No se pudo copiar'));
 }
 function copyCode(code,el) {
   navigator.clipboard.writeText(code).then(()=>{
@@ -868,23 +901,36 @@ async function loadAdminCodes() {
       </div>
     </div>`).join('');
 }
+function toggleCodeType() {
+  const type=document.getElementById('codeType').value;
+  document.getElementById('codeFieldCode').style.display=type==='code'?'block':'none';
+  document.getElementById('codeFieldText').style.display=type==='text'?'block':'none';
+}
 async function saveCode() {
-  const code=document.getElementById('codeText').value.trim();
   const store=document.getElementById('codeStore').value;
+  const type=document.getElementById('codeType').value;
   const desc=document.getElementById('codeDesc').value.trim()||null;
   const exp=document.getElementById('codeExpiry').value||null;
   const errDiv=document.getElementById('codeError');
-  if(!code){errDiv.textContent='❌ Código obligatorio';errDiv.style.display='block';return;}
   errDiv.style.display='none';
+  let code='', affText=null;
+  if(type==='code'){
+    code=document.getElementById('codeText').value.trim();
+    if(!code){errDiv.textContent='❌ Código obligatorio';errDiv.style.display='block';return;}
+  } else {
+    affText=document.getElementById('codeAffText').value.trim();
+    code='TEMU-TEXT';
+    if(!affText){errDiv.textContent='❌ Texto afiliado obligatorio';errDiv.style.display='block';return;}
+  }
   try {
-    const {error}=await sb.from(CODES_TABLE).insert({code,store,description:desc,expires_at:exp,active:true});
+    const {error}=await sb.from(CODES_TABLE).insert({code,store,description:desc,aff_text:affText,code_type:type,expires_at:exp,active:true});
     if(error){errDiv.textContent='❌ '+error.message+' (¿Existe la tabla affiliate_discount_codes?)';errDiv.style.display='block';return;}
   } catch(err){errDiv.textContent='❌ '+err.message;errDiv.style.display='block';return;}
-  toast('✅ Código guardado'); clearCodeForm(); loadAdminCodes();
+  toast('✅ Guardado'); clearCodeForm(); loadAdminCodes();
 }
 async function toggleCode(id,active){await sb.from(CODES_TABLE).update({active:!active}).eq('id',id);toast(active?'⛔ Desactivado':'✅ Activado');loadAdminCodes();}
 async function delCode(id){if(!confirm('¿Eliminar código?'))return;await sb.from(CODES_TABLE).delete().eq('id',id);toast('🗑️ Eliminado');loadAdminCodes();}
-function clearCodeForm(){['codeText','codeDesc','codeExpiry'].forEach(id=>document.getElementById(id).value='');document.getElementById('codeStore').value='aliexpress';document.getElementById('codeError').style.display='none';}
+function clearCodeForm(){['codeText','codeDesc','codeExpiry','codeAffText'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('codeStore').value='aliexpress';document.getElementById('codeType').value='code';toggleCodeType();document.getElementById('codeError').style.display='none';}
 
 // ── SELLER AUTH ───────────────────────────────────────────────────────────────
 function toggleSellerMode(){
