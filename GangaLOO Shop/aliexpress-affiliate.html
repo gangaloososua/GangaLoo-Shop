@@ -441,7 +441,8 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
             <div class="field"><label>Código *</label><input type="text" id="codeText" placeholder="GANGALOO20" oninput="this.value=this.value.toUpperCase()"></div>
           </div>
           <div id="codeFieldText" style="display:none;">
-            <div class="field"><label>Texto afiliado *</label><textarea id="codeAffText" rows="5" placeholder="¡Ofertas increíbles a solo un clic de distancia! Obtén RD$0 regalos en https://temu.to/k/..."></textarea></div>
+            <div class="field"><label>Texto para compartir *</label><textarea id="codeAffText" rows="5" placeholder="¡Ofertas increíbles a solo un clic de distancia! Obtén RD$0 regalos en https://temu.to/k/..."></textarea></div>
+            <div class="field"><label>Enlace directo</label><input type="text" id="codeAffLink" placeholder="https://temu.to/k/..." autocomplete="off"></div>
           </div>
           <div class="field"><label>Descripción / título</label><input type="text" id="codeDesc" placeholder="Ej: Envío gratis + RD$100 regalo"></div>
           <div class="field"><label>Válido hasta (opcional)</label><input type="date" id="codeExpiry"></div>
@@ -653,13 +654,12 @@ function renderCodesPage() {
       <div class="codes-store-hdr"><span style="font-size:1.4rem;">${dot}</span><span class="codes-store-name">${name}</span><span style="font-size:.72rem;color:var(--muted);">${codes.length} oferta${codes.length!==1?'s':''}</span></div>
       <div class="codes-grid">${codes.map(c=>{
         if(c.code_type==='text'||c.aff_text){
-          const linkMatch=(c.aff_text||'').match(/https?:\/\/[^\s]+/);
-          const link=linkMatch?linkMatch[0]:'';
           return `<div class="code-card" style="grid-column:1/-1;">
-            <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:.82rem;line-height:1.6;color:var(--text);white-space:pre-wrap;">${e(c.aff_text||'')}</div>
-            <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-              <button onclick="copyAffText('${encodeURIComponent(c.aff_text||'')}',this)" style="flex:1;background:var(--temu);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:600;cursor:pointer;">📋 Copiar texto</button>
-              ${link?`<a href="${link}" target="_blank" rel="noopener" style="flex:1;background:var(--black);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:600;cursor:pointer;text-decoration:none;text-align:center;">🔗 Abrir enlace</a>`:''}
+            <div style="font-size:.72rem;font-weight:600;color:var(--temu);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">🔶 Oferta Temu</div>
+            <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:.84rem;line-height:1.7;color:var(--text);white-space:pre-wrap;">${e(c.aff_text||'')}</div>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+              <button onclick="copyAffText('${encodeURIComponent(c.aff_text||'')}',this)" style="flex:1;background:var(--temu);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:.82rem;font-weight:600;cursor:pointer;">📋 Copiar texto</button>
+              ${c.aff_link?`<a href="${e(c.aff_link)}" target="_blank" rel="noopener" style="flex:1;background:var(--black);color:#fff;border-radius:8px;padding:9px 14px;font-size:.82rem;font-weight:600;text-decoration:none;text-align:center;display:block;">🔗 Abrir enlace</a>`:''}
             </div>
             ${c.expires_at?`<div class="code-expiry" style="margin-top:6px;">⏳ Válido hasta: ${new Date(c.expires_at).toLocaleDateString('es-DO')}</div>`:''}
           </div>`;
@@ -933,15 +933,16 @@ async function saveCode() {
     if(!code){errDiv.textContent='❌ Código obligatorio';errDiv.style.display='block';return;}
   } else {
     affText=document.getElementById('codeAffText').value.trim();
-    code='TEMU-TEXT';
+    const affLink=document.getElementById('codeAffLink').value.trim()||null;
+    code=affLink||'TEMU-TEXT';
     if(!affText){errDiv.textContent='❌ Texto afiliado obligatorio';errDiv.style.display='block';return;}
   }
   try {
     let error;
     if(editingCodeId){
-      ({error}=await sb.from(CODES_TABLE).update({code,store,description:desc,aff_text:affText,code_type:type,expires_at:exp}).eq('id',editingCodeId));
+      ({error}=await sb.from(CODES_TABLE).update({code,store,description:desc,aff_text:affText,aff_link:affLink||null,code_type:type,expires_at:exp}).eq('id',editingCodeId));
     } else {
-      ({error}=await sb.from(CODES_TABLE).insert({code,store,description:desc,aff_text:affText,code_type:type,expires_at:exp,active:true}));
+      ({error}=await sb.from(CODES_TABLE).insert({code,store,description:desc,aff_text:affText,aff_link:affLink||null,code_type:type,expires_at:exp,active:true}));
     }
     if(error){errDiv.textContent='❌ '+error.message+' (¿Existe la tabla affiliate_discount_codes?)';errDiv.style.display='block';return;}
   } catch(err){errDiv.textContent='❌ '+err.message;errDiv.style.display='block';return;}
@@ -958,6 +959,7 @@ async function editCode(id) {
   toggleCodeType();
   if(type==='text'||c.aff_text){
     document.getElementById('codeAffText').value=c.aff_text||'';
+    document.getElementById('codeAffLink').value=c.aff_link||'';
   } else {
     document.getElementById('codeText').value=c.code||'';
   }
@@ -972,7 +974,7 @@ async function editCode(id) {
 }
 async function toggleCode(id,active){await sb.from(CODES_TABLE).update({active:!active}).eq('id',id);toast(active?'⛔ Desactivado':'✅ Activado');loadAdminCodes();}
 async function delCode(id){if(!confirm('¿Eliminar código?'))return;await sb.from(CODES_TABLE).delete().eq('id',id);toast('🗑️ Eliminado');loadAdminCodes();}
-function clearCodeForm(){editingCodeId=null;['codeText','codeDesc','codeExpiry','codeAffText'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('codeStore').value='aliexpress';document.getElementById('codeType').value='code';toggleCodeType();document.getElementById('codeError').style.display='none';const saveBtn=document.querySelector('#aTabCodes .btn-p');if(saveBtn)saveBtn.textContent='💾 Guardar código';}
+function clearCodeForm(){editingCodeId=null;['codeText','codeDesc','codeExpiry','codeAffText','codeAffLink'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('codeStore').value='aliexpress';document.getElementById('codeType').value='code';toggleCodeType();document.getElementById('codeError').style.display='none';const saveBtn=document.querySelector('#aTabCodes .btn-p');if(saveBtn)saveBtn.textContent='💾 Guardar código';}
 
 // ── SELLER AUTH ───────────────────────────────────────────────────────────────
 function toggleSellerMode(){
