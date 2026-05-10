@@ -9077,6 +9077,14 @@ function openProductDetail(id) {
             <label class="field-label">Termina</label>
             <input class="field" type="datetime-local" id="pdDealEnd" value="${p.dealEnd||''}">
           </div>
+          <div class="form-group" id="pdDealWhGroup" style="${(!p.dealType||p.dealType==='none')?'display:none':''}">
+            <label class="field-label">Almacén de la oferta</label>
+            <select class="field" id="pdDealWarehouse">
+              <option value="">Todos los almacenes</option>
+              ${warehouses.map(w=>`<option value="${w.id}" ${String(p.dealWarehouse||'')=== String(w.id)?'selected':''}>${w.name}</option>`).join('')}
+            </select>
+            <p class="field-hint">La oferta sólo se mostrará en la tienda cuando el cliente esté viendo este almacén.</p>
+          </div>
           <div id="pdDealPreview" style="${(!p.dealType||p.dealType==='none')?'display:none':'display:block'};grid-column:1/-1;">
             <div class="badge badge-rose" id="pdDealPreviewBadge" style="font-size:12px;padding:6px 12px;"></div>
           </div>
@@ -9198,9 +9206,9 @@ function toggleDiscountValue() {
 function toggleDealFields() {
   const type = document.getElementById('pdDealType')?.value;
   const show = type && type !== 'none';
-  ['pdDealDiscGroup','pdDealEndGroup','pdDealPreview'].forEach(id => {
+  ['pdDealDiscGroup','pdDealEndGroup','pdDealWhGroup','pdDealPreview'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.style.display = show ? (id==='pdDealPreview'?'block':'block') : 'none';
+    if (el) el.style.display = show ? 'block' : 'none';
   });
   if (show) updateDealPreview2();
 }
@@ -9271,9 +9279,10 @@ function saveProductDetail(id) {
   p.discountValue = parseFloat(document.getElementById('pdDiscountValue')?.value) || 0;
 
   /* Deal */
-  p.dealType     = document.getElementById('pdDealType')?.value || 'none';
-  p.dealDiscount = parseFloat(document.getElementById('pdDealDiscount')?.value) || 0;
-  p.dealEnd      = document.getElementById('pdDealEnd')?.value || '';
+  p.dealType      = document.getElementById('pdDealType')?.value || 'none';
+  p.dealDiscount  = parseFloat(document.getElementById('pdDealDiscount')?.value) || 0;
+  p.dealEnd       = document.getElementById('pdDealEnd')?.value || '';
+  p.dealWarehouse = document.getElementById('pdDealWarehouse')?.value || '';
 
   /* Recalculate realMargin if we have enough data */
   if (p.totalBaseDOP && p.price) {
@@ -9503,7 +9512,13 @@ function openNuevoProducto() {
               <label class="field-label">% Oferta</label>
               <input class="field" type="number" id="npDealDiscount" value="0" min="0" max="99">
             </div>
-          </div>
+            <div class="form-group">
+              <label class="field-label">Almacén de la oferta</label>
+              <select class="field" id="npDealWarehouse">
+                <option value="">Todos los almacenes</option>
+                ${warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('')}
+              </select>
+            </div>
         </div>
 
         <!-- RIGHT: Calculadora de precio -->
@@ -9712,9 +9727,10 @@ function saveNuevoProducto() {
     discountType:  document.getElementById('npDiscType')?.value  || 'none',
     discountValue: parseFloat(document.getElementById('npDiscVal')?.value) || 0,
     /* Deal */
-    dealType:     document.getElementById('npDealType')?.value    || 'none',
-    dealDiscount: parseFloat(document.getElementById('npDealDiscount')?.value) || 0,
-    dealEnd:      '',
+    dealType:      document.getElementById('npDealType')?.value    || 'none',
+    dealDiscount:  parseFloat(document.getElementById('npDealDiscount')?.value) || 0,
+    dealEnd:       '',
+    dealWarehouse: document.getElementById('npDealWarehouse')?.value || '',
     createdAt:    new Date().toISOString()
   };
 
