@@ -634,14 +634,43 @@ function renderCodesHome() {
   if(!allCodes.length){wrap.innerHTML='<div style="color:var(--muted);font-size:.83rem;text-align:center;padding:10px 0;">No hay códigos disponibles por ahora.</div>';return;}
   wrap.innerHTML=allCodes.slice(0,6).map(c=>{
     const isText=c.code_type==='text'||c.aff_text;
-    return `<div class="mini-code">
+    if(isText){
+      // Temu text: copy button inline
+      return `<div class="mini-code" style="flex-wrap:wrap;gap:8px;">
+        <span class="mini-code-store ${c.store}">${c.store==='temu'?'Temu':'AliExpress'}</span>
+        <span style="flex:1;font-size:.78rem;color:var(--text);">${e((c.description||c.aff_text||'').substring(0,55))}…</span>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button onclick="miniCopyText('${encodeURIComponent(c.aff_text||'')}',this)" style="background:var(--temu);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:.72rem;font-weight:600;cursor:pointer;">📋 Copiar</button>
+          ${c.aff_link?`<a href="${e(c.aff_link)}" target="_blank" rel="noopener" style="background:var(--black);color:#fff;border-radius:6px;padding:4px 10px;font-size:.72rem;font-weight:600;text-decoration:none;">🔗 Abrir</a>`:''}
+        </div>
+      </div>`;
+    }
+    // AliExpress code: click to copy
+    return `<div class="mini-code" style="cursor:pointer;" onclick="miniCopyCode('${e(c.code)}',this)" title="Clic para copiar">
       <span class="mini-code-store ${c.store}">${c.store==='temu'?'Temu':'AliExpress'}</span>
-      ${isText
-        ? `<span class="mini-code-text" style="font-family:inherit;font-size:.78rem;color:var(--muted);flex:1;">${e((c.description||c.aff_text||'').substring(0,60))}…</span>`
-        : `<span class="mini-code-text">${e(c.code)}</span><span class="mini-code-desc">${e(c.description||'')}</span>`
-      }
+      <span class="mini-code-text">${e(c.code)}</span>
+      <span class="mini-code-desc">${e(c.description||'')}</span>
+      <span style="font-size:.7rem;color:var(--muted);flex-shrink:0;">📋</span>
     </div>`;
-  }).join('')+(allCodes.length>6?`<div style="margin-top:12px;font-size:.78rem;color:var(--muted);">Ver todos en <strong>Códigos</strong></div>`:'');
+  }).join('')+(allCodes.length>6?`<div style="margin-top:12px;font-size:.78rem;color:var(--muted);">Ver todos en la pestaña <strong>Códigos</strong></div>`:'');
+}
+function miniCopyCode(code, el) {
+  navigator.clipboard.writeText(code).then(()=>{
+    const orig=el.innerHTML;
+    el.style.background='#f0fdf4';
+    el.querySelector('span:last-child').textContent='✅';
+    setTimeout(()=>{el.style.background='';el.querySelector('span:last-child').textContent='📋';},2000);
+    toast('✅ Código copiado: '+code);
+  }).catch(()=>toast('Código: '+code));
+}
+function miniCopyText(encoded, btn) {
+  const text=decodeURIComponent(encoded);
+  navigator.clipboard.writeText(text).then(()=>{
+    const orig=btn.textContent;
+    btn.textContent='✅ Copiado';
+    setTimeout(()=>btn.textContent=orig,2000);
+    toast('✅ Texto copiado');
+  }).catch(()=>toast('No se pudo copiar'));
 }
 function renderCodesPage() {
   const main=document.getElementById('codesMain');
