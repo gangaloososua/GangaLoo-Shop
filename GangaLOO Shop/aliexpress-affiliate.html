@@ -91,16 +91,16 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 /* ALI GRID - square */
 .grid-ali{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;}
 /* TEMU GRID - wide */
-.grid-temu{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px;}
+.grid-temu{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px;align-items:start;}
 
 .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:transform .22s,box-shadow .22s;position:relative;cursor:pointer;}
 .card:hover{transform:translateY(-5px);box-shadow:0 14px 36px rgba(0,0,0,.09);}
 .card-img-sq{aspect-ratio:1;overflow:hidden;background:#eee8de;position:relative;}
 .card-img-sq img{width:100%;height:100%;object-fit:cover;transition:transform .4s;display:block;}
 .card:hover .card-img-sq img{transform:scale(1.07);}
-.card-img-wide{aspect-ratio:3/4;overflow:hidden;background:#f5f0ea;position:relative;}
-.card-img-wide img{width:100%;height:100%;object-fit:contain;transition:transform .4s;display:block;background:#f5f0ea;}
-.card:hover .card-img-wide img{transform:scale(1.03);}
+.card-img-wide{overflow:hidden;background:#f5f0ea;position:relative;}
+.card-img-wide img{width:100%;height:auto;display:block;background:#f5f0ea;transition:transform .4s;}
+.card:hover .card-img-wide img{transform:scale(1.02);}
 
 .store-badge{position:absolute;bottom:8px;left:8px;color:#fff;font-size:.55rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:5px;}
 .store-badge.ali{background:var(--ali);}
@@ -653,10 +653,14 @@ function renderCodesPage() {
       <div class="codes-store-hdr"><span style="font-size:1.4rem;">${dot}</span><span class="codes-store-name">${name}</span><span style="font-size:.72rem;color:var(--muted);">${codes.length} oferta${codes.length!==1?'s':''}</span></div>
       <div class="codes-grid">${codes.map(c=>{
         if(c.code_type==='text'||c.aff_text){
+          const linkMatch=(c.aff_text||'').match(/https?:\/\/[^\s]+/);
+          const link=linkMatch?linkMatch[0]:'';
           return `<div class="code-card" style="grid-column:1/-1;">
-            ${c.description?`<div style="font-weight:600;font-size:.88rem;margin-bottom:6px;">${e(c.description)}</div>`:''}
             <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:.82rem;line-height:1.6;color:var(--text);white-space:pre-wrap;">${e(c.aff_text||'')}</div>
-            <button onclick="copyAffText('${encodeURIComponent(c.aff_text||'')}',this)" style="margin-top:8px;background:var(--temu);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:.8rem;font-weight:600;cursor:pointer;width:100%;">📋 Copiar texto para compartir</button>
+            <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+              <button onclick="copyAffText('${encodeURIComponent(c.aff_text||'')}',this)" style="flex:1;background:var(--temu);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:600;cursor:pointer;">📋 Copiar texto</button>
+              ${link?`<a href="${link}" target="_blank" rel="noopener" style="flex:1;background:var(--black);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:600;cursor:pointer;text-decoration:none;text-align:center;">🔗 Abrir enlace</a>`:''}
+            </div>
             ${c.expires_at?`<div class="code-expiry" style="margin-top:6px;">⏳ Válido hasta: ${new Date(c.expires_at).toLocaleDateString('es-DO')}</div>`:''}
           </div>`;
         }
@@ -883,7 +887,7 @@ function clearForm(){
 
 // ── CODES ADMIN ───────────────────────────────────────────────────────────────
 async function loadAdminCodes() {
-  const {data}=await sb.from(CODES_TABLE).select('*').order('created_at',{ascending:false}).catch(()=>({data:[]}));
+  let data; try{ ({data}=await sb.from(CODES_TABLE).select('*').order('created_at',{ascending:false})); }catch(e){data=[];}
   allCodes=(data||[]).filter(c=>c.active);
   renderCodesPage(); renderCodesHome();
   const list=document.getElementById('codesList'); if(!list) return;
