@@ -827,7 +827,16 @@ async function saveProduct() {
 async function loadAdminList() {
   const list=document.getElementById('prodList');
   list.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82em;">Cargando...</div>';
-  const {data}=await sb.from(TABLE).select('*').order('created_at',{ascending:false});
+  let data;
+  try {
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout')),10000));
+    const result=await Promise.race([sb.from(TABLE).select('*').order('created_at',{ascending:false}), timeout]);
+    data=result.data;
+    if(result.error) throw new Error(result.error.message);
+  } catch(err) {
+    list.innerHTML=`<div style="padding:16px;text-align:center;color:var(--red);font-size:.82em;">❌ Error: ${err.message}<br><small>Verifica RLS policies en Supabase</small></div>`;
+    return;
+  }
   document.getElementById('listCount').textContent=(data||[]).length+' productos';
   if(!data?.length){list.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted);">No hay productos aún.</div>';return;}
   list.innerHTML=data.map(p=>{
@@ -900,6 +909,7 @@ async function loadAdminCodes() {
         <div class="prod-row-cat">${e(c.description||'')} ${c.expires_at?'⏳ '+new Date(c.expires_at).toLocaleDateString('es-DO'):''} ${c.active?'✅':'⛔'}</div>
       </div>
       <div class="prod-row-actions">
+        <button class="btn-edit" onclick="editCode('${c.id}')">✏️</button>
         <button class="btn-del" onclick="toggleCode('${c.id}',${c.active})">${c.active?'⛔':'✅'}</button>
         <button class="btn-del" onclick="delCode('${c.id}')">🗑️</button>
       </div>
@@ -927,14 +937,42 @@ async function saveCode() {
     if(!affText){errDiv.textContent='❌ Texto afiliado obligatorio';errDiv.style.display='block';return;}
   }
   try {
-    const {error}=await sb.from(CODES_TABLE).insert({code,store,description:desc,aff_text:affText,code_type:type,expires_at:exp,active:true});
+    let error;
+    if(editingCodeId){
+      ({error}=await sb.from(CODES_TABLE).update({code,store,description:desc,aff_text:affText,code_type:type,expires_at:exp}).eq('id',editingCodeId));
+    } else {
+      ({error}=await sb.from(CODES_TABLE).insert({code,store,description:desc,aff_text:affText,code_type:type,expires_at:exp,active:true}));
+    }
     if(error){errDiv.textContent='❌ '+error.message+' (¿Existe la tabla affiliate_discount_codes?)';errDiv.style.display='block';return;}
   } catch(err){errDiv.textContent='❌ '+err.message;errDiv.style.display='block';return;}
-  toast('✅ Guardado'); clearCodeForm(); loadAdminCodes();
+  toast(editingCodeId?'✅ Actualizado':'✅ Guardado'); clearCodeForm(); loadAdminCodes();
+}
+let editingCodeId=null;
+async function editCode(id) {
+  const {data:c}=await sb.from(CODES_TABLE).select('*').eq('id',id).single();
+  if(!c) return;
+  editingCodeId=id;
+  document.getElementById('codeStore').value=c.store||'aliexpress';
+  const type=c.code_type||'code';
+  document.getElementById('codeType').value=type;
+  toggleCodeType();
+  if(type==='text'||c.aff_text){
+    document.getElementById('codeAffText').value=c.aff_text||'';
+  } else {
+    document.getElementById('codeText').value=c.code||'';
+  }
+  document.getElementById('codeDesc').value=c.description||'';
+  document.getElementById('codeExpiry').value=c.expires_at?c.expires_at.split('T')[0]:'';
+  // Scroll form into view and show editing state
+  const saveBtn=document.querySelector('#aTabCodes .btn-p');
+  saveBtn.textContent='💾 Actualizar código';
+  document.getElementById('codeError').style.display='none';
+  document.querySelector('#aTabCodes').scrollTop=0;
+  toast('✏️ Editando código — modifica y guarda');
 }
 async function toggleCode(id,active){await sb.from(CODES_TABLE).update({active:!active}).eq('id',id);toast(active?'⛔ Desactivado':'✅ Activado');loadAdminCodes();}
 async function delCode(id){if(!confirm('¿Eliminar código?'))return;await sb.from(CODES_TABLE).delete().eq('id',id);toast('🗑️ Eliminado');loadAdminCodes();}
-function clearCodeForm(){['codeText','codeDesc','codeExpiry','codeAffText'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('codeStore').value='aliexpress';document.getElementById('codeType').value='code';toggleCodeType();document.getElementById('codeError').style.display='none';}
+function clearCodeForm(){editingCodeId=null;['codeText','codeDesc','codeExpiry','codeAffText'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('codeStore').value='aliexpress';document.getElementById('codeType').value='code';toggleCodeType();document.getElementById('codeError').style.display='none';const saveBtn=document.querySelector('#aTabCodes .btn-p');if(saveBtn)saveBtn.textContent='💾 Guardar código';}
 
 // ── SELLER AUTH ───────────────────────────────────────────────────────────────
 function toggleSellerMode(){
