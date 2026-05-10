@@ -1370,6 +1370,25 @@ async function loadData(){
   buildDealSection();
   // Restore active category button after rebuild
   if(wasLoaded) setActiveStripBtn(selectedCat);
+  // Hash deep-link: read once after first full load
+  if(!wasLoaded){
+    const h=window.location.hash;
+    if(h.startsWith('#cat-')){
+      const catId=h.replace('#cat-','');
+      filterCat(catId);
+    } else if(h.startsWith('#prod-')){
+      const prodId=h.replace('#prod-','');
+      const prod=allProducts.find(p=>String(p.id)===prodId);
+      if(prod){
+        const catId=(prod.categoryIds&&prod.categoryIds.length?prod.categoryIds[0]:prod.categoryId);
+        filterCat(catId);
+        setTimeout(()=>{
+          const el=document.getElementById('prod-'+prodId);
+          if(el)el.scrollIntoView({behavior:'smooth',block:'center'});
+        },300);
+      }
+    }
+  }
 }
 
 /* ── WAREHOUSE ── */
@@ -1496,6 +1515,7 @@ function filterCat(id){
   console.log('[filterCat] id:'+id+' products:'+allProducts.length+' purchases:'+allPurchases.length);
   if(!_dataLoaded) return;
   selectedCat=id!=null?String(id):null;
+  window.location.hash=id?'cat-'+id:'';
   setActiveStripBtn(id);
   renderProducts();
   // show subcat container only when a category with subcats is selected
@@ -1622,7 +1642,7 @@ function renderProducts(){
     if(stk===0){pc='sp-out';pt='Agotado';dis='disabled';}
     else if(stk<=5){pc='sp-low';pt=`Últimas ${stk}`;}
     else{pc='sp-in';pt='Disponible';}
-    return`<div class="pcard">
+    return`<div class="pcard" id="prod-${p.id}">
       <div class="pcard-img" onclick="openProductModal(${p.id})">${p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" onerror="this.style.display='none'">`:cat?.icon||'💇'}
         <span class="stock-pill ${pc}">${pt}</span>
         ${isClub?`<span class="club-disc-badge">-10%</span>`:(hasDisc?`<span class="disc-badge">-${discPct}%</span>`:(isGuest&&guestMarkup>0?`<span style="background:#002D62;color:white;border-radius:20px;padding:1px 5px;font-size:.55em;font-weight:700;position:absolute;top:6px;left:6px;">Regístrate</span>`:''))}
