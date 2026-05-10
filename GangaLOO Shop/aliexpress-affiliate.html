@@ -98,9 +98,9 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .card-img-sq{aspect-ratio:1;overflow:hidden;background:#eee8de;position:relative;}
 .card-img-sq img{width:100%;height:100%;object-fit:cover;transition:transform .4s;display:block;}
 .card:hover .card-img-sq img{transform:scale(1.07);}
-.card-img-wide{aspect-ratio:4/3;overflow:hidden;background:#eee8de;position:relative;}
-.card-img-wide img{width:100%;height:100%;object-fit:cover;transition:transform .4s;display:block;}
-.card:hover .card-img-wide img{transform:scale(1.05);}
+.card-img-wide{aspect-ratio:3/4;overflow:hidden;background:#f5f0ea;position:relative;}
+.card-img-wide img{width:100%;height:100%;object-fit:contain;transition:transform .4s;display:block;background:#f5f0ea;}
+.card:hover .card-img-wide img{transform:scale(1.03);}
 
 .store-badge{position:absolute;bottom:8px;left:8px;color:#fff;font-size:.55rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:5px;}
 .store-badge.ali{background:var(--ali);}
@@ -238,7 +238,12 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
     <div class="store-cards">
       <div class="store-card ali" onclick="showPage('ali',document.querySelectorAll('.top-tab')[1])">
         <div class="store-card-top">
-          <div class="store-card-logo">🟠</div>
+          <div class="store-card-logo">
+            <svg width="140" height="40" viewBox="0 0 140 40" xmlns="http://www.w3.org/2000/svg">
+              <rect width="140" height="40" rx="8" fill="#e62f01"/>
+              <text x="70" y="27" font-family="Arial,sans-serif" font-size="15" font-weight="bold" fill="white" text-anchor="middle" letter-spacing="0.5">AliExpress</text>
+            </svg>
+          </div>
           <div class="store-card-name">AliExpress</div>
           <div class="store-card-desc">Productos seleccionados a precios increíbles. Pelucas, extensiones, electrónica y mucho más.</div>
           <div class="store-card-count" id="homeAliCount"></div>
@@ -247,7 +252,12 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
       </div>
       <div class="store-card temu" onclick="showPage('temu',document.querySelectorAll('.top-tab')[2])">
         <div class="store-card-top">
-          <div class="store-card-logo">🔶</div>
+          <div class="store-card-logo">
+            <svg width="110" height="40" viewBox="0 0 110 40" xmlns="http://www.w3.org/2000/svg">
+              <rect width="110" height="40" rx="8" fill="#ff6034"/>
+              <text x="55" y="27" font-family="Arial,sans-serif" font-size="18" font-weight="bold" fill="white" text-anchor="middle" letter-spacing="1">temu</text>
+            </svg>
+          </div>
           <div class="store-card-name">Temu</div>
           <div class="store-card-desc">Ofertas increíbles en moda, belleza y hogar. Envío gratis disponible.</div>
           <div class="store-card-count" id="homeTemuCount"></div>
