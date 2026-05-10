@@ -924,6 +924,7 @@ function clearForm(){
 }
 
 // ── CODES ADMIN ───────────────────────────────────────────────────────────────
+let editingCodeId=null;
 async function loadAdminCodes() {
   let data; try{ ({data}=await sb.from(CODES_TABLE).select('*').order('created_at',{ascending:false})); }catch(e){data=[];}
   allCodes=(data||[]).filter(c=>c.active);
@@ -973,11 +974,10 @@ async function saveCode() {
     } else {
       ({error}=await sb.from(CODES_TABLE).insert({code,store,description:desc,aff_text:affText,aff_link:affLink||null,code_type:type,expires_at:exp,active:true}));
     }
-    if(error){errDiv.textContent='❌ '+error.message+' (¿Existe la tabla affiliate_discount_codes?)';errDiv.style.display='block';return;}
-  } catch(err){errDiv.textContent='❌ '+err.message;errDiv.style.display='block';return;}
+    if(error){errDiv.textContent='❌ '+error.message+' (¿Existe la tabla affiliate_discount_codes? Agrega columnas aff_text, aff_link, code_type)';errDiv.style.display='block';errDiv.scrollIntoView({behavior:'smooth',block:'center'});return;}
+  } catch(err){errDiv.textContent='❌ '+err.message;errDiv.style.display='block';errDiv.scrollIntoView({behavior:'smooth',block:'center'});return;}
   toast(editingCodeId?'✅ Actualizado':'✅ Guardado'); clearCodeForm(); loadAdminCodes();
 }
-let editingCodeId=null;
 async function editCode(id) {
   const {data:c}=await sb.from(CODES_TABLE).select('*').eq('id',id).single();
   if(!c) return;
