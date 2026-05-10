@@ -8,10 +8,13 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="/config.js"></script>
 <style>
-:root{--bg:#f7f4ef;--surface:#fff;--black:#111110;--red:#cc2200;--orange:#d4580a;--gold:#b8902a;--temu:#ff6034;--ali:#e62f01;--muted:#88887f;--border:#e4e0d8;--text:#222220;}
+:root{
+  --bg:#f7f4ef;--surface:#fff;--black:#111110;--red:#cc2200;--orange:#d4580a;
+  --gold:#b8902a;--temu:#ff6034;--ali:#e62f01;--muted:#88887f;--border:#e4e0d8;--text:#222220;
+}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
-/* NAV */
+
 nav{background:var(--black);display:flex;align-items:center;justify-content:space-between;padding:0 5vw;height:58px;position:sticky;top:0;z-index:200;}
 .logo{font-family:'Cormorant Garamond',serif;font-size:1.35rem;color:#fff;text-decoration:none;}
 .logo em{color:var(--red);font-style:normal;}
@@ -20,46 +23,85 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .nav-link:hover{color:#fff;}
 .nav-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:6px 13px;font-size:.78rem;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .2s;}
 .nav-btn:hover{background:rgba(255,255,255,.18);}
-/* SELLER BANNER */
+
 .seller-banner{background:linear-gradient(135deg,#111110,#2a2200);color:var(--gold);text-align:center;padding:9px 5vw;font-size:.8rem;font-weight:600;letter-spacing:.04em;display:none;}
 .seller-banner.show{display:block;}
-/* HERO */
+
 .hero{background:var(--black);padding:48px 5vw 40px;text-align:center;}
 .hero-tag{font-size:.68rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--orange);margin-bottom:14px;}
 .hero h1{font-family:'Cormorant Garamond',serif;font-size:clamp(2rem,5vw,3.2rem);font-weight:400;color:#fff;line-height:1.1;margin-bottom:10px;}
 .hero h1 i{color:var(--gold);font-style:italic;}
 .hero p{font-size:.86rem;color:rgba(255,255,255,.45);max-width:420px;margin:0 auto;line-height:1.7;}
-/* STORE TABS */
-.store-tabs{background:var(--black);border-top:1px solid rgba(255,255,255,.07);display:flex;justify-content:center;gap:0;padding:0 5vw;}
-.store-tab{display:flex;align-items:center;gap:8px;padding:14px 28px;font-size:.85rem;font-weight:600;cursor:pointer;color:rgba(255,255,255,.4);border-bottom:3px solid transparent;transition:all .2s;white-space:nowrap;}
-.store-tab:hover{color:rgba(255,255,255,.75);}
-.store-tab.on{color:#fff;border-bottom-color:var(--gold);}
-.store-tab .tab-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* TOP TABS */
+.top-tabs{background:var(--black);border-top:1px solid rgba(255,255,255,.07);display:flex;justify-content:center;overflow-x:auto;}
+.top-tab{display:flex;align-items:center;gap:8px;padding:14px 24px;font-size:.85rem;font-weight:600;cursor:pointer;color:rgba(255,255,255,.4);border-bottom:3px solid transparent;transition:all .2s;white-space:nowrap;background:none;border-left:none;border-right:none;border-top:none;font-family:'DM Sans',sans-serif;}
+.top-tab:hover{color:rgba(255,255,255,.75);}
+.top-tab.on{color:#fff;border-bottom-color:var(--gold);}
+.tab-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .tab-dot.ali{background:var(--ali);}
 .tab-dot.temu{background:var(--temu);}
-.tab-dot.all{background:var(--gold);}
-/* FILTER */
+.tab-dot.home{background:var(--gold);}
+.tab-dot.codes{background:#4ade80;}
+
+/* HOME */
+#pageHome{display:block;}
+.home-main{padding:40px 5vw 80px;max-width:1100px;margin:0 auto;}
+.home-heading{font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:400;margin-bottom:24px;}
+.store-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-bottom:48px;}
+.store-card{background:var(--surface);border:1.5px solid var(--border);border-radius:20px;overflow:hidden;cursor:pointer;transition:transform .22s,box-shadow .22s;display:flex;flex-direction:column;}
+.store-card:hover{transform:translateY(-6px);box-shadow:0 16px 40px rgba(0,0,0,.1);}
+.store-card-top{padding:32px 28px 24px;flex:1;}
+.store-card-logo{font-size:2.4rem;margin-bottom:12px;}
+.store-card-name{font-family:'Cormorant Garamond',serif;font-size:1.7rem;font-weight:600;margin-bottom:6px;}
+.store-card-desc{font-size:.82rem;color:var(--muted);line-height:1.6;}
+.store-card-count{font-size:.72rem;font-weight:600;color:var(--muted);margin-top:10px;}
+.store-card-bottom{padding:14px 28px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:.8rem;font-weight:600;}
+.store-card.ali .store-card-bottom{background:#fff8f7;color:var(--ali);}
+.store-card.temu .store-card-bottom{background:#fff8f5;color:var(--temu);}
+
+.home-codes-preview{background:var(--surface);border:1.5px solid var(--border);border-radius:20px;padding:28px;}
+.mini-code{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.mini-code:last-child{border-bottom:none;}
+.mini-code-store{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:2px 8px;border-radius:5px;flex-shrink:0;}
+.mini-code-store.ali{background:#fff0ee;color:var(--ali);}
+.mini-code-store.temu{background:#fff3ee;color:var(--temu);}
+.mini-code-text{font-family:monospace;font-size:.88rem;font-weight:700;flex:1;}
+.mini-code-desc{font-size:.75rem;color:var(--muted);}
+
+/* OTHER PAGES hidden by default */
+#pageAli,#pageTemu,#pageCodes{display:none;}
+
+/* FILTER BAR */
 .filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 5vw;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
 .search-wrap{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;border:1.5px solid var(--border);border-radius:10px;padding:0 12px;background:var(--bg);}
 .search-wrap input{flex:1;border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:.88rem;color:var(--text);padding:9px 0;outline:none;}
 .search-wrap input::placeholder{color:var(--muted);}
 .cat-sel{padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.84rem;background:var(--bg);color:var(--text);cursor:pointer;}
-/* CHIPS */
+
 .chips{background:var(--surface);padding:10px 5vw;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border);}
 .chip{padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--bg);font-size:.76rem;font-weight:500;cursor:pointer;transition:all .15s;color:var(--text);}
 .chip.on,.chip:hover{background:var(--black);border-color:var(--black);color:#fff;}
-/* GRID */
+
 .main{padding:28px 5vw 72px;max-width:1360px;margin:0 auto;}
 .grid-hdr{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:6px;}
 .grid-hdr h2{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:400;}
 .gcount{font-size:.78rem;color:var(--muted);}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;}
-/* CARD */
-.card{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:transform .22s,box-shadow .22s;position:relative;}
+
+/* ALI GRID - square */
+.grid-ali{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;}
+/* TEMU GRID - wide */
+.grid-temu{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px;}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:transform .22s,box-shadow .22s;position:relative;cursor:pointer;}
 .card:hover{transform:translateY(-5px);box-shadow:0 14px 36px rgba(0,0,0,.09);}
-.card-img{aspect-ratio:1;overflow:hidden;background:#eee8de;position:relative;}
-.card-img img{width:100%;height:100%;object-fit:cover;transition:transform .4s ease;display:block;}
-.card:hover .card-img img{transform:scale(1.07);}
+.card-img-sq{aspect-ratio:1;overflow:hidden;background:#eee8de;position:relative;}
+.card-img-sq img{width:100%;height:100%;object-fit:cover;transition:transform .4s;display:block;}
+.card:hover .card-img-sq img{transform:scale(1.07);}
+.card-img-wide{aspect-ratio:4/3;overflow:hidden;background:#eee8de;position:relative;}
+.card-img-wide img{width:100%;height:100%;object-fit:cover;transition:transform .4s;display:block;}
+.card:hover .card-img-wide img{transform:scale(1.05);}
+
 .store-badge{position:absolute;bottom:8px;left:8px;color:#fff;font-size:.55rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:5px;}
 .store-badge.ali{background:var(--ali);}
 .store-badge.temu{background:var(--temu);}
@@ -71,7 +113,8 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .card-body{padding:10px 12px 12px;}
 .card-title{font-size:.79rem;font-weight:500;line-height:1.4;color:#333;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .card-cat{font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:3px;}
-/* EMPTY / SKELETON */
+.card-cat-temu{font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--temu);}
+
 .placeholder{text-align:center;padding:70px 20px;color:var(--muted);grid-column:1/-1;}
 .placeholder-icon{font-size:2.8rem;margin-bottom:12px;}
 .placeholder-title{font-family:'Cormorant Garamond',serif;font-size:1.2rem;color:#555;margin-bottom:6px;}
@@ -79,13 +122,30 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .sk-card{background:#fff;border-radius:14px;overflow:hidden;border:1px solid var(--border);}
 .sk-img{aspect-ratio:1;}
+.sk-img-wide{aspect-ratio:4/3;}
 .sk-body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:7px;}
 .sk-line{height:11px;border-radius:5px;}
 .sk-line.s{width:55%;}
+
+/* CODES PAGE */
+.codes-main{padding:36px 5vw 80px;max-width:900px;margin:0 auto;}
+.codes-section{margin-bottom:36px;}
+.codes-store-hdr{display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--border);}
+.codes-store-name{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:400;}
+.codes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+.code-card{background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:8px;transition:box-shadow .2s;}
+.code-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.07);}
+.code-badge{font-family:monospace;font-size:1.05rem;font-weight:700;letter-spacing:.05em;background:var(--bg);border:1.5px dashed var(--border);border-radius:8px;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+.code-badge:hover{border-color:var(--black);}
+.code-copy-btn{font-size:.7rem;color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:600;}
+.code-desc{font-size:.81rem;color:var(--text);line-height:1.5;}
+.code-expiry{font-size:.7rem;color:var(--muted);}
+.codes-empty{text-align:center;padding:60px;color:var(--muted);font-size:.85rem;}
+
 /* ADMIN */
 .admin-ovl{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:400;display:none;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;}
 .admin-ovl.open{display:flex;}
-.admin-box{background:#fff;border-radius:20px;width:100%;max-width:680px;overflow:hidden;margin:auto;}
+.admin-box{background:#fff;border-radius:20px;width:100%;max-width:700px;overflow:hidden;margin:auto;}
 .admin-hdr{background:var(--black);color:#fff;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;}
 .admin-hdr h3{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:400;}
 .admin-close{background:rgba(255,255,255,.12);border:none;color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:1rem;}
@@ -96,20 +156,17 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--black);}
 .field textarea{resize:vertical;min-height:56px;}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
 .btn-p{background:var(--black);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;cursor:pointer;width:100%;}
 .btn-p:hover{background:var(--red);}
 .btn-s{background:var(--bg);color:var(--text);border:1.5px solid var(--border);border-radius:10px;padding:9px 14px;font-family:'DM Sans',sans-serif;font-size:.84rem;cursor:pointer;}
 .btn-s:hover{border-color:var(--black);}
-.a-tabs{display:flex;border-bottom:1.5px solid var(--border);margin-bottom:16px;gap:0;overflow-x:auto;}
+.a-tabs{display:flex;border-bottom:1.5px solid var(--border);margin-bottom:16px;overflow-x:auto;}
 .a-tab{padding:9px 16px;font-size:.81rem;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2.5px solid transparent;margin-bottom:-1.5px;white-space:nowrap;}
 .a-tab.on{color:var(--black);border-bottom-color:var(--black);}
-/* Store switcher in admin */
 .store-switch{display:flex;gap:8px;margin-bottom:16px;}
 .store-sw-btn{flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--bg);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.83rem;font-weight:600;transition:all .2s;text-align:center;}
 .store-sw-btn.ali.on{border-color:var(--ali);background:#fff0ee;color:var(--ali);}
 .store-sw-btn.temu.on{border-color:var(--temu);background:#fff3ee;color:var(--temu);}
-/* Product list */
 .prod-list{display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto;}
 .prod-row{display:flex;gap:10px;align-items:center;padding:9px;border:1px solid var(--border);border-radius:10px;background:var(--bg);}
 .prod-row img{width:50px;height:50px;object-fit:cover;border-radius:8px;flex-shrink:0;}
@@ -119,12 +176,13 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .prod-row-actions{display:flex;gap:5px;flex-shrink:0;}
 .btn-edit{background:#e0f2fe;color:#0369a1;border:none;border-radius:7px;padding:5px 9px;font-size:.73rem;cursor:pointer;}
 .btn-del{background:#fee2e2;color:#dc2626;border:none;border-radius:7px;padding:5px 9px;font-size:.73rem;cursor:pointer;}
-.img-preview{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:10px;border:1.5px solid var(--border);margin-top:8px;display:none;}
-/* Store indicator pill */
+.img-preview{width:100%;object-fit:contain;border-radius:10px;border:1.5px solid var(--border);margin-top:8px;display:none;max-height:280px;}
 .store-pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:.65rem;font-weight:700;text-transform:uppercase;margin-left:5px;}
 .store-pill.ali{background:#fff0ee;color:var(--ali);}
 .store-pill.temu{background:#fff3ee;color:var(--temu);}
-/* SELLER MODAL */
+#adminLoginView{padding:10px 0;}
+#adminLoginView h4{font-family:'Cormorant Garamond',serif;font-size:1.2rem;margin-bottom:16px;font-weight:400;text-align:center;}
+
 .seller-modal-ovl{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;}
 .seller-modal-ovl.open{display:flex;}
 .seller-modal{background:#fff;border-radius:18px;width:100%;max-width:360px;overflow:hidden;}
@@ -132,12 +190,19 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 .seller-modal-hdr h3{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:400;margin-bottom:4px;}
 .seller-modal-hdr p{font-size:.78rem;color:rgba(255,255,255,.5);}
 .seller-modal-body{padding:20px;}
-/* TOAST */
+
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--black);color:#fff;padding:10px 22px;border-radius:30px;font-size:.83rem;font-weight:500;z-index:999;opacity:0;transition:all .3s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .footer{text-align:center;padding:26px 5vw;font-size:.73rem;color:var(--muted);border-top:1px solid var(--border);background:var(--surface);}
 .footer a{color:var(--red);text-decoration:none;}
-@media(max-width:580px){.grid{grid-template-columns:repeat(2,1fr);gap:10px;}.row2,.row3{grid-template-columns:1fr;}.store-tab{padding:12px 16px;font-size:.78rem;}}
+
+@media(max-width:580px){
+  .grid-ali{grid-template-columns:repeat(2,1fr);gap:10px;}
+  .grid-temu{grid-template-columns:repeat(2,1fr);gap:10px;}
+  .store-cards{grid-template-columns:1fr;}
+  .row2{grid-template-columns:1fr;}
+  .top-tab{padding:12px 14px;font-size:.78rem;}
+}
 </style>
 </head>
 <body>
@@ -146,45 +211,92 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
   <a class="logo" href="/index.html">Ganga<em>Loo</em></a>
   <div class="nav-r">
     <a class="nav-link" href="/store.html">← Tienda</a>
-    <button class="nav-btn" id="sellerBtn" onclick="toggleSellerMode()" style="background:rgba(184,144,42,.15);border-color:rgba(184,144,42,.3);" title="Vendedores">🔒</button>
+    <button class="nav-btn" id="sellerBtn" onclick="toggleSellerMode()" style="background:rgba(184,144,42,.15);border-color:rgba(184,144,42,.3);">🔒</button>
     <button class="nav-btn" onclick="openAdmin()">⚙️ Admin</button>
   </div>
 </nav>
 
-<div class="seller-banner" id="sellerBanner">
-  🔓 Modo Vendedor activo — viendo productos exclusivos para vendedores
-</div>
+<div class="seller-banner" id="sellerBanner">🔓 Modo Vendedor activo — viendo productos exclusivos para vendedores</div>
 
 <div class="hero">
   <div class="hero-tag">Compras Internacionales × GangaLoo</div>
   <h1>Productos <i>seleccionados</i> para ti</h1>
-  <p>Haz clic en cualquier producto para comprarlo directamente. AliExpress y Temu con nuestros enlaces afiliados.</p>
+  <p>Haz clic en cualquier producto para comprarlo directamente con nuestros enlaces afiliados.</p>
 </div>
 
-<!-- STORE TABS -->
-<div class="store-tabs">
-  <div class="store-tab on" onclick="setStore('all',this)"><span class="tab-dot all"></span> Todos</div>
-  <div class="store-tab" onclick="setStore('aliexpress',this)"><span class="tab-dot ali"></span> AliExpress</div>
-  <div class="store-tab" onclick="setStore('temu',this)"><span class="tab-dot temu"></span> Temu</div>
+<div class="top-tabs">
+  <button class="top-tab on" onclick="showPage('home',this)"><span class="tab-dot home"></span> Inicio</button>
+  <button class="top-tab" onclick="showPage('ali',this)"><span class="tab-dot ali"></span> AliExpress</button>
+  <button class="top-tab" onclick="showPage('temu',this)"><span class="tab-dot temu"></span> Temu</button>
+  <button class="top-tab" onclick="showPage('codes',this)"><span class="tab-dot codes"></span> Códigos</button>
 </div>
 
-<div class="filter-bar">
-  <div class="search-wrap">
-    <span style="color:var(--muted)">🔍</span>
-    <input type="text" id="searchInput" placeholder="Buscar productos..." oninput="filterProducts()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="search_aff">
+<!-- HOME PAGE -->
+<div id="pageHome">
+  <div class="home-main">
+    <h2 class="home-heading">Nuestras tiendas</h2>
+    <div class="store-cards">
+      <div class="store-card ali" onclick="showPage('ali',document.querySelectorAll('.top-tab')[1])">
+        <div class="store-card-top">
+          <div class="store-card-logo">🟠</div>
+          <div class="store-card-name">AliExpress</div>
+          <div class="store-card-desc">Productos seleccionados a precios increíbles. Pelucas, extensiones, electrónica y mucho más.</div>
+          <div class="store-card-count" id="homeAliCount"></div>
+        </div>
+        <div class="store-card-bottom"><span>Ver productos →</span><span>🛒</span></div>
+      </div>
+      <div class="store-card temu" onclick="showPage('temu',document.querySelectorAll('.top-tab')[2])">
+        <div class="store-card-top">
+          <div class="store-card-logo">🔶</div>
+          <div class="store-card-name">Temu</div>
+          <div class="store-card-desc">Ofertas increíbles en moda, belleza y hogar. Envío gratis disponible.</div>
+          <div class="store-card-count" id="homeTemuCount"></div>
+        </div>
+        <div class="store-card-bottom"><span>Ver productos →</span><span>🛒</span></div>
+      </div>
+    </div>
+    <h2 class="home-heading">Códigos de descuento</h2>
+    <div class="home-codes-preview" id="homeCodesPreview">
+      <div style="color:var(--muted);font-size:.83rem;text-align:center;padding:10px 0;">Cargando códigos...</div>
+    </div>
   </div>
-  <select class="cat-sel" id="catFilter" onchange="filterProducts()">
-    <option value="">Todas las categorías</option>
-  </select>
 </div>
-<div class="chips" id="chipRow"></div>
 
-<div class="main">
-  <div class="grid-hdr">
-    <h2 id="gridTitle">Todos los productos</h2>
-    <span class="gcount" id="gridCount"></span>
+<!-- ALIEXPRESS PAGE -->
+<div id="pageAli">
+  <div class="filter-bar">
+    <div class="search-wrap"><span style="color:var(--muted)">🔍</span>
+      <input type="text" id="aliSearch" placeholder="Buscar en AliExpress..." oninput="filterAli()" autocomplete="off" name="ali_s">
+    </div>
+    <select class="cat-sel" id="aliCat" onchange="filterAli()"><option value="">Todas las categorías</option></select>
   </div>
-  <div class="grid" id="grid"></div>
+  <div class="chips" id="aliChips"></div>
+  <div class="main">
+    <div class="grid-hdr"><h2>AliExpress</h2><span class="gcount" id="aliCount"></span></div>
+    <div class="grid-ali" id="gridAli"></div>
+  </div>
+</div>
+
+<!-- TEMU PAGE -->
+<div id="pageTemu">
+  <div class="filter-bar">
+    <div class="search-wrap"><span style="color:var(--muted)">🔍</span>
+      <input type="text" id="temuSearch" placeholder="Buscar en Temu..." oninput="filterTemu()" autocomplete="off" name="temu_s">
+    </div>
+    <select class="cat-sel" id="temuCat" onchange="filterTemu()"><option value="">Todas las categorías</option></select>
+  </div>
+  <div class="chips" id="temuChips"></div>
+  <div class="main">
+    <div class="grid-hdr"><h2>Temu</h2><span class="gcount" id="temuCount"></span></div>
+    <div class="grid-temu" id="gridTemu"></div>
+  </div>
+</div>
+
+<!-- CODES PAGE -->
+<div id="pageCodes">
+  <div class="codes-main" id="codesMain">
+    <div style="color:var(--muted);text-align:center;padding:60px;">Cargando códigos...</div>
+  </div>
 </div>
 
 <div class="footer">
@@ -193,13 +305,10 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
   <a href="/index.html">Inicio</a>
 </div>
 
-<!-- SELLER LOGIN MODAL -->
+<!-- SELLER MODAL -->
 <div class="seller-modal-ovl" id="sellerOvl">
   <div class="seller-modal">
-    <div class="seller-modal-hdr">
-      <h3>🔒 Acceso Vendedores</h3>
-      <p>Inicia sesión con tu cuenta GangaLoo</p>
-    </div>
+    <div class="seller-modal-hdr"><h3>🔒 Acceso Vendedores</h3><p>Inicia sesión con tu cuenta GangaLoo</p></div>
     <div class="seller-modal-body" id="sellerLoginView">
       <div class="field"><label>Email</label><input type="email" id="sellerEmail" placeholder="tu@email.com"></div>
       <div class="field"><label>Contraseña</label><input type="password" id="sellerPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSellerLogin()"></div>
@@ -226,83 +335,73 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
       <button class="admin-close" onclick="closeAdmin()">✕</button>
     </div>
     <div class="admin-body">
-      <!-- Login -->
-      <div id="adminLogin">
-        <div class="field"><label>Contraseña</label><input type="password" id="adminPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')checkPass()"></div>
-        <button class="btn-p" onclick="checkPass()">Entrar</button>
+      <div id="adminLoginView">
+        <h4 id="adminLoginTitle">🔐 Verificando sesión...</h4>
+        <div id="adminLoginForm" style="display:none;">
+          <div class="field"><label>Email</label><input type="email" id="adminEmail" placeholder="tu@email.com"></div>
+          <div class="field"><label>Contraseña</label><input type="password" id="adminPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
+          <div id="adminLoginErr" style="font-size:.75rem;color:var(--red);min-height:16px;margin-bottom:8px;"></div>
+          <button class="btn-p" onclick="doAdminLogin()">Entrar →</button>
+        </div>
       </div>
-      <!-- Content -->
       <div id="adminContent" style="display:none;">
         <div class="a-tabs">
           <div class="a-tab on" id="tab1" onclick="aTab('add')">➕ Agregar</div>
           <div class="a-tab" id="tab2" onclick="aTab('list')">📦 Productos</div>
+          <div class="a-tab" id="tab3" onclick="aTab('codes')">🏷️ Códigos</div>
         </div>
 
         <!-- ADD FORM -->
         <div id="aTabAdd">
-          <!-- Store selector -->
           <div class="field">
             <label>Tienda</label>
             <div class="store-switch">
               <button class="store-sw-btn ali on" id="swAli" onclick="switchStore('aliexpress')">🟠 AliExpress</button>
-              <button class="store-sw-btn temu" id="swTemu" onclick="switchStore('temu')">🟠 Temu</button>
+              <button class="store-sw-btn temu" id="swTemu" onclick="switchStore('temu')">🔶 Temu</button>
             </div>
             <input type="hidden" id="fStore" value="aliexpress">
           </div>
 
-          <!-- AliExpress: embed code -->
           <div id="aliFields">
             <div class="field">
               <label>Código embed AliExpress *</label>
-              <textarea id="fEmbed" rows="3" placeholder='Pega el código de AliExpress:&#10;&lt;a href="https://s.click.aliexpress.com/e/_xxx"&gt;&lt;img src="//ae01.alicdn.com/...jpg" /&gt;&lt;/a&gt;' oninput="parseEmbed()"></textarea>
-              <div id="embedStatus" style="font-size:.75rem;margin-top:5px;color:var(--muted);"></div>
+              <textarea id="fEmbed" rows="3" placeholder='Pega el código <a href="..."><img src="..."></a>' oninput="parseEmbed()"></textarea>
+              <div id="embedStatus" style="font-size:.73rem;margin-top:4px;"></div>
+            </div>
+            <div class="field">
+              <label>Vista previa</label>
+              <img id="imgPreviewAli" class="img-preview" alt="Preview">
+              <div id="parsedUrlAli" style="font-size:.72rem;color:var(--muted);margin-top:5px;word-break:break-all;"></div>
+            </div>
+            <div class="field"><label>Nombre del producto *</label><input type="text" id="fName" placeholder="Ej: Extensiones clip-in rubias"></div>
+            <div class="row2">
+              <div class="field"><label>Categoría</label><input type="text" id="fCat" placeholder="Extensiones, Pelucas..."></div>
+              <div class="field"><label>Descuento (badge)</label><input type="text" id="fDisc" placeholder="Ej: -30%"></div>
+            </div>
+            <div class="field">
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                <input type="checkbox" id="fSellerOnly" style="width:18px;height:18px;cursor:pointer;accent-color:var(--black);">
+                <span>🔒 Solo para vendedores</span>
+              </label>
             </div>
           </div>
 
-          <!-- Temu: separate fields -->
           <div id="temuFields" style="display:none;">
             <div class="field">
               <label>Enlace afiliado Temu *</label>
-              <input type="text" id="fTemuUrl" placeholder="https://www.temu.com/...share_link..." autocomplete="off">
+              <input type="text" id="fTemuUrl" placeholder="https://www.temu.com/..." autocomplete="off">
             </div>
             <div class="field">
               <label>URL de imagen *</label>
               <input type="text" id="fTemuImg" placeholder="https://img.kwcdn.com/..." oninput="previewTemuImg()" autocomplete="off">
-              <img id="imgPreview" class="img-preview" alt="Preview" style="display:none;width:100%;aspect-ratio:unset;max-height:340px;object-fit:contain;margin-top:10px;border-radius:10px;border:1.5px solid var(--border);">
-              <div id="parsedUrl" style="font-size:.72rem;color:var(--muted);margin-top:5px;word-break:break-all;"></div>
+              <img id="imgPreviewTemu" class="img-preview" alt="Preview" style="aspect-ratio:unset;max-height:300px;">
             </div>
-          </div>
-
-          <!-- Shared preview (AliExpress only) -->
-          <div class="field" id="aliPreviewWrap">
-            <label>Vista previa imagen</label>
-            <img id="imgPreviewAli" class="img-preview" alt="Preview">
-            <div id="parsedUrlAli" style="font-size:.72rem;color:var(--muted);margin-top:5px;word-break:break-all;"></div>
-          </div>
-
-          <!-- Shared fields (hidden for Temu) -->
-          <div id="sharedFields">
-          <div class="field">
-            <label>Nombre del producto *</label>
-            <input type="text" id="fName" placeholder="Ej: Extensiones clip-in rubias 20 pulgadas">
-          </div>
-          <div class="row2">
             <div class="field">
               <label>Categoría</label>
-              <input type="text" id="fCat" placeholder="Extensiones, Pelucas...">
-            </div>
-            <div class="field">
-              <label>Descuento (badge)</label>
-              <input type="text" id="fDisc" placeholder="Ej: -30%">
+              <input type="text" id="fTemuCat" placeholder="Moda, Belleza, Hogar...">
             </div>
           </div>
-          <div class="field">
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="checkbox" id="fSellerOnly" style="width:18px;height:18px;cursor:pointer;accent-color:var(--black);">
-              <span>🔒 Solo para vendedores</span>
-            </label>
-          </div>
-          </div>
+
           <div style="display:flex;gap:10px;margin-top:4px;">
             <button class="btn-p" onclick="saveProduct()" id="saveBtn">💾 Guardar</button>
             <button class="btn-s" onclick="clearForm()">✕ Limpiar</button>
@@ -312,11 +411,26 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 
         <!-- PRODUCT LIST -->
         <div id="aTabList" style="display:none;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <span style="font-size:.82rem;color:var(--muted);" id="listCount"></span>
-            <button class="btn-s" style="font-size:.75rem;padding:6px 10px;" onclick="loadAdminList()">↻</button>
-          </div>
+          <div style="margin-bottom:10px;"><span id="listCount" style="font-size:.8rem;color:var(--muted);"></span></div>
           <div class="prod-list" id="prodList"></div>
+        </div>
+
+        <!-- CODES ADMIN -->
+        <div id="aTabCodes" style="display:none;">
+          <div style="margin-bottom:12px;font-size:.82rem;color:var(--muted);">Agrega códigos de descuento por tienda.</div>
+          <div class="field"><label>Tienda</label>
+            <select id="codeStore"><option value="aliexpress">AliExpress</option><option value="temu">Temu</option></select>
+          </div>
+          <div class="field"><label>Código *</label><input type="text" id="codeText" placeholder="GANGALOO20" oninput="this.value=this.value.toUpperCase()"></div>
+          <div class="field"><label>Descripción</label><input type="text" id="codeDesc" placeholder="20% de descuento en tu primera compra"></div>
+          <div class="field"><label>Válido hasta (opcional)</label><input type="date" id="codeExpiry"></div>
+          <div style="display:flex;gap:10px;margin-top:4px;">
+            <button class="btn-p" onclick="saveCode()">💾 Guardar código</button>
+            <button class="btn-s" onclick="clearCodeForm()">✕</button>
+          </div>
+          <div id="codeError" style="display:none;margin-top:10px;background:#fee2e2;color:#dc2626;border-radius:8px;padding:10px 14px;font-size:.82rem;"></div>
+          <hr style="margin:18px 0;border:none;border-top:1px solid var(--border);">
+          <div id="codesList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;"></div>
         </div>
       </div>
     </div>
@@ -326,339 +440,355 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 <div class="toast" id="toast"></div>
 
 <script>
-const SUPABASE_URL = window.GANGALOO_CONFIG?.supabaseUrl || '';
-const SUPABASE_KEY = window.GANGALOO_CONFIG?.supabaseKey || '';
-const PASS  = 'gangaloo2026';
+const sb = supabase.createClient(window.GANGALOO_CONFIG.supabaseUrl, window.GANGALOO_CONFIG.supabaseKey);
 const TABLE = 'aliexpress_affiliate_products';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const CODES_TABLE = 'affiliate_discount_codes';
 
-let allProducts = [], editingId = null, sellerMode = false, currentUser = null;
-let activeStore = 'all'; // 'all' | 'aliexpress' | 'temu'
-let adminStore  = 'aliexpress'; // which store we're adding to
+let allProducts=[], aliProducts=[], temuProducts=[];
+let sellerMode=false, currentUser=null, isAdmin=false;
+let editingId=null, adminStore='aliexpress';
+let allCodes=[];
+
+// ── PAGE NAV ──────────────────────────────────────────────────────────────────
+function showPage(page, tabEl) {
+  ['pageHome','pageAli','pageTemu','pageCodes'].forEach(id => document.getElementById(id).style.display='none');
+  document.querySelectorAll('.top-tab').forEach(t => t.classList.remove('on'));
+  if (tabEl) tabEl.classList.add('on');
+  const map={home:'pageHome',ali:'pageAli',temu:'pageTemu',codes:'pageCodes'};
+  document.getElementById(map[page]).style.display='block';
+}
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  // Restore cached products instantly to avoid blank on reload
   try {
     const cached = sessionStorage.getItem('gl_aff_products');
-    if (cached) {
-      allProducts = JSON.parse(cached);
-      buildFilters();
-      filterProducts();
-    }
-  } catch(e) {}
+    if (cached) { allProducts=JSON.parse(cached); splitAndRender(); }
+  } catch(e){}
 
-  const { data: { session } } = await sb.auth.getSession();
+  document.getElementById('aliSearch').value='';
+  document.getElementById('temuSearch').value='';
+
+  const { data:{session} } = await sb.auth.getSession();
   if (session?.user) await onSignedIn(session.user);
+
   sb.auth.onAuthStateChange(async (event, session) => {
     if (session?.user) await onSignedIn(session.user);
-    else { currentUser = null; sellerMode = false; updateSellerUI(); }
+    else { currentUser=null; sellerMode=false; isAdmin=false; updateSellerUI(); }
   });
-  document.getElementById('searchInput').value = '';
+
   load();
+  loadCodes();
 });
 
 async function onSignedIn(user) {
-  currentUser = user;
-  const { data: prof } = await sb.from('profiles').select('role').eq('id', user.id).single();
-  const role = prof?.role || '';
-  sellerMode = ['seller','admin','distributor'].includes(role);
+  currentUser=user;
+  const {data:prof} = await sb.from('profiles').select('role').eq('id',user.id).single();
+  const role=prof?.role||'';
+  sellerMode=['seller','admin','distributor'].includes(role);
+  isAdmin=role==='admin';
   updateSellerUI();
-  load();
 }
-
 function updateSellerUI() {
-  const btn = document.getElementById('sellerBtn');
-  const banner = document.getElementById('sellerBanner');
-  btn.textContent = sellerMode ? '🔓' : '🔒';
-  btn.style.background = sellerMode ? 'rgba(184,144,42,.35)' : 'rgba(184,144,42,.15)';
-  sellerMode ? banner.classList.add('show') : banner.classList.remove('show');
+  const btn=document.getElementById('sellerBtn'), banner=document.getElementById('sellerBanner');
+  btn.textContent=sellerMode?'🔓':'🔒';
+  btn.style.background=sellerMode?'rgba(184,144,42,.35)':'rgba(184,144,42,.15)';
+  sellerMode?banner.classList.add('show'):banner.classList.remove('show');
 }
 
-// ── LOAD & RENDER ─────────────────────────────────────────────────────────────
-let _loadSeq = 0;
+// ── LOAD ──────────────────────────────────────────────────────────────────────
+let _seq=0;
 async function load() {
-  const seq = ++_loadSeq;
-  // Only show skeletons if nothing is visible yet
-  if (!allProducts.length) showSk(12);
-  let query = sb.from(TABLE).select('*').eq('active', true).order('created_at', { ascending: false });
-  if (!sellerMode) query = query.eq('seller_only', false);
-  const { data, error: loadErr } = await query;
-  if (seq !== _loadSeq) return; // newer load fired, discard stale result
-  allProducts = data || [];
-  try { sessionStorage.setItem('gl_aff_products', JSON.stringify(allProducts)); } catch(e) {}
-  buildFilters();
-  filterProducts();
+  const seq=++_seq;
+  if (!allProducts.length){showSkAli(12);showSkTemu(6);}
+  let q=sb.from(TABLE).select('*').eq('active',true).order('created_at',{ascending:false});
+  if (!sellerMode) q=q.eq('seller_only',false);
+  const {data}=await q;
+  if (seq!==_seq) return;
+  allProducts=data||[];
+  try{sessionStorage.setItem('gl_aff_products',JSON.stringify(allProducts));}catch(e){}
+  splitAndRender();
 }
 
-function showSk(n) {
-  document.getElementById('grid').innerHTML = Array(n).fill(0).map(() =>
-    `<div class="sk-card"><div class="sk-img sk"></div><div class="sk-body"><div class="sk-line sk"></div><div class="sk-line sk s"></div></div></div>`
-  ).join('');
+function splitAndRender() {
+  aliProducts=allProducts.filter(p=>(p.store||'aliexpress')==='aliexpress');
+  temuProducts=allProducts.filter(p=>p.store==='temu');
+  const ac=document.getElementById('homeAliCount');
+  const tc=document.getElementById('homeTemuCount');
+  if(ac) ac.textContent=aliProducts.length+' productos';
+  if(tc) tc.textContent=temuProducts.length+' productos';
+  buildAliFilters(); buildTemuFilters(); filterAli(); filterTemu();
 }
 
-// Store raw URLs indexed by position to avoid HTML escaping issues
-window._cardUrls = [];
+function showSkAli(n){document.getElementById('gridAli').innerHTML=Array(n).fill(0).map(()=>`<div class="sk-card"><div class="sk-img sk"></div><div class="sk-body"><div class="sk-line sk"></div><div class="sk-line sk s"></div></div></div>`).join('');}
+function showSkTemu(n){document.getElementById('gridTemu').innerHTML=Array(n).fill(0).map(()=>`<div class="sk-card"><div class="sk-img-wide sk"></div><div class="sk-body"><div class="sk-line sk s"></div></div></div>`).join('');}
 
-function render(prods) {
-  const g = document.getElementById('grid');
-  document.getElementById('gridCount').textContent = prods.length ? prods.length + ' productos' : '';
-  if (!prods.length) {
-    g.innerHTML = `<div class="placeholder"><div class="placeholder-icon">🔍</div><div class="placeholder-title">Sin resultados</div><p style="font-size:.82rem">Prueba otra búsqueda o categoría</p></div>`;
-    return;
-  }
-  window._cardUrls = prods.map(p => p.affiliate_url || '');
-  g.innerHTML = prods.map((p, i) => {
-    const store = (p.store && p.store !== '') ? p.store : 'aliexpress';
-    const storeLbl = store === 'temu' ? 'Temu' : 'AliExpress';
-    return `
-    <div class="card" data-idx="${i}" style="cursor:pointer;">
-      <div class="card-img">
-        <img src="${e(p.image_url)}" alt="${e(p.name)}" loading="lazy" onerror="this.parentElement.style.background='#eee'">
-        <div class="hover-ovl"><div class="ovl-cta">🛒 Ver en ${storeLbl}</div></div>
-        ${p.seller_only ? `<div class="seller-badge">👥 Vendedores</div>` : `<div class="store-badge ${store}">${storeLbl}</div>`}
-        ${p.discount ? `<div class="disc-badge">${e(p.discount)}</div>` : ''}
+// ── ALI RENDER ────────────────────────────────────────────────────────────────
+window._aliUrls=[];
+function buildAliFilters() {
+  const cats=[...new Set(aliProducts.map(p=>p.category).filter(Boolean))];
+  document.getElementById('aliCat').innerHTML='<option value="">Todas las categorías</option>'+cats.map(c=>`<option value="${e(c)}">${e(c)}</option>`).join('');
+  document.getElementById('aliChips').innerHTML=`<div class="chip on" onclick="aliChip(this,'')">✨ Todos</div>`+cats.map(c=>`<div class="chip" onclick="aliChip(this,'${e(c)}')">${e(c)}</div>`).join('');
+}
+function filterAli() {
+  const q=document.getElementById('aliSearch').value.toLowerCase();
+  const cat=document.getElementById('aliCat').value;
+  renderAli(aliProducts.filter(p=>(!q||(p.name||'').toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q))&&(!cat||p.category===cat)));
+}
+function aliChip(el,cat){
+  document.querySelectorAll('#aliChips .chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on'); document.getElementById('aliCat').value=cat; filterAli();
+}
+function renderAli(prods) {
+  const g=document.getElementById('gridAli');
+  document.getElementById('aliCount').textContent=prods.length?prods.length+' productos':'';
+  if (!prods.length){g.innerHTML=`<div class="placeholder"><div class="placeholder-icon">🔍</div><div class="placeholder-title">Sin resultados</div><p style="font-size:.82rem">Prueba otra búsqueda</p></div>`;return;}
+  window._aliUrls=prods.map(p=>p.affiliate_url||'');
+  g.innerHTML=prods.map((p,i)=>{
+    let img=p.image_url||''; if(img.startsWith('//')) img='https:'+img;
+    return `<div class="card" data-store="ali" data-idx="${i}">
+      <div class="card-img-sq"><img src="${img}" alt="${e(p.name)}" onerror="this.parentElement.style.background='#eee'">
+        <div class="hover-ovl"><div class="ovl-cta">🛒 Ver en AliExpress</div></div>
+        ${p.seller_only?`<div class="seller-badge">👥 Vendedores</div>`:`<div class="store-badge ali">AliExpress</div>`}
+        ${p.discount?`<div class="disc-badge">${e(p.discount)}</div>`:''}
       </div>
-      <div class="card-body">
-        ${p.category ? `<div class="card-cat">${e(p.category)}</div>` : ''}
-        <div class="card-title">${e(p.name)}</div>
-      </div>
+      <div class="card-body">${p.category?`<div class="card-cat">${e(p.category)}</div>`:''}<div class="card-title">${e(p.name)}</div></div>
     </div>`;
   }).join('');
 }
 
-function openAffLink(idx, event) {
-  if (event) { event.preventDefault(); event.stopPropagation(); }
-  const url = window._cardUrls && window._cardUrls[idx];
-  if (url) window.open(url, '_blank', 'noopener,noreferrer');
-  return false;
+// ── TEMU RENDER ───────────────────────────────────────────────────────────────
+window._temuUrls=[];
+function buildTemuFilters() {
+  const cats=[...new Set(temuProducts.map(p=>p.category).filter(Boolean))];
+  document.getElementById('temuCat').innerHTML='<option value="">Todas las categorías</option>'+cats.map(c=>`<option value="${e(c)}">${e(c)}</option>`).join('');
+  document.getElementById('temuChips').innerHTML=`<div class="chip on" onclick="temuChip(this,'')">✨ Todos</div>`+cats.map(c=>`<div class="chip" onclick="temuChip(this,'${e(c)}')">${e(c)}</div>`).join('');
+}
+function filterTemu() {
+  const q=document.getElementById('temuSearch').value.toLowerCase();
+  const cat=document.getElementById('temuCat').value;
+  renderTemu(temuProducts.filter(p=>(!q||(p.name||'').toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q))&&(!cat||p.category===cat)));
+}
+function temuChip(el,cat){
+  document.querySelectorAll('#temuChips .chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on'); document.getElementById('temuCat').value=cat; filterTemu();
+}
+function renderTemu(prods) {
+  const g=document.getElementById('gridTemu');
+  document.getElementById('temuCount').textContent=prods.length?prods.length+' productos':'';
+  if (!prods.length){g.innerHTML=`<div class="placeholder"><div class="placeholder-icon">🔍</div><div class="placeholder-title">Sin resultados</div><p style="font-size:.82rem">Prueba otra búsqueda</p></div>`;return;}
+  window._temuUrls=prods.map(p=>p.affiliate_url||'');
+  g.innerHTML=prods.map((p,i)=>{
+    let img=p.image_url||''; if(img.startsWith('//')) img='https:'+img;
+    return `<div class="card" data-store="temu" data-idx="${i}">
+      <div class="card-img-wide"><img src="${img}" alt="${e(p.category||'Temu')}" onerror="this.parentElement.style.background='#eee'">
+        <div class="hover-ovl"><div class="ovl-cta">🛒 Ver en Temu</div></div>
+        <div class="store-badge temu">Temu</div>
+        ${p.discount?`<div class="disc-badge">${e(p.discount)}</div>`:''}
+      </div>
+      <div class="card-body">${p.category?`<div class="card-cat-temu">${e(p.category)}</div>`:''}</div>
+    </div>`;
+  }).join('');
 }
 
-// Single delegated click handler on grid - more reliable than inline onclick
+// Delegated click
 document.addEventListener('click', function(e) {
-  const card = e.target.closest('[data-idx]');
-  if (!card) return;
-  e.preventDefault();
-  e.stopPropagation();
-  const idx = parseInt(card.dataset.idx);
-  const url = window._cardUrls && window._cardUrls[idx];
-  if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  const card=e.target.closest('[data-store]'); if(!card) return;
+  e.preventDefault(); e.stopPropagation();
+  const idx=parseInt(card.dataset.idx), store=card.dataset.store;
+  const url=store==='temu'?window._temuUrls[idx]:window._aliUrls[idx];
+  if(url) window.open(url,'_blank','noopener,noreferrer');
 });
 
-function buildFilters() {
-  const src = activeStore === 'all' ? allProducts : allProducts.filter(p => (p.store || 'aliexpress') === activeStore);
-  const cats = [...new Set(src.map(p => p.category).filter(Boolean))];
-  document.getElementById('catFilter').innerHTML = '<option value="">Todas las categorías</option>' +
-    cats.map(c => `<option value="${e(c)}">${e(c)}</option>`).join('');
-  document.getElementById('chipRow').innerHTML =
-    `<div class="chip on" onclick="chipClick(this,'')">✨ Todos</div>` +
-    cats.map(c => `<div class="chip" onclick="chipClick(this,'${e(c)}')">${e(c)}</div>`).join('');
+// ── CODES ─────────────────────────────────────────────────────────────────────
+async function loadCodes() {
+  try {
+    const {data}=await sb.from(CODES_TABLE).select('*').eq('active',true).order('created_at',{ascending:false});
+    allCodes=data||[];
+  } catch(e){ allCodes=[]; }
+  renderCodesPage(); renderCodesHome();
+}
+function renderCodesHome() {
+  const wrap=document.getElementById('homeCodesPreview');
+  if(!allCodes.length){wrap.innerHTML='<div style="color:var(--muted);font-size:.83rem;text-align:center;padding:10px 0;">No hay códigos disponibles por ahora.</div>';return;}
+  wrap.innerHTML=allCodes.slice(0,6).map(c=>`
+    <div class="mini-code">
+      <span class="mini-code-store ${c.store}">${c.store==='temu'?'Temu':'AliExpress'}</span>
+      <span class="mini-code-text">${e(c.code)}</span>
+      <span class="mini-code-desc">${e(c.description||'')}</span>
+    </div>`).join('')+(allCodes.length>6?`<div style="margin-top:12px;font-size:.78rem;color:var(--muted);">Ver todos en <strong>Códigos</strong></div>`:'');
+}
+function renderCodesPage() {
+  const main=document.getElementById('codesMain');
+  if(!allCodes.length){main.innerHTML='<div class="codes-empty">No hay códigos de descuento disponibles por ahora. 🏷️</div>';return;}
+  const stores=[...new Set(allCodes.map(c=>c.store))];
+  main.innerHTML=stores.map(store=>{
+    const codes=allCodes.filter(c=>c.store===store);
+    const name=store==='temu'?'Temu':'AliExpress', dot=store==='temu'?'🔶':'🟠';
+    return `<div class="codes-section">
+      <div class="codes-store-hdr"><span style="font-size:1.4rem;">${dot}</span><span class="codes-store-name">${name}</span><span style="font-size:.72rem;color:var(--muted);">${codes.length} código${codes.length!==1?'s':''}</span></div>
+      <div class="codes-grid">${codes.map(c=>`
+        <div class="code-card">
+          <div class="code-badge" onclick="copyCode('${e(c.code)}',this)"><span>${e(c.code)}</span><span class="code-copy-btn">📋 Copiar</span></div>
+          ${c.description?`<div class="code-desc">${e(c.description)}</div>`:''}
+          ${c.expires_at?`<div class="code-expiry">⏳ Válido hasta: ${new Date(c.expires_at).toLocaleDateString('es-DO')}</div>`:''}
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+function copyCode(code,el) {
+  navigator.clipboard.writeText(code).then(()=>{
+    const btn=el.querySelector('.code-copy-btn');
+    btn.textContent='✅ Copiado';
+    setTimeout(()=>btn.textContent='📋 Copiar',2000);
+    toast('✅ Código copiado: '+code);
+  }).catch(()=>toast('Código: '+code));
 }
 
-// ── STORE TABS ────────────────────────────────────────────────────────────────
-function setStore(store, el) {
-  activeStore = store;
-  document.querySelectorAll('.store-tab').forEach(t => t.classList.remove('on'));
-  el.classList.add('on');
-  const labels = { all: 'Todos los productos', aliexpress: 'AliExpress', temu: 'Temu' };
-  document.getElementById('gridTitle').textContent = labels[store];
-  document.getElementById('searchInput').value = '';
-  document.getElementById('catFilter').value = '';
-  document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
-  buildFilters();
-  filterProducts();
+// ── ADMIN AUTH ────────────────────────────────────────────────────────────────
+function openAdmin(){document.getElementById('adminOvl').classList.add('open');checkAdminAuth();}
+function closeAdmin(){document.getElementById('adminOvl').classList.remove('open');}
+
+async function checkAdminAuth() {
+  const loginView=document.getElementById('adminLoginView');
+  const loginForm=document.getElementById('adminLoginForm');
+  const content=document.getElementById('adminContent');
+  const title=document.getElementById('adminLoginTitle');
+  if (isAdmin){loginView.style.display='none';content.style.display='block';loadAdminCodes();return;}
+  loginView.style.display='block'; loginForm.style.display='none';
+  title.textContent='🔐 Verificando sesión...'; content.style.display='none';
+  const {data:{session}}=await sb.auth.getSession();
+  if (session?.user) {
+    const {data:prof}=await sb.from('profiles').select('role').eq('id',session.user.id).single();
+    if (prof?.role==='admin'){
+      currentUser=session.user; isAdmin=true;
+      loginView.style.display='none'; content.style.display='block';
+      loadAdminCodes(); return;
+    }
+  }
+  title.textContent='🔐 Acceso Admin'; loginForm.style.display='block';
 }
 
-function filterProducts() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  const cat = document.getElementById('catFilter').value;
-  let src = activeStore === 'all' ? allProducts : allProducts.filter(p => (p.store || 'aliexpress') === activeStore);
-  render(src.filter(p =>
-    (!q || p.name.toLowerCase().includes(q) || (p.category||'').toLowerCase().includes(q)) &&
-    (!cat || p.category === cat)
-  ));
+async function doAdminLogin() {
+  const email=document.getElementById('adminEmail').value.trim();
+  const pass=document.getElementById('adminPass').value;
+  const err=document.getElementById('adminLoginErr');
+  if(!email||!pass){err.textContent='Email y contraseña requeridos';return;}
+  err.textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error){err.textContent='❌ '+error.message;return;}
+  const {data:prof}=await sb.from('profiles').select('role').eq('id',data.user.id).single();
+  if(prof?.role!=='admin'){err.textContent='❌ No tienes acceso de administrador';await sb.auth.signOut();return;}
+  currentUser=data.user; isAdmin=true;
+  document.getElementById('adminLoginView').style.display='none';
+  document.getElementById('adminContent').style.display='block';
+  loadAdminCodes();
 }
 
-function chipClick(el, cat) {
-  document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
-  el.classList.add('on');
-  document.getElementById('catFilter').value = cat;
-  filterProducts();
-}
-
-// ── ADMIN ─────────────────────────────────────────────────────────────────────
-function openAdmin() { document.getElementById('adminOvl').classList.add('open'); }
-function closeAdmin() { document.getElementById('adminOvl').classList.remove('open'); }
-
-function checkPass() {
-  if (document.getElementById('adminPass').value === PASS) {
-    document.getElementById('adminLogin').style.display = 'none';
-    document.getElementById('adminContent').style.display = 'block';
-  } else toast('❌ Contraseña incorrecta');
-}
-
+// ── ADMIN TABS ────────────────────────────────────────────────────────────────
 function aTab(tab) {
-  document.getElementById('tab1').classList.toggle('on', tab === 'add');
-  document.getElementById('tab2').classList.toggle('on', tab === 'list');
-  document.getElementById('aTabAdd').style.display  = tab === 'add'  ? 'block' : 'none';
-  document.getElementById('aTabList').style.display = tab === 'list' ? 'block' : 'none';
-  if (tab === 'list') loadAdminList();
+  [['add','tab1'],['list','tab2'],['codes','tab3']].forEach(([t,id])=>document.getElementById(id).classList.toggle('on',t===tab));
+  document.getElementById('aTabAdd').style.display   =tab==='add'  ?'block':'none';
+  document.getElementById('aTabList').style.display  =tab==='list' ?'block':'none';
+  document.getElementById('aTabCodes').style.display =tab==='codes'?'block':'none';
+  if(tab==='list') loadAdminList();
+  if(tab==='codes') loadAdminCodes();
 }
 
-// ── STORE SWITCHER IN ADMIN ───────────────────────────────────────────────────
+// ── STORE SWITCHER ────────────────────────────────────────────────────────────
 function switchStore(store) {
-  adminStore = store;
-  document.getElementById('fStore').value = store;
-  document.getElementById('swAli').classList.toggle('on', store === 'aliexpress');
-  document.getElementById('swTemu').classList.toggle('on', store === 'temu');
-  document.getElementById('aliFields').style.display  = store === 'aliexpress' ? 'block' : 'none';
-  document.getElementById('temuFields').style.display = store === 'temu'       ? 'block' : 'none';
-  document.getElementById('aliPreviewWrap').style.display = store === 'aliexpress' ? 'block' : 'none';
-  document.getElementById('sharedFields').style.display = store === 'aliexpress' ? 'block' : 'none';
+  adminStore=store;
+  document.getElementById('swAli').classList.toggle('on',store==='aliexpress');
+  document.getElementById('swTemu').classList.toggle('on',store==='temu');
+  document.getElementById('aliFields').style.display =store==='aliexpress'?'block':'none';
+  document.getElementById('temuFields').style.display=store==='temu'?'block':'none';
   clearPreview();
 }
 
-// ── ALIEXPRESS EMBED PARSER ───────────────────────────────────────────────────
+// ── EMBED PARSER ──────────────────────────────────────────────────────────────
 function parseEmbed() {
-  const raw = document.getElementById('fEmbed').value.trim();
-  const status = document.getElementById('embedStatus');
-  clearPreview();
-  if (!raw) return;
-  const hrefMatch = raw.match(/href="([^"]+)"/);
-  const srcMatch  = raw.match(/src="([^"]+)"/);
-  if (!hrefMatch || !srcMatch) {
-    status.innerHTML = '⚠️ Código inválido — pega el código completo';
-    status.style.color = 'var(--red)'; return;
-  }
-  let imgUrl = srcMatch[1];
-  if (imgUrl.startsWith('//')) imgUrl = 'https:' + imgUrl;
-  imgUrl = imgUrl.replace(/_\d+x\d+\.\w+$/, '');
-  const affUrl = hrefMatch[1];
-  document.getElementById('fEmbed').dataset.imgUrl = imgUrl;
-  document.getElementById('fEmbed').dataset.affUrl = affUrl;
-  showPreview(imgUrl, affUrl);
-  status.innerHTML = '✅ Código leído correctamente';
-  status.style.color = '#166534';
+  const raw=document.getElementById('fEmbed').value.trim();
+  const status=document.getElementById('embedStatus');
+  clearPreview(); if(!raw) return;
+  const hrefMatch=raw.match(/href="([^"]+)"/);
+  const srcMatch=raw.match(/src="([^"]+)"/);
+  if(!hrefMatch||!srcMatch){status.innerHTML='⚠️ Código inválido';status.style.color='var(--red)';return;}
+  let imgUrl=srcMatch[1];
+  if(imgUrl.startsWith('//')) imgUrl='https:'+imgUrl;
+  imgUrl=imgUrl.replace(/_\d+x\d+\.\w+$/,'');
+  const affUrl=hrefMatch[1];
+  document.getElementById('fEmbed').dataset.imgUrl=imgUrl;
+  document.getElementById('fEmbed').dataset.affUrl=affUrl;
+  const prev=document.getElementById('imgPreviewAli');
+  prev.src=imgUrl; prev.style.display='block';
+  document.getElementById('parsedUrlAli').textContent='🔗 '+affUrl;
+  status.innerHTML='✅ Código leído'; status.style.color='#166534';
 }
-
-// ── TEMU IMAGE PREVIEW ────────────────────────────────────────────────────────
 function previewTemuImg() {
-  const url = document.getElementById('fTemuImg').value.trim();
-  const affUrl = document.getElementById('fTemuUrl').value.trim();
-  if (url) showPreview(url, affUrl);
-  else clearPreview();
-}
-
-function showPreview(imgUrl, affUrl) {
-  // Temu preview is inline under the image field
-  const isTemu = document.getElementById('swTemu').classList.contains('on');
-  if (isTemu) {
-    const prev = document.getElementById('imgPreview');
-    prev.src = imgUrl; prev.style.display = 'block';
-    document.getElementById('parsedUrl').textContent = affUrl ? '🔗 ' + affUrl : '';
-    document.getElementById('aliPreviewWrap').style.display = 'none';
-  } else {
-    const prev = document.getElementById('imgPreviewAli');
-    prev.src = imgUrl; prev.style.display = 'block';
-    document.getElementById('parsedUrlAli').textContent = affUrl ? '🔗 ' + affUrl : '';
-    document.getElementById('aliPreviewWrap').style.display = 'block';
-  }
+  const url=document.getElementById('fTemuImg').value.trim();
+  const prev=document.getElementById('imgPreviewTemu');
+  if(url){prev.src=url;prev.style.display='block';}else prev.style.display='none';
 }
 function clearPreview() {
-  document.getElementById('imgPreview').style.display = 'none';
-  document.getElementById('parsedUrl').textContent = '';
-  const ali = document.getElementById('imgPreviewAli');
-  if (ali) { ali.style.display = 'none'; }
-  const aliUrl = document.getElementById('parsedUrlAli');
-  if (aliUrl) aliUrl.textContent = '';
-  const aliWrap = document.getElementById('aliPreviewWrap');
-  if (aliWrap) aliWrap.style.display = 'none';
-  if (document.getElementById('embedStatus')) document.getElementById('embedStatus').textContent = '';
+  ['imgPreviewAli','imgPreviewTemu'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  const p=document.getElementById('parsedUrlAli');if(p)p.textContent='';
+  const s=document.getElementById('embedStatus');if(s)s.textContent='';
 }
 
-// ── SAVE ──────────────────────────────────────────────────────────────────────
+// ── SAVE PRODUCT ──────────────────────────────────────────────────────────────
 async function saveProduct() {
-  const name  = document.getElementById('fName').value.trim();
-  // Read store directly from active button — more reliable than hidden input
-  const store = document.getElementById('swTemu').classList.contains('on') ? 'temu' : 'aliexpress';
-  console.log('saveProduct called, store=', store, 'swTemu.on=', document.getElementById('swTemu').classList.contains('on'), 'name=', name);
-  let img = '', url = '';
-
-  if (store === 'aliexpress') {
-    const embed = document.getElementById('fEmbed');
-    img = embed.dataset.imgUrl || '';
-    url = embed.dataset.affUrl || '';
-    if (!img) { toast('⚠️ Pega el código embed primero'); return; }
+  const isTemu=document.getElementById('swTemu').classList.contains('on');
+  const store=isTemu?'temu':'aliexpress';
+  let img='',url='',name='',category=null,discount=null,sellerOnly=false;
+  if(store==='aliexpress'){
+    const embed=document.getElementById('fEmbed');
+    img=embed.dataset.imgUrl||''; url=embed.dataset.affUrl||'';
+    name=document.getElementById('fName').value.trim();
+    category=document.getElementById('fCat').value.trim()||null;
+    discount=document.getElementById('fDisc').value.trim()||null;
+    sellerOnly=document.getElementById('fSellerOnly').checked;
+    if(!img){toast('⚠️ Pega el código embed primero');return;}
+    if(!name){toast('⚠️ Nombre obligatorio');return;}
   } else {
-    img = document.getElementById('fTemuImg').value.trim();
-    url = document.getElementById('fTemuUrl').value.trim();
-    console.log('Temu img=', img, 'url=', url);
-    if (!img) { toast('⚠️ URL de imagen obligatoria'); return; }
-    if (!url) { toast('⚠️ Enlace afiliado obligatorio'); return; }
+    img=document.getElementById('fTemuImg').value.trim();
+    url=document.getElementById('fTemuUrl').value.trim();
+    category=document.getElementById('fTemuCat').value.trim()||null;
+    if(!img){toast('⚠️ URL de imagen obligatoria');return;}
+    if(!url){toast('⚠️ Enlace afiliado obligatorio');return;}
+    name=category||'Producto Temu';
   }
-
-  if (!name && store === 'aliexpress') { toast('⚠️ Nombre obligatorio'); return; }
-  const finalName = name || url.split('?')[0].split('/').filter(Boolean).pop() || 'Producto Temu';
-
-  const payload = {
-    name: finalName, store,
-    category:      document.getElementById('fCat').value.trim() || null,
-    discount:      document.getElementById('fDisc').value.trim() || null,
-    image_url:     img,
-    affiliate_url: url,
-    seller_only:   document.getElementById('fSellerOnly').checked,
-    active:        true,
-  };
-
-  const btn = document.getElementById('saveBtn');
-  btn.disabled = true; btn.textContent = 'Guardando...';
-  console.log('Saving payload:', JSON.stringify(payload));
-
-  let result;
+  const payload={name,store,category,discount,image_url:img,affiliate_url:url,seller_only:sellerOnly,active:true};
+  const btn=document.getElementById('saveBtn');
+  btn.disabled=true; btn.textContent='Guardando...';
   try {
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout — Supabase no respondió en 15s')), 15000));
-    const op = editingId
-      ? sb.from(TABLE).update(payload).eq('id', editingId)
-      : sb.from(TABLE).insert(payload);
-    result = await Promise.race([op, timeout]);
-  } catch(err) {
-    btn.disabled = false; btn.textContent = '💾 Guardar';
-    const errDiv = document.getElementById('saveError');
-    errDiv.textContent = '❌ ' + (err.message || String(err));
-    errDiv.style.display = 'block';
-    errDiv.scrollIntoView({behavior:'smooth',block:'center'});
-    console.error('SAVE EXCEPTION:', err);
-    return;
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout — Supabase no respondió')),15000));
+    const op=editingId?sb.from(TABLE).update(payload).eq('id',editingId):sb.from(TABLE).insert(payload);
+    const {error}=await Promise.race([op,timeout]);
+    btn.disabled=false; btn.textContent='💾 Guardar';
+    if(error){document.getElementById('saveError').textContent='❌ '+error.message;document.getElementById('saveError').style.display='block';return;}
+  } catch(err){
+    btn.disabled=false; btn.textContent='💾 Guardar';
+    document.getElementById('saveError').textContent='❌ '+err.message;
+    document.getElementById('saveError').style.display='block';return;
   }
-
-  btn.disabled = false; btn.textContent = '💾 Guardar';
-  const { error } = result;
-  if (error) {
-    console.error('SAVE ERROR:', JSON.stringify(error));
-    const errDiv = document.getElementById('saveError');
-    errDiv.textContent = '❌ ' + error.message + (error.details ? ' — ' + error.details : '') + (error.hint ? ' | Hint: ' + error.hint : '') + (error.code ? ' [' + error.code + ']' : '');
-    errDiv.style.display = 'block';
-    errDiv.scrollIntoView({behavior:'smooth',block:'center'});
-    return;
-  }
-  document.getElementById('saveError').style.display = 'none';
-  toast(editingId ? '✅ Actualizado' : '✅ Guardado');
+  document.getElementById('saveError').style.display='none';
+  toast(editingId?'✅ Actualizado':'✅ Guardado');
   clearForm(); load();
 }
 
+// ── ADMIN LIST ────────────────────────────────────────────────────────────────
 async function loadAdminList() {
-  const list = document.getElementById('prodList');
-  list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82em;">Cargando...</div>';
-  const { data } = await sb.from(TABLE).select('*').order('created_at', { ascending: false });
-  document.getElementById('listCount').textContent = (data||[]).length + ' productos';
-  if (!data?.length) { list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82em;">No hay productos. Agrega el primero ➕</div>'; return; }
-  list.innerHTML = data.map(p => {
-    const store = p.store || 'aliexpress';
-    return `
-    <div class="prod-row">
+  const list=document.getElementById('prodList');
+  list.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82em;">Cargando...</div>';
+  const {data}=await sb.from(TABLE).select('*').order('created_at',{ascending:false});
+  document.getElementById('listCount').textContent=(data||[]).length+' productos';
+  if(!data?.length){list.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted);">No hay productos aún.</div>';return;}
+  list.innerHTML=data.map(p=>{
+    const store=p.store||'aliexpress';
+    return `<div class="prod-row">
       <img src="${e(p.image_url)}" onerror="this.style.display='none'" alt="">
       <div class="prod-row-info">
-        <div class="prod-row-name">${e(p.name)}<span class="store-pill ${store}">${store==='temu'?'Temu':'Ali'}</span></div>
+        <div class="prod-row-name">${e(p.name||p.category||'?')}<span class="store-pill ${store}">${store==='temu'?'Temu':'Ali'}</span></div>
         <div class="prod-row-cat">${e(p.category||'Sin categoría')} ${p.active?'✅':'⛔'} ${p.seller_only?'🔒':''}</div>
       </div>
       <div class="prod-row-actions">
@@ -671,104 +801,104 @@ async function loadAdminList() {
 }
 
 async function editProd(id) {
-  const { data: p } = await sb.from(TABLE).select('*').eq('id', id).single();
-  if (!p) return;
-  editingId = id;
-  const store = p.store || 'aliexpress';
+  const {data:p}=await sb.from(TABLE).select('*').eq('id',id).single();
+  if(!p) return;
+  editingId=id;
+  const store=p.store||'aliexpress';
   switchStore(store);
-  document.getElementById('fName').value = p.name || '';
-  document.getElementById('fCat').value  = p.category || '';
-  document.getElementById('fDisc').value = p.discount || '';
-  document.getElementById('fSellerOnly').checked = p.seller_only || false;
-  if (store === 'aliexpress') {
-    const embed = document.getElementById('fEmbed');
-    embed.value = `<a href="${p.affiliate_url}"><img src="${p.image_url}" /></a>`;
-    embed.dataset.imgUrl = p.image_url || '';
-    embed.dataset.affUrl = p.affiliate_url || '';
-    document.getElementById('embedStatus').innerHTML = '✅ Cargado para editar';
-    document.getElementById('embedStatus').style.color = '#166534';
+  if(store==='aliexpress'){
+    document.getElementById('fName').value=p.name||'';
+    document.getElementById('fCat').value=p.category||'';
+    document.getElementById('fDisc').value=p.discount||'';
+    document.getElementById('fSellerOnly').checked=p.seller_only||false;
+    const embed=document.getElementById('fEmbed');
+    embed.value=`<a href="${p.affiliate_url}"><img src="${p.image_url}" /></a>`;
+    embed.dataset.imgUrl=p.image_url||''; embed.dataset.affUrl=p.affiliate_url||'';
+    const prev=document.getElementById('imgPreviewAli');
+    prev.src=p.image_url; prev.style.display='block';
+    document.getElementById('embedStatus').innerHTML='✅ Cargado para editar';
+    document.getElementById('embedStatus').style.color='#166534';
   } else {
-    document.getElementById('fTemuUrl').value = p.affiliate_url || '';
-    document.getElementById('fTemuImg').value = p.image_url || '';
+    document.getElementById('fTemuUrl').value=p.affiliate_url||'';
+    document.getElementById('fTemuImg').value=p.image_url||'';
+    document.getElementById('fTemuCat').value=p.category||'';
+    const prev=document.getElementById('imgPreviewTemu');
+    prev.src=p.image_url; prev.style.display='block';
   }
-  showPreview(p.image_url, p.affiliate_url);
-  document.getElementById('saveBtn').textContent = '💾 Actualizar';
-  aTab('add');
-  toast('✏️ Editando — modifica y guarda');
+  document.getElementById('saveBtn').textContent='💾 Actualizar';
+  aTab('add'); toast('✏️ Editando — modifica y guarda');
+}
+async function toggleProd(id,active){await sb.from(TABLE).update({active:!active}).eq('id',id);toast(active?'⛔ Desactivado':'✅ Activado');loadAdminList();load();}
+async function delProd(id){if(!confirm('¿Eliminar?'))return;await sb.from(TABLE).delete().eq('id',id);toast('🗑️ Eliminado');loadAdminList();load();}
+function clearForm(){
+  editingId=null;
+  ['fName','fCat','fDisc','fEmbed','fTemuUrl','fTemuImg','fTemuCat'].forEach(id=>{const el=document.getElementById(id);if(!el)return;el.value='';if(el.dataset){el.dataset.imgUrl='';el.dataset.affUrl='';}});
+  document.getElementById('fSellerOnly').checked=false;
+  clearPreview(); document.getElementById('saveBtn').textContent='💾 Guardar';
+  document.getElementById('saveError').style.display='none';
 }
 
-async function toggleProd(id, active) {
-  await sb.from(TABLE).update({ active: !active }).eq('id', id);
-  toast(active ? '⛔ Desactivado' : '✅ Activado');
-  loadAdminList(); load();
+// ── CODES ADMIN ───────────────────────────────────────────────────────────────
+async function loadAdminCodes() {
+  const {data}=await sb.from(CODES_TABLE).select('*').order('created_at',{ascending:false}).catch(()=>({data:[]}));
+  allCodes=(data||[]).filter(c=>c.active);
+  renderCodesPage(); renderCodesHome();
+  const list=document.getElementById('codesList'); if(!list) return;
+  const allData=data||[];
+  if(!allData.length){list.innerHTML='<div style="color:var(--muted);font-size:.82rem;">No hay códigos aún.</div>';return;}
+  list.innerHTML=allData.map(c=>`
+    <div class="prod-row">
+      <div class="prod-row-info">
+        <div class="prod-row-name" style="font-family:monospace;">${e(c.code)}<span class="store-pill ${c.store}">${c.store==='temu'?'Temu':'Ali'}</span></div>
+        <div class="prod-row-cat">${e(c.description||'')} ${c.expires_at?'⏳ '+new Date(c.expires_at).toLocaleDateString('es-DO'):''} ${c.active?'✅':'⛔'}</div>
+      </div>
+      <div class="prod-row-actions">
+        <button class="btn-del" onclick="toggleCode('${c.id}',${c.active})">${c.active?'⛔':'✅'}</button>
+        <button class="btn-del" onclick="delCode('${c.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
 }
-
-async function delProd(id) {
-  if (!confirm('¿Eliminar?')) return;
-  await sb.from(TABLE).delete().eq('id', id);
-  toast('🗑️ Eliminado');
-  loadAdminList(); load();
+async function saveCode() {
+  const code=document.getElementById('codeText').value.trim();
+  const store=document.getElementById('codeStore').value;
+  const desc=document.getElementById('codeDesc').value.trim()||null;
+  const exp=document.getElementById('codeExpiry').value||null;
+  const errDiv=document.getElementById('codeError');
+  if(!code){errDiv.textContent='❌ Código obligatorio';errDiv.style.display='block';return;}
+  errDiv.style.display='none';
+  try {
+    const {error}=await sb.from(CODES_TABLE).insert({code,store,description:desc,expires_at:exp,active:true});
+    if(error){errDiv.textContent='❌ '+error.message+' (¿Existe la tabla affiliate_discount_codes?)';errDiv.style.display='block';return;}
+  } catch(err){errDiv.textContent='❌ '+err.message;errDiv.style.display='block';return;}
+  toast('✅ Código guardado'); clearCodeForm(); loadAdminCodes();
 }
-
-function clearForm() {
-  editingId = null;
-  ['fName','fCat','fDisc','fEmbed','fTemuUrl','fTemuImg'].forEach(id => {
-    const el = document.getElementById(id); if (!el) return;
-    el.value = '';
-    if (el.dataset) { el.dataset.imgUrl = ''; el.dataset.affUrl = ''; }
-  });
-  document.getElementById('fSellerOnly').checked = false;
-  clearPreview();
-  document.getElementById('saveBtn').textContent = '💾 Guardar';
-  document.getElementById('saveError').style.display = 'none';
-}
+async function toggleCode(id,active){await sb.from(CODES_TABLE).update({active:!active}).eq('id',id);toast(active?'⛔ Desactivado':'✅ Activado');loadAdminCodes();}
+async function delCode(id){if(!confirm('¿Eliminar código?'))return;await sb.from(CODES_TABLE).delete().eq('id',id);toast('🗑️ Eliminado');loadAdminCodes();}
+function clearCodeForm(){['codeText','codeDesc','codeExpiry'].forEach(id=>document.getElementById(id).value='');document.getElementById('codeStore').value='aliexpress';document.getElementById('codeError').style.display='none';}
 
 // ── SELLER AUTH ───────────────────────────────────────────────────────────────
-function toggleSellerMode() {
-  if (currentUser) {
-    document.getElementById('sellerLoginView').style.display = 'none';
-    document.getElementById('sellerLoggedView').style.display = 'block';
-    document.getElementById('sellerWelcome').textContent = currentUser.email;
-  } else {
-    document.getElementById('sellerLoginView').style.display = 'block';
-    document.getElementById('sellerLoggedView').style.display = 'none';
-    document.getElementById('sellerEmail').value = '';
-    document.getElementById('sellerPass').value = '';
-    document.getElementById('sellerErr').textContent = '';
-  }
+function toggleSellerMode(){
+  if(currentUser){document.getElementById('sellerLoginView').style.display='none';document.getElementById('sellerLoggedView').style.display='block';document.getElementById('sellerWelcome').textContent=currentUser.email;}
+  else{document.getElementById('sellerLoginView').style.display='block';document.getElementById('sellerLoggedView').style.display='none';document.getElementById('sellerEmail').value='';document.getElementById('sellerPass').value='';document.getElementById('sellerErr').textContent='';}
   document.getElementById('sellerOvl').classList.add('open');
 }
-
-async function doSellerLogin() {
-  const email = document.getElementById('sellerEmail').value.trim();
-  const pass  = document.getElementById('sellerPass').value;
-  const err   = document.getElementById('sellerErr');
-  const btn   = document.getElementById('sellerLoginBtn');
-  if (!email || !pass) { err.textContent = 'Email y contraseña requeridos'; return; }
-  btn.disabled = true; btn.textContent = 'Entrando...';
-  err.textContent = '';
-  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-  btn.disabled = false; btn.textContent = 'Entrar →';
-  if (error) { err.textContent = '❌ ' + error.message; return; }
-  document.getElementById('sellerOvl').classList.remove('open');
-  toast('✅ Sesión iniciada');
+async function doSellerLogin(){
+  const email=document.getElementById('sellerEmail').value.trim(),pass=document.getElementById('sellerPass').value;
+  const err=document.getElementById('sellerErr'),btn=document.getElementById('sellerLoginBtn');
+  if(!email||!pass){err.textContent='Email y contraseña requeridos';return;}
+  btn.disabled=true;btn.textContent='Entrando...';err.textContent='';
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  btn.disabled=false;btn.textContent='Entrar →';
+  if(error){err.textContent='❌ '+error.message;return;}
+  document.getElementById('sellerOvl').classList.remove('open');toast('✅ Sesión iniciada');
+}
+async function doSellerLogout(){
+  await sb.auth.signOut();currentUser=null;sellerMode=false;isAdmin=false;
+  updateSellerUI();document.getElementById('sellerOvl').classList.remove('open');toast('🔒 Sesión cerrada');load();
 }
 
-async function doSellerLogout() {
-  await sb.auth.signOut();
-  currentUser = null; sellerMode = false;
-  updateSellerUI();
-  document.getElementById('sellerOvl').classList.remove('open');
-  toast('🔒 Sesión cerrada');
-  load();
-}
-
-function e(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2800);
-}
+function e(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
 </script>
 </body>
 </html>
