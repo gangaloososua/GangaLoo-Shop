@@ -67,7 +67,20 @@ label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.
 </div>
 
 <div class="step">
-  <div class="step-title"><span class="num">4</span> Importa el JSON a GangaLoo</div>
+  <div class="step-title"><span class="num">4</span> Inicia sesión como Admin</div>
+  <div id="authStatus" style="font-size:.82rem;color:#888;margin-bottom:8px;">Verificando sesión...</div>
+  <div id="authForm" style="display:none;">
+    <label>Email</label>
+    <input type="email" id="authEmail" placeholder="tu@email.com">
+    <label>Contraseña</label>
+    <input type="password" id="authPass" placeholder="••••••••" style="margin-top:6px;">
+    <button onclick="doLogin()" style="margin-top:8px;background:#111;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:.83rem;font-weight:600;cursor:pointer;">Entrar →</button>
+    <div id="authErr" style="color:#dc2626;font-size:.76rem;margin-top:4px;"></div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-title"><span class="num">5</span> Importa el JSON a GangaLoo</div>
   <label>Categoría por defecto</label>
   <input type="text" id="defaultCat" placeholder="Ej: Vestidos, Moda, Tops...">
   <label>Archivo shein-products.json</label>
@@ -187,6 +200,37 @@ async function importAll() {
   status.textContent = '✅ ' + ok + ' importados, ' + fail + ' fallidos.';
   status.style.color = ok > 0 ? '#166534' : '#dc2626';
 }
+
+async function doLogin() {
+  var sb = getSb();
+  var email = document.getElementById('authEmail').value.trim();
+  var pass = document.getElementById('authPass').value;
+  var err = document.getElementById('authErr');
+  if (!email||!pass) { err.textContent='Email y contraseña requeridos'; return; }
+  err.textContent = '';
+  var res = await sb.auth.signInWithPassword({email:email, password:pass});
+  if (res.error) { err.textContent = '❌ ' + res.error.message; return; }
+  checkAuth();
+}
+
+async function checkAuth() {
+  var sb = getSb();
+  var status = document.getElementById('authStatus');
+  var form = document.getElementById('authForm');
+  var res = await sb.auth.getSession();
+  if (res.data && res.data.session) {
+    var user = res.data.session.user;
+    status.textContent = '✅ Conectado como ' + user.email;
+    status.style.color = '#166534';
+    if (form) form.style.display = 'none';
+  } else {
+    status.textContent = 'No hay sesión activa. Inicia sesión:';
+    status.style.color = '#888';
+    if (form) form.style.display = 'block';
+  }
+}
+
+checkAuth();
 
 async function cleanShein() {
   var sb = getSb();
