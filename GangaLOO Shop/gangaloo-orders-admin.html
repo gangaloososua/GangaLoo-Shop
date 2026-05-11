@@ -501,7 +501,9 @@ function calcBalance(prefix) {
 }
 
 function clientFormLink(orderId) {
-  return `${CFG.baseurl}?order=${orderId}`;
+  // Strip any trailing slash or filename from baseurl so it always points to gangaloo-client-form.html
+  const base = (CFG.baseurl || '').replace(/\/+$/, '').replace(/\/[^\/]*\.html$/, '');
+  return `${base}/gangaloo-client-form.html?order=${orderId}`;
 }
 
 // ── WA MESSAGES ──
