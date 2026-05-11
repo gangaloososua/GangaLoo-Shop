@@ -494,10 +494,10 @@ const STATUS_CLASS = {
 };
 
 function calcBalance(prefix) {
+  /* Balance owed = amount - paid. Delivery fee is added ONLY when the client picks delivery. */
   const amount = parseFloat(document.getElementById(`${prefix}_amount`).value) || 0;
   const paid = parseFloat(document.getElementById(`${prefix}_paid`).value) || 0;
-  const fee = parseFloat(document.getElementById(`${prefix}_deliveryFee`).value) || 0;
-  document.getElementById(`${prefix}_balance`).value = Math.max(0, amount + fee - paid).toFixed(2);
+  document.getElementById(`${prefix}_balance`).value = Math.max(0, amount - paid).toFixed(2);
 }
 
 function clientFormLink(orderId) {
@@ -508,15 +508,17 @@ function clientFormLink(orderId) {
 
 // ── WA MESSAGES ──
 function buildWANotify(o) {
-  const balance = Number(o.balance || 0);
+  /* Base saldo = product cost - already paid. Delivery fee is shown separately as an option. */
+  const amount = Number(o.amount || 0);
   const paid = Number(o.paid || 0);
+  const baseSaldo = Math.max(0, amount - paid);
   let msg = `Hola ${o.client}! 👋\n\n`;
   msg += `Tu pedido de *${o.platform.charAt(0).toUpperCase()+o.platform.slice(1)}* ha llegado! 📦\n`;
   if (o.orderId) msg += `🔖 Ref: ${o.orderId}\n`;
   if (o.desc) msg += `📋 ${o.desc}\n`;
   msg += `\n💰 Total del pedido: *${fmt(o.amount)}*`;
   if (paid > 0) msg += `\n✅ Ya pagado: *${fmt(paid)}*`;
-  msg += `\n⚡ Saldo pendiente: *${fmt(balance)}*`;
+  msg += `\n⚡ Saldo pendiente: *${fmt(baseSaldo)}*`;
   msg += `\n\n¿Cómo prefieres recibirlo?\n\n`;
   msg += `🏪 *1 — Recojo en tienda* (gratis)\n`;
   msg += `🚚 *2 — Envío a domicilio* (+${fmt(o.deliveryFee)})\n\n`;
@@ -526,8 +528,11 @@ function buildWANotify(o) {
 }
 
 function buildWAConfirm(o) {
-  const balance = Number(o.balance || 0);
-  const totalWithDelivery = Number(o.amount || 0) + Number(o.deliveryFee || 0);
+  /* Delivery confirmation: saldo = (amount - paid) + delivery fee */
+  const amount = Number(o.amount || 0);
+  const paid = Number(o.paid || 0);
+  const fee = Number(o.deliveryFee || 0);
+  const saldo = Math.max(0, amount - paid) + fee;
   let msg = `✅ *Confirmación de entrega — GangaLoo*\n\n`;
   msg += `Hola ${o.client}! Tu entrega está confirmada 🎉\n\n`;
   msg += `📦 *Pedido:* ${o.platform.charAt(0).toUpperCase()+o.platform.slice(1)}`;
@@ -536,16 +541,20 @@ function buildWAConfirm(o) {
   msg += `🕐 *Horario:* A coordinar\n`;
   msg += `📍 *Dirección:* ${o.clientAddress}\n\n`;
   msg += `💳 *Resumen de pago:*\n`;
-  msg += `   Pedido: ${fmt(o.amount)}\n`;
-  msg += `   Envío: ${fmt(o.deliveryFee)}\n`;
-  if (Number(o.paid) > 0) msg += `   Ya pagado: -${fmt(o.paid)}\n`;
-  msg += `   ⚡ *A pagar al recibir: ${fmt(balance)}*\n\n`;
+  msg += `   Pedido: ${fmt(amount)}\n`;
+  msg += `   Envío: ${fmt(fee)}\n`;
+  if (paid > 0) msg += `   Ya pagado: -${fmt(paid)}\n`;
+  msg += `   ⚡ *A pagar al recibir: ${fmt(saldo)}*\n\n`;
   msg += `Nos comunicamos contigo el día de la entrega. ¡Gracias! 🙏`;
   return msg;
 }
 
 function buildWAPickupConfirm(o) {
-  return `✅ *Recogida confirmada — GangaLoo*\n\nHola ${o.client}! 🎉\n\nTu pedido está listo para recoger.\n\n📦 ${o.desc || o.platform}\n💳 *A pagar: ${fmt(o.balance)}*\n\nPuedes pasar cuando gustes. ¡Te esperamos! 🙌`;
+  /* Pickup: saldo = amount - paid (NO delivery fee) */
+  const amount = Number(o.amount || 0);
+  const paid = Number(o.paid || 0);
+  const saldo = Math.max(0, amount - paid);
+  return `✅ *Recogida confirmada — GangaLoo*\n\nHola ${o.client}! 🎉\n\nTu pedido está listo para recoger.\n\n📦 ${o.desc || o.platform}\n💳 *A pagar: ${fmt(saldo)}*\n\nPuedes pasar cuando gustes. ¡Te esperamos! 🙌`;
 }
 
 function waLink(phone, msg) {
