@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shein Scraper — GangaLoo</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',sans-serif;background:#f5f0ea;color:#222;min-height:100vh;padding:30px 5vw;}
+h1{font-size:1.5rem;margin-bottom:6px;}
+h1 span{color:#e61e72;}
+.sub{color:#888;font-size:.85rem;margin-bottom:28px;}
+.step{background:#fff;border:1.5px solid #e4e0d8;border-radius:14px;padding:22px;margin-bottom:16px;}
+.step-num{display:inline-block;background:#e61e72;color:#fff;width:26px;height:26px;border-radius:50%;text-align:center;line-height:26px;font-weight:700;font-size:.8rem;margin-right:10px;flex-shrink:0;}
+.step-title{font-weight:600;font-size:1rem;display:flex;align-items:center;margin-bottom:10px;}
+.step p{font-size:.84rem;color:#555;line-height:1.7;margin-bottom:10px;}
+.code-box{background:#111;color:#a8f0a8;border-radius:10px;padding:16px;font-family:monospace;font-size:.78rem;line-height:1.6;overflow-x:auto;white-space:pre-wrap;word-break:break-all;position:relative;}
+.copy-btn{position:absolute;top:10px;right:10px;background:#e61e72;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.72rem;font-weight:600;cursor:pointer;}
+.copy-btn:hover{background:#c01860;}
+.bookmarklet-btn{display:inline-block;background:#e61e72;color:#fff;border-radius:10px;padding:10px 20px;font-weight:700;font-size:.9rem;text-decoration:none;margin-top:6px;}
+.bookmarklet-btn:hover{background:#c01860;}
+.note{background:#fff8f0;border:1.5px solid #f0d8b0;border-radius:10px;padding:14px;font-size:.82rem;color:#7a5000;margin-top:10px;}
+.note strong{color:#b87000;}
+</style>
+</head>
+<body>
+
+<h1>Shein Scraper <span>×</span> GangaLoo</h1>
+<p class="sub">Extrae productos de tu página afiliada de Shein con un clic.</p>
+
+<!-- STEP 1 -->
+<div class="step">
+  <div class="step-title"><span class="step-num">1</span> Abre tu página Shein Affiliate</div>
+  <p>Ve a tu página afiliada en el navegador y espera a que carguen todos los productos. Haz scroll hacia abajo para cargar más productos si es necesario.</p>
+  <a href="https://m.shein.com/us/affiliate/product-ranking?identifier=on%3D%7Bnavgrid%7D%60ps%3D%7B3%7D&pageId=page_affiliate_c1778491264508" target="_blank" style="display:inline-block;background:#111;color:#fff;border-radius:8px;padding:8px 16px;font-size:.82rem;font-weight:600;text-decoration:none;margin-top:4px;">🔗 Abrir página Shein Affiliate</a>
+</div>
+
+<!-- STEP 2 -->
+<div class="step">
+  <div class="step-title"><span class="step-num">2</span> Arrastra el bookmarklet a tu barra de favoritos</div>
+  <p>Arrastra este botón a tu barra de favoritos del navegador:</p>
+  <a class="bookmarklet-btn" href="javascript:(function(){const s=document.createElement('script');s.src='https://gangaloo.netlify.app/shein-extract.js?t='+Date.now();document.head.appendChild(s);})();">💗 GangaLoo Shein Extractor</a>
+  <p style="margin-top:10px;font-size:.78rem;color:#888;">Si no puedes arrastrarlo, copia el código del Paso 3 manualmente.</p>
+</div>
+
+<!-- STEP 3 -->
+<div class="step">
+  <div class="step-title"><span class="step-num">3</span> O pega este código en la consola del navegador</div>
+  <p>En la página Shein, pulsa <strong>F12</strong> → pestaña <strong>Console</strong> → pega esto y pulsa Enter:</p>
+  <div class="code-box" id="consoleCode">(function() {
+  const results = [];
+  
+  // Try to get products from DOM
+  const cards = document.querySelectorAll(
+    '[class*="product-card"], [class*="goods-item"], [class*="product-item"], ' +
+    '[data-goods-id], [data-product-id], .S-product-item, .product-card__img-wrap'
+  );
+
+  cards.forEach(card => {
+    const img = card.querySelector('img');
+    const link = card.querySelector('a[href]');
+    const name = card.querySelector('[class*="name"], [class*="title"], .product-card__name');
+    const price = card.querySelector('[class*="price"]');
+    
+    if (!img || !link) return;
+    
+    const imgSrc = img.src || img.dataset.src || img.dataset.original || '';
+    const href = link.href || '';
+    
+    if (!imgSrc || !href) return;
+    if (!href.includes('shein') && !href.includes('onelink')) return;
+    
+    results.push({
+      image_url: imgSrc.replace(/thumbnail_\d+x\d+/, 'thumbnail_405x552').split('?')[0],
+      affiliate_url: href,
+      name: (name?.textContent || '').trim().substring(0, 100) || 'Producto Shein',
+      price: (price?.textContent || '').trim()
+    });
+  });
+
+  // Also try intercepted network data
+  if (window.__sheinProducts && window.__sheinProducts.length) {
+    window.__sheinProducts.forEach(p => {
+      if (!results.find(r => r.affiliate_url === p.affiliate_url)) {
+        results.push(p);
+      }
+    });
+  }
+
+  if (!results.length) {
+    alert('❌ No se encontraron productos. Intenta hacer scroll y espera a que carguen, luego vuelve a correr el script.');
+    return;
+  }
+
+  // Build JSON output
+  const json = JSON.stringify(results, null, 2);
+  
+  // Create download
+  const blob = new Blob([json], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'shein-products.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  // Also show in overlay
+  const ovl = document.createElement('div');
+  ovl.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  ovl.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:24px;max-width:560px;width:100%;max-height:80vh;overflow-y:auto;">
+      <h2 style="font-size:1.1rem;margin-bottom:6px;">✅ ${results.length} productos encontrados</h2>
+      <p style="font-size:.8rem;color:#888;margin-bottom:14px;">El archivo shein-products.json se está descargando. Súbelo al importador de GangaLoo.</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+        ${results.slice(0,5).map(p => `
+          <div style="display:flex;gap:10px;align-items:center;border:1px solid #eee;border-radius:8px;padding:8px;">
+            <img src="${p.image_url}" style="width:50px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0;">
+            <div style="min-width:0;">
+              <div style="font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+              <div style="font-size:.7rem;color:#e61e72;">${p.price}</div>
+            </div>
+          </div>
+        `).join('')}
+        ${results.length > 5 ? `<div style="font-size:.78rem;color:#888;text-align:center;">... y ${results.length - 5} más en el archivo JSON</div>` : ''}
+      </div>
+      <button onclick="this.closest('div[style]').remove()" style="width:100%;background:#e61e72;color:#fff;border:none;border-radius:8px;padding:10px;font-size:.85rem;font-weight:600;cursor:pointer;">Cerrar</button>
+    </div>
+  `;
+  document.body.appendChild(ovl);
+})();</div>
+  <button class="copy-btn" onclick="copyCode()">📋 Copiar</button>
+</div>
+
+<!-- STEP 4 -->
+<div class="step">
+  <div class="step-title"><span class="step-num">4</span> Importa el JSON en GangaLoo Admin</div>
+  <p>Descarga el archivo <code>shein-products.json</code> y súbelo aquí para importar todos los productos automáticamente a tu base de datos:</p>
+
+  <div style="margin-top:12px;">
+    <label style="display:block;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:6px;">Categoría por defecto para todos los productos</label>
+    <input type="text" id="defaultCat" placeholder="Ej: Vestidos, Moda, Tops..." style="width:100%;padding:9px 12px;border:1.5px solid #e4e0d8;border-radius:9px;font-size:.88rem;margin-bottom:12px;">
+    
+    <label style="display:block;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:6px;">Archivo JSON de productos Shein</label>
+    <input type="file" id="jsonFile" accept=".json" onchange="loadJson(this)" style="width:100%;padding:9px;border:1.5px solid #e4e0d8;border-radius:9px;font-size:.85rem;background:#f5f0ea;cursor:pointer;">
+  </div>
+
+  <div id="preview" style="display:none;margin-top:16px;">
+    <div id="previewList" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;margin-bottom:14px;"></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button onclick="importAll()" id="importBtn" style="flex:1;background:#e61e72;color:#fff;border:none;border-radius:10px;padding:11px;font-size:.88rem;font-weight:700;cursor:pointer;">🚀 Importar todos a GangaLoo</button>
+      <span id="importStatus" style="font-size:.8rem;color:#888;"></span>
+    </div>
+    <div id="importLog" style="margin-top:10px;max-height:120px;overflow-y:auto;font-size:.75rem;color:#555;display:flex;flex-direction:column;gap:3px;"></div>
+  </div>
+
+  <div class="note" style="margin-top:14px;">
+    <strong>Nota:</strong> Necesitas estar logueado como Admin en GangaLoo para importar. El importador usará tus credenciales de Supabase de <code>config.js</code>.
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/config.js"></script>
+<script>
+let parsedProducts = [];
+const TABLE = 'aliexpress_affiliate_products';
+
+function copyCode() {
+  const code = document.getElementById('consoleCode').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✅ Copiado';
+    setTimeout(() => btn.textContent = '📋 Copiar', 2000);
+  });
+}
+
+function loadJson(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      parsedProducts = JSON.parse(e.target.result);
+      showPreview();
+    } catch(err) {
+      alert('❌ Error leyendo JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function showPreview() {
+  const preview = document.getElementById('preview');
+  const list = document.getElementById('previewList');
+  preview.style.display = 'block';
+  list.innerHTML = parsedProducts.map((p, i) => `
+    <div style="display:flex;gap:10px;align-items:center;border:1px solid #e4e0d8;border-radius:10px;padding:10px;background:#fff;">
+      <img src="${p.image_url}" style="width:54px;height:66px;object-fit:cover;border-radius:7px;flex-shrink:0;" onerror="this.style.background='#eee'">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name||'Producto Shein'}</div>
+        <div style="font-size:.7rem;color:#e61e72;margin-bottom:3px;">${p.price||''}</div>
+        <div style="font-size:.68rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.affiliate_url||''}</div>
+      </div>
+      <input type="text" placeholder="Categoría" value="${document.getElementById('defaultCat').value}" 
+        onchange="parsedProducts[${i}]._cat=this.value"
+        style="width:110px;padding:5px 8px;border:1.5px solid #e4e0d8;border-radius:7px;font-size:.75rem;flex-shrink:0;">
+    </div>
+  `).join('');
+  document.getElementById('importStatus').textContent = parsedProducts.length + ' productos listos';
+}
+
+async function importAll() {
+  const sb = supabase.createClient(window.GANGALOO_CONFIG.supabaseUrl, window.GANGALOO_CONFIG.supabaseKey);
+  const btn = document.getElementById('importBtn');
+  const log = document.getElementById('importLog');
+  const status = document.getElementById('importStatus');
+  const defaultCat = document.getElementById('defaultCat').value.trim() || null;
+
+  btn.disabled = true; btn.textContent = 'Importando...';
+  log.innerHTML = '';
+  let ok = 0, fail = 0;
+
+  for (let i = 0; i < parsedProducts.length; i++) {
+    const p = parsedProducts[i];
+    const category = p._cat || defaultCat || null;
+    const payload = {
+      name: p.name || 'Producto Shein',
+      store: 'shein',
+      category,
+      image_url: p.image_url || '',
+      affiliate_url: p.affiliate_url || '',
+      discount: p.price || null,
+      seller_only: false,
+      active: true
+    };
+
+    status.textContent = `Importando ${i+1} / ${parsedProducts.length}...`;
+
+    try {
+      const { error } = await sb.from(TABLE).insert(payload);
+      if (error) {
+        fail++;
+        log.innerHTML += `<div style="color:#dc2626;">❌ ${p.name?.substring(0,40)}: ${error.message}</div>`;
+      } else {
+        ok++;
+        log.innerHTML += `<div style="color:#166534;">✅ ${p.name?.substring(0,40)}</div>`;
+      }
+    } catch(err) {
+      fail++;
+      log.innerHTML += `<div style="color:#dc2626;">❌ Error: ${err.message}</div>`;
+    }
+    log.scrollTop = log.scrollHeight;
+    await new Promise(r => setTimeout(r, 150)); // small delay between inserts
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🚀 Importar todos';
+  status.textContent = `✅ ${ok} importados, ${fail} fallidos`;
+  if (ok > 0) status.style.color = '#166534';
+}
+</script>
+</body>
+</html>
