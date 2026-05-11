@@ -39,7 +39,7 @@ h1 span{color:#e61e72;}
 <div class="step">
   <div class="step-title"><span class="step-num">2</span> Arrastra el bookmarklet a tu barra de favoritos</div>
   <p>Arrastra este botón a tu barra de favoritos del navegador:</p>
-  <a class="bookmarklet-btn" href="javascript:(function(){const r=[];const s=new Set();document.querySelectorAll('a').forEach(a=>{const h=a.href||'';if(!h||h===location.href)return;const i=a.querySelector('img');if(!i)return;const src=i.src||i.dataset.src||i.dataset.lazySrc||i.getAttribute('data-src')||'';if(!src||src.startsWith('data:'))return;const k=src.split('?')[0];if(s.has(k))return;s.add(k);let n='';let c=a.parentElement;for(let j=0;j<5;j++){if(!c)break;const t=c.innerText||'';if(t.length>5&&t.length<300){n=t.split('\n')[0].trim();break;}c=c.parentElement;}r.push({image_url:k.replace(/(_\d+x\d+)/,'_405x552'),affiliate_url:h,name:n.substring(0,120)||'Producto Shein',price:''});});if(!r.length){document.querySelectorAll('img').forEach(i=>{const src=i.src||i.dataset.src||'';if(!src||src.startsWith('data:'))return;const k=src.split('?')[0];if(s.has(k))return;s.add(k);let l=i.closest('a');if(!l){let e=i.parentElement;for(let j=0;j<6;j++){if(!e)break;const a=e.querySelector('a[href]');if(a){l=a;break;}e=e.parentElement;}}r.push({image_url:k.replace(/(_\d+x\d+)/,'_405x552'),affiliate_url:l?.href||'',name:i.alt||'Shein',price:''}); });}if(!r.length){const d={url:location.href,links:[...document.querySelectorAll('a[href]')].map(a=>a.href).slice(0,15),imgs:[...document.querySelectorAll('img')].map(i=>i.src).filter(s=>s&&!s.startsWith('data:')).slice(0,15),body:document.body.innerText.substring(0,500)};const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='shein-debug.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);alert('No se encontraron productos. Se descargo shein-debug.json');return;}const b=new Blob([JSON.stringify(r,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='shein-products.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);alert('✅ '+r.length+' productos encontrados! shein-products.json descargado.');})();">💗 GangaLoo Shein Extractor</a>
+  <a class="bookmarklet-btn" href="javascript:(function(){const r=[];const s=new Set();const pu=location.href;document.querySelectorAll('img').forEach(img=>{const src=img.src||img.dataset.src||img.dataset.lazySrc||img.getAttribute('data-src')||'';if(!src||src.startsWith('data:')||src.length<20)return;const k=src.split('?')[0];if(s.has(k))return;s.add(k);let link='',name=img.alt||'',gid='';let el=img;for(let i=0;i<10;i++){if(!el)break;const g=el.dataset.goodsId||el.dataset.productId||el.getAttribute('data-goods-id')||'';if(g&&!gid)gid=g;if(el.tagName==='A'&&el.href&&!el.href.includes('javascript')&&!link)link=el.href;el=el.parentElement;}if(!name){let c=img.parentElement;for(let i=0;i<5;i++){if(!c)break;const t=(c.innerText||'').trim().split('\n')[0];if(t.length>5&&t.length<150){name=t;break;}c=c.parentElement;}}let au=link||(gid?'https://www.shein.com/product/p-'+gid+'.html?ref=aff':pu);if(au.startsWith('/'))au='https://www.shein.com'+au;r.push({image_url:k.replace(/(_\d+x\d+)/,'_405x552'),affiliate_url:au,name:(name||'Shein').substring(0,120),price:''});});if(!r.length){alert('No productos. Espera que cargue la pagina y vuelve a intentar.');return;}const b=new Blob([JSON.stringify(r,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='shein-products.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);alert('✅ '+r.length+' productos! shein-products.json descargado.');})();">💗 GangaLoo Shein Extractor</a>
   <p style="margin-top:10px;font-size:.78rem;color:#888;">Si no puedes arrastrarlo, copia el código del Paso 3 manualmente.</p>
 </div>
 
@@ -50,125 +50,137 @@ h1 span{color:#e61e72;}
   <div class="code-box" id="consoleCode">(function() {
   const results = [];
   const seen = new Set();
+  const pageUrl = location.href;
 
-  // Strategy 1: find all <a> tags that wrap an <img> - broadest possible approach
-  document.querySelectorAll('a').forEach(a => {
-    const href = a.href || '';
-    if (!href || href === location.href) return;
+  // Extract pageId from URL to build affiliate links
+  const pageIdMatch = pageUrl.match(/pageId=([^&]+)/);
+  const pageId = pageIdMatch ? pageIdMatch[1] : '';
+  const identifierMatch = pageUrl.match(/identifier=([^&]+)/);
+  const identifier = identifierMatch ? identifierMatch[1] : '';
 
-    const img = a.querySelector('img') || a.closest('[class]')?.querySelector('img');
-    if (!img) return;
+  // Find all images with Shein CDN URLs
+  document.querySelectorAll('img').forEach(img => {
+    const src = img.src || img.dataset.src || img.dataset.lazySrc || 
+                img.getAttribute('data-src') || img.getAttribute('data-original') || '';
+    if (!src || src.startsWith('data:') || src.length < 20) return;
+    if (!src.includes('ltwebstatic') && !src.includes('shein') && !src.includes('kwcdn') && !src.includes('img.')) return;
 
-    const imgSrc = img.src || img.dataset.src || img.dataset.lazySrc || 
-                   img.dataset.original || img.getAttribute('data-src') || '';
-    if (!imgSrc || imgSrc.startsWith('data:') || imgSrc.includes('placeholder')) return;
-
-    // Get name - walk up to find a container with text
-    let name = '', price = '';
-    let container = a.parentElement;
-    for (let i = 0; i < 5; i++) {
-      if (!container) break;
-      const txt = container.innerText || '';
-      if (txt.length > 5 && txt.length < 300) { name = txt.split('\n')[0].trim(); break; }
-      container = container.parentElement;
-    }
-
-    const key = imgSrc.split('?')[0];
+    const key = src.split('?')[0];
     if (seen.has(key)) return;
     seen.add(key);
 
+    // Walk up DOM to find: link, goods-id, product id, name
+    let link = '', name = '', goodsId = '', discount = '';
+    let el = img;
+    for (let i = 0; i < 10; i++) {
+      if (!el) break;
+      // Check for data attributes with product ID
+      const gid = el.dataset.goodsId || el.dataset.productId || el.dataset.id || 
+                  el.getAttribute('data-goods-id') || el.getAttribute('data-spu-id') || '';
+      if (gid && !goodsId) goodsId = gid;
+      
+      // Check for anchor
+      if (el.tagName === 'A' && el.href && !el.href.includes('javascript')) {
+        link = el.href;
+      }
+      // Check parent for anchor
+      if (!link) {
+        const a = el.querySelector && el.querySelector('a[href]');
+        if (a && a.href && !a.href.includes('javascript')) link = a.href;
+      }
+      el = el.parentElement;
+    }
+
+    // Get name from alt or nearby text
+    name = img.alt || img.title || '';
+    if (!name) {
+      let container = img.parentElement;
+      for (let i = 0; i < 6; i++) {
+        if (!container) break;
+        const txt = (container.innerText || '').trim();
+        const lines = txt.split('\n').map(l => l.trim()).filter(l => l.length > 5 && l.length < 150);
+        if (lines.length) { name = lines[0]; break; }
+        container = container.parentElement;
+      }
+    }
+
+    // Build affiliate link - use captured link or construct from goods ID or use page URL
+    let affiliateUrl = link;
+    if (!affiliateUrl || affiliateUrl === pageUrl) {
+      if (goodsId) {
+        // Build Shein product link with affiliate params
+        affiliateUrl = `https://www.shein.com/product/p-${goodsId}.html?ref=affiliate`;
+      } else if (link) {
+        affiliateUrl = link;
+      } else {
+        affiliateUrl = pageUrl; // fallback to affiliate page
+      }
+    }
+
+    // Make sure link is absolute and valid
+    if (affiliateUrl.startsWith('/')) affiliateUrl = 'https://www.shein.com' + affiliateUrl;
+
+    // Extract discount/price from nearby DOM
+    const container2 = img.closest('[class]');
+    if (container2) {
+      const priceEl = container2.querySelector('[class*="price"], [class*="discount"], [class*="off"]');
+      if (priceEl) discount = priceEl.innerText?.trim() || '';
+    }
+
     results.push({
-      image_url: imgSrc.split('?')[0].replace(/(_\d+x\d+)/, '_405x552'),
-      affiliate_url: href,
-      name: name.substring(0, 120) || 'Producto Shein',
-      price: ''
+      image_url: key.replace(/(_\d+x\d+)/, '_405x552'),
+      affiliate_url: affiliateUrl,
+      goods_id: goodsId,
+      name: (name || 'Producto Shein').substring(0, 120),
+      price: discount
     });
   });
 
-  // Strategy 2: all imgs with shein CDN urls
-  if (results.length === 0) {
-    document.querySelectorAll('img').forEach(img => {
-      const src = img.src || img.dataset.src || img.dataset.lazySrc || '';
-      if (!src || src.startsWith('data:')) return;
-      if (!src.includes('ltwebstatic') && !src.includes('shein') && !src.includes('img.')) return;
-      
-      const key = src.split('?')[0];
-      if (seen.has(key)) return;
-      seen.add(key);
-
-      // Find closest link
-      let link = img.closest('a');
-      if (!link) {
-        let el = img.parentElement;
-        for (let i = 0; i < 6; i++) {
-          if (!el) break;
-          const a = el.querySelector('a[href]');
-          if (a) { link = a; break; }
-          el = el.parentElement;
-        }
-      }
-
-      results.push({
-        image_url: src.split('?')[0].replace(/(_\d+x\d+)/, '_405x552'),
-        affiliate_url: link?.href || '',
-        name: img.alt || 'Producto Shein',
-        price: ''
-      });
-    });
-  }
-
-  // Strategy 3: dump all page text + links as debug
-  if (results.length === 0) {
-    const allLinks = [...document.querySelectorAll('a[href]')].map(a => a.href).filter(h => h.includes('shein') || h.includes('onelink'));
-    const allImgs  = [...document.querySelectorAll('img')].map(i => i.src).filter(s => s && !s.startsWith('data:'));
-    
-    const debug = {
-      url: location.href,
-      title: document.title,
+  if (!results.length) {
+    // Debug dump
+    const dbg = {
+      url: pageUrl, title: document.title,
       bodyLength: document.body.innerHTML.length,
-      linkCount: allLinks.length,
-      imgCount: allImgs.length,
-      sampleLinks: allLinks.slice(0, 10),
-      sampleImgs: allImgs.slice(0, 10),
-      bodySnippet: document.body.innerText.substring(0, 500)
+      allLinks: [...document.querySelectorAll('a[href]')].map(a=>({href:a.href,text:a.innerText?.substring(0,40)})).slice(0,20),
+      allImgs: [...document.querySelectorAll('img')].map(i=>({src:i.src,alt:i.alt,ds:i.dataset})).slice(0,20),
+      dataAttrs: [...document.querySelectorAll('[data-goods-id],[data-product-id],[data-spu-id]')].map(e=>({tag:e.tagName,data:JSON.stringify(e.dataset)})).slice(0,20),
+      bodyText: document.body.innerText.substring(0, 800)
     };
-
-    const blob = new Blob([JSON.stringify(debug, null, 2)], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
+    const b = new Blob([JSON.stringify(dbg,null,2)],{type:'application/json'});
+    const u = URL.createObjectURL(b);
     const a = document.createElement('a');
-    a.href = url; a.download = 'shein-debug.json'; document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
-
-    alert('❌ No se encontraron productos.\n\nSe descargó shein-debug.json — envíalo a GangaLoo para analizar la estructura de la página.\n\nLinks encontrados: ' + allLinks.length + '\nImágenes encontradas: ' + allImgs.length);
+    a.href=u; a.download='shein-debug.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+    alert('❌ 0 productos.\nSe descargó shein-debug.json — compártelo para analizar la estructura.');
     return;
   }
 
   // Download JSON
-  const blob = new Blob([JSON.stringify(results, null, 2)], {type: 'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'shein-products.json';
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a); URL.revokeObjectURL(url);
+  const blob = new Blob([JSON.stringify(results,null,2)],{type:'application/json'});
+  const url2 = URL.createObjectURL(blob);
+  const a2 = document.createElement('a');
+  a2.href=url2; a2.download='shein-products.json';
+  document.body.appendChild(a2); a2.click(); document.body.removeChild(a2); URL.revokeObjectURL(url2);
 
-  // Show overlay
+  // Overlay
   const ovl = document.createElement('div');
-  ovl.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;';
-  ovl.innerHTML = `
-    <div style="background:#fff;border-radius:16px;padding:24px;max-width:560px;width:100%;max-height:80vh;overflow-y:auto;">
-      <h2 style="font-size:1.1rem;margin-bottom:6px;">✅ ${results.length} productos encontrados</h2>
-      <p style="font-size:.8rem;color:#888;margin-bottom:14px;">shein-products.json descargado. Súbelo al importador.</p>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
-        ${results.slice(0,5).map(p => `
-          <div style="display:flex;gap:10px;align-items:center;border:1px solid #eee;border-radius:8px;padding:8px;">
-            ${p.image_url ? `<img src="${p.image_url}" style="width:50px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.style.background='#eee'">` : `<div style="width:50px;height:60px;background:#eee;border-radius:6px;flex-shrink:0;"></div>`}
-            <div style="min-width:0;font-size:.78rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</div>
-          </div>`).join('')}
-        ${results.length > 5 ? `<div style="font-size:.78rem;color:#888;text-align:center;">... y ${results.length-5} más</div>` : ''}
-      </div>
-      <button onclick="this.closest('div').parentElement.remove()" style="width:100%;background:#e61e72;color:#fff;border:none;border-radius:8px;padding:10px;font-size:.85rem;font-weight:600;cursor:pointer;">Cerrar</button>
+  ovl.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  ovl.innerHTML=`<div style="background:#fff;border-radius:16px;padding:24px;max-width:560px;width:100%;max-height:80vh;overflow-y:auto;">
+    <h2 style="font-size:1.1rem;margin-bottom:6px;">✅ ${results.length} productos encontrados</h2>
+    <p style="font-size:.78rem;color:#888;margin-bottom:14px;">shein-products.json descargado. Revisa los links abajo:</p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+      ${results.slice(0,5).map(p=>`
+        <div style="display:flex;gap:10px;align-items:center;border:1px solid #eee;border-radius:8px;padding:8px;">
+          ${p.image_url?`<img src="${p.image_url}" style="width:44px;height:54px;object-fit:cover;border-radius:5px;flex-shrink:0;">`:'<div style="width:44px;height:54px;background:#eee;border-radius:5px;flex-shrink:0;"></div>'}
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:.75rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</div>
+            <a href="${p.affiliate_url}" target="_blank" style="font-size:.65rem;color:#e61e72;overflow:hidden;text-overflow:ellipsis;display:block;white-space:nowrap;">${p.affiliate_url.substring(0,60)}</a>
+          </div>
+        </div>`).join('')}
+      ${results.length>5?`<div style="font-size:.75rem;color:#888;text-align:center;">... y ${results.length-5} más en el JSON</div>`:''}
     </div>
-  `;
+    <button onclick="this.closest('div').parentElement.remove()" style="width:100%;background:#e61e72;color:#fff;border:none;border-radius:8px;padding:10px;font-size:.85rem;font-weight:600;cursor:pointer;">Cerrar</button>
+  </div>`;
   document.body.appendChild(ovl);
 })();</div>
   <button class="copy-btn" onclick="copyCode()">📋 Copiar</button>
