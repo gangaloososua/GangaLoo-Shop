@@ -6646,11 +6646,11 @@ function saveReembolsoCompra(lotNumber) {
 
   const desc = `Reembolso proveedor · ${lotNumber}${amtUSD>0?' ($'+amtUSD.toFixed(2)+' USD)':''} · ${reason}`;
 
-  // 1. Negative purchasePayment — reduces "paid" on the order
+  // 1. Negative purchasePayment — reduces "paid" shown on the order
   purchasePayments.push({
     id:          generateId(),
     lotNumber,
-    amount:      -Math.round(amtDOP * 100) / 100,   // ← negative
+    amount:      -Math.round(amtDOP * 100) / 100,
     dopAmount:   -Math.round(amtDOP * 100) / 100,
     accountId:   acctId,
     categoryId:  catId || null,
@@ -6659,11 +6659,37 @@ function saveReembolsoCompra(lotNumber) {
     isRefund:    true,
   });
 
-  // 2. Credit the account (money comes back in)
+  // 2. Reduce the order total by the refund amount and recalculate unit costs
+  //    so "pending" becomes 0 and cost-per-unit reflects actual amount paid
+  const lots = purchases.filter(p => (p.lotNumber||p.lotNum||String(p.id)) === lotNumber);
+  const activeLots = lots.filter(p => (p.qty||0) > 0); // only delivered lots
+  const currentTotal = lots.reduce((s,p) => s + (p.totalCostDOP || (p.costDOP||0)*(p.qty||0)), 0);
+
+  if (activeLots.length > 0 && currentTotal > 0) {
+    const newTotal = Math.max(0, currentTotal - amtDOP);
+    activeLots.forEach(p => {
+      const proportion     = (p.totalCostDOP || (p.costDOP||0)*(p.qty||0)) / currentTotal;
+      const newLotTotal    = Math.round(newTotal * proportion * 100) / 100;
+      const newUnitCost    = p.qty > 0 ? Math.round(newLotTotal / p.qty * 100) / 100 : 0;
+      p.totalCostDOP       = newLotTotal;
+      p.costDOP            = newUnitCost;
+      if (p.notes) p.notes = p.notes;
+      // Add refund note
+      const refundNote = `Reembolso ${date}: -${formatDOP(amtDOP)}${amtUSD>0?' ($'+amtUSD.toFixed(2)+' USD)':''} · ${reason}`;
+      p.notes = (p.notes ? p.notes + '\n' : '') + refundNote;
+    });
+    // Zero out non-delivered lots (qty=0)
+    lots.filter(p => (p.qty||0) === 0).forEach(p => {
+      p.totalCostDOP = 0;
+      p.costDOP      = 0;
+    });
+  }
+
+  // 3. Credit the account (money comes back in)
   const account = accounts.find(a => String(a.id) === String(acctId));
   if (account) account.balance = Math.round((account.balance + amtDOP) * 100) / 100;
 
-  // 3. Income transaction so it shows in Movimientos
+  // 4. Income transaction so it shows in Movimientos
   const incomeCat = catId
     ? accountingCategories.find(c => String(c.id) === String(catId))
     : accountingCategories.find(c => c.type === 'income');
@@ -6684,7 +6710,7 @@ function saveReembolsoCompra(lotNumber) {
   renderComprasList();
   renderCompraDetail(lotNumber);
   closeModal();
-  showToast(`↩️ Reembolso de ${formatDOP(amtDOP)} registrado${amtUSD>0?' ($'+amtUSD.toFixed(2)+' USD)':''} ✅`, 'success');
+  showToast(`↩️ Reembolso de ${formatDOP(amtDOP)} registrado — total de orden ajustado ✅`, 'success');
 }
 
 /* ─── DELETE COMPRA ─── */
