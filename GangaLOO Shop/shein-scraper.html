@@ -39,7 +39,7 @@ h1 span{color:#e61e72;}
 <div class="step">
   <div class="step-title"><span class="step-num">2</span> Arrastra el bookmarklet a tu barra de favoritos</div>
   <p>Arrastra este botón a tu barra de favoritos del navegador:</p>
-  <a class="bookmarklet-btn" href="javascript:(function(){const s=document.createElement('script');s.src='https://gangaloo.netlify.app/shein-extract.js?t='+Date.now();document.head.appendChild(s);})();">💗 GangaLoo Shein Extractor</a>
+  <a class="bookmarklet-btn" href="javascript:(function(){const r=[];const s=new Set();document.querySelectorAll('a').forEach(a=>{const h=a.href||'';if(!h||h===location.href)return;const i=a.querySelector('img');if(!i)return;const src=i.src||i.dataset.src||i.dataset.lazySrc||i.getAttribute('data-src')||'';if(!src||src.startsWith('data:'))return;const k=src.split('?')[0];if(s.has(k))return;s.add(k);let n='';let c=a.parentElement;for(let j=0;j<5;j++){if(!c)break;const t=c.innerText||'';if(t.length>5&&t.length<300){n=t.split('\n')[0].trim();break;}c=c.parentElement;}r.push({image_url:k.replace(/(_\d+x\d+)/,'_405x552'),affiliate_url:h,name:n.substring(0,120)||'Producto Shein',price:''});});if(!r.length){document.querySelectorAll('img').forEach(i=>{const src=i.src||i.dataset.src||'';if(!src||src.startsWith('data:'))return;const k=src.split('?')[0];if(s.has(k))return;s.add(k);let l=i.closest('a');if(!l){let e=i.parentElement;for(let j=0;j<6;j++){if(!e)break;const a=e.querySelector('a[href]');if(a){l=a;break;}e=e.parentElement;}}r.push({image_url:k.replace(/(_\d+x\d+)/,'_405x552'),affiliate_url:l?.href||'',name:i.alt||'Shein',price:''}); });}if(!r.length){const d={url:location.href,links:[...document.querySelectorAll('a[href]')].map(a=>a.href).slice(0,15),imgs:[...document.querySelectorAll('img')].map(i=>i.src).filter(s=>s&&!s.startsWith('data:')).slice(0,15),body:document.body.innerText.substring(0,500)};const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='shein-debug.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);alert('No se encontraron productos. Se descargo shein-debug.json');return;}const b=new Blob([JSON.stringify(r,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='shein-products.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);alert('✅ '+r.length+' productos encontrados! shein-products.json descargado.');})();">💗 GangaLoo Shein Extractor</a>
   <p style="margin-top:10px;font-size:.78rem;color:#888;">Si no puedes arrastrarlo, copia el código del Paso 3 manualmente.</p>
 </div>
 
@@ -196,6 +196,12 @@ h1 span{color:#e61e72;}
     <div id="importLog" style="margin-top:10px;max-height:120px;overflow-y:auto;font-size:.75rem;color:#555;display:flex;flex-direction:column;gap:3px;"></div>
   </div>
 
+  <div style="margin-top:20px;padding:18px;background:#fff8f0;border:1.5px solid #f0d8b0;border-radius:12px;">
+    <div style="font-weight:700;font-size:.9rem;margin-bottom:8px;">🔧 Limpiar productos Shein existentes</div>
+    <p style="font-size:.82rem;color:#555;margin-bottom:12px;">Si tienes productos Shein con el texto completo como URL, haz clic aquí para limpiarlos automáticamente — extrae solo el enlace <code>https://</code>.</p>
+    <button onclick="cleanExistingShein()" style="background:#d4580a;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:.83rem;font-weight:600;cursor:pointer;">🧹 Limpiar URLs de Shein en base de datos</button>
+    <div id="cleanLog" style="margin-top:10px;font-size:.75rem;color:#555;max-height:100px;overflow-y:auto;"></div>
+  </div>
   <div class="note" style="margin-top:14px;">
     <strong>Nota:</strong> Necesitas estar logueado como Admin en GangaLoo para importar. El importador usará tus credenciales de Supabase de <code>config.js</code>.
   </div>
@@ -299,6 +305,40 @@ async function importAll() {
   btn.textContent = '🚀 Importar todos';
   status.textContent = `✅ ${ok} importados, ${fail} fallidos`;
   if (ok > 0) status.style.color = '#166534';
+}
+
+async function cleanExistingShein() {
+  const sb = supabase.createClient(window.GANGALOO_CONFIG.supabaseUrl, window.GANGALOO_CONFIG.supabaseKey);
+  const log = document.getElementById('cleanLog');
+  log.innerHTML = 'Buscando productos Shein...';
+  
+  const { data, error } = await sb.from('aliexpress_affiliate_products')
+    .select('id, affiliate_url, name')
+    .eq('store', 'shein');
+  
+  if (error) { log.innerHTML = '❌ ' + error.message; return; }
+  if (!data?.length) { log.innerHTML = 'No hay productos Shein.'; return; }
+  
+  let fixed = 0, skipped = 0;
+  for (const p of data) {
+    const url = p.affiliate_url || '';
+    if (url.startsWith('http') && !url.includes(' ')) { skipped++; continue; }
+    // Extract first https:// link from text
+    const m = url.match(/https?:\/\/[^\s]+/);
+    if (!m) { log.innerHTML += `<div>⚠️ Sin link: ${p.name?.substring(0,40)}</div>`; continue; }
+    const clean = m[0];
+    const { error: updErr } = await sb.from('aliexpress_affiliate_products')
+      .update({ affiliate_url: clean }).eq('id', p.id);
+    if (updErr) {
+      log.innerHTML += `<div style="color:#dc2626">❌ ${p.name?.substring(0,30)}: ${updErr.message}</div>`;
+    } else {
+      fixed++;
+      log.innerHTML += `<div style="color:#166534">✅ Limpiado: ${p.name?.substring(0,40)}</div>`;
+    }
+    log.scrollTop = log.scrollHeight;
+    await new Promise(r => setTimeout(r, 100));
+  }
+  log.innerHTML += `<div style="font-weight:700;margin-top:6px;">Listo: ${fixed} limpiados, ${skipped} ya estaban bien.</div>`;
 }
 </script>
 </body>
