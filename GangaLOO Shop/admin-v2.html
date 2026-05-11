@@ -10919,8 +10919,9 @@ function openCuentaMovements(accountId) {
     });
   });
 
-  /* 4. Purchase payments (exclude skipBalance — account already debited by courier receipt transaction) */
-  purchasePayments.filter(p => String(p.accountId) === String(accountId) && !p.skipBalance).forEach(p => {
+  /* 4. Purchase payments (exclude skipBalance and isRefund — refunds shown as income transactions instead) */
+  purchasePayments.filter(p => String(p.accountId) === String(accountId) && !p.skipBalance && !p.isRefund).forEach(p => {
+    if (parseFloat(p.amount) <= 0) return; // skip negative/zero payments — shown elsewhere
     movements.push({
       date:   p.date || '',
       type:   'out',
