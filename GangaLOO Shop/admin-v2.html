@@ -6900,7 +6900,9 @@ function invStats(prods, whId) {
 }
 
 function filterInvProds(prods) {
-  const search=_invSearch.toLowerCase();
+  const search = _invSearch.toLowerCase();
+  const sortBy = _invSort || 'name_asc';
+  const normN  = n => (n||'').replace(/[\u201C\u201D\u2018\u2019]/g, '"');
   const filtered = prods.filter(p=>{
     if (_invCatFilter) {
       const ids=(p.categoryIds?.length?p.categoryIds:[p.categoryId]).map(String);
@@ -6914,10 +6916,8 @@ function filterInvProds(prods) {
     if (search && !(p.name||'').toLowerCase().includes(search) && !(p.sku||'').toLowerCase().includes(search)) return false;
     return true;
   });
-  // Sort
-  const normN = n => (n||'').replace(/[\u201C\u201D\u2018\u2019]/g, '"');
   return filtered.sort((a,b) => {
-    switch(sort) {
+    switch(sortBy) {
       case 'name_asc':   return normN(a.name).localeCompare(normN(b.name),'es',{numeric:true,sensitivity:'base'});
       case 'name_desc':  return normN(b.name).localeCompare(normN(a.name),'es',{numeric:true,sensitivity:'base'});
       case 'stock_desc': return getTotalStock(b.id)-getTotalStock(a.id);
