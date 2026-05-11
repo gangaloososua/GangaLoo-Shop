@@ -1385,6 +1385,15 @@ async function loadData(){
         setTimeout(()=>{const el=document.getElementById('prod-'+prodId);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},300);
       }
     }
+    // Google Merchant Center deep-link: ?product=ID auto-opens the product modal
+    const _qp=new URLSearchParams(window.location.search);
+    const _qpProd=_qp.get('product');
+    if(_qpProd){
+      const prod=allProducts.find(p=>String(p.id)===String(_qpProd));
+      if(prod && typeof openProductModal==='function'){
+        setTimeout(()=>openProductModal(prod.id),200);
+      }
+    }
   }
 }
 
