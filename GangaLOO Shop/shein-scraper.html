@@ -214,23 +214,28 @@ async function doLogin() {
 }
 
 async function checkAuth() {
-  var sb = getSb();
   var status = document.getElementById('authStatus');
   var form = document.getElementById('authForm');
-  var res = await sb.auth.getSession();
-  if (res.data && res.data.session) {
-    var user = res.data.session.user;
-    status.textContent = '✅ Conectado como ' + user.email;
-    status.style.color = '#166534';
-    if (form) form.style.display = 'none';
-  } else {
-    status.textContent = 'No hay sesión activa. Inicia sesión:';
+  try {
+    var sb = getSb();
+    var timeout = new Promise(function(_, rej) { setTimeout(function(){ rej(new Error('timeout')); }, 5000); });
+    var res = await Promise.race([sb.auth.getSession(), timeout]);
+    if (res.data && res.data.session) {
+      var user = res.data.session.user;
+      status.textContent = '✅ Conectado como ' + user.email;
+      status.style.color = '#166534';
+      if (form) form.style.display = 'none';
+    } else {
+      status.textContent = 'Inicia sesión para importar:';
+      status.style.color = '#888';
+      if (form) form.style.display = 'block';
+    }
+  } catch(e) {
+    status.textContent = 'Inicia sesión para importar:';
     status.style.color = '#888';
     if (form) form.style.display = 'block';
   }
 }
-
-checkAuth();
 
 async function cleanShein() {
   var sb = getSb();
@@ -251,6 +256,11 @@ async function cleanShein() {
   }
   log.innerHTML += '<div style="font-weight:700;margin-top:4px;">' + fixed + ' URLs limpiadas.</div>';
 }
+document.addEventListener('DOMContentLoaded', function() {
+  try { checkAuth(); } catch(e) { 
+    document.getElementById('authStatus').textContent = 'Error: ' + e.message;
+  }
+});
 </script>
 </body>
 </html>
