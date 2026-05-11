@@ -49,81 +49,124 @@ h1 span{color:#e61e72;}
   <p>En la página Shein, pulsa <strong>F12</strong> → pestaña <strong>Console</strong> → pega esto y pulsa Enter:</p>
   <div class="code-box" id="consoleCode">(function() {
   const results = [];
-  
-  // Try to get products from DOM
-  const cards = document.querySelectorAll(
-    '[class*="product-card"], [class*="goods-item"], [class*="product-item"], ' +
-    '[data-goods-id], [data-product-id], .S-product-item, .product-card__img-wrap'
-  );
+  const seen = new Set();
 
-  cards.forEach(card => {
-    const img = card.querySelector('img');
-    const link = card.querySelector('a[href]');
-    const name = card.querySelector('[class*="name"], [class*="title"], .product-card__name');
-    const price = card.querySelector('[class*="price"]');
-    
-    if (!img || !link) return;
-    
-    const imgSrc = img.src || img.dataset.src || img.dataset.original || '';
-    const href = link.href || '';
-    
-    if (!imgSrc || !href) return;
-    if (!href.includes('shein') && !href.includes('onelink')) return;
-    
+  // Strategy 1: find all <a> tags that wrap an <img> - broadest possible approach
+  document.querySelectorAll('a').forEach(a => {
+    const href = a.href || '';
+    if (!href || href === location.href) return;
+
+    const img = a.querySelector('img') || a.closest('[class]')?.querySelector('img');
+    if (!img) return;
+
+    const imgSrc = img.src || img.dataset.src || img.dataset.lazySrc || 
+                   img.dataset.original || img.getAttribute('data-src') || '';
+    if (!imgSrc || imgSrc.startsWith('data:') || imgSrc.includes('placeholder')) return;
+
+    // Get name - walk up to find a container with text
+    let name = '', price = '';
+    let container = a.parentElement;
+    for (let i = 0; i < 5; i++) {
+      if (!container) break;
+      const txt = container.innerText || '';
+      if (txt.length > 5 && txt.length < 300) { name = txt.split('\n')[0].trim(); break; }
+      container = container.parentElement;
+    }
+
+    const key = imgSrc.split('?')[0];
+    if (seen.has(key)) return;
+    seen.add(key);
+
     results.push({
-      image_url: imgSrc.replace(/thumbnail_\d+x\d+/, 'thumbnail_405x552').split('?')[0],
+      image_url: imgSrc.split('?')[0].replace(/(_\d+x\d+)/, '_405x552'),
       affiliate_url: href,
-      name: (name?.textContent || '').trim().substring(0, 100) || 'Producto Shein',
-      price: (price?.textContent || '').trim()
+      name: name.substring(0, 120) || 'Producto Shein',
+      price: ''
     });
   });
 
-  // Also try intercepted network data
-  if (window.__sheinProducts && window.__sheinProducts.length) {
-    window.__sheinProducts.forEach(p => {
-      if (!results.find(r => r.affiliate_url === p.affiliate_url)) {
-        results.push(p);
+  // Strategy 2: all imgs with shein CDN urls
+  if (results.length === 0) {
+    document.querySelectorAll('img').forEach(img => {
+      const src = img.src || img.dataset.src || img.dataset.lazySrc || '';
+      if (!src || src.startsWith('data:')) return;
+      if (!src.includes('ltwebstatic') && !src.includes('shein') && !src.includes('img.')) return;
+      
+      const key = src.split('?')[0];
+      if (seen.has(key)) return;
+      seen.add(key);
+
+      // Find closest link
+      let link = img.closest('a');
+      if (!link) {
+        let el = img.parentElement;
+        for (let i = 0; i < 6; i++) {
+          if (!el) break;
+          const a = el.querySelector('a[href]');
+          if (a) { link = a; break; }
+          el = el.parentElement;
+        }
       }
+
+      results.push({
+        image_url: src.split('?')[0].replace(/(_\d+x\d+)/, '_405x552'),
+        affiliate_url: link?.href || '',
+        name: img.alt || 'Producto Shein',
+        price: ''
+      });
     });
   }
 
-  if (!results.length) {
-    alert('❌ No se encontraron productos. Intenta hacer scroll y espera a que carguen, luego vuelve a correr el script.');
+  // Strategy 3: dump all page text + links as debug
+  if (results.length === 0) {
+    const allLinks = [...document.querySelectorAll('a[href]')].map(a => a.href).filter(h => h.includes('shein') || h.includes('onelink'));
+    const allImgs  = [...document.querySelectorAll('img')].map(i => i.src).filter(s => s && !s.startsWith('data:'));
+    
+    const debug = {
+      url: location.href,
+      title: document.title,
+      bodyLength: document.body.innerHTML.length,
+      linkCount: allLinks.length,
+      imgCount: allImgs.length,
+      sampleLinks: allLinks.slice(0, 10),
+      sampleImgs: allImgs.slice(0, 10),
+      bodySnippet: document.body.innerText.substring(0, 500)
+    };
+
+    const blob = new Blob([JSON.stringify(debug, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'shein-debug.json'; document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+
+    alert('❌ No se encontraron productos.\n\nSe descargó shein-debug.json — envíalo a GangaLoo para analizar la estructura de la página.\n\nLinks encontrados: ' + allLinks.length + '\nImágenes encontradas: ' + allImgs.length);
     return;
   }
 
-  // Build JSON output
-  const json = JSON.stringify(results, null, 2);
-  
-  // Create download
-  const blob = new Blob([json], {type: 'application/json'});
+  // Download JSON
+  const blob = new Blob([JSON.stringify(results, null, 2)], {type: 'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = 'shein-products.json';
   document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  
-  // Also show in overlay
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+
+  // Show overlay
   const ovl = document.createElement('div');
   ovl.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;';
   ovl.innerHTML = `
     <div style="background:#fff;border-radius:16px;padding:24px;max-width:560px;width:100%;max-height:80vh;overflow-y:auto;">
       <h2 style="font-size:1.1rem;margin-bottom:6px;">✅ ${results.length} productos encontrados</h2>
-      <p style="font-size:.8rem;color:#888;margin-bottom:14px;">El archivo shein-products.json se está descargando. Súbelo al importador de GangaLoo.</p>
+      <p style="font-size:.8rem;color:#888;margin-bottom:14px;">shein-products.json descargado. Súbelo al importador.</p>
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
         ${results.slice(0,5).map(p => `
           <div style="display:flex;gap:10px;align-items:center;border:1px solid #eee;border-radius:8px;padding:8px;">
-            <img src="${p.image_url}" style="width:50px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0;">
-            <div style="min-width:0;">
-              <div style="font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
-              <div style="font-size:.7rem;color:#e61e72;">${p.price}</div>
-            </div>
-          </div>
-        `).join('')}
-        ${results.length > 5 ? `<div style="font-size:.78rem;color:#888;text-align:center;">... y ${results.length - 5} más en el archivo JSON</div>` : ''}
+            <img src="${p.image_url}" style="width:50px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.style.background='#eee'">
+            <div style="min-width:0;font-size:.78rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</div>
+          </div>`).join('')}
+        ${results.length > 5 ? `<div style="font-size:.78rem;color:#888;text-align:center;">... y ${results.length-5} más</div>` : ''}
       </div>
-      <button onclick="this.closest('div[style]').remove()" style="width:100%;background:#e61e72;color:#fff;border:none;border-radius:8px;padding:10px;font-size:.85rem;font-weight:600;cursor:pointer;">Cerrar</button>
+      <button onclick="this.closest('div').parentElement.remove()" style="width:100%;background:#e61e72;color:#fff;border:none;border-radius:8px;padding:10px;font-size:.85rem;font-weight:600;cursor:pointer;">Cerrar</button>
     </div>
   `;
   document.body.appendChild(ovl);
