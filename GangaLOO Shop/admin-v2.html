@@ -6182,9 +6182,10 @@ function openEditCompra(lotNumber) {
               <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);">Stock actual</th>
               <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);">Precio unit (USD)</th>
               <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);">Costo/u DOP</th>
+              <th style="padding:8px 6px;width:32px;"></th>
             </tr></thead>
             <tbody>
-              ${lots.map(p=>`<tr style="border-bottom:1px solid var(--border);">
+              ${lots.map(p=>`<tr style="border-bottom:1px solid var(--border);" id="ec_row_${p.id}">
                 <td style="padding:8px 10px;font-weight:600;">${getProductName(p.productId)}</td>
                 <td style="padding:8px 10px;text-align:center;">
                   <input class="field" type="number" id="ec_qty_${p.id}" value="${p.qty||0}" min="0" style="width:70px;padding:5px 8px;text-align:center;" oninput="syncRemainingQty('${p.id}');calcEditCompra('${lotNumber}')">
@@ -6197,6 +6198,9 @@ function openEditCompra(lotNumber) {
                 </td>
                 <td style="padding:8px 10px;text-align:right;">
                   <div style="font-size:12px;font-weight:700;color:var(--violet);" id="ec_unitcost_${p.id}">${formatDOP(p.costDOP||0)}</div>
+                </td>
+                <td style="padding:8px 6px;text-align:center;">
+                  ${lots.length > 1 ? `<button onclick="deleteCompraLot('${p.id}','${lotNumber}')" style="background:none;border:none;cursor:pointer;color:var(--rose);font-size:16px;padding:2px;line-height:1;" title="Eliminar esta línea">✕</button>` : ''}
                 </td>
               </tr>`).join('')}
             </tbody>
@@ -6267,6 +6271,22 @@ function syncRemainingQty(lotId) {
   const q = document.getElementById('ec_qty_'+lotId);
   const r = document.getElementById('ec_rqty_'+lotId);
   if (q && r && !r._userEdited) r.value = q.value;
+}
+
+function deleteCompraLot(lotId, lotNumber) {
+  const lot = purchases.find(p => String(p.id) === String(lotId));
+  if (!lot) return;
+  const hasStock = (lot.remainingQty || 0) > 0;
+  const msg = hasStock
+    ? `⚠️ Esta línea tiene <strong>${lot.remainingQty} uds en stock</strong>. ¿Eliminarla de todas formas? El stock será removido.`
+    : `¿Eliminar la línea de <strong>${getProductName(lot.productId)}</strong> de la orden?`;
+  confirmDialog(msg, () => {
+    purchases = purchases.filter(p => String(p.id) !== String(lotId));
+    debouncedSave();
+    closeModal();
+    openEditCompra(lotNumber);
+    showToast(`Línea eliminada de ${lotNumber} ✅`, 'success');
+  }, { danger: true, confirmLabel: 'Eliminar línea', title: 'Eliminar línea de orden' });
 }
 
 function saveEditCompra(lotNumber) {
