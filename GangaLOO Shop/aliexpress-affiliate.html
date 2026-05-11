@@ -481,7 +481,25 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
 
         <!-- PRODUCT LIST -->
         <div id="aTabList" style="display:none;">
-          <div style="margin-bottom:10px;"><span id="listCount" style="font-size:.8rem;color:var(--muted);"></span></div>
+          <!-- Filter + bulk toolbar -->
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
+            <select id="listStoreFilter" onchange="loadAdminList()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.78rem;background:var(--bg);font-family:'DM Sans',sans-serif;">
+              <option value="">Todas las tiendas</option>
+              <option value="aliexpress">AliExpress</option>
+              <option value="temu">Temu</option>
+              <option value="shein">Shein</option>
+            </select>
+            <span id="listCount" style="font-size:.8rem;color:var(--muted);flex:1;"></span>
+            <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;cursor:pointer;text-transform:none;letter-spacing:0;">
+              <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"> Seleccionar todo
+            </label>
+          </div>
+          <!-- Bulk action bar -->
+          <div id="bulkBar" style="display:none;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:10px;padding:9px 14px;margin-bottom:10px;display:none;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span id="bulkCount" style="font-size:.82rem;font-weight:600;color:#dc2626;flex:1;"></span>
+            <button onclick="deleteSelected()" style="background:#dc2626;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:.8rem;font-weight:600;cursor:pointer;">🗑️ Eliminar seleccionados</button>
+            <button onclick="clearSelection()" style="background:var(--bg);border:1.5px solid var(--border);border-radius:7px;padding:6px 10px;font-size:.78rem;cursor:pointer;">✕ Cancelar</button>
+          </div>
           <div class="prod-list" id="prodList"></div>
         </div>
 
@@ -986,11 +1004,15 @@ async function saveProduct() {
 // ── ADMIN LIST ────────────────────────────────────────────────────────────────
 async function loadAdminList() {
   const list=document.getElementById('prodList');
+  const storeFilter=document.getElementById('listStoreFilter')?.value||'';
   list.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82em;">Cargando...</div>';
+  clearSelection();
   let data;
   try {
     const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout')),10000));
-    const result=await Promise.race([sb.from(TABLE).select('*').order('created_at',{ascending:false}), timeout]);
+    let q=sb.from(TABLE).select('*').order('created_at',{ascending:false});
+    if(storeFilter) q=q.eq('store',storeFilter);
+    const result=await Promise.race([q, timeout]);
     data=result.data;
     if(result.error) throw new Error(result.error.message);
   } catch(err) {
@@ -998,13 +1020,15 @@ async function loadAdminList() {
     return;
   }
   document.getElementById('listCount').textContent=(data||[]).length+' productos';
-  if(!data?.length){list.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted);">No hay productos aún.</div>';return;}
+  if(!data?.length){list.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted);">No hay productos.</div>';return;}
   list.innerHTML=data.map(p=>{
     const store=p.store||'aliexpress';
-    return `<div class="prod-row">
-      <img src="${e(p.image_url)}" onerror="this.style.display='none'" alt="">
+    const storeLabel=store==='temu'?'Temu':store==='shein'?'Shein':'Ali';
+    return `<div class="prod-row" data-id="${p.id}">
+      <input type="checkbox" class="prod-check" data-id="${p.id}" onchange="updateBulkBar()" style="width:16px;height:16px;flex-shrink:0;cursor:pointer;accent-color:var(--red);">
+      <img src="${e(p.image_url)}" onerror="this.style.display='none'" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:7px;flex-shrink:0;">
       <div class="prod-row-info">
-        <div class="prod-row-name">${e(p.name||p.category||'?')}<span class="store-pill ${store}">${store==='temu'?'Temu':'Ali'}</span></div>
+        <div class="prod-row-name">${e(p.name||p.category||'?')}<span class="store-pill ${store}">${storeLabel}</span></div>
         <div class="prod-row-cat">${e(p.category||'Sin categoría')} ${p.active?'✅':'⛔'} ${p.seller_only?'🔒':''}</div>
       </div>
       <div class="prod-row-actions">
@@ -1016,6 +1040,39 @@ async function loadAdminList() {
   }).join('');
 }
 
+function updateBulkBar() {
+  const checked=[...document.querySelectorAll('.prod-check:checked')];
+  const bar=document.getElementById('bulkBar');
+  const count=document.getElementById('bulkCount');
+  if(checked.length>0){
+    bar.style.display='flex';
+    count.textContent=checked.length+' producto'+(checked.length!==1?'s':'')+' seleccionado'+(checked.length!==1?'s':'');
+  } else {
+    bar.style.display='none';
+  }
+}
+function toggleSelectAll(el) {
+  document.querySelectorAll('.prod-check').forEach(cb=>cb.checked=el.checked);
+  updateBulkBar();
+}
+function clearSelection() {
+  document.querySelectorAll('.prod-check').forEach(cb=>cb.checked=false);
+  const sa=document.getElementById('selectAll');if(sa)sa.checked=false;
+  const bar=document.getElementById('bulkBar');if(bar)bar.style.display='none';
+}
+async function deleteSelected() {
+  const checked=[...document.querySelectorAll('.prod-check:checked')];
+  if(!checked.length)return;
+  if(!confirm('¿Eliminar '+checked.length+' productos? No se puede deshacer.'))return;
+  const ids=checked.map(cb=>cb.dataset.id);
+  let deleted=0;
+  for(const id of ids){
+    const {error}=await sb.from(TABLE).delete().eq('id',id);
+    if(!error) deleted++;
+  }
+  toast('🗑️ '+deleted+' productos eliminados');
+  loadAdminList(); load();
+}
 async function editProd(id) {
   const {data:p}=await sb.from(TABLE).select('*').eq('id',id).single();
   if(!p) return;
