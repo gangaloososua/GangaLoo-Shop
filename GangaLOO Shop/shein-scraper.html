@@ -161,7 +161,7 @@ h1 span{color:#e61e72;}
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
         ${results.slice(0,5).map(p => `
           <div style="display:flex;gap:10px;align-items:center;border:1px solid #eee;border-radius:8px;padding:8px;">
-            <img src="${p.image_url}" style="width:50px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.style.background='#eee'">
+            ${p.image_url ? `<img src="${p.image_url}" style="width:50px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.style.background='#eee'">` : `<div style="width:50px;height:60px;background:#eee;border-radius:6px;flex-shrink:0;"></div>`}
             <div style="min-width:0;font-size:.78rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</div>
           </div>`).join('')}
         ${results.length > 5 ? `<div style="font-size:.78rem;color:#888;text-align:center;">... y ${results.length-5} más</div>` : ''}
@@ -243,7 +243,7 @@ function showPreview() {
   preview.style.display = 'block';
   list.innerHTML = parsedProducts.map((p, i) => `
     <div style="display:flex;gap:10px;align-items:center;border:1px solid #e4e0d8;border-radius:10px;padding:10px;background:#fff;">
-      <img src="${p.image_url}" style="width:54px;height:66px;object-fit:cover;border-radius:7px;flex-shrink:0;" onerror="this.style.background='#eee'">
+      ${p.image_url ? `<img src="${p.image_url}" style="width:54px;height:66px;object-fit:cover;border-radius:7px;flex-shrink:0;background:#eee;" onerror="this.style.background='#eee'">` : `<div style="width:54px;height:66px;border-radius:7px;background:#eee;flex-shrink:0;"></div>`}
       <div style="flex:1;min-width:0;">
         <div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name||'Producto Shein'}</div>
         <div style="font-size:.7rem;color:#e61e72;margin-bottom:3px;">${p.price||''}</div>
@@ -257,8 +257,10 @@ function showPreview() {
   document.getElementById('importStatus').textContent = parsedProducts.length + ' productos listos';
 }
 
+let _sb = null;
+function getSb(){ if(!_sb) _sb=supabase.createClient(window.GANGALOO_CONFIG.supabaseUrl, window.GANGALOO_CONFIG.supabaseKey); return _sb; }
 async function importAll() {
-  const sb = supabase.createClient(window.GANGALOO_CONFIG.supabaseUrl, window.GANGALOO_CONFIG.supabaseKey);
+  const sb = getSb();
   const btn = document.getElementById('importBtn');
   const log = document.getElementById('importLog');
   const status = document.getElementById('importStatus');
@@ -308,7 +310,7 @@ async function importAll() {
 }
 
 async function cleanExistingShein() {
-  const sb = supabase.createClient(window.GANGALOO_CONFIG.supabaseUrl, window.GANGALOO_CONFIG.supabaseKey);
+  const sb = getSb();
   const log = document.getElementById('cleanLog');
   log.innerHTML = 'Buscando productos Shein...';
   
