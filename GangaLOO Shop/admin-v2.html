@@ -1714,7 +1714,10 @@ function showPanel(id, el) {
 async function loadAllData() {
   setSaveState('saving');
   try {
-    const { data: rows, error } = await sb.from('inventory_data').select('*').limit(1);
+    // Only select columns we actually use — avoids fetching the full ~900KB row
+    const { data: rows, error } = await sb.from('inventory_data')
+      .select('warehouses,categories,products,purchases,transfers,sales,accounts,accounting_categories,transactions,customers,payments,commission_payouts,account_transfers,purchase_payments,monthly_rates,store_config')
+      .limit(1);
     if (error) throw error;
     const row = rows && rows[0];
     if (row) {
@@ -1740,44 +1743,32 @@ async function loadAllData() {
       purchasePayments     = JSON.parse(row.purchase_payments    || '[]');
       monthlyRates         = JSON.parse(row.monthly_rates        || '{}');
       try { storeConfig    = JSON.parse(row.store_config         || '{}'); } catch(e) { storeConfig = {}; }
-      /* Normalize old snake_case keys from old admin to camelCase */
       if (storeConfig.guest_markup   !== undefined && storeConfig.guestMarkup  === undefined) storeConfig.guestMarkup  = storeConfig.guest_markup;
       if (storeConfig.club_discount  !== undefined && storeConfig.clubDiscount === undefined) storeConfig.clubDiscount = storeConfig.club_discount;
       if (storeConfig.loyalty_rate   !== undefined && storeConfig.loyaltyRate  === undefined) storeConfig.loyaltyRate  = storeConfig.loyalty_rate;
     }
-    // Seed defaults if missing
     seedDefaults();
-    /* Backfill alias fields on existing sales for seller admin compatibility */
+
+    /* Backfill alias fields — only runs if any sale is missing them, saves immediately */
+    const prodMap = Object.fromEntries(products.map(p => [String(p.id), p.name]));
     let migrated = 0;
     sales.forEach(s => {
-      /* totalSale alias */
-      if (!s.totalSale || s.totalSale === 0) {
-        s.totalSale = parseFloat(s.total || s.subtotal || 0);
-        migrated++;
-      }
-      /* commissionPaid alias */
-      if (s.commissionPaid === undefined || s.commissionPaid === 0) {
-        s.commissionPaid = parseFloat(s.commissionAmt || 0);
-        migrated++;
-      }
-      /* commissionPercent alias */
-      if (s.commissionPercent === undefined) {
-        s.commissionPercent = parseFloat(s.commissionPct || 0);
-        migrated++;
-      }
-      /* invoiceNumber alias */
-      if (!s.invoiceNumber && s.invoiceNum) { s.invoiceNumber = s.invoiceNum; migrated++; }
-      if (!s.invoiceNum && s.invoiceNumber) { s.invoiceNum = s.invoiceNumber; migrated++; }
-      /* productName for multi-item sales */
-      if (!s.productName && s.items?.length) {
-        s.productName = s.items.map(i => getProductName(i.productId)).filter(Boolean).join(', ');
+      if (!s.totalSale)                              { s.totalSale        = parseFloat(s.total || s.subtotal || 0); migrated++; }
+      if (s.commissionPaid  === undefined)           { s.commissionPaid   = parseFloat(s.commissionAmt || 0);       migrated++; }
+      if (s.commissionPercent === undefined)         { s.commissionPercent= parseFloat(s.commissionPct || 0);       migrated++; }
+      if (!s.invoiceNumber  && s.invoiceNum)         { s.invoiceNumber    = s.invoiceNum;                           migrated++; }
+      if (!s.invoiceNum     && s.invoiceNumber)      { s.invoiceNum       = s.invoiceNumber;                        migrated++; }
+      if (!s.productName    && s.items?.length)      {
+        s.productName = s.items.map(i => prodMap[String(i.productId)]||'').filter(Boolean).join(', ');
         migrated++;
       }
     });
     if (migrated > 0) { debouncedSave(); console.log(`Migrated ${migrated} sale fields`); }
+
+    // Render dashboard first, then yield to browser before showing toast
     renderDashboard();
     setSaveState('saved');
-    showToast('Datos cargados correctamente', 'success');
+    setTimeout(() => showToast('Datos cargados ✅', 'success'), 0);
     startOrderPolling();
   } catch(e) {
     console.error('loadAllData error:', e);
