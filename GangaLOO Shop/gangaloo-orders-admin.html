@@ -665,7 +665,7 @@ function renderSidebar() {
       <p style="font-size:12px;color:var(--muted);margin-bottom:8px">The WhatsApp message includes this link. Client opens it to choose pickup/delivery, date & location.</p>
       <div class="copy-link">
         <span id="formLinkText">${formLink}</span>
-        <button onclick="copyLink('${formLink}')">Copy</button>
+        <button onclick="copyLink('${formLink}', this)">Copy</button>
       </div>
       <p style="font-size:11px;color:var(--muted)">Waiting for client to fill the form… (auto-refreshes every 15s)</p>
     </div>`;
@@ -840,11 +840,14 @@ async function markDoneWithPayment(id) {
   toast('✅ ¡Orden completada!');
 }
 
-function copyLink(link) {
+function copyLink(link, btn) {
   navigator.clipboard.writeText(link).then(() => {
-    const b = event.target; b.textContent = 'Copied!';
-    setTimeout(() => b.textContent = 'Copy', 1500);
-  });
+    const b = btn || (typeof event !== 'undefined' ? event.target : null);
+    if (!b) return;
+    const orig = b.textContent;
+    b.textContent = 'Copied!';
+    setTimeout(() => b.textContent = orig || 'Copy', 1500);
+  }).catch(err => console.error('Copy failed', err));
 }
 
 // ── NEW ORDER ──
@@ -933,6 +936,14 @@ function filterTab(mode, btn) {
   filterMode = mode;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
+  // Make sure nuevos panel is hidden when switching to an orders tab
+  const np = document.getElementById('nuevosPanel');
+  if (np && np.style.display !== 'none') {
+    document.getElementById('orderList').style.display = 'block';
+    np.style.display = 'none';
+    const si = document.getElementById('searchInput');
+    if (si) si.style.display = 'block';
+  }
   renderOrders();
 }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -961,12 +972,7 @@ function hideNuevos() {
   document.getElementById('searchInput').style.display = 'block';
 }
 
-// Hook into existing filterTab to hide nuevos panel when switching away
-const _origFilterTab = filterTab;
-function filterTab(mode, btn) {
-  hideNuevos();
-  _origFilterTab(mode, btn);
-}
+// (filterTab already handles hiding the nuevos panel — no wrapper needed)
 
 async function loadNuevos() {
   const list = document.getElementById('nuevosList');
