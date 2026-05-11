@@ -1721,6 +1721,11 @@ async function loadAllData() {
       warehouses           = JSON.parse(row.warehouses           || '[]');
       categories           = JSON.parse(row.categories           || '[]');
       products             = JSON.parse(row.products             || '[]');
+      // Normalize curly/smart quotes to straight quotes in product names and SKUs
+      products.forEach(p => {
+        if (p.name) p.name = p.name.replace(/[\u201C\u201D\u2018\u2019\u00AB\u00BB]/g, '"');
+        if (p.sku)  p.sku  = p.sku.replace(/[\u201C\u201D\u2018\u2019\u00AB\u00BB]/g, '"');
+      });
       purchases            = JSON.parse(row.purchases            || '[]');
       transfers            = JSON.parse(row.transfers            || '[]');
       sales                = JSON.parse(row.sales                || '[]');
@@ -6919,16 +6924,16 @@ function filterInvProds(prods) {
     return true;
   });
   // Sort
-  const sort = _invSort || 'name_asc';
+  const normN = n => (n||'').replace(/[\u201C\u201D\u2018\u2019]/g, '"');
   return filtered.sort((a,b) => {
     switch(sort) {
-      case 'name_asc':   return (a.name||'').localeCompare(b.name||'','es',{numeric:true,sensitivity:'base'});
-      case 'name_desc':  return (b.name||'').localeCompare(a.name||'','es',{numeric:true,sensitivity:'base'});
+      case 'name_asc':   return normN(a.name).localeCompare(normN(b.name),'es',{numeric:true,sensitivity:'base'});
+      case 'name_desc':  return normN(b.name).localeCompare(normN(a.name),'es',{numeric:true,sensitivity:'base'});
       case 'stock_desc': return getTotalStock(b.id)-getTotalStock(a.id);
       case 'stock_asc':  return getTotalStock(a.id)-getTotalStock(b.id);
       case 'price_desc': return (b.price||0)-(a.price||0);
       case 'price_asc':  return (a.price||0)-(b.price||0);
-      default:           return (a.name||'').localeCompare(b.name||'','es',{numeric:true,sensitivity:'base'});
+      default:           return normN(a.name).localeCompare(normN(b.name),'es',{numeric:true,sensitivity:'base'});
     }
   });
 }
@@ -8612,14 +8617,15 @@ function renderProductosList() {
 
   // Sort
   const sort = document.getElementById('prodSort')?.value || 'name_asc';
+  const normName = n => (n||'').replace(/[\u201C\u201D\u2018\u2019]/g, '"');
   list.sort((a,b) => {
     switch(sort) {
-      case 'name_asc':    return (a.name||'').localeCompare(b.name||'','es',{numeric:true,sensitivity:'base'});
-      case 'name_desc':   return (b.name||'').localeCompare(a.name||'','es',{numeric:true,sensitivity:'base'});
-      case 'stock_desc':  return getTotalStock(b.id) - getTotalStock(a.id);
-      case 'stock_asc':   return getTotalStock(a.id) - getTotalStock(b.id);
-      case 'price_desc':  return (b.price||0) - (a.price||0);
-      case 'price_asc':   return (a.price||0) - (b.price||0);
+      case 'name_asc':   return normName(a.name).localeCompare(normName(b.name),'es',{numeric:true,sensitivity:'base'});
+      case 'name_desc':  return normName(b.name).localeCompare(normName(a.name),'es',{numeric:true,sensitivity:'base'});
+      case 'stock_desc': return getTotalStock(b.id)-getTotalStock(a.id);
+      case 'stock_asc':  return getTotalStock(a.id)-getTotalStock(b.id);
+      case 'price_desc': return (b.price||0)-(a.price||0);
+      case 'price_asc':  return (a.price||0)-(b.price||0);
       case 'margin_desc': {
         const mA = a.price && a.costDOP ? (a.price-a.costDOP)/a.price : 0;
         const mB = b.price && b.costDOP ? (b.price-b.costDOP)/b.price : 0;
