@@ -93,6 +93,7 @@ label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.
   <div class="warn" style="margin-top:14px;">
     <strong>Limpieza:</strong> Si ya tienes productos Shein con el texto completo como URL,
     <button onclick="cleanShein()" style="background:#d4580a;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:.77rem;font-weight:600;cursor:pointer;margin-left:6px;">🧹 Limpiar URLs</button>
+    <button onclick="deleteDuplicates()" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:.77rem;font-weight:600;cursor:pointer;margin-left:6px;">🗑️ Eliminar duplicados Shein</button>
     <div id="cleanLog" style="margin-top:8px;font-size:.73rem;"></div>
   </div>
 </div>
@@ -167,11 +168,26 @@ async function importAll() {
   var status = document.getElementById('status');
   var defCat = document.getElementById('defaultCat').value.trim() || null;
   btn.disabled = true; log.innerHTML = '';
-  var ok = 0, fail = 0;
+  // Check existing URLs to avoid duplicates
+  status.textContent = 'Verificando duplicados...';
+  var existingRes = await sb.from('aliexpress_affiliate_products').select('affiliate_url').eq('store','shein');
+  var existingUrls = {};
+  if (existingRes.data) existingRes.data.forEach(function(r){ existingUrls[r.affiliate_url]=1; });
+
+  var ok = 0, fail = 0, skipped = 0;
   for (var i = 0; i < parsedProducts.length; i++) {
     var p = parsedProducts[i];
     var category = p._cat || defCat || null;
-    status.textContent = 'Importando ' + (i+1) + ' / ' + parsedProducts.length + '...';
+
+    // Skip duplicates
+    if (existingUrls[p.affiliate_url]) {
+      skipped++;
+      log.innerHTML += '<div style="color:#888;">⏭️ Ya existe: ' + (p.name||'?').substring(0,40) + '</div>';
+      log.scrollTop = log.scrollHeight;
+      continue;
+    }
+
+    status.textContent = 'Importando ' + (i+1) + ' / ' + parsedProducts.length + ' ('+skipped+' duplicados omitidos)...';
     var payload = {
       name: p.name || 'Producto Shein',
       store: 'shein', category: category,
@@ -187,6 +203,7 @@ async function importAll() {
         log.innerHTML += '<div class="err-line">❌ ' + (p.name||'?').substring(0,40) + ': ' + res.error.message + '</div>';
       } else {
         ok++;
+        existingUrls[p.affiliate_url] = 1;
         log.innerHTML += '<div class="ok-line">✅ ' + (p.name||'?').substring(0,40) + '</div>';
       }
     } catch(err) {
@@ -197,20 +214,33 @@ async function importAll() {
     await new Promise(function(r){ setTimeout(r, 120); });
   }
   btn.disabled = false;
-  status.textContent = '✅ ' + ok + ' importados, ' + fail + ' fallidos.';
-  status.style.color = ok > 0 ? '#166534' : '#dc2626';
+  status.textContent = '✅ ' + ok + ' importados, ' + skipped + ' duplicados omitidos, ' + fail + ' fallidos.';
+  status.style.color = ok > 0 ? '#166534' : (fail > 0 ? '#dc2626' : '#888');
 }
 
 async function doLogin() {
-  var sb = getSb();
-  var email = document.getElementById('authEmail').value.trim();
-  var pass = document.getElementById('authPass').value;
   var err = document.getElementById('authErr');
-  if (!email||!pass) { err.textContent='Email y contraseña requeridos'; return; }
-  err.textContent = '';
-  var res = await sb.auth.signInWithPassword({email:email, password:pass});
-  if (res.error) { err.textContent = '❌ ' + res.error.message; return; }
-  checkAuth();
+  var btn = document.querySelector('#authForm button');
+  try {
+    var sb = getSb();
+    var email = document.getElementById('authEmail').value.trim();
+    var pass = document.getElementById('authPass').value;
+    if (!email||!pass) { err.textContent='Email y contraseña requeridos'; return; }
+    err.textContent = '';
+    btn.textContent = 'Entrando...'; btn.disabled = true;
+    var res = await sb.auth.signInWithPassword({email:email, password:pass});
+    btn.textContent = 'Entrar →'; btn.disabled = false;
+    if (res.error) { err.textContent = '❌ ' + res.error.message; return; }
+    var status = document.getElementById('authStatus');
+    var form = document.getElementById('authForm');
+    status.textContent = '✅ Conectado como ' + res.data.user.email;
+    status.style.color = '#166534';
+    form.style.display = 'none';
+  } catch(e) {
+    if (btn) { btn.textContent = 'Entrar →'; btn.disabled = false; }
+    err.textContent = '❌ Error: ' + e.message;
+    console.error('doLogin error:', e);
+  }
 }
 
 async function checkAuth() {
@@ -235,6 +265,30 @@ async function checkAuth() {
     status.style.color = '#888';
     if (form) form.style.display = 'block';
   }
+}
+
+async function deleteDuplicates() {
+  var sb = getSb();
+  var log = document.getElementById('cleanLog');
+  log.innerHTML = 'Buscando duplicados Shein...';
+  var res = await sb.from('aliexpress_affiliate_products').select('id,affiliate_url,name,created_at').eq('store','shein').order('created_at',{ascending:true});
+  if (res.error) { log.innerHTML = '❌ ' + res.error.message; return; }
+  if (!res.data || !res.data.length) { log.innerHTML = 'No hay productos Shein.'; return; }
+  // Find duplicates - keep first, delete rest
+  var seen = {}, toDelete = [];
+  res.data.forEach(function(p) {
+    var key = p.affiliate_url || p.id;
+    if (seen[key]) { toDelete.push(p.id); }
+    else seen[key] = 1;
+  });
+  if (!toDelete.length) { log.innerHTML = '✅ Sin duplicados encontrados.'; return; }
+  log.innerHTML = 'Eliminando ' + toDelete.length + ' duplicados...';
+  var deleted = 0;
+  for (var i = 0; i < toDelete.length; i++) {
+    var del = await sb.from('aliexpress_affiliate_products').delete().eq('id', toDelete[i]);
+    if (!del.error) deleted++;
+  }
+  log.innerHTML = '<div style="font-weight:700;color:#166534;">✅ ' + deleted + ' duplicados eliminados.</div>';
 }
 
 async function cleanShein() {
