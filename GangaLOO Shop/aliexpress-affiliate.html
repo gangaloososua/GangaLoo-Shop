@@ -436,7 +436,7 @@ nav{background:var(--black);display:flex;align-items:center;justify-content:spac
           <div id="sheinFields" style="display:none;">
             <div class="field">
               <label>Enlace afiliado Shein *</label>
-              <input type="text" id="fSheinUrl" placeholder="https://www.shein.com/..." autocomplete="off">
+              <input type="text" id="fSheinUrl" placeholder="https://onelink.shein.com/..." autocomplete="off" oninput="cleanSheinUrl(this)">
             </div>
             <div class="field">
               <label>URL de imagen *</label>
@@ -714,7 +714,12 @@ document.addEventListener('click', function(e) {
   const card=e.target.closest('[data-store]'); if(!card) return;
   e.preventDefault(); e.stopPropagation();
   const idx=parseInt(card.dataset.idx), store=card.dataset.store;
-  const url=store==='temu'?window._temuUrls[idx]:store==='shein'?window._sheinUrls[idx]:window._aliUrls[idx];
+  let url=store==='temu'?window._temuUrls[idx]:store==='shein'?window._sheinUrls[idx]:window._aliUrls[idx];
+  // Extract first https:// link in case full share text was stored
+  if(url && !url.startsWith('http')) {
+    const m=url.match(/https?:\/\/[^\s]+/);
+    url=m?m[0]:'';
+  }
   if(url) window.open(url,'_blank','noopener,noreferrer');
 });
 
@@ -899,6 +904,16 @@ function parseEmbed() {
   document.getElementById('parsedUrlAli').textContent='🔗 '+affUrl;
   status.innerHTML='✅ Código leído'; status.style.color='#166534';
 }
+function cleanSheinUrl(input) {
+  const val = input.value.trim();
+  if (val && !val.startsWith('http')) {
+    const m = val.match(/https?:\/\/[^\s]+/);
+    if (m) { input.value = m[0]; input.style.borderColor='#166534'; }
+    else input.style.borderColor='';
+  } else {
+    input.style.borderColor='';
+  }
+}
 function previewSheinImg() {
   const url=document.getElementById('fSheinImg').value.trim();
   const prev=document.getElementById('imgPreviewShein');
@@ -939,7 +954,9 @@ async function saveProduct() {
     name=category||'Producto Temu';
   } else {
     img=document.getElementById('fSheinImg').value.trim();
-    url=document.getElementById('fSheinUrl').value.trim();
+    const sheinRaw=document.getElementById('fSheinUrl').value.trim();
+    const sheinMatch=sheinRaw.match(/https?:\/\/[^\s]+/);
+    url=sheinMatch?sheinMatch[0]:sheinRaw;
     name=document.getElementById('fSheinName').value.trim();
     category=document.getElementById('fSheinCat').value.trim()||null;
     discount=document.getElementById('fSheinDisc').value.trim()||null;
