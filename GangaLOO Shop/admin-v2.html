@@ -1727,10 +1727,11 @@ function showPanel(id, el) {
 async function loadAllData() {
   setSaveState('saving');
   try {
-    // Only select columns we actually use — avoids fetching the full ~900KB row
+    console.log('loadAllData: starting fetch...');
     const fetchPromise    = sb.from('inventory_data').select('*').limit(1);
     const timeoutPromise  = new Promise((_,reject) => setTimeout(() => reject(new Error('Timeout: inventory_data tardó más de 15s')), 15000));
     const { data: rows, error } = await Promise.race([fetchPromise, timeoutPromise]);
+    console.log('loadAllData: fetch done', { error, rowCount: rows?.length, rowSize: rows ? JSON.stringify(rows).length : 0 });
     if (error) throw error;
     const row = rows && rows[0];
     if (row) {
