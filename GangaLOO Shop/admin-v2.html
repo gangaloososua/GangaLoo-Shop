@@ -1614,21 +1614,25 @@ async function doLogin() {
   try {
     const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
     if (error) { err.textContent = error.message; btn.textContent = 'Entrar al Sistema →'; btn.disabled = false; return; }
-    // Fetch role with timeout
-    let profile = null;
-    try {
-      const profilePromise = sb.from('profiles').select('role').eq('id', data.user.id).single();
-      const timeoutPromise = new Promise((_,reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-      const { data: pd } = await Promise.race([profilePromise, timeoutPromise]);
-      profile = pd;
-    } catch(profileErr) {
-      console.warn('Profile fetch issue:', profileErr.message);
-      // If timeout or error, check email directly
-      if (data.user.email === 'admin@gangaloo.com' || data.user.app_metadata?.role === 'admin') {
-        profile = { role: 'admin' };
+    // Fetch role — try user metadata first, then profiles table, then email fallback
+    let role = data.user.user_metadata?.role || data.user.app_metadata?.role;
+    if (!role) {
+      try {
+        const profilePromise = sb.from('profiles').select('role').eq('id', data.user.id).single();
+        const timeoutPromise = new Promise((_,reject) => setTimeout(() => reject(new Error('timeout')), 4000));
+        const { data: pd } = await Promise.race([profilePromise, timeoutPromise]);
+        role = pd?.role;
+      } catch(profileErr) {
+        console.warn('Profile fetch issue:', profileErr.message);
       }
     }
-    const role = profile?.role;
+    // Email fallback — if profiles table is unavailable, use known admin emails
+    if (!role) {
+      const adminEmails = ['gangaloososua@gmail.com'];
+      const sellerEmails = ['tdelia411@gmail.com'];
+      if (adminEmails.includes(data.user.email?.toLowerCase())) role = 'admin';
+      else if (sellerEmails.includes(data.user.email?.toLowerCase())) role = 'seller';
+    }
     if (role === 'admin') {
       currentUser = data.user;
       document.getElementById('loginScreen').style.display = 'none';
@@ -1652,22 +1656,27 @@ async function checkExistingSession() {
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return;
-    let profile = null;
-    try {
-      const profilePromise = sb.from('profiles').select('role').eq('id', session.user.id).single();
-      const timeoutPromise = new Promise((_,reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-      const { data: pd } = await Promise.race([profilePromise, timeoutPromise]);
-      profile = pd;
-    } catch(e) {
-      console.warn('Session profile fetch issue:', e.message);
-      if (session.user.app_metadata?.role === 'admin') profile = { role: 'admin' };
+    let role = session.user.user_metadata?.role || session.user.app_metadata?.role;
+    if (!role) {
+      try {
+        const profilePromise = sb.from('profiles').select('role').eq('id', session.user.id).single();
+        const timeoutPromise = new Promise((_,reject) => setTimeout(() => reject(new Error('timeout')), 4000));
+        const { data: pd } = await Promise.race([profilePromise, timeoutPromise]);
+        role = pd?.role;
+      } catch(e) { console.warn('Session profile fetch issue:', e.message); }
     }
-    if (profile?.role === 'admin') {
+    if (!role) {
+      const adminEmails = ['gangaloososua@gmail.com'];
+      const sellerEmails = ['tdelia411@gmail.com'];
+      if (adminEmails.includes(session.user.email?.toLowerCase())) role = 'admin';
+      else if (sellerEmails.includes(session.user.email?.toLowerCase())) role = 'seller';
+    }
+    if (role === 'admin') {
       currentUser = session.user;
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('app').classList.add('visible');
       loadAllData();
-    } else if (profile?.role === 'seller') {
+    } else if (role === 'seller') {
       window.location.href = '/admin.html';
     }
   } catch(e) { console.warn('checkExistingSession error:', e); }
