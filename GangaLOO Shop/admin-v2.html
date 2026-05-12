@@ -1760,42 +1760,62 @@ async function loadAllData() {
     startOrderPolling();
     console.log('loadAllData: phase 1 done, loading phase 2 in background...');
 
-    // ── Phase 2: Heavy data (background — sales, purchases, transactions) ──
+    // ── Phase 2a: Sales data (~200KB) ──
     sb.from('inventory_data')
-      .select('sales,payments,purchases,transfers,transactions,commission_payouts,account_transfers,purchase_payments')
+      .select('sales,payments,commission_payouts,account_transfers')
       .limit(1)
       .then(({ data: rows2, error: e2 }) => {
-        if (e2) { console.error('Phase 2 error:', e2); return; }
+        if (e2) { console.error('Phase 2a error:', e2); return; }
         const row2 = rows2 && rows2[0];
         if (!row2) return;
         sales             = JSON.parse(row2.sales              || '[]');
         payments          = JSON.parse(row2.payments           || '[]');
-        purchases         = JSON.parse(row2.purchases          || '[]');
-        transfers         = JSON.parse(row2.transfers          || '[]');
-        transactions      = JSON.parse(row2.transactions       || '[]');
         commissionPayouts = JSON.parse(row2.commission_payouts || '[]');
         accountTransfers  = JSON.parse(row2.account_transfers  || '[]');
-        purchasePayments  = JSON.parse(row2.purchase_payments  || '[]');
 
         // Backfill alias fields
         const prodMap = Object.fromEntries(products.map(p => [String(p.id), p.name]));
         let migrated = 0;
         sales.forEach(s => {
-          if (!s.totalSale)                    { s.totalSale         = parseFloat(s.total || s.subtotal || 0); migrated++; }
-          if (s.commissionPaid  === undefined) { s.commissionPaid    = parseFloat(s.commissionAmt || 0);       migrated++; }
-          if (s.commissionPercent === undefined){ s.commissionPercent = parseFloat(s.commissionPct || 0);      migrated++; }
-          if (!s.invoiceNumber  && s.invoiceNum)  { s.invoiceNumber  = s.invoiceNum;                          migrated++; }
-          if (!s.invoiceNum && s.invoiceNumber)   { s.invoiceNum     = s.invoiceNumber;                       migrated++; }
+          if (!s.totalSale)                     { s.totalSale         = parseFloat(s.total || s.subtotal || 0); migrated++; }
+          if (s.commissionPaid  === undefined)  { s.commissionPaid    = parseFloat(s.commissionAmt || 0);       migrated++; }
+          if (s.commissionPercent === undefined) { s.commissionPercent = parseFloat(s.commissionPct || 0);      migrated++; }
+          if (!s.invoiceNumber  && s.invoiceNum)  { s.invoiceNumber   = s.invoiceNum;                          migrated++; }
+          if (!s.invoiceNum && s.invoiceNumber)   { s.invoiceNum      = s.invoiceNumber;                       migrated++; }
           if (!s.productName && s.items?.length)  {
             s.productName = s.items.map(i => prodMap[String(i.productId)]||'').filter(Boolean).join(', ');
             migrated++;
           }
         });
         if (migrated > 0) debouncedSave();
-
-        // Re-render dashboard with full data
         renderDashboard();
-        console.log('loadAllData: phase 2 done ✅ sales=' + sales.length + ' purchases=' + purchases.length);
+        console.log('loadAllData: phase 2a done ✅ sales=' + sales.length);
+      });
+
+    // ── Phase 2b: Purchases (~300KB) ──
+    sb.from('inventory_data')
+      .select('purchases,transfers,purchase_payments')
+      .limit(1)
+      .then(({ data: rows3, error: e3 }) => {
+        if (e3) { console.error('Phase 2b error:', e3); return; }
+        const row3 = rows3 && rows3[0];
+        if (!row3) return;
+        purchases        = JSON.parse(row3.purchases         || '[]');
+        transfers        = JSON.parse(row3.transfers         || '[]');
+        purchasePayments = JSON.parse(row3.purchase_payments || '[]');
+        console.log('loadAllData: phase 2b done ✅ purchases=' + purchases.length);
+      });
+
+    // ── Phase 2c: Transactions (~200KB) ──
+    sb.from('inventory_data')
+      .select('transactions')
+      .limit(1)
+      .then(({ data: rows4, error: e4 }) => {
+        if (e4) { console.error('Phase 2c error:', e4); return; }
+        const row4 = rows4 && rows4[0];
+        if (!row4) return;
+        transactions = JSON.parse(row4.transactions || '[]');
+        console.log('loadAllData: phase 2c done ✅ transactions=' + transactions.length);
       });
 
   } catch(e) {
