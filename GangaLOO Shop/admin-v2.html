@@ -1614,23 +1614,12 @@ async function doLogin() {
   try {
     const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
     if (error) { err.textContent = error.message; btn.textContent = 'Entrar al Sistema →'; btn.disabled = false; return; }
-    // Fetch role — try user metadata first, then profiles table, then email fallback
+    // Determine role from email — profiles table is unavailable
     let role = data.user.user_metadata?.role || data.user.app_metadata?.role;
     if (!role) {
-      try {
-        const profilePromise = sb.from('profiles').select('role').eq('id', data.user.id).single();
-        const timeoutPromise = new Promise((_,reject) => setTimeout(() => reject(new Error('timeout')), 4000));
-        const { data: pd } = await Promise.race([profilePromise, timeoutPromise]);
-        role = pd?.role;
-      } catch(profileErr) {
-        console.warn('Profile fetch issue:', profileErr.message);
-      }
-    }
-    // Email fallback — if profiles table is unavailable, use known admin emails
-    if (!role) {
-      const adminEmails = ['gangaloososua@gmail.com'];
+      const adminEmails  = ['gangaloososua@gmail.com'];
       const sellerEmails = ['tdelia411@gmail.com'];
-      if (adminEmails.includes(data.user.email?.toLowerCase())) role = 'admin';
+      if (adminEmails.includes(data.user.email?.toLowerCase()))  role = 'admin';
       else if (sellerEmails.includes(data.user.email?.toLowerCase())) role = 'seller';
     }
     if (role === 'admin') {
@@ -1656,19 +1645,12 @@ async function checkExistingSession() {
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return;
+    // Determine role from email — profiles table is unavailable
     let role = session.user.user_metadata?.role || session.user.app_metadata?.role;
     if (!role) {
-      try {
-        const profilePromise = sb.from('profiles').select('role').eq('id', session.user.id).single();
-        const timeoutPromise = new Promise((_,reject) => setTimeout(() => reject(new Error('timeout')), 4000));
-        const { data: pd } = await Promise.race([profilePromise, timeoutPromise]);
-        role = pd?.role;
-      } catch(e) { console.warn('Session profile fetch issue:', e.message); }
-    }
-    if (!role) {
-      const adminEmails = ['gangaloososua@gmail.com'];
+      const adminEmails  = ['gangaloososua@gmail.com'];
       const sellerEmails = ['tdelia411@gmail.com'];
-      if (adminEmails.includes(session.user.email?.toLowerCase())) role = 'admin';
+      if (adminEmails.includes(session.user.email?.toLowerCase()))  role = 'admin';
       else if (sellerEmails.includes(session.user.email?.toLowerCase())) role = 'seller';
     }
     if (role === 'admin') {
@@ -7629,9 +7611,14 @@ let _clienteTypeFilter = 'all';
 
 async function loadOnlineClientes() {
   try {
-    const { data: profiles } = await sb.from('profiles').select('*');
+    const profilePromise = sb.from('profiles').select('*');
+    const timeoutPromise = new Promise((_,reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+    const { data: profiles } = await Promise.race([profilePromise, timeoutPromise]);
     _onlineProfiles = profiles || [];
-  } catch(e) { _onlineProfiles = []; }
+  } catch(e) {
+    console.warn('loadOnlineClientes profiles timeout/error:', e.message);
+    _onlineProfiles = [];
+  }
   renderClientesList();
 }
 
