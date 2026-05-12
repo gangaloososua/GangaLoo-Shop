@@ -1062,7 +1062,7 @@ button{font-family:'Jost',sans-serif;}
       <button class="user-pill" id="loginNavBtn" onclick="openAuthWall()" style="display:none;">
         <span>👤</span> Iniciar Sesión
       </button>
-      <a href="https://gangaloo.club/ayuda.html" target="_blank" style="font-size:12px;color:var(--muted);text-decoration:none;white-space:nowrap;" class="ayuda-nav-link">❓ ¿Cómo funciona?</a>
+      <a href="https://gangaloo.netlify.app/ayuda.html" target="_blank" style="font-size:12px;color:var(--muted);text-decoration:none;white-space:nowrap;" class="ayuda-nav-link">❓ ¿Cómo funciona?</a>
       <button class="cart-btn" onclick="openCart()">
         🛍 Carrito <span class="cart-badge" id="cartCount">0</span>
       </button>
@@ -1146,7 +1146,7 @@ button{font-family:'Jost',sans-serif;}
   </div>
 </section>
 
-<footer class="footer"><p>© 2026 <strong>GangaLoo</strong> — Todos los derechos reservados ✦ &nbsp;·&nbsp; <a href="https://gangaloo.club/ayuda.html" target="_blank" style="color:var(--gold);text-decoration:none;">¿Cómo funciona?</a></p></footer>
+<footer class="footer"><p>© 2026 <strong>GangaLoo</strong> — Todos los derechos reservados ✦ &nbsp;·&nbsp; <a href="https://gangaloo.netlify.app/ayuda.html" target="_blank" style="color:var(--gold);text-decoration:none;">¿Cómo funciona?</a></p></footer>
 
 <!-- ═══ AUTH WALL ═══ -->
 <div class="auth-wall" id="authWall">
@@ -1311,22 +1311,34 @@ async function loadData(){
       <p style="font-size:.9em;">Cargando productos...</p>
     </div>`;
   }
-  let data,error;
-  try{({data,error}=await sb.from('inventory_data').select('products,purchases,warehouses,categories,store_config').limit(1));
-    if(data && data[0]){
-    }}
-  catch(e){console.warn('[store] fetch error:',e.message);return;}
-  if(error||!data||!data.length){
+  // Fetch each column separately to avoid Supabase statement timeout on large rows
+  async function fetchCol(col,fallback='[]'){
+    try{
+      const r=await fetch('https://xnbkwczolkinurohloxj.supabase.co/rest/v1/inventory_data?select='+col+'&limit=1',{headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes'}});
+      if(!r.ok)return JSON.parse(fallback);
+      const rows=await r.json();
+      const val=rows?.[0]?.[col];
+      try{return JSON.parse(val||fallback);}catch(e){return JSON.parse(fallback);}
+    }catch(e){return JSON.parse(fallback);}
+  }
+  let loadOk=true;
+  try{
+    [allProducts,allPurchases,allWarehouses,allCategories,storeConfig]=await Promise.all([
+      fetchCol('products','[]'),
+      fetchCol('purchases','[]'),
+      fetchCol('warehouses','[]'),
+      fetchCol('categories','[]'),
+      fetchCol('store_config','{}')
+    ]);
+  }catch(e){
+    console.warn('[store] fetch error:',e.message);
+    loadOk=false;
+  }
+  if(!loadOk||(!allProducts.length&&!allWarehouses.length)){
     _dataLoading=false;
-    document.getElementById('prodGrid').innerHTML='<div class="empty"><div class="ico">⚠️</div><h3>Error de conexión</h3><p>'+(error?.message||'Sin datos')+'</p><button onclick="location.reload()" style="margin-top:12px;padding:10px 20px;background:var(--text);color:white;border:none;border-radius:10px;cursor:pointer;font-family:sans-serif;font-size:.9em;">🔄 Recargar</button></div>';
+    document.getElementById('prodGrid').innerHTML='<div class="empty"><div class="ico">⚠️</div><h3>Error de conexión</h3><p>Sin datos</p><button onclick="location.reload()" style="margin-top:12px;padding:10px 20px;background:var(--text);color:white;border:none;border-radius:10px;cursor:pointer;font-family:sans-serif;font-size:.9em;">🔄 Recargar</button></div>';
     return;
   }
-  const row=data[0];
-  try{ allProducts=JSON.parse(row.products||'[]'); }catch(e){ console.warn('[PARSE] products:',e.message); allProducts=[]; }
-  try{ allPurchases=JSON.parse(row.purchases||'[]'); }catch(e){ console.warn('[PARSE] purchases:',e.message); allPurchases=[]; }
-  try{ allWarehouses=JSON.parse(row.warehouses||'[]'); }catch(e){ console.warn('[PARSE] warehouses:',e.message); allWarehouses=[]; }
-  try{ allCategories=JSON.parse(row.categories||'[]'); }catch(e){ console.warn('[PARSE] categories:',e.message); allCategories=[]; }
-  try{ storeConfig=JSON.parse(row.store_config||'{}'); }catch(e){ storeConfig={}; }
   // Detect data issues and log clearly
   console.log('[store] loaded products:'+allProducts.length+' purchases:'+allPurchases.length+' warehouses:'+allWarehouses.length);
   // Log if products empty
@@ -1902,8 +1914,8 @@ function openCheckout(){
   // Refresh storeConfig from Supabase to ensure fees are current
   (async()=>{
     try{
-      const {data}=await sb.from('inventory_data').select('store_config').limit(1);
-      if(data&&data[0]?.store_config) storeConfig=JSON.parse(data[0].store_config||'{}');
+      const r=await fetch('https://xnbkwczolkinurohloxj.supabase.co/rest/v1/inventory_data?select=store_config&limit=1',{headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuYmt3Y3pvbGtpbnVyb2hsb3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTA5ODEsImV4cCI6MjA4ODM4Njk4MX0.qkSgk5BUccKF-bmla5nOFgI4HIPox40X6jYDT4Zcnes'}});
+      if(r.ok){const rows=await r.json();const val=rows?.[0]?.store_config;if(val)storeConfig=JSON.parse(val);}
     }catch(e){}
     _openCheckoutRender();
   })();
