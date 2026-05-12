@@ -1729,33 +1729,23 @@ async function loadAllData() {
   try {
     console.log('loadAllData: starting...');
 
-    // Get session token once
-    const { data: { session: _session } } = await sb.auth.getSession();
-    const _token = _session?.access_token || SUPABASE_KEY;
-
-    // Helper to fetch a single column using raw fetch
-    const SUPA_URL = SUPABASE_URL + '/rest/v1/inventory_data';
-    const SUPA_KEY = SUPABASE_KEY;
+    // Helper to fetch a single column
     async function fetchCol(col, fallback='[]') {
-      try {
-        const r = await fetch(SUPA_URL + '?select=' + col + '&limit=1', {
-          headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + _token }
-        });
-        if (!r.ok) { console.warn('fetchCol', col, r.status); return JSON.parse(fallback); }
-        const rows = await r.json();
-        const val  = rows?.[0]?.[col];
-        try { return JSON.parse(val || fallback); } catch(e) { return JSON.parse(fallback); }
-      } catch(e) {
-        console.warn('fetchCol error', col, e.message);
-        return JSON.parse(fallback);
-      }
+      const { data, error } = await sb.from('inventory_data').select(col).limit(1);
+      if (error) { console.warn('fetchCol error', col, error.message); return JSON.parse(fallback); }
+      const val = data?.[0]?.[col];
+      try { return JSON.parse(val || fallback); } catch(e) { return JSON.parse(fallback); }
     }
 
-    // Phase 1: critical for dashboard — fetch sequentially to avoid rate limiting
+    // Phase 1: critical for dashboard — fetch sequentially
     console.log('loadAllData: phase 1...');
+    console.log('fetching warehouses...');
     warehouses           = await fetchCol('warehouses');
+    console.log('fetching categories... warehouses='+warehouses.length);
     categories           = await fetchCol('categories');
+    console.log('fetching products... categories='+categories.length);
     products             = await fetchCol('products');
+    console.log('fetching accounts... products='+products.length);
     products.forEach(p => {
       if (p.name) p.name = p.name.replace(/[\u201C\u201D\u2018\u2019\u00AB\u00BB]/g, '"');
       if (p.sku)  p.sku  = p.sku.replace(/[\u201C\u201D\u2018\u2019\u00AB\u00BB]/g, '"');
