@@ -1747,7 +1747,7 @@ async function loadAllData() {
   try {
     // Only select columns we actually use — avoids fetching the full ~900KB row
     const { data: rows, error } = await sb.from('inventory_data')
-      .select('warehouses,categories,products,purchases,transfers,sales,accounts,accounting_categories,transactions,customers,payments,commission_payouts,account_transfers,purchase_payments,monthly_rates,store_config')
+      .select('*')
       .limit(1);
     if (error) throw error;
     const row = rows && rows[0];
