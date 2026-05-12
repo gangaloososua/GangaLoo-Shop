@@ -1729,15 +1729,17 @@ async function loadAllData() {
   try {
     console.log('loadAllData: starting...');
 
-    // Helper to fetch a single column using raw fetch (more reliable than JS client)
+    // Get session token once
+    const { data: { session: _session } } = await sb.auth.getSession();
+    const _token = _session?.access_token || SUPABASE_KEY;
+
+    // Helper to fetch a single column using raw fetch
     const SUPA_URL = SUPABASE_URL + '/rest/v1/inventory_data';
     const SUPA_KEY = SUPABASE_KEY;
     async function fetchCol(col, fallback='[]') {
       try {
-        const session = (await sb.auth.getSession())?.data?.session;
-        const token   = session?.access_token || SUPA_KEY;
         const r = await fetch(SUPA_URL + '?select=' + col + '&limit=1', {
-          headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token }
+          headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + _token }
         });
         if (!r.ok) { console.warn('fetchCol', col, r.status); return JSON.parse(fallback); }
         const rows = await r.json();
