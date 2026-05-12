@@ -1729,39 +1729,40 @@ async function loadAllData() {
   try {
     console.log('loadAllData: starting...');
 
-    // Helper to fetch a single column
+    // Helper to fetch a single column using raw fetch (more reliable than JS client)
+    const SUPA_URL = SUPABASE_URL + '/rest/v1/inventory_data';
+    const SUPA_KEY = SUPABASE_KEY;
     async function fetchCol(col, fallback='[]') {
-      const { data, error } = await sb.from('inventory_data').select(col).limit(1);
-      if (error) { console.warn('fetchCol error', col, error.message); return JSON.parse(fallback); }
-      const val = data?.[0]?.[col];
-      try { return JSON.parse(val || fallback); } catch(e) { return JSON.parse(fallback); }
+      try {
+        const session = (await sb.auth.getSession())?.data?.session;
+        const token   = session?.access_token || SUPA_KEY;
+        const r = await fetch(SUPA_URL + '?select=' + col + '&limit=1', {
+          headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token }
+        });
+        if (!r.ok) { console.warn('fetchCol', col, r.status); return JSON.parse(fallback); }
+        const rows = await r.json();
+        const val  = rows?.[0]?.[col];
+        try { return JSON.parse(val || fallback); } catch(e) { return JSON.parse(fallback); }
+      } catch(e) {
+        console.warn('fetchCol error', col, e.message);
+        return JSON.parse(fallback);
+      }
     }
 
-    // Phase 1: critical for dashboard — fetch in parallel
+    // Phase 1: critical for dashboard — fetch sequentially to avoid rate limiting
     console.log('loadAllData: phase 1...');
-    const [wh, cat, prod, acct, cust, sc, mr, ac] = await Promise.all([
-      fetchCol('warehouses'),
-      fetchCol('categories'),
-      fetchCol('products'),
-      fetchCol('accounts'),
-      fetchCol('customers'),
-      fetchCol('store_config', '{}'),
-      fetchCol('monthly_rates', '{}'),
-      fetchCol('accounting_categories'),
-    ]);
-
-    warehouses           = wh;
-    categories           = cat;
-    products             = prod;
+    warehouses           = await fetchCol('warehouses');
+    categories           = await fetchCol('categories');
+    products             = await fetchCol('products');
     products.forEach(p => {
       if (p.name) p.name = p.name.replace(/[\u201C\u201D\u2018\u2019\u00AB\u00BB]/g, '"');
       if (p.sku)  p.sku  = p.sku.replace(/[\u201C\u201D\u2018\u2019\u00AB\u00BB]/g, '"');
     });
-    accounts             = acct;
-    customers            = cust;
-    storeConfig          = sc;
-    monthlyRates         = mr;
-    accountingCategories = ac.filter(c => c.type === 'income' || c.type === 'expense');
+    accounts             = await fetchCol('accounts');
+    customers            = await fetchCol('customers');
+    storeConfig          = await fetchCol('store_config', '{}');
+    monthlyRates         = await fetchCol('monthly_rates', '{}');
+    accountingCategories = (await fetchCol('accounting_categories')).filter(c => c.type === 'income' || c.type === 'expense');
 
     if (storeConfig.guest_markup  !== undefined && storeConfig.guestMarkup  === undefined) storeConfig.guestMarkup  = storeConfig.guest_markup;
     if (storeConfig.club_discount !== undefined && storeConfig.clubDiscount === undefined) storeConfig.clubDiscount = storeConfig.club_discount;
