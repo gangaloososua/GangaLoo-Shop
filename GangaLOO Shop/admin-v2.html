@@ -1728,9 +1728,9 @@ async function loadAllData() {
   setSaveState('saving');
   try {
     // Only select columns we actually use — avoids fetching the full ~900KB row
-    const { data: rows, error } = await sb.from('inventory_data')
-      .select('*')
-      .limit(1);
+    const fetchPromise    = sb.from('inventory_data').select('*').limit(1);
+    const timeoutPromise  = new Promise((_,reject) => setTimeout(() => reject(new Error('Timeout: inventory_data tardó más de 15s')), 15000));
+    const { data: rows, error } = await Promise.race([fetchPromise, timeoutPromise]);
     if (error) throw error;
     const row = rows && rows[0];
     if (row) {
@@ -1786,8 +1786,15 @@ async function loadAllData() {
   } catch(e) {
     console.error('loadAllData error:', e);
     setSaveState('error');
-    showToast('Error al cargar datos: ' + e.message, 'error');
-    seedDefaults(); renderDashboard();
+    showToast('❌ Error: ' + e.message, 'error');
+    // Show error on dashboard so it's visible
+    const dash = document.getElementById('panel-dashboard');
+    if (dash) {
+      const errDiv = dash.querySelector('.dash-subtitle') || dash.querySelector('p');
+      if (errDiv) errDiv.textContent = '❌ Error cargando datos: ' + e.message;
+    }
+    seedDefaults();
+    renderDashboard();
   }
 }
 
