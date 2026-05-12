@@ -1729,12 +1729,24 @@ async function loadAllData() {
   try {
     console.log('loadAllData: starting...');
 
-    // Helper to fetch a single column
+    // Helper — uses raw fetch to bypass frozen Supabase JS client
     async function fetchCol(col, fallback='[]') {
-      const { data, error } = await sb.from('inventory_data').select(col).limit(1);
-      if (error) { console.warn('fetchCol error', col, error.message); return JSON.parse(fallback); }
-      const val = data?.[0]?.[col];
-      try { return JSON.parse(val || fallback); } catch(e) { return JSON.parse(fallback); }
+      try {
+        const r = await fetch(
+          'https://xnbkwczolkinurohloxj.supabase.co/rest/v1/inventory_data?select=' + col + '&limit=1',
+          { headers: {
+            'apikey':        SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY
+          }}
+        );
+        if (!r.ok) { console.warn('fetchCol', col, r.status); return JSON.parse(fallback); }
+        const rows = await r.json();
+        const val  = rows?.[0]?.[col];
+        try { return JSON.parse(val || fallback); } catch(e) { return JSON.parse(fallback); }
+      } catch(e) {
+        console.warn('fetchCol error', col, e.message);
+        return JSON.parse(fallback);
+      }
     }
 
     // Phase 1: critical for dashboard — fetch sequentially
