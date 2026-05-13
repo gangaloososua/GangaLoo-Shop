@@ -1,28 +1,36 @@
-// Minimal SW - network first, cache fallback
-const CACHE = 'gangaloo-v9';
+// Service Worker — pass-through only, no caching of API calls
+const CACHE_NAME = 'gangaloo-v3';
+const SUPABASE_HOST = 'supabase.co';
 
-self.addEventListener('install', e => self.skipWaiting());
+self.addEventListener('install', e => {
+  self.skipWaiting();
+});
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+    caches.keys().then(keys =>
+      Promise.all(keys.map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', e => {
-  // Only handle GET requests
-  if (e.request.method !== 'GET') return;
+  const url = e.request.url;
+
+  // Never intercept Supabase or any external API — let browser handle natively
+  if (url.includes(SUPABASE_HOST) || !url.startsWith(self.location.origin)) {
+    return; // Do NOT call e.respondWith() — browser handles it directly
+  }
+
+  // For same-origin requests, network first, fall back to cache
   e.respondWith(
     fetch(e.request)
-      .then(res => {
-        // Cache successful responses
-        if (res.ok && e.request.url.startsWith('http')) {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
+      .then(response => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
         }
-        return res;
+        return response;
       })
       .catch(() => caches.match(e.request))
   );
