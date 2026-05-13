@@ -607,9 +607,26 @@ async function doLogin() {
     await sb.auth.signOut();
     const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
     if (error) { err.textContent = '❌ ' + error.message; return; }
-    const { data: profile, error: profileErr } = await sb.from('profiles').select('role').eq('id', data.user.id).single();
-    if (profileErr) { err.textContent = '❌ Error de perfil: ' + profileErr.message; return; }
-    const role = profile?.role;
+
+    // Race the profiles query against a 5s timeout
+    const profilePromise = sb.from('profiles').select('role').eq('id', data.user.id).single();
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('profiles_timeout')), 5000));
+    const { data: profile, error: profileErr } = await Promise.race([profilePromise, timeoutPromise]).catch(e => {
+      if (e.message === 'profiles_timeout') return { data: null, error: { message: 'timeout' } };
+      return { data: null, error: e };
+    });
+
+    // If profiles query fails/times out, try user_metadata as fallback
+    let role = profile?.role;
+    if (!role) {
+      role = data.user?.user_metadata?.role || data.user?.app_metadata?.role;
+    }
+
+    if (profileErr?.message === 'timeout') {
+      err.textContent = '⚠️ La consulta de perfil tardó demasiado. Intenta de nuevo.';
+      return;
+    }
+    if (profileErr && profileErr.message !== 'timeout') { err.textContent = '❌ Error de perfil: ' + profileErr.message; return; }
     if (role === 'admin' || role === 'seller') {
       currentUser = data.user;
       document.getElementById('loginScreen').style.display = 'none';
@@ -637,14 +654,19 @@ async function doLogout() {
 (async () => {
   const { data: { session } } = await sb.auth.getSession();
   if (session?.user) {
-    const { data: profile } = await sb.from('profiles').select('role').eq('id', session.user.id).single();
-    if (profile?.role === 'admin' || profile?.role === 'seller') {
-      currentUser = session.user;
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('app').classList.add('visible');
-      document.getElementById('topbarUser').textContent = session.user.email.split('@')[0];
-      await loadAllData();
-    }
+    try {
+      const profilePromise = sb.from('profiles').select('role').eq('id', session.user.id).single();
+      const timeout = new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000));
+      const { data: profile } = await Promise.race([profilePromise, timeout]).catch(() => ({ data: null }));
+      let role = profile?.role || session.user?.user_metadata?.role || session.user?.app_metadata?.role;
+      if (role === 'admin' || role === 'seller') {
+        currentUser = session.user;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('app').classList.add('visible');
+        document.getElementById('topbarUser').textContent = session.user.email.split('@')[0];
+        await loadAllData();
+      }
+    } catch(e) { console.warn('Session restore failed:', e); }
   }
 })();
 
