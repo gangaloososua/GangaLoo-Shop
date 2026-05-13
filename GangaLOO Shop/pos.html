@@ -603,9 +603,12 @@ async function doLogin() {
   if (!email || !pass) { err.textContent = 'Ingresa email y contraseña.'; return; }
   btn.textContent = 'Entrando...'; btn.disabled = true;
   try {
+    // Clear any stale session first
+    await sb.auth.signOut();
     const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-    if (error) { err.textContent = error.message; return; }
-    const { data: profile } = await sb.from('profiles').select('role').eq('id', data.user.id).single();
+    if (error) { err.textContent = '❌ ' + error.message; return; }
+    const { data: profile, error: profileErr } = await sb.from('profiles').select('role').eq('id', data.user.id).single();
+    if (profileErr) { err.textContent = '❌ Error de perfil: ' + profileErr.message; return; }
     const role = profile?.role;
     if (role === 'admin' || role === 'seller') {
       currentUser = data.user;
@@ -615,9 +618,9 @@ async function doLogin() {
       await loadAllData();
     } else {
       await sb.auth.signOut();
-      err.textContent = 'Acceso denegado para este portal.';
+      err.textContent = `❌ Acceso denegado. Rol: "${role || 'sin rol'}"`;
     }
-  } catch(e) { err.textContent = 'Error: ' + e.message; }
+  } catch(e) { err.textContent = '❌ Error: ' + e.message; }
   btn.textContent = 'Entrar al POS →'; btn.disabled = false;
 }
 
