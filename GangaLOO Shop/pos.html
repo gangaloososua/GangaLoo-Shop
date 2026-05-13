@@ -2,6 +2,12 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(r=>r.forEach(sw=>sw.unregister()));
+  if('caches' in window) caches.keys().then(ks=>ks.forEach(k=>caches.delete(k)));
+}
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <link rel="icon" type="image/png" href="/icon192.png">
 <link rel="apple-touch-icon" href="/icon192.png">
@@ -284,6 +290,7 @@ select.field option { background:var(--surface2); }
     <div class="nav-tab" onclick="showTab('scanner')" data-tab="scanner">🔍 Escáner</div>
     <div class="nav-tab" onclick="showTab('pos')" data-tab="pos">🛒 Vender <span class="nav-badge" id="cartCount">0</span></div>
     <div class="nav-tab" onclick="showTab('ventas')" data-tab="ventas">📊 Mis Ventas</div>
+    <div class="nav-tab" onclick="showTab('nuevo')" data-tab="nuevo">➕ Nuevo</div>
     <div class="nav-tab" onclick="showTab('ajustes')" data-tab="ajustes">⚙️ Ajustes</div>
   </div>
 
@@ -410,6 +417,121 @@ select.field option { background:var(--surface2); }
       </div>
     </div>
 
+    <!-- ═══ TAB: NUEVO PRODUCTO ═══ -->
+    <div id="tab-nuevo" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2 style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;">➕ Nuevo Producto</h2>
+          <div style="font-size:12px;color:var(--ink3);margin-top:2px;">Crea un producto rápido desde la tienda</div>
+        </div>
+      </div>
+
+      <div style="max-width:600px;">
+
+        <!-- Basic info -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:14px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:14px;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">📦 Info del Producto</div>
+
+          <div class="form-group">
+            <label class="form-label req">Nombre</label>
+            <input class="field" id="np_name" placeholder="Ej: Camisa Polo Azul M" autocomplete="off">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">SKU / Código</label>
+              <div style="display:flex;gap:6px;">
+                <input class="field" id="np_sku" placeholder="GL-001" style="flex:1;" autocomplete="off">
+                <button onclick="npGenSku()" title="Generar SKU" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r);padding:0 10px;color:var(--ink2);cursor:pointer;font-size:13px;white-space:nowrap;">⚡</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Categoría</label>
+              <select class="field" id="np_cat">
+                <option value="">— Sin categoría —</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Descripción</label>
+            <textarea class="field" id="np_desc" rows="2" placeholder="Descripción corta..."></textarea>
+          </div>
+        </div>
+
+        <!-- Pricing -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:14px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:14px;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">💰 Precios</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label req">Precio venta (RD$)</label>
+              <input class="field" id="np_price" type="number" min="0" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Costo (RD$)</label>
+              <input class="field" id="np_cost" type="number" min="0" step="0.01" placeholder="0.00">
+            </div>
+          </div>
+        </div>
+
+        <!-- Photos -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:14px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:14px;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">📸 Fotos</div>
+          <div id="np_photoGrid" class="photo-grid"></div>
+          <input type="file" id="np_fileInput" accept="image/*" multiple style="display:none;" onchange="npHandlePhotos(this)">
+        </div>
+
+        <!-- Tienda options -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:14px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:4px;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">🏪 Agregar a Tienda Física</div>
+          <div style="font-size:12px;color:var(--ink3);margin-bottom:14px;">¿Poner este producto en el piso de tienda ahora mismo?</div>
+
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:14px;">
+            <div style="position:relative;">
+              <input type="checkbox" id="np_addToStore" onchange="npToggleStore(this.checked)" style="opacity:0;position:absolute;width:0;height:0;">
+              <div id="np_toggleTrack" style="width:40px;height:22px;background:var(--surface3);border-radius:99px;border:1.5px solid var(--border);transition:all .2s;position:relative;">
+                <div id="np_toggleThumb" style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:var(--ink3);border-radius:99px;transition:all .2s;"></div>
+              </div>
+            </div>
+            <span style="font-size:14px;font-weight:600;">Sí, agregar a tienda</span>
+          </label>
+
+          <div id="np_storeFields" style="display:none;">
+            <div class="form-group">
+              <label class="form-label">📍 Ubicación en tienda</label>
+              <div style="display:flex;gap:8px;margin-bottom:6px;">
+                <select class="field" id="np_locSel" onchange="if(this.value)document.getElementById('np_shelf').value=this.value" style="flex:1;font-size:13px;">
+                  <option value="">— Seleccionar posición —</option>
+                </select>
+              </div>
+              <input class="field" id="np_shelf" placeholder="O escribe una nueva ubicación..." style="font-size:13px;">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Unidades en tienda</label>
+              <input class="field" id="np_storeQty" type="number" min="1" value="1" style="width:100px;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Save buttons -->
+        <div style="display:flex;gap:10px;margin-bottom:32px;flex-wrap:wrap;">
+          <button onclick="saveNewProduct()" class="btn btn-primary" style="flex:1;padding:14px;font-size:15px;font-family:'Syne',sans-serif;font-weight:700;">
+            ✅ Guardar Producto
+          </button>
+          <button onclick="npReset()" class="btn btn-ghost" style="padding:14px 20px;">
+            🗑 Limpiar
+          </button>
+        </div>
+
+        <!-- Sync notice -->
+        <div style="background:rgba(124,92,252,.08);border:1px solid rgba(124,92,252,.2);border-radius:var(--r);padding:14px;margin-bottom:20px;">
+          <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px;">🔄 Sobre la sincronización</div>
+          <div style="font-size:12px;color:var(--ink3);line-height:1.6;">
+            El producto se guarda en el inventario compartido y queda disponible en el POS y tienda. Para agregarlo al <strong style="color:var(--ink2);">stock de almacén</strong> o publicarlo en la <strong style="color:var(--ink2);">tienda online</strong>, hazlo desde el panel de Admin después.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- ═══ TAB: AJUSTES ═══ -->
     <div id="tab-ajustes" style="display:none;padding:20px;">
       <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px;">⚙️ Ajustes del POS</h3>
@@ -481,10 +603,30 @@ async function doLogin() {
   if (!email || !pass) { err.textContent = 'Ingresa email y contraseña.'; return; }
   btn.textContent = 'Entrando...'; btn.disabled = true;
   try {
+    // Clear any stale session first
+    await sb.auth.signOut();
     const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-    if (error) { err.textContent = error.message; return; }
-    const { data: profile } = await sb.from('profiles').select('role').eq('id', data.user.id).single();
-    const role = profile?.role;
+    if (error) { err.textContent = '❌ ' + error.message; return; }
+
+    // Race the profiles query against a 5s timeout
+    const profilePromise = sb.from('profiles').select('role').eq('id', data.user.id).single();
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('profiles_timeout')), 5000));
+    const { data: profile, error: profileErr } = await Promise.race([profilePromise, timeoutPromise]).catch(e => {
+      if (e.message === 'profiles_timeout') return { data: null, error: { message: 'timeout' } };
+      return { data: null, error: e };
+    });
+
+    // If profiles query fails/times out, try user_metadata as fallback
+    let role = profile?.role;
+    if (!role) {
+      role = data.user?.user_metadata?.role || data.user?.app_metadata?.role;
+    }
+
+    if (profileErr?.message === 'timeout') {
+      err.textContent = '⚠️ La consulta de perfil tardó demasiado. Intenta de nuevo.';
+      return;
+    }
+    if (profileErr && profileErr.message !== 'timeout') { err.textContent = '❌ Error de perfil: ' + profileErr.message; return; }
     if (role === 'admin' || role === 'seller') {
       currentUser = data.user;
       document.getElementById('loginScreen').style.display = 'none';
@@ -493,9 +635,9 @@ async function doLogin() {
       await loadAllData();
     } else {
       await sb.auth.signOut();
-      err.textContent = 'Acceso denegado para este portal.';
+      err.textContent = `❌ Acceso denegado. Rol: "${role || 'sin rol'}"`;
     }
-  } catch(e) { err.textContent = 'Error: ' + e.message; }
+  } catch(e) { err.textContent = '❌ Error: ' + e.message; }
   btn.textContent = 'Entrar al POS →'; btn.disabled = false;
 }
 
@@ -512,14 +654,19 @@ async function doLogout() {
 (async () => {
   const { data: { session } } = await sb.auth.getSession();
   if (session?.user) {
-    const { data: profile } = await sb.from('profiles').select('role').eq('id', session.user.id).single();
-    if (profile?.role === 'admin' || profile?.role === 'seller') {
-      currentUser = session.user;
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('app').classList.add('visible');
-      document.getElementById('topbarUser').textContent = session.user.email.split('@')[0];
-      await loadAllData();
-    }
+    try {
+      const profilePromise = sb.from('profiles').select('role').eq('id', session.user.id).single();
+      const timeout = new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000));
+      const { data: profile } = await Promise.race([profilePromise, timeout]).catch(() => ({ data: null }));
+      let role = profile?.role || session.user?.user_metadata?.role || session.user?.app_metadata?.role;
+      if (role === 'admin' || role === 'seller') {
+        currentUser = session.user;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('app').classList.add('visible');
+        document.getElementById('topbarUser').textContent = session.user.email.split('@')[0];
+        await loadAllData();
+      }
+    } catch(e) { console.warn('Session restore failed:', e); }
   }
 })();
 
@@ -704,6 +851,184 @@ function showTab(tab) {
   if (tab === 'ventas') renderVentas();
   if (tab === 'pos') renderPosProducts();
   if (tab === 'ajustes') renderLocationsList();
+  if (tab === 'nuevo') npInit();
+}
+
+/* ─── NUEVO PRODUCTO ─── */
+let _npPhotos = [];
+
+function npInit() {
+  // Populate category select
+  const sel = document.getElementById('np_cat');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Sin categoría —</option>' +
+      categories.map(c => `<option value="${c.id}">${c.icon?c.icon+' ':''}${c.name}</option>`).join('');
+  }
+  // Populate location select
+  const locSel = document.getElementById('np_locSel');
+  if (locSel) {
+    const locs = getPosLocations();
+    locSel.innerHTML = '<option value="">— Seleccionar posición —</option>' +
+      locs.map(l => `<option value="${l}">${l}</option>`).join('');
+  }
+  npRenderPhotos();
+}
+
+function npToggleStore(on) {
+  document.getElementById('np_storeFields').style.display = on ? 'block' : 'none';
+  const track = document.getElementById('np_toggleTrack');
+  const thumb = document.getElementById('np_toggleThumb');
+  if (on) {
+    track.style.background = 'var(--accent)';
+    thumb.style.left = '20px';
+    thumb.style.background = '#fff';
+  } else {
+    track.style.background = 'var(--surface3)';
+    thumb.style.left = '2px';
+    thumb.style.background = 'var(--ink3)';
+  }
+}
+
+function npGenSku() {
+  const name = document.getElementById('np_name')?.value.trim() || '';
+  const prefix = name ? name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,3) : 'GL';
+  const num = String(Math.floor(Math.random()*9000)+1000);
+  document.getElementById('np_sku').value = prefix + '-' + num;
+}
+
+function npHandlePhotos(input) {
+  const files = Array.from(input.files);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => { _npPhotos.push(e.target.result); npRenderPhotos(); };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function npRenderPhotos() {
+  const grid = document.getElementById('np_photoGrid');
+  if (!grid) return;
+  grid.innerHTML = _npPhotos.map((url,i) => `
+    <div class="photo-thumb">
+      <img src="${url}" alt="foto">
+      <button class="del-btn" onclick="_npPhotos.splice(${i},1);npRenderPhotos()">✕</button>
+    </div>`).join('') +
+    `<div class="photo-add" onclick="document.getElementById('np_fileInput').click()">
+      <span style="font-size:20px;">📷</span><span>Foto</span>
+    </div>`;
+}
+
+function npReset() {
+  document.getElementById('np_name').value = '';
+  document.getElementById('np_sku').value = '';
+  document.getElementById('np_desc').value = '';
+  document.getElementById('np_price').value = '';
+  document.getElementById('np_cost').value = '';
+  document.getElementById('np_shelf').value = '';
+  document.getElementById('np_storeQty').value = '1';
+  document.getElementById('np_addToStore').checked = false;
+  document.getElementById('np_cat').value = '';
+  document.getElementById('np_locSel').value = '';
+  npToggleStore(false);
+  _npPhotos = [];
+  npRenderPhotos();
+}
+
+async function saveNewProduct() {
+  const name  = document.getElementById('np_name')?.value.trim();
+  const price = parseFloat(document.getElementById('np_price')?.value) || 0;
+  if (!name) { showToast('El nombre es obligatorio', 'error'); document.getElementById('np_name').focus(); return; }
+  if (!price) { showToast('Ingresa un precio de venta', 'error'); document.getElementById('np_price').focus(); return; }
+
+  const sku     = document.getElementById('np_sku')?.value.trim() || '';
+  const desc    = document.getElementById('np_desc')?.value.trim() || '';
+  const cost    = parseFloat(document.getElementById('np_cost')?.value) || 0;
+  const catId   = document.getElementById('np_cat')?.value || '';
+  const addStore = document.getElementById('np_addToStore')?.checked;
+  const shelf   = document.getElementById('np_shelf')?.value.trim() || '';
+  const storeQty = parseInt(document.getElementById('np_storeQty')?.value) || 1;
+
+  // Build product object matching existing structure
+  const newProd = {
+    id:          generateId(),
+    name,
+    sku:         sku || null,
+    description: desc || null,
+    salePrice:   price,
+    price:       price,
+    costPrice:   cost || null,
+    categoryId:  catId || null,
+    categoryIds: catId ? [catId] : [],
+    imageUrl:    _npPhotos[0] || null,
+    active:      true,
+    createdAt:   new Date().toISOString(),
+    updatedAt:   new Date().toISOString(),
+    _posCreated: true, // flag so admin knows origin
+  };
+
+  // Add to local products array
+  products.push(newProd);
+
+  // If adding to tienda
+  if (addStore) {
+    const locShelf = shelf || '—';
+    posProducts[String(newProd.id)] = {
+      active:    true,
+      shelf:     locShelf,
+      locations: [{ shelf: locShelf, qty: storeQty }],
+      photos:    _npPhotos.filter(p => !p.startsWith('data:')), // exclude base64 for now
+      notes:     '',
+      addedAt:   new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  // Upload photos to Supabase storage if any are base64
+  if (_npPhotos.length) {
+    setSyncState('syncing');
+    const uploadedUrls = [];
+    for (const photo of _npPhotos) {
+      if (!photo.startsWith('data:')) { uploadedUrls.push(photo); continue; }
+      try {
+        const res = await fetch(photo);
+        const blob = await res.blob();
+        const ext = blob.type.split('/')[1] || 'jpg';
+        const path = `pos-products/${newProd.id}-${Date.now()}.${ext}`;
+        const { data, error } = await sb.storage.from('gangaloo-media').upload(path, blob, { contentType: blob.type, upsert: false });
+        if (!error) {
+          const { data: urlData } = sb.storage.from('gangaloo-media').getPublicUrl(path);
+          uploadedUrls.push(urlData.publicUrl);
+        }
+      } catch(e) { console.warn('Photo upload failed:', e); }
+    }
+    newProd.imageUrl = uploadedUrls[0] || null;
+    if (addStore && posProducts[String(newProd.id)]) {
+      posProducts[String(newProd.id)].photos = uploadedUrls;
+    }
+  }
+
+  // Save to DB
+  try {
+    setSyncState('syncing');
+    const { data: inv } = await sb.from('inventory_data').select('id').limit(1);
+    if (inv?.length) {
+      await sb.from('inventory_data')
+        .update({ products: JSON.stringify(products), updated_at: new Date().toISOString() })
+        .eq('id', inv[0].id);
+    }
+    if (addStore) await saveTiendaImmediate();
+    setSyncState('ok');
+    showToast(`✅ "${name}" guardado${addStore?' y agregado a tienda':''}`, 'success', 4000);
+    renderInventario();
+    renderTienda();
+    renderInvCatPills();
+    updateStoreBadge();
+    npReset();
+  } catch(e) {
+    setSyncState('error');
+    showToast('Error guardando: ' + e.message, 'error');
+  }
 }
 
 /* ─── INVENTARIO TAB ─── */
@@ -845,12 +1170,10 @@ function printBarcodeForProduct(productId) {
 }
 
 function printBarcode(productId, sku, name, price) {
-  const safeName = (name||'');
+  const safeName = (name||'').replace(/'/g, "\\'").replace(/"/g, '&quot;');
   const safeSku  = (sku||'') || String(productId);
-  const priceStr = 'RD$ ' + (parseFloat(price)||0).toLocaleString('es-DO',{minimumFractionDigits:2});
 
-  // Open HTML page — much easier layout control than canvas
-  const win = window.open('', '_blank', 'width=500,height=400');
+  const win = window.open('', '_blank', 'width=420,height:560');
   const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -858,57 +1181,105 @@ function printBarcode(productId, sku, name, price) {
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"><\/script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"><\/script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@800&display=swap');
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: Arial, sans-serif; background:#f0f0f0; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:20px; gap:16px; }
-  .label { width:500px; background:#fff; padding:16px; text-align:center; }
-  .store { font-size:20px; font-weight:900; margin-bottom:6px; }
-  .name  { font-size:15px; font-weight:700; line-height:1.4; margin-bottom:10px; word-wrap:break-word; white-space:normal; }
-  .qr    { display:flex; justify-content:center; margin:8px 0; }
-  .sku   { font-family:monospace; font-size:12px; color:#333; margin-bottom:6px; }
-  .price { font-size:24px; font-weight:900; }
-  .buttons { display:flex; gap:10px; }
-  .btn { padding:10px 24px; border:none; border-radius:8px; font-size:15px; cursor:pointer; font-weight:700; }
-  .btn-img { background:#10b981; color:#fff; }
-  .btn-pdf { background:#6c3ff5; color:#fff; }
-  #status { font-size:13px; color:#666; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #e8e8e8;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 24px;
+  }
+  .label {
+    width: 280px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.12);
+  }
+  .name {
+    font-family: 'Syne', Arial, sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    text-align: center;
+    line-height: 1.25;
+    color: #0a0a0f;
+    word-break: break-word;
+    width: 100%;
+  }
+  .qr-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    background: #fff;
+    border-radius: 8px;
+  }
+  .buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn {
+    padding: 11px 22px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: Arial, sans-serif;
+  }
+  .btn-save { background: #10b981; color: #fff; }
+  .btn-print { background: #7c5cfc; color: #fff; }
+  #status { font-size: 12px; color: #666; min-height: 18px; }
+  @media print {
+    body { background: #fff; padding: 0; justify-content: flex-start; }
+    .buttons, #status { display: none; }
+    .label { box-shadow: none; border-radius: 0; }
+  }
 </style>
 </head>
 <body>
 <div class="label" id="label">
-  <div class="store">GangaLoo</div>
   <div class="name">${safeName}</div>
-  <div class="qr"><canvas id="qr"></canvas></div>
-  <div class="sku">${safeSku}</div>
-  <div class="price">${priceStr}</div>
+  <div class="qr-wrap"><canvas id="qr"></canvas></div>
 </div>
 <div class="buttons">
-  <button class="btn btn-img" onclick="saveImage()">📷 Guardar como imagen</button>
-  <button class="btn btn-pdf" onclick="window.print()">🖨️ Imprimir</button>
+  <button class="btn btn-save" onclick="saveImage()">📷 Guardar imagen</button>
+  <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir</button>
 </div>
 <div id="status"></div>
 <script>
   QRCode.toCanvas(document.getElementById('qr'), '${safeSku}', {
-    width: 160, margin: 1, color: { dark: '#000', light: '#fff' }
+    width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' }
   });
 
   function saveImage() {
-    document.getElementById('status').textContent = 'Generando imagen...';
+    const status = document.getElementById('status');
+    status.textContent = 'Generando imagen...';
     html2canvas(document.getElementById('label'), {
-      scale: 3,
+      scale: 4,
       backgroundColor: '#ffffff',
       useCORS: true,
     }).then(canvas => {
       canvas.toBlob(blob => {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = '${safeSku}_50x30.png';
+        a.download = '${safeSku}.png';
         a.click();
         URL.revokeObjectURL(a.href);
-        document.getElementById('status').textContent = '✅ Imagen guardada!';
+        status.textContent = '✅ Guardado!';
       }, 'image/png');
-    }).catch(e => {
-      document.getElementById('status').textContent = 'Error: ' + e.message;
-    });
+    }).catch(e => { status.textContent = 'Error: ' + e.message; });
   }
 <\/script>
 </body>
@@ -1454,28 +1825,28 @@ function showScanResult(code) {
         </button>
       </div>
 
-      <!-- ADD TO TIENDA section -->
+      <!-- ADD / EDIT TIENDA LOCATIONS section -->
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px;">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;">🏪 ${inTienda?'Editar ubicación en tienda':'Agregar a tienda'}</div>
-        <div style="display:flex;gap:8px;margin-bottom:6px;">
-          <select id="scanLocSel" style="flex:1;padding:9px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--ink);font-size:13px;"
-            onchange="document.getElementById('scanLocInput').value=this.value">
-            <option value="">— Seleccionar ubicación —</option>
-            <!-- populated by renderScanLocOpts() -->
-          </select>
-        </div>
-        <div style="display:flex;gap:8px;">
-          <input id="scanLocInput" class="field" placeholder="O nueva ubicación..." style="flex:1;font-size:13px;"
-            value="${locs[0]?.shelf||''}">
-          <button onclick="addToTiendaFromScan('${p.id}')"
-            style="background:var(--surface3);border:1.5px solid var(--border);border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;">🏪 ${inTienda?'Ubicaciones en tienda':'Agregar a tienda'}</div>
+        <div id="scanLocSlots" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <button onclick="addScanLocationSlot()"
+            style="flex:1;background:var(--surface3);border:1.5px dashed var(--border);border-radius:8px;padding:8px;font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer;">
+            + Agregar ubicación
+          </button>
+          <button onclick="saveScanLocations('${p.id}')"
+            style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">
             ${inTienda?'💾 Guardar':'➕ A Tienda'}
           </button>
         </div>
+        ${inTienda ? `<button onclick="removeFromStoreScan('${p.id}')"
+          style="width:100%;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.3);color:var(--rose);border-radius:8px;padding:7px;font-size:12px;font-weight:600;cursor:pointer;">
+          🗑 Quitar de tienda
+        </button>` : ''}
       </div>
     </div>`;
-  // Populate location dropdown after render
-  setTimeout(renderScanLocOpts, 50);
+  // Render location slots after DOM is ready
+  setTimeout(() => initScanLocationSlots('${p.id}'), 60);
 }
 
 function renderScanLocOpts() {
@@ -1488,23 +1859,112 @@ function renderScanLocOpts() {
 }
 
 function addToTiendaFromScan(productId) {
-  const shelf = document.getElementById('scanLocInput')?.value.trim() || '';
-  if (!shelf) { showToast('Selecciona o escribe una ubicación', 'error'); return; }
+  // Legacy — kept for safety, now handled by saveScanLocations
+  saveScanLocations(productId);
+}
+
+/* ─── SCAN LOCATION SLOTS ─── */
+let _scanSlotProductId = null;
+
+function initScanLocationSlots(productId) {
+  _scanSlotProductId = productId;
   const existing = posProducts[String(productId)] || {};
-  const locs = existing.locations?.filter(l=>l.shelf) || (existing.shelf ? [{shelf:existing.shelf,qty:1}] : []);
-  // Add location if not already there
-  if (!locs.find(l => l.shelf === shelf)) locs.push({ shelf, qty: 1 });
+  const slots = existing.locations?.filter(l => l.shelf).length
+    ? [...existing.locations]
+    : existing.shelf ? [{shelf: existing.shelf, qty: 1}]
+    : [{shelf: '', qty: 1}];
+  renderScanLocationSlots(slots);
+}
+
+function renderScanLocationSlots(slots) {
+  const container = document.getElementById('scanLocSlots');
+  if (!container) return;
+  const locs = getPosLocations();
+  const locOptions = locs.map(l => `<option value="${l}">${l}</option>`).join('');
+
+  container.innerHTML = slots.map((slot, i) => `
+    <div class="scan-loc-slot" style="background:var(--surface3);border-radius:8px;padding:10px;display:flex;gap:8px;align-items:flex-end;">
+      <div style="flex:1;">
+        <label style="font-size:11px;color:var(--ink3);display:block;margin-bottom:4px;">Ubicación</label>
+        ${locs.length ? `<select class="field scan-loc-shelf-sel" style="margin-bottom:6px;font-size:13px;">
+          <option value="">— Seleccionar —</option>
+          ${locOptions}
+          ${slot.shelf && !locs.includes(slot.shelf) ? `<option value="${slot.shelf}">${slot.shelf}</option>` : ''}
+        </select>` : ''}
+        <input class="field scan-loc-shelf" placeholder="Escribe ubicación..." value="${slot.shelf||''}" style="font-size:13px;">
+      </div>
+      <div style="width:60px;">
+        <label style="font-size:11px;color:var(--ink3);display:block;margin-bottom:4px;">Uds</label>
+        <input class="field scan-loc-qty" type="number" min="1" value="${slot.qty||1}" style="text-align:center;padding:8px 4px;">
+      </div>
+      ${slots.length > 1 ? `<button onclick="removeScanLocationSlot(${i})" style="background:#fee2e2;color:#dc2626;border:none;border-radius:7px;width:32px;height:32px;cursor:pointer;font-size:16px;flex-shrink:0;align-self:flex-end;">✕</button>` : '<div style="width:32px;"></div>'}
+    </div>
+  `).join('');
+
+  // Wire up selects → input sync
+  container.querySelectorAll('.scan-loc-slot').forEach((slotEl, i) => {
+    const sel = slotEl.querySelector('.scan-loc-shelf-sel');
+    const inp = slotEl.querySelector('.scan-loc-shelf');
+    if (sel) {
+      if (slots[i]?.shelf) sel.value = slots[i].shelf;
+      sel.addEventListener('change', () => { if (sel.value) inp.value = sel.value; });
+    }
+  });
+}
+
+function addScanLocationSlot() {
+  const slots = getCurrentScanSlots();
+  slots.push({shelf: '', qty: 1});
+  renderScanLocationSlots(slots);
+}
+
+function removeScanLocationSlot(idx) {
+  const slots = getCurrentScanSlots();
+  slots.splice(idx, 1);
+  if (!slots.length) slots.push({shelf: '', qty: 1});
+  renderScanLocationSlots(slots);
+}
+
+function getCurrentScanSlots() {
+  const slots = [];
+  document.querySelectorAll('.scan-loc-slot').forEach(slotEl => {
+    const shelf = slotEl.querySelector('.scan-loc-shelf')?.value.trim() || '';
+    const qty   = parseInt(slotEl.querySelector('.scan-loc-qty')?.value) || 1;
+    slots.push({shelf, qty});
+  });
+  return slots;
+}
+
+function saveScanLocations(productId) {
+  const slots = getCurrentScanSlots().filter(s => s.shelf);
+  if (!slots.length) { showToast('Escribe al menos una ubicación', 'error'); return; }
+  const existing = posProducts[String(productId)] || {};
   posProducts[String(productId)] = {
     ...existing,
     active: true,
-    shelf: locs[0]?.shelf || shelf,
-    locations: locs,
+    shelf: slots[0].shelf,
+    locations: slots,
     addedAt: existing.addedAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
   saveTiendaImmediate();
-  showToast(`✅ ${shelf} guardado`, 'success');
-  // Refresh scan result
+  renderTienda();
+  renderInventario();
+  updateStoreBadge();
+  showToast(`✅ Ubicacion${slots.length>1?'es':''} guardada${slots.length>1?'s':''} en tienda`, 'success');
+  // Refresh scan result to reflect changes
+  const p = products.find(x => String(x.id) === String(productId));
+  if (p) showScanResult(p.sku || String(p.id));
+}
+
+function removeFromStoreScan(productId) {
+  if (!confirm('¿Quitar este producto de la tienda física?')) return;
+  if (posProducts[String(productId)]) posProducts[String(productId)].active = false;
+  saveTiendaImmediate();
+  renderTienda();
+  renderInventario();
+  updateStoreBadge();
+  showToast('Producto removido de la tienda', 'warning');
   const p = products.find(x => String(x.id) === String(productId));
   if (p) showScanResult(p.sku || String(p.id));
 }
@@ -1834,7 +2294,7 @@ function printReceipt(sale, paid) {
     </div>
     ${sale.notes?`<div style="margin-top:10px;font-size:11px;color:#666;">${sale.notes}</div>`:''}
     <hr>
-    <div style="text-align:center;font-size:10px;color:#aaa;">¡Gracias por tu compra!<br>gangaloo.netlify.app</div>
+    <div style="text-align:center;font-size:10px;color:#aaa;">¡Gracias por tu compra!<br>gangaloo.club</div>
   </body></html>`);
   win.document.close();
 }
@@ -1914,12 +2374,12 @@ function showToast(msg, type='info', duration=3000) {
 </script>
 
 <script>
+// Unregister any broken service workers — do NOT re-register
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(r => console.log('SW ok:', r.scope))
-      .catch(e => console.log('SW error:', e));
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister());
   });
+  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
 }
 </script>
 </body>
