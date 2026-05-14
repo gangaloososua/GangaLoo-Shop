@@ -1803,9 +1803,9 @@ async function loadAllData() {
           migrated++;
         }
       });
-      if (migrated > 0) debouncedSave();
-      renderDashboard();
-      console.log('loadAllData: phase 2 done ✅ sales=' + sales.length);
+        if (migrated > 0) console.log('Migrated ' + migrated + ' sale fields');
+        renderDashboard();
+        console.log('loadAllData: phase 2 done ✅ sales=' + sales.length);
     });
 
     // Phase 3: background — purchases & transactions
@@ -11026,6 +11026,42 @@ function renderCuentas(el) {
 }
 
 /* ─── ACCOUNT MOVEMENTS (Balance Sheet) ─── */
+function recalcAccountBalance(accountId) {
+  const account = accounts.find(a => String(a.id) === String(accountId));
+  if (!account) return;
+  let balance = 0;
+  // Cobros (incoming payments)
+  payments.filter(p => String(p.accountId)===String(accountId) && !p.isRefund && parseFloat(p.amount)>0)
+    .forEach(p => balance += parseFloat(p.amount)||0);
+  // Transactions
+  transactions.filter(t => String(t.accountId)===String(accountId) && !t.isReceiptEntry)
+    .forEach(t => { if(t.type==='income') balance += parseFloat(t.amount)||0; else if(t.type==='expense') balance -= parseFloat(t.amount)||0; });
+  // Refund income transactions
+  transactions.filter(t => String(t.accountId)===String(accountId) && t.isRefund && t.type==='income')
+    .forEach(t => balance += parseFloat(t.amount)||0);
+  // Purchase payments (outgoing)
+  purchasePayments.filter(p => String(p.accountId)===String(accountId) && !p.isRefund && parseFloat(p.amount)>0)
+    .forEach(p => balance -= parseFloat(p.amount)||0);
+  // Account transfers
+  accountTransfers.forEach(t => {
+    if (String(t.fromAccountId)===String(accountId)) balance -= parseFloat(t.fromAmount)||0;
+    if (String(t.toAccountId)  ===String(accountId)) balance += parseFloat(t.toAmount)  ||0;
+  });
+  // Commission payouts
+  commissionPayouts.filter(p => String(p.accountId)===String(accountId))
+    .forEach(p => balance -= parseFloat(p.amount)||0);
+
+  const newBal = Math.round(balance*100)/100;
+  const oldBal = account.balance;
+  confirmDialog(
+    `Saldo almacenado: <strong>${formatDOP(oldBal)}</strong><br>
+     Saldo recalculado: <strong style="color:var(--violet);">${formatDOP(newBal)}</strong><br><br>
+     ¿Actualizar el saldo a ${formatDOP(newBal)}?`,
+    () => { account.balance = newBal; debouncedSave(); closeModal(); showToast(`Saldo actualizado: ${formatDOP(newBal)} ✅`,'success'); },
+    { confirmLabel:'Sí, actualizar', title:'Recalcular Saldo' }
+  );
+}
+
 function openCuentaMovements(accountId) {
   const account = accounts.find(a => String(a.id) === String(accountId));
   if (!account) return;
@@ -11146,7 +11182,10 @@ function openCuentaMovements(accountId) {
           <div class="modal-title">📋 Movimientos — ${account.name}</div>
           <div style="font-size:12px;color:var(--ink-3);margin-top:2px;" id="cmSubtitle">${movements.length} movimientos · Saldo actual: <strong>${fmt(account.balance)}</strong></div>
         </div>
-        <button class="modal-close" onclick="closeModal()">✕</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-ghost btn-sm" onclick="recalcAccountBalance('${accountId}')" title="Recalcular saldo desde movimientos">🔄 Recalcular</button>
+          <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
       </div>
       <div class="modal-body" style="padding:0;">
 
