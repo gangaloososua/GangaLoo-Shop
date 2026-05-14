@@ -11093,15 +11093,18 @@ function openCuentaMovements(accountId) {
   transactions.filter(t => String(t.accountId) === String(accountId)
     && !(t.isReceiptEntry && t.type === 'income')
     && !((t.reference||'').toLowerCase().startsWith('commission-payout'))).forEach(t => {
-    const cat    = accountingCategories.find(c => String(c.id) === String(t.categoryId));
+    const cat      = accountingCategories.find(c => String(c.id) === String(t.categoryId));
     const catLabel = cat ? (cat.name + (cat.subname ? ' — ' + cat.subname : '')) : '—';
+    const isTransport = t.isReceiptEntry && t.type === 'expense';
+    const isDeposit   = t.isReceiptEntry && t.type === 'income';
     movements.push({
       date:   t.date || '',
       type:   t.type === 'income' ? 'in' : 'out',
-      label:  t.isReceiptEntry ? `💳 ${t.description||'Pago recibido'}` : catLabel,
+      label:  isDeposit   ? `💳 ${t.description||'Pago recibido'}` :
+              isTransport ? `🚚 ${t.description||'Courier'}` : catLabel,
       ref:    t.description || '',
       amount: parseFloat(t.amount) || 0,
-      source: t.isReceiptEntry ? 'receipt' : 'transaction',
+      source: isTransport ? 'compra' : isDeposit ? 'receipt' : 'transaction',
       skipBalance: false,
     });
   });
