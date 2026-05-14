@@ -3169,6 +3169,30 @@ function openEditVenta(saleId) {
             </div>
           </div>
           <div class="form-group">
+            <label class="field-label">Descuento (RD$)</label>
+            <div class="input-group"><span class="input-addon">RD$</span>
+              <input class="field" type="number" id="ev_discount" value="${sale.discount||0}" min="0" step="0.01" oninput="recalcEditVenta()">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="field-label">🚢 Envío (RD$)</label>
+            <div class="input-group"><span class="input-addon">RD$</span>
+              <input class="field" type="number" id="ev_shipping" value="${sale.shippingCost||0}" min="0" step="0.01" oninput="recalcEditVenta()">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="field-label">🚚 Transporte (RD$)</label>
+            <div class="input-group"><span class="input-addon">RD$</span>
+              <input class="field" type="number" id="ev_transport" value="${sale.transportCost||0}" min="0" step="0.01" oninput="recalcEditVenta()">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="field-label">💳 Cargo Financiero (RD$)</label>
+            <div class="input-group"><span class="input-addon">RD$</span>
+              <input class="field" type="number" id="ev_fee" value="${sale.financialFee||0}" min="0" step="0.01" oninput="recalcEditVenta()">
+            </div>
+          </div>
+          <div class="form-group">
             <label class="field-label">Comisión (%)</label>
             <div class="input-group">
               <input class="field" type="number" id="ev_comm" value="${sale.commissionPercent||0}" step="0.1" min="0">
@@ -3203,27 +3227,41 @@ function openEditVenta(saleId) {
 }
 
 function recalcEditVenta() {
-  const qty   = parseFloat(document.getElementById('ev_qty')?.value)   || 0;
-  const price = parseFloat(document.getElementById('ev_price')?.value) || 0;
-  const el    = document.getElementById('ev_total');
-  if (el) el.value = formatDOP(qty * price);
+  const qty      = parseFloat(document.getElementById('ev_qty')?.value)      || 0;
+  const price    = parseFloat(document.getElementById('ev_price')?.value)    || 0;
+  const discount = parseFloat(document.getElementById('ev_discount')?.value) || 0;
+  const shipping = parseFloat(document.getElementById('ev_shipping')?.value) || 0;
+  const transport= parseFloat(document.getElementById('ev_transport')?.value)|| 0;
+  const fee      = parseFloat(document.getElementById('ev_fee')?.value)      || 0;
+  const total    = Math.max(0, qty * price - discount + shipping + transport + fee);
+  const el = document.getElementById('ev_total');
+  if (el) el.value = formatDOP(total);
 }
 
 function saveEditVenta(saleId) {
   const sale = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
-  const qty    = parseFloat(document.getElementById('ev_qty').value)   || 0;
-  const price  = parseFloat(document.getElementById('ev_price').value) || 0;
-  const comm   = parseFloat(document.getElementById('ev_comm').value)  || 0;
-  const total  = qty * price;
-  const custId = document.getElementById('ev_customer').value;
-  const sellId = document.getElementById('ev_seller').value;
+  const qty      = parseFloat(document.getElementById('ev_qty').value)      || 0;
+  const price    = parseFloat(document.getElementById('ev_price').value)    || 0;
+  const discount = parseFloat(document.getElementById('ev_discount').value) || 0;
+  const shipping = parseFloat(document.getElementById('ev_shipping').value) || 0;
+  const transport= parseFloat(document.getElementById('ev_transport').value)|| 0;
+  const fee      = parseFloat(document.getElementById('ev_fee').value)      || 0;
+  const comm     = parseFloat(document.getElementById('ev_comm').value)     || 0;
+  const total    = Math.max(0, qty * price - discount + shipping + transport + fee);
+  const custId   = document.getElementById('ev_customer').value;
+  const sellId   = document.getElementById('ev_seller').value;
 
   sale.invoiceNum    = document.getElementById('ev_invoice').value.trim() || sale.invoiceNum;
-  sale.invoiceNumber = sale.invoiceNum; /* keep both in sync */
+  sale.invoiceNumber = sale.invoiceNum;
   sale.date          = document.getElementById('ev_date').value || sale.date;
   sale.qty           = qty;
   sale.price         = price;
+  sale.discount      = discount;
+  sale.shippingCost  = shipping;
+  sale.transportCost = transport;
+  sale.financialFee  = fee;
+  sale.subtotal      = qty * price;
   sale.total         = total;
   sale.totalSale     = total;
   sale.commissionPercent = comm;
