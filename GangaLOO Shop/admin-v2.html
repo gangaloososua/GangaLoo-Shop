@@ -1373,7 +1373,7 @@ table.erp-table th.text-center, table.erp-table td.text-center { text-align: cen
           <span id="saveLabel">Sincronizado</span>
         </div>
         <div class="separator"></div>
-        <button class="topbar-btn" onclick="window.open('https://wa.me/18292867868','_blank')">
+        <button class="topbar-btn" onclick="openWhatsApp(storeConfig?.adminPhone||'18292867868','')">
           💬 WhatsApp
         </button>
         <button class="topbar-btn" onclick="window.location.href='/admin.html'" title="Sistema v1 (backup)">
@@ -1838,11 +1838,16 @@ let _orderPollingStarted = false;
 
 async function pollNewOrders() {
   try {
-    const { data } = await sb.from('online_orders').select('id,status,customer_name,total,created_at').order('created_at', { ascending: false }).limit(50);
+    const r = await fetch(
+      SUPABASE_URL + '/rest/v1/online_orders?select=id,status,customer_name,total,created_at&order=created_at.desc&limit=50',
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
+    );
+    if (!r.ok) return;
+    const data = await r.json();
     if (!data) return;
     // Update badge
-    const pending = data.filter(o => ['pending','pending_payment'].includes(o.status));
-    const notHome = data.filter(o => o.tracking_status === 'not_home');
+    const pending  = data.filter(o => ['pending','pending_payment'].includes(o.status));
+    const notHome  = data.filter(o => o.tracking_status === 'not_home');
     const badgeCount = pending.length + notHome.length;
     const badge = document.getElementById('badge-pedidos');
     if (badge) { badge.textContent = badgeCount; badge.style.display = badgeCount ? 'block' : 'none'; }
@@ -1853,7 +1858,6 @@ async function pollNewOrders() {
       const newest = newOrders.find(o => ['pending','pending_payment'].includes(o.status));
       if (newest) {
         showToast('🛒 Nuevo pedido: ' + (newest.customer_name||'Cliente') + ' — RD$ ' + fmt(parseFloat(newest.total||0)), 'success');
-        // Refresh panel if currently open
         if (document.getElementById('panel-pedidos') && document.getElementById('pedidosStoreContainer')) {
           loadPedidosOnline();
         }
@@ -1866,9 +1870,13 @@ function startOrderPolling() {
   if (_orderPollingStarted) return;
   _orderPollingStarted = true;
   // Seed known IDs first without alerting
-  sb.from('online_orders').select('id').then(({data}) => {
+  fetch(
+    SUPABASE_URL + '/rest/v1/online_orders?select=id',
+    { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
+  ).then(r => r.json()).then(data => {
     (data||[]).forEach(o => _knownOrderIds.add(o.id));
-    // Then poll every 30 seconds
+    _orderPollInterval = setInterval(pollNewOrders, 30000);
+  }).catch(() => {
     _orderPollInterval = setInterval(pollNewOrders, 30000);
   });
 }
@@ -1876,59 +1884,45 @@ function startOrderPolling() {
 /* ─── DATA SAVE ─── */
 async function saveData() {
   setSaveState('saving');
+  const headers = {
+    'apikey':       SUPABASE_KEY,
+    'Authorization':'Bearer ' + SUPABASE_KEY,
+    'Content-Type': 'application/json',
+    'Prefer':       'return=representation'
+  };
+  const base = SUPABASE_URL + '/rest/v1/inventory_data';
   try {
-    const { data: existing } = await sb.from('inventory_data').select('id').limit(1);
+    // Get row ID
+    const r0 = await fetch(base + '?select=id&limit=1', { headers });
+    const existing = r0.ok ? await r0.json() : [];
     let rowId;
     if (!existing || !existing[0]) {
-      // Insert minimal row first
-      const { data: ins } = await sb.from('inventory_data').insert({ updated_at: new Date().toISOString() }).select('id');
+      const ri = await fetch(base, { method:'POST', headers, body: JSON.stringify({ updated_at: new Date().toISOString() }) });
+      const ins = ri.ok ? await ri.json() : [];
       rowId = ins?.[0]?.id;
     } else {
       rowId = existing[0].id;
     }
     if (!rowId) throw new Error('No row ID');
 
-    // Log sizes to identify what's large
-    const allArrays = {
-      sales, payments, transactions, purchasePayments, purchases,
-      customers, products, warehouses, categories, transfers,
-      accounts, accountingCategories, commissionPayouts,
-      accountTransfers, monthlyRates
-    };
-    const sizes = {};
-    let total = 0;
-    for (const [k,v] of Object.entries(allArrays)) {
-      const s = JSON.stringify(v).length;
-      sizes[k] = Math.round(s/1024) + 'KB';
-      total += s;
-    }
-    const sorted = Object.entries(sizes).sort((a,b) => parseInt(b[1]) - parseInt(a[1]));
-    console.log('ALL data sizes (sorted):');
-    sorted.forEach(([k,v]) => console.log(' ', k + ':', v));
-    console.log('Total:', Math.round(total/1024), 'KB');
-
     // Split into chunks — accounts FIRST so balance updates always save
     const chunks = [
       {
-        // Chunk 1: Financial critical — accounts + payments + sales
         accounts:           JSON.stringify(accounts),
         sales:              JSON.stringify(sales),
         payments:           JSON.stringify(payments),
         updated_at:         new Date().toISOString(),
       },
       {
-        // Chunk 2: Transactions
         transactions:       JSON.stringify(transactions),
         account_transfers:  JSON.stringify(accountTransfers),
         commission_payouts: JSON.stringify(commissionPayouts),
       },
       {
-        // Chunk 3: Purchases
         purchase_payments:  JSON.stringify(purchasePayments),
         purchases:          JSON.stringify(purchases),
       },
       {
-        // Chunk 4: Catalog (products may be large but less critical)
         products:              JSON.stringify(products),
         customers:             JSON.stringify(customers),
         warehouses:            JSON.stringify(warehouses),
@@ -1940,8 +1934,12 @@ async function saveData() {
       },
     ];
     for (const chunk of chunks) {
-      const { error } = await sb.from('inventory_data').update(chunk).eq('id', rowId);
-      if (error) throw error;
+      const rc = await fetch(base + '?id=eq.' + rowId, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(chunk)
+      });
+      if (!rc.ok) { const e = await rc.text(); throw new Error(e); }
     }
 
     setSaveState('saved');
@@ -4965,7 +4963,9 @@ function sendVentaWA(saleId) {
   const paid = payments.filter(p => String(p.saleId) === String(saleId)).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
   const pending = Math.max(0, saleTotal(sale) - paid);
   const sc = storeConfig || {};
-  const bankInfo = sc.bankInfo || sc.bank_info || 'Banreservas 9601-3060170-7 — Bernhard Perkins';
+  const bankInfo = sc.bankName && sc.bankAccount
+    ? `${sc.bankName} ${sc.bankAccount}${sc.bankHolder ? ' — '+sc.bankHolder : ''}`
+    : sc.bankInfo || 'Banreservas 9601-3060170-7 — Bernhard Perkins';
   const storeName = sc.storeName || 'GangaLoo';
   const msg = `🧾 *${storeName} — ${sale.invoiceNum||sale.invoiceNumber||'#'+sale.id}*\nFecha: ${formatDate(sale.date)}\nTotal: ${formatDOP(saleTotal(sale))}\nPagado: ${formatDOP(paid)}\nPendiente: ${formatDOP(pending)}${pending > 0 ? '\n\n💳 *Pago a:*\n_'+bankInfo+'_' : '\n\n✅ Factura pagada completa'}`;
   const clientPhone = customer?.phone || '';
@@ -7751,12 +7751,13 @@ let _clienteTypeFilter = 'all';
 
 async function loadOnlineClientes() {
   try {
-    const profilePromise = sb.from('profiles').select('*');
-    const timeoutPromise = new Promise((_,reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-    const { data: profiles } = await Promise.race([profilePromise, timeoutPromise]);
-    _onlineProfiles = profiles || [];
+    const r = await fetch(
+      SUPABASE_URL + '/rest/v1/profiles?select=*',
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
+    );
+    _onlineProfiles = r.ok ? (await r.json() || []) : [];
   } catch(e) {
-    console.warn('loadOnlineClientes profiles timeout/error:', e.message);
+    console.warn('loadOnlineClientes error:', e.message);
     _onlineProfiles = [];
   }
   renderClientesList();
@@ -9981,22 +9982,51 @@ async function loadPedidosOnline() {
   const aliEl   = document.getElementById('pedidosAliContainer');
   if (storeEl) storeEl.innerHTML = '<div style="text-align:center;padding:40px;"><div class="loading-spinner" style="margin:auto;"></div></div>';
 
+  const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
+  const base    = SUPABASE_URL + '/rest/v1/';
+
   try {
-    const { data: orders } = await sb.from('online_orders').select('*').order('created_at', { ascending: false });
+    const r = await fetch(base + 'online_orders?select=*&order=created_at.desc', { headers });
+    const orders = r.ok ? await r.json() : [];
     renderStoreOrders(orders || []);
   } catch(e) { if (storeEl) storeEl.innerHTML = '<p style="color:var(--rose);text-align:center;padding:30px;">Error al cargar pedidos</p>'; }
 
   try {
-    const { data: aliOrders } = await sb.from('aliexpress_orders').select('*').order('created_at', { ascending: false });
+    const r2 = await fetch(base + 'aliexpress_orders?select=*&order=created_at.desc', { headers });
+    const aliOrders = r2.ok ? await r2.json() : [];
     renderAliOrders(aliOrders || []);
   } catch(e) { if (aliEl) aliEl.innerHTML = '<p style="color:var(--rose);text-align:center;padding:30px;">Error al cargar pedidos AliExpress</p>'; }
 
-  /* Update badge */
   try {
-    const { data: pending } = await sb.from('online_orders').select('id').in('status',['pending','pending_payment']);
+    const r3 = await fetch(base + 'online_orders?select=id&status=in.(pending,pending_payment)', { headers });
+    const pending = r3.ok ? await r3.json() : [];
     const badge = document.getElementById('badge-pedidos');
-    if (badge) { badge.textContent = (pending||[]).length; badge.style.display = (pending||[]).length ? 'block' : 'none'; }
+    if (badge) { badge.textContent = pending.length; badge.style.display = pending.length ? 'block' : 'none'; }
   } catch(e) {}
+}
+
+function importClienteFromOrder(orderId) {
+  const order = (window._onlineOrdersCache || []).find(o => String(o.id) === String(orderId));
+  if (!order) { showToast('No se encontró el pedido', 'error'); return; }
+  const email = (order.customer_email||'').toLowerCase();
+  const existing = customers.find(c =>
+    (email && (c.email||'').toLowerCase() === email) ||
+    (c.name||'').toLowerCase() === (order.customer_name||'').toLowerCase()
+  );
+  if (existing) { showToast(`"${existing.name}" ya existe en Clientes ✅`, 'warning'); return; }
+  const newCustomer = {
+    id:        generateId(),
+    name:      order.customer_name || 'Cliente',
+    email:     order.customer_email || '',
+    phone:     order.customer_phone || '',
+    address:   order.customer_address || '',
+    type:      'customer',
+    createdAt: new Date().toISOString(),
+    notes:     `Importado de pedido online ${String(orderId).slice(0,8)}`,
+  };
+  customers.push(newCustomer);
+  debouncedSave();
+  showToast(`✅ "${newCustomer.name}" agregado a Clientes`, 'success');
 }
 
 function renderStoreOrders(orders) {
@@ -10131,6 +10161,7 @@ function renderStoreOrderCard(o) {
       </div>` : ''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${o.customer_phone?`<button class="btn btn-teal btn-xs" onclick="openWhatsApp('${o.customer_phone}','')">💬 WhatsApp</button>`:''}
+        <button class="btn btn-ghost btn-xs" style="color:var(--violet);border-color:var(--violet);" onclick="importClienteFromOrder('${o.id}')">👤+ Agregar a Clientes</button>
         ${(()=>{ const s=sales.find(x=>x.onlineOrderId===o.id); return s?.pickupCommissionAmt>0?`<span style="background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;">💰 Comisión recogida: ${formatDOP(s.pickupCommissionAmt)} (${s.pickupCommissionPct}%) → ${s.pickupDistributorName||s.pickupWarehouseName||'—'}</span>`:''; })()}
         <button class="btn btn-ghost btn-xs" onclick="openEditOnlineOrder('${o.id}')">✏️ Editar</button>
         ${o.status==='pending'||o.status==='pending_payment'?`
@@ -14799,11 +14830,6 @@ function renderConfigPanel() {
             <div class="form-group"><label class="field-label">Zona 2 — Costo (RD$)</label>
               <input class="field" type="number" id="cfg_shippingCost2" value="${sc.shippingCost2||''}" placeholder="0.00" step="0.01"></div>
           </div>
-          <div class="form-group" style="margin-top:8px;">
-            <label class="field-label">💳 Info Bancaria (para WhatsApp)</label>
-            <input class="field" id="cfg_bankInfo" value="${sc.bankInfo||'Banreservas 9601-3060170-7 — Bernhard Perkins'}" placeholder="Banco XXXX — Nombre Titular">
-            <p class="field-hint">Se incluye en los mensajes de WhatsApp de facturas pendientes.</p>
-          </div>
             <div class="form-group"><label class="field-label">🚐 Transfer Montellano→Maranatha (RD$)</label>
               <input class="field" type="number" id="cfg_maranatha_fee" value="${sc.maranatha_fee||200}" placeholder="200" step="1">
               <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">Cargo por transferir pedidos de Montellano a Maranatha para recogida</div></div>
@@ -15018,13 +15044,16 @@ function renderConfigPanel() {
           <!-- Banco -->
           <div class="card">
             <div class="card-header"><div class="card-title">🏦 Información Bancaria</div></div>
-            <div style="background:var(--surface-2);border-radius:var(--r-sm);padding:14px;font-size:13.5px;line-height:1.8;">
-              <div><strong>Banco:</strong> Banreservas</div>
-              <div><strong>Cuenta:</strong> 9601-3060170-7</div>
-              <div><strong>Titular:</strong> Bernhard Perkins</div>
-              <div><strong>WhatsApp:</strong> +1 829 286 7868</div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+              <div class="form-group"><label class="field-label">Banco</label>
+                <input class="field" id="cfg_bankName" value="${sc.bankName||'Banreservas'}" placeholder="Banreservas"></div>
+              <div class="form-group"><label class="field-label">Número de Cuenta</label>
+                <input class="field" id="cfg_bankAccount" value="${sc.bankAccount||'9601-3060170-7'}" placeholder="0000-0000000-0"></div>
+              <div class="form-group"><label class="field-label">Titular</label>
+                <input class="field" id="cfg_bankHolder" value="${sc.bankHolder||'Bernhard Perkins'}" placeholder="Nombre Titular"></div>
+              <div class="form-group"><label class="field-label">WhatsApp Admin</label>
+                <input class="field" id="cfg_adminPhone" value="${sc.adminPhone||'18292867868'}" placeholder="18292867868"></div>
             </div>
-            <button class="btn btn-teal btn-sm" style="margin-top:12px;" onclick="openWhatsApp('18292867868','')">💬 Abrir WhatsApp</button>
           </div>
           <!-- Sistema -->
           <div class="card">
@@ -15053,7 +15082,10 @@ function saveFullStoreConfig() {
   storeConfig.shippingCost    = v('cfg_shippingCost');
   storeConfig.shippingZone2   = s('cfg_shippingZone2');
   storeConfig.shippingCost2   = v('cfg_shippingCost2');
-  storeConfig.bankInfo        = s('cfg_bankInfo');
+  storeConfig.bankName        = s('cfg_bankName');
+  storeConfig.bankAccount     = s('cfg_bankAccount');
+  storeConfig.bankHolder      = s('cfg_bankHolder');
+  storeConfig.adminPhone      = s('cfg_adminPhone');
   storeConfig.maranatha_fee           = v('cfg_maranatha_fee');
   storeConfig.pickup_commission_pct   = v('cfg_pickup_commission_pct');
   storeConfig.notify_admin_phone = s('cfg_notify_admin_phone');
