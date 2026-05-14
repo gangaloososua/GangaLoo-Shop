@@ -8079,23 +8079,30 @@ function mergeClientesDuplicates() {
 
   // Show preview popup
   const div = document.createElement('div');
-  div.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:white;border:2px solid var(--violet);border-radius:12px;padding:20px;width:520px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3);';
+  div.id = 'mergeClientesPopup';
+  div.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:white;border:2px solid var(--violet);border-radius:12px;padding:20px;width:540px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3);';
 
   let html = '<div style="font-family:var(--font-head);font-size:1.1em;font-weight:900;margin-bottom:4px;">🔀 Unificar Duplicados</div>';
-  html += `<div style="font-size:12px;color:var(--ink-3);margin-bottom:16px;">Se encontraron ${mergeList.length} grupos de duplicados</div>`;
+  html += `<div style="font-size:12px;color:var(--ink-3);margin-bottom:4px;">Se encontraron ${mergeList.length} grupos de duplicados</div>`;
+  html += `<div style="font-size:11px;color:var(--amber);background:#fffbeb;border:1px solid #f59e0b;border-radius:6px;padding:6px 10px;margin-bottom:12px;">⚠️ Selecciona solo los grupos que quieres unificar. Puedes dejar sin marcar los que no quieres tocar.</div>`;
 
-  mergeList.forEach(({primary, duplicates}) => {
-    html += `<div style="background:var(--surface-2);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;">`;
-    html += `<div style="font-weight:700;color:var(--violet);">✓ Mantener: ${primary.name||primary.email||primary.id} <span style="opacity:.6;font-weight:400;">(${primary.type||'customer'})</span></div>`;
-    duplicates.forEach(d => {
-      html += `<div style="color:var(--rose);margin-top:4px;">✕ Eliminar: ${d.name||d.email||d.id} <span style="opacity:.6;">(${d.type||'customer'}) · ventas se reasignan al principal</span></div>`;
-    });
-    html += '</div>';
+  mergeList.forEach(({primary, duplicates}, idx) => {
+    html += `<div style="background:var(--surface-2);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;border:1.5px solid var(--border);">
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
+        <input type="checkbox" id="merge_cb_${idx}" style="margin-top:2px;width:16px;height:16px;accent-color:var(--violet);" checked>
+        <div style="flex:1;">
+          <div style="font-weight:700;color:var(--violet);">✓ Mantener: ${primary.name||primary.email||primary.id} <span style="opacity:.6;font-weight:400;">(${primary.type||'customer'})</span></div>
+          ${duplicates.map(d => `<div style="color:var(--rose);margin-top:4px;">✕ Eliminar: ${d.name||d.email||d.id} <span style="opacity:.6;">(${d.type||'customer'}) · ventas se reasignan al principal</span></div>`).join('')}
+        </div>
+      </label>
+    </div>`;
   });
 
+  const mergeJson = JSON.stringify(mergeList.map((m,idx) => ({idx, primaryId:m.primary.id, dupIds:m.duplicates.map(d=>d.id)})));
+
   html += `<div style="display:flex;gap:10px;margin-top:16px;">
-    <button onclick="applyMergeClientes(${JSON.stringify(mergeList.map(m=>({primaryId:m.primary.id,dupIds:m.duplicates.map(d=>d.id)})))})" style="flex:1;padding:10px;background:var(--violet);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;">✅ Aplicar Unificación</button>
-    <button onclick="this.closest('div[style]').remove()" style="padding:10px 16px;background:var(--surface-2);border:none;border-radius:8px;cursor:pointer;">Cancelar</button>
+    <button onclick="applyMergeClientes(${mergeJson.replace(/"/g,'&quot;')})" style="flex:1;padding:10px;background:var(--violet);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;">✅ Aplicar seleccionados</button>
+    <button onclick="document.getElementById('mergeClientesPopup')?.remove()" style="padding:10px 16px;background:var(--surface-2);border:none;border-radius:8px;cursor:pointer;">Cancelar</button>
   </div>`;
 
   div.innerHTML = html;
@@ -8103,13 +8110,19 @@ function mergeClientesDuplicates() {
 }
 
 async function applyMergeClientes(mergeData) {
-  // Close popup
-  document.querySelector('div[style*="z-index:99999"]')?.remove();
+  // Filter only checked groups
+  const selected = mergeData.filter(m => {
+    const cb = document.getElementById('merge_cb_' + m.idx);
+    return cb ? cb.checked : true;
+  });
+
+  document.getElementById('mergeClientesPopup')?.remove();
+
+  if (!selected.length) { showToast('No seleccionaste ningún grupo', 'warning'); return; }
 
   let merged = 0;
-  mergeData.forEach(({primaryId, dupIds}) => {
+  selected.forEach(({primaryId, dupIds}) => {
     dupIds.forEach(dupId => {
-      // Remap all sales and payments from dup to primary
       sales.forEach(s => {
         if (String(s.customerId) === String(dupId)) s.customerId = primaryId;
         if (String(s.sellerId)   === String(dupId)) s.sellerId   = primaryId;
@@ -8120,7 +8133,6 @@ async function applyMergeClientes(mergeData) {
       commissionPayouts.forEach(p => {
         if (String(p.sellerId) === String(dupId)) p.sellerId = primaryId;
       });
-      // Remove duplicate customer
       customers = customers.filter(c => String(c.id) !== String(dupId));
       merged++;
     });
