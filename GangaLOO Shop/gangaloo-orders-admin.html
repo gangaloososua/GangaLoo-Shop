@@ -333,6 +333,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-he
   <div class="form-grid" style="margin-bottom:14px">
     <div class="field"><label>Total Amount (RD$)</label><input type="number" id="e_amount" min="0" step="0.01" oninput="calcBalance('e')"></div>
     <div class="field"><label>Already Paid (RD$)</label><input type="number" id="e_paid" min="0" step="0.01" oninput="calcBalance('e')"></div>
+    <div class="field"><label>Costo de envío (RD$)</label><input type="number" id="e_shippingFee" min="0" step="0.01" placeholder="0" oninput="calcBalance('e')"></div>
     <div class="field"><label>Delivery Fee (RD$)</label><input type="number" id="e_deliveryFee" min="0" step="0.01" oninput="calcBalance('e')"></div>
     <div class="field"><label>Balance Owed (RD$)</label><input type="number" id="e_balance" min="0" step="0.01" style="color:var(--warn);font-weight:700"></div>
   </div>
@@ -494,10 +495,12 @@ const STATUS_CLASS = {
 };
 
 function calcBalance(prefix) {
-  /* Balance owed = amount - paid. Delivery fee is added ONLY when the client picks delivery. */
+  /* Balance owed = amount + shippingFee - paid. Delivery fee is added ONLY when the client picks delivery. */
   const amount = parseFloat(document.getElementById(`${prefix}_amount`).value) || 0;
   const paid = parseFloat(document.getElementById(`${prefix}_paid`).value) || 0;
-  document.getElementById(`${prefix}_balance`).value = Math.max(0, amount - paid).toFixed(2);
+  const shippingEl = document.getElementById(`${prefix}_shippingFee`);
+  const shipping = shippingEl ? (parseFloat(shippingEl.value) || 0) : 0;
+  document.getElementById(`${prefix}_balance`).value = Math.max(0, amount + shipping - paid).toFixed(2);
 }
 
 function clientFormLink(orderId) {
@@ -508,15 +511,17 @@ function clientFormLink(orderId) {
 
 // ── WA MESSAGES ──
 function buildWANotify(o) {
-  /* Base saldo = product cost - already paid. Delivery fee is shown separately as an option. */
+  /* Base saldo = product cost + shipping cost - already paid. Delivery fee shown separately as an option. */
   const amount = Number(o.amount || 0);
   const paid = Number(o.paid || 0);
-  const baseSaldo = Math.max(0, amount - paid);
+  const shipping = Number(o.shippingFee || 0);
+  const baseSaldo = Math.max(0, amount + shipping - paid);
   let msg = `Hola ${o.client}! 👋\n\n`;
   msg += `Tu pedido de *${o.platform.charAt(0).toUpperCase()+o.platform.slice(1)}* ha llegado! 📦\n`;
   if (o.orderId) msg += `🔖 Ref: ${o.orderId}\n`;
   if (o.desc) msg += `📋 ${o.desc}\n`;
-  msg += `\n💰 Total del pedido: *${fmt(o.amount)}*`;
+  msg += `\n💰 Total del pedido: *${fmt(amount)}*`;
+  msg += `\n📦 Costo de envío: *${fmt(shipping)}*`;
   if (paid > 0) msg += `\n✅ Ya pagado: *${fmt(paid)}*`;
   msg += `\n⚡ Saldo pendiente: *${fmt(baseSaldo)}*`;
   msg += `\n\n¿Cómo prefieres recibirlo?\n\n`;
@@ -528,11 +533,12 @@ function buildWANotify(o) {
 }
 
 function buildWAConfirm(o) {
-  /* Delivery confirmation: saldo = (amount - paid) + delivery fee */
+  /* Delivery confirmation: saldo = amount + shipping + deliveryFee - paid */
   const amount = Number(o.amount || 0);
   const paid = Number(o.paid || 0);
+  const shipping = Number(o.shippingFee || 0);
   const fee = Number(o.deliveryFee || 0);
-  const saldo = Math.max(0, amount - paid) + fee;
+  const saldo = Math.max(0, amount + shipping + fee - paid);
   let msg = `✅ *Confirmación de entrega — GangaLoo*\n\n`;
   msg += `Hola ${o.client}! Tu entrega está confirmada 🎉\n\n`;
   msg += `📦 *Pedido:* ${o.platform.charAt(0).toUpperCase()+o.platform.slice(1)}`;
@@ -542,7 +548,8 @@ function buildWAConfirm(o) {
   msg += `📍 *Dirección:* ${o.clientAddress}\n\n`;
   msg += `💳 *Resumen de pago:*\n`;
   msg += `   Pedido: ${fmt(amount)}\n`;
-  msg += `   Envío: ${fmt(fee)}\n`;
+  msg += `   Costo de envío: ${fmt(shipping)}\n`;
+  msg += `   Entrega a domicilio: ${fmt(fee)}\n`;
   if (paid > 0) msg += `   Ya pagado: -${fmt(paid)}\n`;
   msg += `   ⚡ *A pagar al recibir: ${fmt(saldo)}*\n\n`;
   msg += `Nos comunicamos contigo el día de la entrega. ¡Gracias! 🙏`;
@@ -550,10 +557,11 @@ function buildWAConfirm(o) {
 }
 
 function buildWAPickupConfirm(o) {
-  /* Pickup: saldo = amount - paid (NO delivery fee) */
+  /* Pickup: saldo = amount + shipping - paid (NO delivery fee) */
   const amount = Number(o.amount || 0);
   const paid = Number(o.paid || 0);
-  const saldo = Math.max(0, amount - paid);
+  const shipping = Number(o.shippingFee || 0);
+  const saldo = Math.max(0, amount + shipping - paid);
   return `✅ *Recogida confirmada — GangaLoo*\n\nHola ${o.client}! 🎉\n\nTu pedido está listo para recoger.\n\n📦 ${o.desc || o.platform}\n💳 *A pagar: ${fmt(saldo)}*\n\nPuedes pasar cuando gustes. ¡Te esperamos! 🙌`;
 }
 
@@ -732,6 +740,7 @@ function renderSidebar() {
   <div class="detail-section">
     <h3>Payment</h3>
     <div class="detail-row"><span class="detail-label">Order Total</span><span class="detail-value">${fmt(o.amount)}</span></div>
+    <div class="detail-row"><span class="detail-label">Costo de envío</span><span class="detail-value">${fmt(o.shippingFee || 0)}</span></div>
     <div class="detail-row"><span class="detail-label">Delivery Fee</span><span class="detail-value">${fmt(o.deliveryFee)}</span></div>
     <div class="detail-row"><span class="detail-label">Already Paid</span><span class="detail-value" style="color:var(--accent)">-${fmt(o.paid)}</span></div>
     <div class="detail-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:8px">
@@ -872,6 +881,7 @@ async function saveOrder() {
     orderId: document.getElementById('f_orderId').value.trim(),
     amount: parseFloat(document.getElementById('f_amount').value) || 0,
     paid: parseFloat(document.getElementById('f_paid').value) || 0,
+    shippingFee: 0,
     deliveryFee: parseFloat(document.getElementById('f_deliveryFee').value) || 0,
     balance: parseFloat(document.getElementById('f_balance').value) || 0,
     desc: document.getElementById('f_desc').value.trim(),
@@ -899,6 +909,7 @@ function openEdit(id) {
   document.getElementById('e_orderId').value = o.orderId || '';
   document.getElementById('e_amount').value = o.amount;
   document.getElementById('e_paid').value = o.paid || 0;
+  document.getElementById('e_shippingFee').value = o.shippingFee || 0;
   document.getElementById('e_deliveryFee').value = o.deliveryFee;
   document.getElementById('e_balance').value = o.balance || 0;
   document.getElementById('e_desc').value = o.desc || '';
@@ -915,6 +926,7 @@ async function updateOrder() {
   o.orderId = document.getElementById('e_orderId').value.trim();
   o.amount = parseFloat(document.getElementById('e_amount').value) || 0;
   o.paid = parseFloat(document.getElementById('e_paid').value) || 0;
+  o.shippingFee = parseFloat(document.getElementById('e_shippingFee').value) || 0;
   o.deliveryFee = parseFloat(document.getElementById('e_deliveryFee').value) || 0;
   o.balance = parseFloat(document.getElementById('e_balance').value) || 0;
   o.desc = document.getElementById('e_desc').value.trim();

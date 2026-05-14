@@ -327,15 +327,17 @@ function setupChoiceScreen() {
   // Summary card
   const amount = Number(ORDER.amount||0);
   const paid = Number(ORDER.paid||0);
+  const shipping = Number(ORDER.shippingFee||0);
   const deliveryFee = Number(ORDER.deliveryFee||0);
-  /* Base balance = product cost minus already paid. Delivery fee is added ONLY if customer picks delivery. */
-  const baseBalance = Math.max(0, amount - paid);
+  /* Base balance = product + shipping cost - already paid. Delivery fee added ONLY if customer picks delivery. */
+  const baseBalance = Math.max(0, amount + shipping - paid);
   document.getElementById('orderSummaryChoice').innerHTML = `
   <div class="order-summary">
     <h2>📦 Tu pedido</h2>
     ${ORDER.desc ? `<div class="row"><span class="row-label">Producto</span><span class="row-value">${ORDER.desc}</span></div>` : ''}
     <div class="row"><span class="row-label">Plataforma</span><span class="row-value">${ORDER.platform.charAt(0).toUpperCase()+ORDER.platform.slice(1)}</span></div>
-    <div class="row"><span class="row-label">Total pedido</span><span class="row-value">${fmt(ORDER.amount)}</span></div>
+    <div class="row"><span class="row-label">Total pedido</span><span class="row-value">${fmt(amount)}</span></div>
+    <div class="row"><span class="row-label">Costo de envío</span><span class="row-value">${fmt(shipping)}</span></div>
     ${paid > 0 ? `<div class="row"><span class="row-label">Ya pagado ✓</span><span class="row-value" style="color:#00c97a">-${fmt(paid)}</span></div>` : ''}
     <div class="row balance-row"><span class="row-label" style="font-weight:700">💳 Saldo a pagar</span><span class="row-value">${fmt(baseBalance)}</span></div>
   </div>`;
@@ -457,22 +459,24 @@ async function saveResponse(fields) {
     if (fields.clientChoice === 'delivery') {
       msg += `%0AFecha: ${encodeURIComponent(fields.clientDeliveryDate)}%0ADirección: ${encodeURIComponent(fields.clientAddress)}`;
     }
-    /* Compute correct saldo: base = amount - paid; add delivery fee only if delivery chosen */
+    /* Compute correct saldo: base = amount + shipping - paid; add delivery fee only if delivery chosen */
     const _amount = Number(ORDER.amount||0);
     const _paid = Number(ORDER.paid||0);
+    const _shipping = Number(ORDER.shippingFee||0);
     const _fee = Number(ORDER.deliveryFee||0);
-    const _saldo = Math.max(0, _amount - _paid) + (fields.clientChoice === 'delivery' ? _fee : 0);
+    const _saldo = Math.max(0, _amount + _shipping - _paid) + (fields.clientChoice === 'delivery' ? _fee : 0);
     msg += `%0ASaldo a cobrar: RD$ ${_saldo.toLocaleString('es-DO',{minimumFractionDigits:2})}`;
     await fetch(`https://api.callmebot.com/whatsapp.php?phone=18292867868&apikey=3286436&text=${msg}`);
   } catch(e) { console.error('Notify error', e); }
 }
 
 function showSuccess(type, date, address) {
-  /* Compute correct saldo from amount/paid/fee, NOT from stored balance field */
+  /* Compute correct saldo from amount/shipping/paid/fee, NOT from stored balance field */
   const _amount = Number(ORDER.amount||0);
   const _paid = Number(ORDER.paid||0);
+  const _shipping = Number(ORDER.shippingFee||0);
   const _fee = Number(ORDER.deliveryFee||0);
-  const balance = Math.max(0, _amount - _paid) + (type === 'delivery' ? _fee : 0);
+  const balance = Math.max(0, _amount + _shipping - _paid) + (type === 'delivery' ? _fee : 0);
   if (type === 'pickup') {
     document.getElementById('successTitle').textContent = '¡Perfecto!';
     document.getElementById('successMsg').innerHTML = `Hemos recibido tu respuesta. <strong>Recogerás tu pedido en tienda.</strong><br><br>Te enviaremos una confirmación por WhatsApp pronto. 🙌`;
