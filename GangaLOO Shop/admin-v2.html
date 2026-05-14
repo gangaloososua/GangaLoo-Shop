@@ -11033,14 +11033,14 @@ function recalcAccountBalance(accountId) {
   // Cobros (incoming payments)
   payments.filter(p => String(p.accountId)===String(accountId) && !p.isRefund && parseFloat(p.amount)>0)
     .forEach(p => balance += parseFloat(p.amount)||0);
-  // Transactions
-  transactions.filter(t => String(t.accountId)===String(accountId) && !t.isReceiptEntry)
+  // Transactions (exclude isReceiptEntry income — shown as cobros; keep isReceiptEntry expense = transport)
+  transactions.filter(t => String(t.accountId)===String(accountId)
+    && !(t.isReceiptEntry && t.type==='income'))
     .forEach(t => { if(t.type==='income') balance += parseFloat(t.amount)||0; else if(t.type==='expense') balance -= parseFloat(t.amount)||0; });
-  // Refund income transactions
-  transactions.filter(t => String(t.accountId)===String(accountId) && t.isRefund && t.type==='income')
-    .forEach(t => balance += parseFloat(t.amount)||0);
-  // Purchase payments (outgoing)
-  purchasePayments.filter(p => String(p.accountId)===String(accountId) && !p.isRefund && parseFloat(p.amount)>0)
+  // Refund income transactions (isRefund)
+  // already included above since they're income type and not isReceiptEntry
+  // Purchase payments (outgoing) — exclude skipBalance (those use transaction instead)
+  purchasePayments.filter(p => String(p.accountId)===String(accountId) && !p.isRefund && !p.skipBalance && parseFloat(p.amount)>0)
     .forEach(p => balance -= parseFloat(p.amount)||0);
   // Account transfers
   accountTransfers.forEach(t => {
@@ -11087,10 +11087,11 @@ function openCuentaMovements(accountId) {
   });
 
   /* 2. Expense & income transactions
-     - Exclude isReceiptEntry — already shown as Cobros in section 1
+     - Exclude isReceiptEntry INCOME — those are customer payments already shown as Cobros
+     - KEEP isReceiptEntry EXPENSE — those are courier/transport payments (one line per batch)
      - Exclude commission payouts (shown separately in section 3) */
-  transactions.filter(t => String(t.accountId) === String(accountId) 
-    && !t.isReceiptEntry
+  transactions.filter(t => String(t.accountId) === String(accountId)
+    && !(t.isReceiptEntry && t.type === 'income')
     && !((t.reference||'').toLowerCase().startsWith('commission-payout'))).forEach(t => {
     const cat    = accountingCategories.find(c => String(c.id) === String(t.categoryId));
     const catLabel = cat ? (cat.name + (cat.subname ? ' — ' + cat.subname : '')) : '—';
@@ -15542,14 +15543,24 @@ function editPagoCompra(id) {
 function saveEditPagoCompra(id) {
   const p = purchasePayments.find(x => String(x.id) === String(id));
   if (!p) return;
-  const diff = (parseFloat(document.getElementById('epc_amount').value)||0) - (parseFloat(p.amount)||0);
-  if (diff !== 0) {
-    const acct = accounts.find(a => String(a.id) === String(p.accountId));
-    if (acct) acct.balance = Math.round((acct.balance - diff)*100)/100;
+  const newAmount  = parseFloat(document.getElementById('epc_amount').value) || 0;
+  const newAcctId  = document.getElementById('epc_acct').value;
+  const oldAmount  = parseFloat(p.amount) || 0;
+  const oldAcctId  = String(p.accountId);
+
+  if (oldAcctId !== String(newAcctId) || newAmount !== oldAmount) {
+    // Reverse old account debit
+    const oldAcct = accounts.find(a => String(a.id) === oldAcctId);
+    if (oldAcct && !p.skipBalance) oldAcct.balance = Math.round((oldAcct.balance + oldAmount)*100)/100;
+    // Apply new account debit
+    const newAcct = accounts.find(a => String(a.id) === String(newAcctId));
+    if (newAcct && !p.skipBalance) newAcct.balance = Math.round((newAcct.balance - newAmount)*100)/100;
   }
+
   p.date       = document.getElementById('epc_date').value;
-  p.amount     = parseFloat(document.getElementById('epc_amount').value)||0;
-  p.accountId  = document.getElementById('epc_acct').value;
+  p.amount     = newAmount;
+  p.dopAmount  = newAmount;
+  p.accountId  = newAcctId;
   p.categoryId = document.getElementById('epc_cat').value || '';
   debouncedSave(); closeModal(); renderContabTab('pagoscompra');
   showToast('Pago de compra actualizado ✅','success');
