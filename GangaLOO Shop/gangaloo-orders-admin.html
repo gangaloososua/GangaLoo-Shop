@@ -510,12 +510,16 @@ function clientFormLink(orderId) {
 }
 
 // ── WA MESSAGES ──
+const DEFAULT_DELIVERY_FEE = 200;
+
 function buildWANotify(o) {
-  /* Base saldo = product cost + shipping cost - already paid. Delivery fee shown separately as an option. */
+  /* Saldo = product + shipping - paid (delivery fee NOT included — only charged if client picks delivery). */
   const amount = Number(o.amount || 0);
   const paid = Number(o.paid || 0);
   const shipping = Number(o.shippingFee || 0);
   const baseSaldo = Math.max(0, amount + shipping - paid);
+  /* Show the displayed delivery option: use stored fee if set (>0), otherwise the default 200. */
+  const displayedDeliveryFee = Number(o.deliveryFee) > 0 ? Number(o.deliveryFee) : DEFAULT_DELIVERY_FEE;
   let msg = `Hola ${o.client}! 👋\n\n`;
   msg += `Tu pedido de *${o.platform.charAt(0).toUpperCase()+o.platform.slice(1)}* ha llegado! 📦\n`;
   if (o.orderId) msg += `🔖 Ref: ${o.orderId}\n`;
@@ -526,7 +530,7 @@ function buildWANotify(o) {
   msg += `\n⚡ Saldo pendiente: *${fmt(baseSaldo)}*`;
   msg += `\n\n¿Cómo prefieres recibirlo?\n\n`;
   msg += `🏪 *1 — Recojo en tienda* (gratis)\n`;
-  msg += `🚚 *2 — Envío a domicilio* (+${fmt(o.deliveryFee)})\n\n`;
+  msg += `🚚 *2 — Envío a domicilio* (+${fmt(displayedDeliveryFee)})\n\n`;
   msg += `Responde aquí o haz clic en el enlace para elegir fecha y dirección de entrega:\n`;
   msg += `👉 ${clientFormLink(o.id)}`;
   return msg;
