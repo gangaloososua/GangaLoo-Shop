@@ -2402,8 +2402,10 @@ function generateSKU(name) {
 
 /* ─── WHATSAPP ─── */
 function openWhatsApp(phone, msg) {
-  const clean = (phone || '18292867868').replace(/\D/g, '');
-  const url   = `https://wa.me/${clean}${msg ? '?text=' + encodeURIComponent(msg) : ''}`;
+  const clean = (phone || '').replace(/\D/g, '');
+  const url   = clean
+    ? `https://wa.me/${clean}${msg ? '?text=' + encodeURIComponent(msg) : ''}`
+    : `https://wa.me/?text=${encodeURIComponent(msg||'')}`;
   window.open(url, '_blank');
 }
 
@@ -4959,10 +4961,21 @@ function sendReciboWA(saleId, paymentId) {
 function sendVentaWA(saleId) {
   const sale = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
-  const customer = customers.find(c => c.id === sale.customerId);
-  const paid = payments.filter(p => p.saleId === saleId).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
-  const msg = `🧾 *GangaLoo — ${sale.invoiceNum||sale.invoiceNumber||'#'+sale.id}*\nFecha: ${formatDate(sale.date)}\nTotal: ${formatDOP(saleTotal(sale))}\nPagado: ${formatDOP(paid)}\nPendiente: ${formatDOP(Math.max(0,saleTotal(sale)-paid))}\n\n_Banreservas 9601-3060170-7 — Bernhard Perkins_`;
-  openWhatsApp(customer?.phone, msg);
+  const customer = customers.find(c => String(c.id) === String(sale.customerId));
+  const paid = payments.filter(p => String(p.saleId) === String(saleId)).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+  const pending = Math.max(0, saleTotal(sale) - paid);
+  const sc = storeConfig || {};
+  const bankInfo = sc.bankInfo || sc.bank_info || 'Banreservas 9601-3060170-7 — Bernhard Perkins';
+  const storeName = sc.storeName || 'GangaLoo';
+  const msg = `🧾 *${storeName} — ${sale.invoiceNum||sale.invoiceNumber||'#'+sale.id}*\nFecha: ${formatDate(sale.date)}\nTotal: ${formatDOP(saleTotal(sale))}\nPagado: ${formatDOP(paid)}\nPendiente: ${formatDOP(pending)}${pending > 0 ? '\n\n💳 *Pago a:*\n_'+bankInfo+'_' : '\n\n✅ Factura pagada completa'}`;
+  const clientPhone = customer?.phone || '';
+  if (!clientPhone) {
+    showToast('Este cliente no tiene número de teléfono registrado', 'warning');
+    // Open without phone so user can choose contact
+    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    return;
+  }
+  openWhatsApp(clientPhone, msg);
 }
 
 function deleteCancelledVenta(saleId) {
@@ -14785,6 +14798,12 @@ function renderConfigPanel() {
               <input class="field" id="cfg_shippingZone2" value="${sc.shippingZone2||''}" placeholder="Ej: Interior del País"></div>
             <div class="form-group"><label class="field-label">Zona 2 — Costo (RD$)</label>
               <input class="field" type="number" id="cfg_shippingCost2" value="${sc.shippingCost2||''}" placeholder="0.00" step="0.01"></div>
+          </div>
+          <div class="form-group" style="margin-top:8px;">
+            <label class="field-label">💳 Info Bancaria (para WhatsApp)</label>
+            <input class="field" id="cfg_bankInfo" value="${sc.bankInfo||'Banreservas 9601-3060170-7 — Bernhard Perkins'}" placeholder="Banco XXXX — Nombre Titular">
+            <p class="field-hint">Se incluye en los mensajes de WhatsApp de facturas pendientes.</p>
+          </div>
             <div class="form-group"><label class="field-label">🚐 Transfer Montellano→Maranatha (RD$)</label>
               <input class="field" type="number" id="cfg_maranatha_fee" value="${sc.maranatha_fee||200}" placeholder="200" step="1">
               <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">Cargo por transferir pedidos de Montellano a Maranatha para recogida</div></div>
@@ -15034,6 +15053,7 @@ function saveFullStoreConfig() {
   storeConfig.shippingCost    = v('cfg_shippingCost');
   storeConfig.shippingZone2   = s('cfg_shippingZone2');
   storeConfig.shippingCost2   = v('cfg_shippingCost2');
+  storeConfig.bankInfo        = s('cfg_bankInfo');
   storeConfig.maranatha_fee           = v('cfg_maranatha_fee');
   storeConfig.pickup_commission_pct   = v('cfg_pickup_commission_pct');
   storeConfig.notify_admin_phone = s('cfg_notify_admin_phone');
