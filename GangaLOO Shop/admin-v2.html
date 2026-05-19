@@ -1884,14 +1884,18 @@ function startOrderPolling() {
 /* ─── DATA SAVE ─── */
 async function saveData() {
   setSaveState('saving');
-  const headers = {
-    'apikey':       SUPABASE_KEY,
-    'Authorization':'Bearer ' + SUPABASE_KEY,
-    'Content-Type': 'application/json',
-    'Prefer':       'return=representation'
-  };
   const base = SUPABASE_URL + '/rest/v1/inventory_data';
   try {
+    // Get session token — needed for write operations
+    const { data: { session } } = await sb.auth.getSession();
+    const token = session?.access_token || SUPABASE_KEY;
+    const headers = {
+      'apikey':        SUPABASE_KEY,
+      'Authorization': 'Bearer ' + token,
+      'Content-Type':  'application/json',
+      'Prefer':        'return=minimal'
+    };
+
     // Get row ID
     const r0 = await fetch(base + '?select=id&limit=1', { headers });
     const existing = r0.ok ? await r0.json() : [];
@@ -1903,9 +1907,9 @@ async function saveData() {
     } else {
       rowId = existing[0].id;
     }
-    if (!rowId) throw new Error('No row ID');
+    if (!rowId) throw new Error('No row ID found');
 
-    // Split into chunks — accounts FIRST so balance updates always save
+    // Save in chunks — accounts first so balance updates always persist
     const chunks = [
       {
         accounts:           JSON.stringify(accounts),
@@ -1933,20 +1937,24 @@ async function saveData() {
         store_config:          JSON.stringify(storeConfig),
       },
     ];
+
     for (const chunk of chunks) {
       const rc = await fetch(base + '?id=eq.' + rowId, {
-        method: 'PATCH',
+        method:  'PATCH',
         headers,
-        body: JSON.stringify(chunk)
+        body:    JSON.stringify(chunk)
       });
-      if (!rc.ok) { const e = await rc.text(); throw new Error(e); }
+      if (!rc.ok) {
+        const e = await rc.text();
+        throw new Error('PATCH failed: ' + rc.status + ' ' + e.slice(0,200));
+      }
     }
 
     setSaveState('saved');
   } catch(err) {
     setSaveState('error');
     console.error('Save error:', err);
-    showToast('Error al guardar: ' + (err.message || JSON.stringify(err)), 'error');
+    showToast('Error al guardar: ' + (err.message || String(err)), 'error');
   }
 }
 
