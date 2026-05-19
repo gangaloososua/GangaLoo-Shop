@@ -2650,7 +2650,9 @@ function renderDashboard() {
 async function renderDashPedidos() {
   const el = document.getElementById('dashPedidos');
   try {
-    const { data: orders } = await sb.from('online_orders').select('id,status,total,customer_name,created_at').in('status', ['pending','pending_payment']).order('created_at', { ascending: false }).limit(5);
+    const r = await fetch(SUPABASE_URL + '/rest/v1/online_orders?select=id,status,total,customer_name,created_at&status=in.(pending,pending_payment)&order=created_at.desc&limit=5',
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+    const orders = r.ok ? await r.json() : [];
     if (!orders || !orders.length) {
       el.innerHTML = '<div class="empty-state"><div class="empty-icon">🛒</div><p>Sin pedidos pendientes</p></div>';
     } else {
@@ -10100,8 +10102,8 @@ function getTrackIndex(key){ const i=TRACK_STEPS.findIndex(s=>s.key===key); retu
 
 async function setTrackingStatus(orderId, newStatus, customerPhone, customerName, total, ref) {
   try {
-    const { error } = await sb.from('online_orders').update({ tracking_status: newStatus }).eq('id', orderId);
-    if (error) {
+    const ok = await _updateOrder(orderId, { tracking_status: newStatus });
+    if (!ok) {
       if (error.message && error.message.includes('tracking_status')) {
         showToast('⚠️ Ejecuta el SQL en Supabase: ALTER TABLE online_orders ADD COLUMN IF NOT EXISTS tracking_status TEXT DEFAULT \'pending\';', 'error');
         return;
@@ -10199,8 +10201,8 @@ function renderStoreOrderCard(o) {
 }
 
 async function openEditOnlineOrder(orderId) {
-  const { data: order, error } = await sb.from('online_orders').select('*').eq('id', orderId).single();
-  if (error || !order) { showToast('Error al cargar orden', 'error'); return; }
+  const order = await _fetchOrder(orderId);
+  if (!order) { showToast('Error al cargar orden', 'error'); return; }
 
   let items = [];
   try { items = JSON.parse(order.items||'[]'); } catch(e) {}
@@ -10360,11 +10362,7 @@ async function saveEditOnlineOrder() {
 
   /* Save updated order to Supabase */
   try {
-    await sb.from('online_orders').update({
-      items: JSON.stringify(newItems),
-      total: newTotal,
-      updated_at: new Date().toISOString(),
-    }).eq('id', orderId);
+    await _updateOrder(orderId, { items: JSON.stringify(newItems), total: newTotal, updated_at: new Date().toISOString() });
   } catch(e) { showToast('Error guardando en Supabase: '+e.message, 'error'); return; }
 
   await saveData();
@@ -10379,12 +10377,11 @@ async function updateOrderStatus(orderId, status) {
     await approveOnlineOrder(orderId);
   } else {
     try {
-      // Before rejecting, check if order had shipping/transfer fee — create debt if so
       if (status === 'rejected') {
-        const { data: order } = await sb.from('online_orders').select('*').eq('id', orderId).single();
+        const order = await _fetchOrder(orderId);
         if (order) await _createShippingDebtIfNeeded(order);
       }
-      await sb.from('online_orders').update({ status }).eq('id', orderId);
+      await _updateOrder(orderId, { status });
       showToast('Pedido rechazado', 'warning');
       loadPedidosOnline();
     } catch(e) { showToast('Error: ' + e.message, 'error'); }
@@ -10443,12 +10440,31 @@ async function _createShippingDebtIfNeeded(order) {
   };
   sales.push(debtSale);
   await saveData();
-  showToast('⚠️ Deuda de envío RD$ ' + fmt(feeAmt) + ' registrada para ' + custName, 'warning');
+  showToast('⚠️ Deuda de envío ' + formatDOP(feeAmt) + ' registrada para ' + custName, 'warning');
+}
+
+// ── Raw fetch helpers for online_orders (bypasses frozen Supabase JS client) ──
+async function _fetchOrder(orderId) {
+  const r = await fetch(SUPABASE_URL + '/rest/v1/online_orders?id=eq.' + orderId + '&select=*&limit=1',
+    { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+  const rows = r.ok ? await r.json() : [];
+  return rows?.[0] || null;
+}
+async function _updateOrder(orderId, data) {
+  const { data: { session } } = await sb.auth.getSession();
+  const token = session?.access_token || SUPABASE_KEY;
+  const r = await fetch(SUPABASE_URL + '/rest/v1/online_orders?id=eq.' + orderId,
+    { method: 'PATCH', headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify(data) });
+  return r.ok;
 }
 
 async function approveOnlineOrder(orderId) {
-  const { data: order, error } = await sb.from('online_orders').select('*').eq('id', orderId).single();
-  if (error || !order) { showToast('Error al obtener la orden', 'error'); return; }
+  const r = await fetch(SUPABASE_URL + '/rest/v1/online_orders?id=eq.' + orderId + '&select=*',
+    { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+  const rows = r.ok ? await r.json() : [];
+  const order = rows?.[0];
+  if (!order) { showToast('Error al obtener la orden', 'error'); return; }
 
   let items = [];
   try { items = JSON.parse(order.items || '[]'); } catch(e) {}
@@ -10616,7 +10632,7 @@ async function approveOnlineOrder(orderId) {
     showToast(`💰 Comisión recogida: ${formatDOP(pickupCommAmt)} (${pickupCommPct}%) → ${pickupDistObj?.name || pickupWH?.name || 'Distribuidor'}`, 'info');
   }
 
-  await sb.from('online_orders').update({ status: 'approved', updated_at: new Date().toISOString() }).eq('id', orderId);
+  await _updateOrder(orderId, { status: 'approved', updated_at: new Date().toISOString() });
   await saveData();
   loadPedidosOnline();
   renderVentasKPI(); renderVentasList();
@@ -10675,8 +10691,8 @@ async function reCreateOrderSales(orderId) {
   }
 
   confirmDialog(`¿Crear la factura ${invoiceNum} para esta orden? El stock NO será modificado.`, async () => {
-    const { data: order, error } = await sb.from('online_orders').select('*').eq('id', orderId).single();
-    if (error || !order) { showToast('Error al obtener la orden', 'error'); return; }
+    const order = await _fetchOrder(orderId);
+    if (!order) { showToast('Error al obtener la orden', 'error'); return; }
 
     let items = [];
     try { items = JSON.parse(order.items || '[]'); } catch(e) {}
