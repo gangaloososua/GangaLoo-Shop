@@ -3,22 +3,10 @@
   publish = "GangaLOO Shop"
 
 [build.environment]
-  SECRETS_SCAN_ENABLED = "false"
+  SECRETS_SCAN_OMIT_PATHS = "GangaLOO Shop/store.html,GangaLOO Shop/admin.html,GangaLOO Shop/index.html,GangaLOO Shop/seller-signup.html,GangaLOO Shop/netlify/functions/create-paypal.js,GangaLOO Shop/netlify/functions/capture-paypal.js,GangaLOO Shop/netlify/functions/create-checkout.js,GangaLOO Shop/netlify/functions/stripe-webhook.js,GangaLOO Shop/club-gangaloo.html,GangaLOO Shop/config.js,GangaLOO Shop/wholesale.html,GangaLOO Shop/gangaloo-landing.html,GangaLOO Shop/partners.html,GangaLOO Shop/aliexpress.html,GangaLOO Shop/netlify/functions/aliexpress-api.js,GangaLOO Shop/gangaloo-client-form.html,GangaLOO Shop/inject-config.sh"
 
 [functions]
   node_bundler = "esbuild"
-
-[[headers]]
-  for = "/*.html"
-  [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate"
-    Pragma = "no-cache"
-    Expires = "0"
-
-[[headers]]
-  for = "/sw.js"
-  [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate"
 
 [[headers]]
   for = "/.netlify/functions/*"
@@ -26,3 +14,17 @@
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "POST, OPTIONS"
     Access-Control-Allow-Headers = "Content-Type"
+
+# ─── Reenvío de tienda mudada → gangaloo.club ───
+# 1) Deja pasar la propia página de mudanza (evita un bucle infinito).
+[[redirects]]
+  from = "/mudanza.html"
+  to = "/mudanza.html"
+  status = 200
+
+# 2) Cualquier otra ruta del sitio viejo muestra la página de mudanza.
+[[redirects]]
+  from = "/*"
+  to = "/mudanza.html"
+  status = 302
+  force = true
